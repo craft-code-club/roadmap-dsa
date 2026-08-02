@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LINKS } from "@/lib/links";
-import { APOIADORES, PARCEIROS } from "@/content/apoiadores";
+import { SUPPORTERS, PARTNERS } from "./apoiadores";
 
 export const metadata: Metadata = {
   title: "Seja um apoiador da Comunidade",
@@ -52,13 +52,13 @@ export default function ApoiePage() {
           <h2>Apoiadores</h2>
           <span className="wall-sub">Pessoas que bancam o projeto</span>
         </div>
-        {APOIADORES.length > 0 ? (
+        {SUPPORTERS.length > 0 ? (
           <div className="apoiadores-grid">
-            {APOIADORES.map((a) =>
+            {SUPPORTERS.map((a) =>
               a.url ? (
-                <a key={a.nome} className="apoiador-chip" href={a.url} target="_blank" rel="noopener noreferrer">{a.nome}</a>
+                <a key={a.name} className="apoiador-chip" href={a.url} target="_blank" rel="noopener noreferrer">{a.name}</a>
               ) : (
-                <span key={a.nome} className="apoiador-chip">{a.nome}</span>
+                <span key={a.name} className="apoiador-chip">{a.name}</span>
               )
             )}
           </div>
@@ -76,13 +76,13 @@ export default function ApoiePage() {
           <h2>Parceiros</h2>
           <span className="wall-sub">Empresas que apoiam a comunidade</span>
         </div>
-        {PARCEIROS.length > 0 ? (
+        {PARTNERS.length > 0 ? (
           <div className="parceiros-grid">
-            {PARCEIROS.map((p) =>
+            {PARTNERS.map((p) =>
               p.url ? (
-                <a key={p.nome} className="parceiro-card" href={p.url} target="_blank" rel="noopener noreferrer">{p.nome}</a>
+                <a key={p.name} className="parceiro-card" href={p.url} target="_blank" rel="noopener noreferrer">{p.name}</a>
               ) : (
-                <span key={p.nome} className="parceiro-card">{p.nome}</span>
+                <span key={p.name} className="parceiro-card">{p.name}</span>
               )
             )}
           </div>

@@ -1,7 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import type { ReactNode } from "react";
-import { JanelaVisualizer } from "@/components/JanelaVisualizer";
-import { DoisPonteirosVisualizer } from "@/components/DoisPonteirosVisualizer";
+import { SlidingWindowVisualizer } from "@content/visualizers/SlidingWindowVisualizer";
+import { TwoPointersVisualizer } from "@content/visualizers/TwoPointersVisualizer";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -9,13 +9,13 @@ import { slugify, textOf } from "@/lib/slug";
  *
  * Tudo que aparece aqui pode ser usado em qualquer arquivo .mdx de tópico SEM
  * precisar de import. Para adicionar uma visualização nova, crie o componente
- * em src/components e registre-o aqui, os artigos passam a poder usá-lo direto.
+ * em content/visualizers e registre-o aqui, os artigos passam a poder usá-lo direto.
  *
  * Uso típico dentro de um .mdx:
  *   ## Título
  *   Texto em português...
  *   <Callout>Uma observação importante.</Callout>
- *   <JanelaVisualizer variant="fixa" />
+ *   <SlidingWindowVisualizer variant="fixed" />
  */
 
 function Callout({ children, tipo = "info" }: { children: ReactNode; tipo?: "info" | "aviso" }) {
@@ -57,8 +57,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Callout,
     Colunas,
     Cartao,
-    JanelaVisualizer,
-    DoisPonteirosVisualizer,
+    SlidingWindowVisualizer,
+    TwoPointersVisualizer,
     ...components,
   };
 }

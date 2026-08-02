@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { GRUPOS, TOTAL_TOPICOS } from "@/content/roadmap";
+import { GROUPS, TOTAL_TOPICS } from "@content/roadmap";
 import { LINKS } from "@/lib/links";
 import { useProgress } from "@/components/ProgressProvider";
 
@@ -21,22 +21,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // Abre automaticamente o grupo do tópico aberto.
   useEffect(() => {
     if (!slugAtivo) return;
-    const g = GRUPOS.find((grp) => grp.topicos.some((t) => t.slug === slugAtivo));
+    const g = GROUPS.find((grp) => grp.topics.some((t) => t.slug === slugAtivo));
     if (g) setAbertos((a) => ({ ...a, [g.id]: true }));
   }, [slugAtivo]);
 
   // Fecha o menu lateral ao navegar (mobile).
   useEffect(() => setMobileNav(false), [pathname]);
 
-  const feitosTotal = contarTopicos(GRUPOS.flatMap((g) => g.topicos.map((t) => t.slug)));
-  const pct = hydrated && TOTAL_TOPICOS ? Math.round((feitosTotal / TOTAL_TOPICOS) * 100) : 0;
+  const feitosTotal = contarTopicos(GROUPS.flatMap((g) => g.topics.map((t) => t.slug)));
+  const pct = hydrated && TOTAL_TOPICS ? Math.round((feitosTotal / TOTAL_TOPICS) * 100) : 0;
 
   const b = busca.trim().toLowerCase();
 
   const grupos = useMemo(
     () =>
-      GRUPOS.map((g) => {
-        const itens = g.topicos.filter((t) => !b || t.nome.toLowerCase().includes(b));
+      GROUPS.map((g) => {
+        const itens = g.topics.filter((t) => !b || t.name.toLowerCase().includes(b));
         return { ...g, itens, aberto: b ? itens.length > 0 : !!abertos[g.id] };
       }).filter((g) => !b || g.itens.length > 0),
     [b, abertos]
@@ -124,7 +124,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="side-head">
           <div className="side-head-row">
             <span className="side-label">Sua trilha</span>
-            <span className="side-count">{feitosTotal}/{TOTAL_TOPICOS} · {pct}%</span>
+            <span className="side-count">{feitosTotal}/{TOTAL_TOPICS} · {pct}%</span>
           </div>
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -139,13 +139,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <div className="side-scroll">
           {grupos.map((g) => {
-            const feitos = contarTopicos(g.topicos.map((t) => t.slug));
+            const feitos = contarTopicos(g.topics.map((t) => t.slug));
             return (
               <div className="side-group" key={g.id}>
                 <button className="side-group-btn" onClick={() => setAbertos((a) => ({ ...a, [g.id]: !a[g.id] }))}>
                   <span className={`side-caret${g.aberto ? " open" : ""}`}>▸</span>
-                  <span style={{ flex: 1 }}>{g.nome}</span>
-                  <span className="side-count">{feitos}/{g.topicos.length}</span>
+                  <span style={{ flex: 1 }}>{g.name}</span>
+                  <span className="side-count">{feitos}/{g.topics.length}</span>
                 </button>
                 {g.aberto && (
                   <div className="side-items">
@@ -159,13 +159,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
                             role="checkbox"
                             aria-checked={feito}
                             tabIndex={0}
-                            aria-label={`Marcar ${t.nome} como concluído`}
+                            aria-label={`Marcar ${t.name} como concluído`}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); }}
                             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); } }}
                           >
                             {feito ? "✓" : ""}
                           </span>
-                          <span className="side-item-name">{t.nome}</span>
+                          <span className="side-item-name">{t.name}</span>
                           {t.viz && <span className="badge-novo">NOVO</span>}
                           {t.status === "soon" && !t.viz && <span className="badge-soon">em breve</span>}
                         </Link>

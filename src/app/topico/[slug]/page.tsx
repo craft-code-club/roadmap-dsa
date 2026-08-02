@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTopico, getVizinhos, TODOS_TOPICOS } from "@/content/roadmap";
-import { getArtigo } from "@/content/topics";
+import { getTopic, getNeighbors, ALL_TOPICS } from "@content/roadmap";
+import { getArticle } from "@content/topics";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
-import { nivelClass } from "@/lib/ui";
+import { levelClass } from "@/lib/ui";
 import { slugify } from "@/lib/slug";
 import { TopicComplete } from "@/components/TopicComplete";
 import { ProblemList } from "@/components/ProblemList";
@@ -12,55 +12,55 @@ import { ProblemList } from "@/components/ProblemList";
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return TODOS_TOPICOS.map((t) => ({ slug: t.slug }));
+  return ALL_TOPICS.map((t) => ({ slug: t.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const t = getTopico(slug);
+  const t = getTopic(slug);
   if (!t) return { title: "Tópico" };
   // Não indexa páginas realmente vazias (sem vídeo, artigo ou visualização) para
   // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram.
-  const semConteudo = t.status === "soon" && !t.youtube && !t.artigo && !t.viz && !(t.videosExtras && t.videosExtras.length);
+  const emptyTopic = t.status === "soon" && !t.youtube && !t.article && !t.viz && !(t.extraVideos && t.extraVideos.length);
   return {
-    title: t.nome,
-    description: t.descricao,
-    ...(semConteudo ? { robots: { index: false, follow: true } } : {}),
+    title: t.name,
+    description: t.description,
+    ...(emptyTopic ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
 export default async function TopicoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const t = getTopico(slug);
+  const t = getTopic(slug);
   if (!t) notFound();
 
-  const artigo = getArtigo(slug);
-  const Body = artigo?.Body;
-  const { anterior, proximo } = getVizinhos(slug);
+  const article = getArticle(slug);
+  const Body = article?.Body;
+  const { previous, next } = getNeighbors(slug);
 
   // Índice "Nesta página": títulos do artigo + seções que a página acrescenta.
   const toc: string[] = [
-    ...(artigo?.sumario ?? []),
+    ...(article?.summary ?? []),
     ...(t.youtube ? ["Vídeo da aula"] : []),
-    ...(t.videosExtras && t.videosExtras.length ? ["Mais vídeos"] : []),
-    ...(t.problemas && t.problemas.length ? ["Problemas para praticar"] : []),
-    ...(t.referencias && t.referencias.length ? ["Referências"] : []),
+    ...(t.extraVideos && t.extraVideos.length ? ["Mais vídeos"] : []),
+    ...(t.problems && t.problems.length ? ["Problemas para praticar"] : []),
+    ...(t.references && t.references.length ? ["Referências"] : []),
   ];
 
   return (
     <div className="topic-layout">
       <article>
         <div className="breadcrumb">
-          <span>{t.grupo}</span>
+          <span>{t.group}</span>
           <span>/</span>
-          <span className="cur">{t.nome}</span>
+          <span className="cur">{t.name}</span>
         </div>
-        <h1 className="topic-h1">{t.nome}</h1>
+        <h1 className="topic-h1">{t.name}</h1>
 
         <div className="topic-chips">
-          {t.tempoLeitura && <span className="chip">⏱ {t.tempoLeitura} de leitura</span>}
-          <span className={`level ${nivelClass(t.nivel)}`} style={{ borderStyle: "solid" }}>{t.nivel}</span>
-          {t.linguagem && <span className="chip">{t.linguagem}</span>}
+          {t.readingTime && <span className="chip">⏱ {t.readingTime} de leitura</span>}
+          <span className={`level ${levelClass(t.level)}`} style={{ borderStyle: "solid" }}>{t.level}</span>
+          {t.language && <span className="chip">{t.language}</span>}
           <TopicComplete slug={t.slug} />
         </div>
 
@@ -69,14 +69,14 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
         ) : (
           <>
             <span className="soon-badge">🚧 Visualização em construção</span>
-            <p className="prose-p" style={{ marginTop: 18 }}>{t.descricao}</p>
+            <p className="prose-p" style={{ marginTop: 18 }}>{t.description}</p>
             <div className="soon-note">
               O visualizador interativo deste tópico está a caminho. Por enquanto, assista à aula no
-              vídeo abaixo{t.artigo ? " e leia o artigo completo no blog" : ""}, e acompanhe o
+              vídeo abaixo{t.article ? " e leia o artigo completo no blog" : ""}, e acompanhe o
               cronograma de produção no Discord da comunidade.
             </div>
-            {t.artigo && (
-              <a className="btn" href={t.artigo} target="_blank" rel="noopener noreferrer" style={{ marginBottom: 8 }}>
+            {t.article && (
+              <a className="btn" href={t.article} target="_blank" rel="noopener noreferrer" style={{ marginBottom: 8 }}>
                 Ler o artigo no blog →
               </a>
             )}
@@ -92,12 +92,12 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           <>
             <h2 id={slugify("Vídeo da aula")} className="prose-h2">Vídeo da aula</h2>
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
-              Direto do canal da comunidade Craft &amp; Code Club{t.minutosVideo ? ` · ${t.minutosVideo}` : ""}.
+              Direto do canal da comunidade Craft &amp; Code Club{t.videoMinutes ? ` · ${t.videoMinutes}` : ""}.
             </p>
             <div className="video-embed">
               <iframe
                 src={ytEmbed(t.youtube)}
-                title={`Aula: ${t.nome}`}
+                title={`Aula: ${t.name}`}
                 loading="lazy"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -106,24 +106,24 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           </>
         )}
 
-        {t.videosExtras && t.videosExtras.length > 0 && (
+        {t.extraVideos && t.extraVideos.length > 0 && (
           <>
             <h2 id={slugify("Mais vídeos")} className="prose-h2">Mais vídeos</h2>
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
               Outros encontros e materiais em vídeo relacionados a este tópico.
             </p>
             <div className="video-links">
-              {t.videosExtras.map((v) => (
+              {t.extraVideos.map((v) => (
                 <a
-                  key={v.titulo}
+                  key={v.title}
                   className="video-link"
                   href={v.url ?? ytWatch(v.youtube ?? "")}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <span className="video-link-ico" aria-hidden="true">▶</span>
-                  <span className="video-link-title">{v.titulo}</span>
-                  {v.duracao && <span className="video-link-dur">{v.duracao}</span>}
+                  <span className="video-link-title">{v.title}</span>
+                  {v.duration && <span className="video-link-dur">{v.duration}</span>}
                   <span className="video-link-ext" aria-hidden="true">↗</span>
                 </a>
               ))}
@@ -131,27 +131,27 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           </>
         )}
 
-        {t.problemas && t.problemas.length > 0 && (
+        {t.problems && t.problems.length > 0 && (
           <>
             <h2 id={slugify("Problemas para praticar")} className="prose-h2">Problemas para praticar</h2>
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
               Na ordem em que recomendamos resolver. Marque os que você já fez, fica salvo aqui.
             </p>
-            <ProblemList problemas={t.problemas} />
+            <ProblemList problems={t.problems} />
           </>
         )}
 
-        {t.referencias && t.referencias.length > 0 && (
+        {t.references && t.references.length > 0 && (
           <>
             <h2 id={slugify("Referências")} className="prose-h2">Referências</h2>
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
               Artigos e materiais externos para se aprofundar.
             </p>
             <div className="ref-links">
-              {t.referencias.map((r) => (
+              {t.references.map((r) => (
                 <a key={r.url} className="ref-link" href={r.url} target="_blank" rel="noopener noreferrer">
-                  <span className="ref-link-title">{r.titulo}</span>
-                  {r.fonte && <span className="ref-link-src">{r.fonte}</span>}
+                  <span className="ref-link-title">{r.title}</span>
+                  {r.source && <span className="ref-link-src">{r.source}</span>}
                   <span className="ref-link-ext" aria-hidden="true">↗</span>
                 </a>
               ))}
@@ -176,18 +176,18 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
         </div>
 
         <div className="prevnext">
-          {anterior ? (
-            <Link href={`/topico/${anterior.slug}`}>
+          {previous ? (
+            <Link href={`/topico/${previous.slug}`}>
               <span className="lbl">‹ Anterior</span>
-              <span className="nm">{anterior.nome}</span>
+              <span className="nm">{previous.name}</span>
             </Link>
           ) : (
             <span style={{ flex: 1 }} />
           )}
-          {proximo ? (
-            <Link href={`/topico/${proximo.slug}`} className="next">
+          {next ? (
+            <Link href={`/topico/${next.slug}`} className="next">
               <span className="lbl">Próximo ›</span>
-              <span className="nm">{proximo.nome}</span>
+              <span className="nm">{next.name}</span>
             </Link>
           ) : (
             <span style={{ flex: 1 }} />

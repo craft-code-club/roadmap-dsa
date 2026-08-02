@@ -12,13 +12,13 @@ Repare no desperdício: as janelas `[3,6,2]` e `[6,2,8]` compartilham dois eleme
 
 Empurre a borda direita para incluir o elemento novo e a borda esquerda para descartar o que saiu. O estado da janela (a soma) é atualizado em O(1) a cada passo. Rode o visualizador abaixo, ele mostra exatamente isso, com o código acompanhando linha a linha. Use **Expandir** para ver o código lado a lado, bem grande.
 
-<JanelaVisualizer variant="fixa" />
+<SlidingWindowVisualizer variant="fixed" />
 
 Edite o array e o `k` acima, a animação e o código se ajustam. Este é o caso de **tamanho fixo**: a janela sempre tem `k` elementos, então a cada passo entra um pela direita e sai um pela esquerda.
 
 ## Janela fixa vs. variável
 
-O exemplo acima tem tamanho travado. Existe também a **janela variável**, em que a direita sempre avança e a esquerda só se move enquanto a janela for inválida, é assim que você resolve "maior substring sem repetir caracteres" ou "menor subarray com soma ≥ alvo". Veja essa versão na página [Janela Deslizante (Dinâmica)](/topico/janela-deslizante-dinamica).
+O exemplo acima tem tamanho travado. Existe também a **janela variável**, em que a direita sempre avança e a esquerda só se move enquanto a janela for inválida, é assim que você resolve "maior substring sem repetir caracteres" ou "menor subarray com soma ≥ alvo". Veja essa versão na página [Sliding Window (Dynamic)](/topico/sliding-window-dynamic).
 
 <Colunas>
 <Cartao titulo="Fixa">

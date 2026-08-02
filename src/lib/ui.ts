@@ -1,7 +1,7 @@
-import type { Nivel } from "@/content/roadmap";
+import type { Level } from "@content/roadmap";
 
-export function nivelClass(nivel: Nivel | "Guia"): string {
-  switch (nivel) {
+export function levelClass(level: Level | "Guia"): string {
+  switch (level) {
     case "Fácil": return "level-facil";
     case "Médio": return "level-medio";
     case "Difícil": return "level-dificil";

@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // ---------------------------------------------------------------------------
-// DoisPonteirosVisualizer, ponteiros convergentes (Two Sum em array ordenado).
+// TwoPointersVisualizer, ponteiros convergentes (Two Sum em array ordenado).
 //
-// Mesmo padrão do JanelaVisualizer: um gerador puro de passos + a mesma casca
+// Mesmo padrão do SlidingWindowVisualizer: um gerador puro de passos + a mesma casca
 // (células, código sincronizado, variáveis, controles, Expandir). É a receita
 // para novos visualizadores, copie, troque `gerarPassos` e `CODIGO`.
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ function ordenar(v: number[]) {
   return [...v].sort((a, b) => a - b);
 }
 
-export function DoisPonteirosVisualizer() {
+export function TwoPointersVisualizer() {
   const [nums, setNums] = useState<number[]>(DEFAULT_NUMS);
   const [entrada, setEntrada] = useState(DEFAULT_NUMS.join(", "));
   const [alvo, setAlvo] = useState(DEFAULT_ALVO);

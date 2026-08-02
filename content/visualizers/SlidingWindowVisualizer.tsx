@@ -4,17 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // ---------------------------------------------------------------------------
-// JanelaVisualizer, visualização passo a passo da Janela Deslizante.
+// SlidingWindowVisualizer, visualização passo a passo da Sliding Window.
 //
 // Padrão para novos visualizadores: um gerador puro de "passos" + a mesma
 // casca de UI (células, código sincronizado, variáveis, controles, expandir).
 // Para uma técnica nova, copie este arquivo, troque `gerarPassos` e o `CODIGO`.
 //
-// variant="fixa"      → maior soma de uma janela de tamanho k (tamanho travado)
-// variant="dinamica"  → maior subarray com soma ≤ k (cresce/encolhe)
+// variant="fixed"    → maior soma de uma janela de tamanho k (tamanho travado)
+// variant="dynamic"  → maior subarray com soma ≤ k (cresce/encolhe)
 // ---------------------------------------------------------------------------
 
-type Variant = "fixa" | "dinamica" | "janela-fixa" | "janela-dinamica";
+type Variant = "fixed" | "dynamic" | "sliding-window-fixed" | "sliding-window-dynamic";
 
 type Passo = {
   l: number;
@@ -61,8 +61,8 @@ const CODIGO_DINAMICA = [
 const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
 const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 
-function normalize(v: Variant): "fixa" | "dinamica" {
-  return v === "dinamica" || v === "janela-dinamica" ? "dinamica" : "fixa";
+function normalize(v: Variant): "fixed" | "dynamic" {
+  return v === "dynamic" || v === "sliding-window-dynamic" ? "dynamic" : "fixed";
 }
 
 function gerarPassosFixa(nums: number[], k: number): Passo[] {
@@ -110,14 +110,14 @@ function gerarPassosDinamica(nums: number[], k: number): Passo[] {
 }
 
 const PRESETS = {
-  fixa: { nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 3, kLabel: "k", titulo: "maior soma de uma janela de tamanho k", metricaMelhor: "melhor" },
-  dinamica: { nums: [3, 1, 2, 7, 4, 2, 1, 1, 5], k: 8, kLabel: "soma máx (k)", titulo: "maior subarray com soma ≤ k", metricaMelhor: "melhor (tam.)" },
+  fixed: { nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 3, kLabel: "k", titulo: "maior soma de uma janela de tamanho k", metricaMelhor: "melhor" },
+  dynamic: { nums: [3, 1, 2, 7, 4, 2, 1, 1, 5], k: 8, kLabel: "soma máx (k)", titulo: "maior subarray com soma ≤ k", metricaMelhor: "melhor (tam.)" },
 };
 
-export function JanelaVisualizer({ variant = "fixa" }: { variant?: Variant }) {
+export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Variant }) {
   const modo = normalize(variant);
   const preset = PRESETS[modo];
-  const CODIGO = modo === "fixa" ? CODIGO_FIXA : CODIGO_DINAMICA;
+  const CODIGO = modo === "fixed" ? CODIGO_FIXA : CODIGO_DINAMICA;
 
   const [nums, setNums] = useState<number[]>(preset.nums);
   const [entrada, setEntrada] = useState(preset.nums.join(", "));
@@ -134,7 +134,7 @@ export function JanelaVisualizer({ variant = "fixa" }: { variant?: Variant }) {
   const passos = useMemo(() => {
     const arr = nums.length ? nums : [1];
     const kk = Math.max(1, Math.min(k, arr.length));
-    return modo === "fixa" ? gerarPassosFixa(arr, kk) : gerarPassosDinamica(arr, kk);
+    return modo === "fixed" ? gerarPassosFixa(arr, kk) : gerarPassosDinamica(arr, kk);
   }, [nums, k, modo]);
 
   const total = passos.length;
@@ -205,7 +205,7 @@ export function JanelaVisualizer({ variant = "fixa" }: { variant?: Variant }) {
   });
 
   const variaveis =
-    modo === "fixa"
+    modo === "fixed"
       ? [
           { nome: "esquerda", valor: `${p.l}` },
           { nome: "direita", valor: p.r < 0 ? "-" : `${p.r}` },

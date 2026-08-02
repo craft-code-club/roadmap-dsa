@@ -1,13 +1,13 @@
 import Link from "next/link";
 import {
-  DESTAQUES,
-  getTopico,
-  TOTAL_PROBLEMAS,
-  TOTAL_TOPICOS,
-  TOTAL_VISUALIZADORES,
-} from "@/content/roadmap";
+  FEATURED,
+  getTopic,
+  TOTAL_PROBLEMS,
+  TOTAL_TOPICS,
+  TOTAL_VISUALIZERS,
+} from "@content/roadmap";
 import { LINKS } from "@/lib/links";
-import { nivelClass } from "@/lib/ui";
+import { levelClass } from "@/lib/ui";
 
 const FEATURES = [
   { icone: "▶", titulo: "O algoritmo rodando", texto: "Passo a passo, no seu ritmo, com o seu próprio array de entrada e o código Python acompanhando linha a linha." },
@@ -17,12 +17,12 @@ const FEATURES = [
 
 export default function Home() {
   const stats = [
-    { n: `${TOTAL_TOPICOS}`, rot: "tópicos no roadmap" },
-    { n: `${TOTAL_VISUALIZADORES}`, rot: "visualizadores interativos" },
-    { n: `${TOTAL_PROBLEMAS}`, rot: "problemas selecionados" },
+    { n: `${TOTAL_TOPICS}`, rot: "tópicos no roadmap" },
+    { n: `${TOTAL_VISUALIZERS}`, rot: "visualizadores interativos" },
+    { n: `${TOTAL_PROBLEMS}`, rot: "problemas selecionados" },
     { n: "Gratuito", rot: "para sempre" },
   ];
-  const destaques = DESTAQUES.map((slug) => getTopico(slug)).filter(Boolean);
+  const destaques = FEATURED.map((slug) => getTopic(slug)).filter(Boolean);
 
   return (
     <>
@@ -35,8 +35,8 @@ export default function Home() {
           LeetCode e do GeeksforGeeks.
         </p>
         <div className="hero-actions">
-          <Link href="/topico/janela-deslizante-fixa" className="btn btn-primary">
-            Começar por Janela Deslizante
+          <Link href="/topico/sliding-window-fixed" className="btn btn-primary">
+            Começar por Sliding Window
           </Link>
           <Link href="/roadmap" className="btn">Ver o roadmap completo</Link>
         </div>
@@ -74,11 +74,11 @@ export default function Home() {
           {destaques.map((t) => (
             <Link key={t!.slug} href={`/topico/${t!.slug}`} className="destaque-card">
               <div className="destaque-top">
-                <span className="destaque-grupo">{t!.grupo}</span>
-                <span className={`level ${nivelClass(t!.nivel)}`}>{t!.nivel}</span>
+                <span className="destaque-grupo">{t!.group}</span>
+                <span className={`level ${levelClass(t!.level)}`}>{t!.level}</span>
               </div>
-              <div className="destaque-nome">{t!.nome}</div>
-              <p>{t!.descricao}</p>
+              <div className="destaque-nome">{t!.name}</div>
+              <p>{t!.description}</p>
             </Link>
           ))}
         </div>
