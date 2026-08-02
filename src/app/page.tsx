@@ -35,8 +35,8 @@ export default function Home() {
           LeetCode e do GeeksforGeeks.
         </p>
         <div className="hero-actions">
-          <Link href="/topico/sliding-window-fixed" className="btn btn-primary">
-            Começar por Sliding Window
+          <Link href="/topico/big-o" className="btn btn-primary">
+            Começar por Big O
           </Link>
           <Link href="/roadmap" className="btn">Ver o roadmap completo</Link>
         </div>
@@ -117,12 +117,16 @@ export default function Home() {
 function Footer() {
   return (
     <footer className="site-foot">
-      <span>Feito <span className="heart">♥</span> pela comunidade, para a comunidade.</span>
-      <span>·</span>
-      <span>Open source · gratuito para sempre</span>
-      <a href={LINKS.github} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto" }}>GitHub</a>
-      <a href={LINKS.discord} target="_blank" rel="noopener noreferrer">Discord</a>
-      <Link href="/apoie">Apoiar</Link>
+      <div className="foot-text">
+        <span>Feito <span className="heart">♥</span> pela comunidade, para a comunidade.</span>
+        <span className="foot-sep">·</span>
+        <span>Open source · gratuito para sempre</span>
+      </div>
+      <div className="foot-links">
+        <a href={LINKS.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href={LINKS.discord} target="_blank" rel="noopener noreferrer">Discord</a>
+        <Link href="/apoie">Apoiar</Link>
+      </div>
     </footer>
   );
 }

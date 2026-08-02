@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-test("home mostra o hero e leva para o Sliding Window", async ({ page }) => {
+test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("aprofundamento em cada estrutura");
-  await page.getByRole("link", { name: "Começar por Sliding Window" }).click();
-  await expect(page).toHaveURL(/sliding-window-fixed/);
-  await expect(page.getByRole("button", { name: /Rodar/ })).toBeVisible();
+  await page.getByRole("link", { name: "Começar por Big O" }).click();
+  await expect(page).toHaveURL(/topico\/big-o/);
+  await expect(page.getByRole("heading", { level: 1, name: /Big O/ })).toBeVisible();
 });
 
 test("nav do topo abre o roadmap e um tópico", async ({ page }) => {

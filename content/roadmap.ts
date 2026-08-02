@@ -321,11 +321,13 @@ export function getNeighbors(slug: string): { previous?: Topic; next?: Topic } {
   return { previous: ALL_TOPICS[i - 1], next: ALL_TOPICS[i + 1] };
 }
 
+// "Comece por aqui": fundamentos primeiro, do mais básico ao primeiro padrão,
+// sem tópicos difíceis (é o ponto de partida de quem está começando).
 export const FEATURED: string[] = [
-  "sliding-window-fixed",
-  "two-pointers",
   "big-o",
-  "busca-binaria",
-  "dfs-bfs",
-  "programacao-dinamica",
+  "arrays",
+  "strings",
+  "two-pointers",
+  "listas-ligadas",
+  "pilhas",
 ];

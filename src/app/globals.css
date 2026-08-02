@@ -452,9 +452,11 @@ html { scroll-behavior: smooth; }
 }
 
 /* footer */
-.site-foot { border-top: 1px solid var(--ccc-line); padding: 28px 56px; color: var(--ccc-muted); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.site-foot { border-top: 1px solid var(--ccc-line); padding: 28px 56px; color: var(--ccc-muted); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; }
 .site-foot .heart { color: #f87171; }
 .site-foot a { color: #a9bcd4; }
+.foot-text { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.foot-links { display: flex; align-items: center; gap: 16px; }
 
 /* ------------------------------ responsive ------------------------------ */
 @media (max-width: 1000px) {
@@ -486,6 +488,11 @@ html { scroll-behavior: smooth; }
   .brand-sub { display: none; }
   .brand-name { white-space: nowrap; }
   .nav-left { margin-left: 0; }
+  /* rodapé: links na linha de cima, frase(s) embaixo, tudo centralizado */
+  .site-foot { flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+  .foot-links { order: -1; }
+  .foot-text { flex-direction: column; gap: 4px; }
+  .foot-sep { display: none; }
 }
 @media (max-width: 560px) {
   .brand-name { display: none; } /* no celular, só o logo */
