@@ -23,19 +23,21 @@ type Passo = {
   nota: string;
 };
 
+// Pseudocódigo em português. As linhas mapeiam 1:1 com os passos (campo `linha`
+// em gerarPassos), então a ordem e a quantidade de linhas não podem mudar.
 const CODIGO = [
-  "def dois_ponteiros(nums, alvo):",
-  "    esquerda = 0",
-  "    direita = len(nums) - 1",
-  "    while esquerda < direita:",
-  "        soma = nums[esquerda] + nums[direita]",
-  "        if soma == alvo:",
-  "            return [esquerda, direita]",
-  "        if soma < alvo:",
-  "            esquerda += 1",
-  "        else:",
-  "            direita -= 1",
-  "    return []",
+  "função dois_ponteiros(nums, alvo):",
+  "    esquerda ← 0",
+  "    direita ← n - 1",
+  "    enquanto esquerda < direita:",
+  "        soma ← nums[esquerda] + nums[direita]",
+  "        se soma = alvo:",
+  "            retorna [esquerda, direita]",
+  "        se soma < alvo:",
+  "            esquerda ← esquerda + 1",
+  "        senão:",
+  "            direita ← direita - 1",
+  "    retorna []",
 ];
 
 const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
@@ -196,7 +198,7 @@ export function TwoPointersVisualizer() {
 
         <div className="viz-split">
           <div className="viz-code">
-            <div className="viz-code-head">solucao.py</div>
+            <div className="viz-code-head">Pseudocódigo</div>
             <div className="viz-code-body">
               {CODIGO.map((txt, n) => (
                 <div key={n} className={`viz-line${n === p.linha ? " on" : ""}`}>
