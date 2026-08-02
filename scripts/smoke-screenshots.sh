@@ -15,6 +15,14 @@ if ! command -v agent-browser >/dev/null 2>&1; then
   exit 1
 fi
 
+# Sem esta checagem, curl ausente deixaria a resposta vazia lá embaixo e o erro
+# sairia como "sem resposta", culpando o servidor ou o slug em vez da falta da
+# dependência.
+if ! command -v curl >/dev/null 2>&1; then
+  echo "✗ curl não encontrado no PATH. É usado para conferir cada rota antes do print."
+  exit 1
+fi
+
 echo "→ build (SSG)"
 npm run build >/dev/null
 

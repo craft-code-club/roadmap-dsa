@@ -8,9 +8,9 @@ export const SITE_URL = "https://dsa.craftcodeclub.io";
 //     intermediário. Todo o app lê `LINKS.discord`, então rotacionar o convite
 //     é mudar só esta linha.
 //   - Fora do app (README, CONTRIBUTING, templates do GitHub, qualquer .md):
-//     use https://craftcodeclub.io/join. Esses arquivos não importam constante,
-//     e o /join é o ponto de rotação da comunidade: convite revogado lá não
-//     deixa link morto espalhado pelo repositório.
+//     use https://craftcodeclub.io/join. Esses arquivos não têm como importar
+//     a constante, e o /join é o ponto de rotação da comunidade: convite
+//     revogado lá não deixa link morto espalhado pelo repositório.
 export const LINKS = {
   discord: "https://discord.gg/b5NnndAbFc",
   // Destino do apoio: a campanha da comunidade na APOIA.se. A lista de
