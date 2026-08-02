@@ -26,64 +26,61 @@ npm test         # testes de navegação (Playwright)
 ## Estrutura
 
 ```
-src/
+content/                    conteúdo (irmão de src/): dados, artigos e visualizadores
+  roadmap.ts                ÍNDICE dos tópicos: fonte única do menu/roadmap
+  topics/*.mdx              corpo dos artigos "ready"
+  topics/index.ts           registro slug -> MDX
+  visualizers/              visualizadores (ilhas client usadas nos artigos)
+    SlidingWindowVisualizer.tsx
+    TwoPointersVisualizer.tsx
+src/                        código de estrutura (não é conteúdo)
   app/                      rotas (App Router)
     page.tsx                home
     roadmap/                o roadmap inteiro
     topico/[slug]/          página de tópico (artigo + vídeo + problemas + referências)
-    apoie/                  página de apoiadores e parceiros
+    apoie/                  página de apoio
+      apoiadores.ts         apoiadores (da APOIA.se, no build) e parceiros
     opengraph-image.tsx     imagem de preview (OG), gerada no build
     sitemap.ts, robots.ts   SEO
   components/
     Shell.tsx               casca: header + sidebar + progresso + busca
-    JanelaVisualizer.tsx    visualizador (padrão para novos visuais)
-    DoisPonteirosVisualizer.tsx
+    RoadmapGroups.tsx       grade de grupos e tópicos do roadmap
     ProgressProvider.tsx    progresso no localStorage (tópicos + problemas)
     ProblemList.tsx         lista de problemas com checkbox
-  content/
-    roadmap.ts              ÍNDICE dos tópicos: fonte única do menu/roadmap
-    topics/*.mdx            corpo dos artigos "ready"
-    topics/index.ts         registro slug -> MDX
   lib/
     links.ts                links da comunidade (ponto único)
     slug.ts                 âncoras do índice "Nesta página"
 mdx-components.tsx          componentes globais disponíveis em todo .mdx
+(alias: @/* -> src/*, @content/* -> content/*)
 ```
 
 ## Como adicionar um tópico
 
-1. **Registre no índice** em `src/content/roadmap.ts` (grupo certo). Só isso já coloca o tópico
-   no menu e no roadmap. Campos: `youtube`, `artigo`, `videosExtras`, `referencias`, `problemas`, `viz`.
+1. **Registre no índice** em `content/roadmap.ts` (grupo certo). Só isso já coloca o tópico
+   no menu e no roadmap. Os nomes dos campos são em inglês; os valores exibidos ficam em
+   português. Campos: `youtube`, `article`, `extraVideos`, `references`, `problems`, `viz`.
 
    ```ts
-   { slug: "kadane", nome: "Kadane", grupo: "Arrays e Strings",
-     nivel: "Médio", status: "soon", youtube: "VIDEO_ID",
-     descricao: "Maior soma contígua, o clássico." }
+   { slug: "kadane", name: "Kadane", group: "Arrays e Strings",
+     level: "Médio", status: "soon", youtube: "VIDEO_ID",
+     description: "Maior soma contígua, o clássico." }
    ```
 
-2. **Escreva o artigo** (para virar `status: "ready"`): crie `src/content/topics/kadane.mdx`.
+2. **Escreva o artigo** (para virar `status: "ready"`): crie `content/topics/kadane.mdx`.
    Dentro do MDX você já pode usar, sem importar: `<Callout>`, `<Colunas>`, `<Cartao>` e
    qualquer visualizador exposto em `mdx-components.tsx`.
 
-3. **Ligue o artigo:** registre em `src/content/topics/index.ts` e mude `status` para `"ready"`.
+3. **Ligue o artigo:** registre em `content/topics/index.ts` e mude `status` para `"ready"`.
 
 ## Como adicionar um visualizador
 
-O padrão vive em `src/components/JanelaVisualizer.tsx` e `DoisPonteirosVisualizer.tsx`: um
-**gerador puro de passos** + a mesma casca de UI (células, código sincronizado, painel de
-variáveis, controles e o botão **Expandir**). Para uma técnica nova:
+O padrão vive em `content/visualizers/SlidingWindowVisualizer.tsx` e
+`TwoPointersVisualizer.tsx`: um **gerador puro de passos** + a mesma casca de UI (células,
+código sincronizado, painel de variáveis, controles e o botão **Expandir**). Para uma técnica nova:
 
 1. Copie o componente, troque `gerarPassos` e a constante `CODIGO`.
 2. Exponha-o em `mdx-components.tsx`.
 3. Use no `.mdx` do tópico: `<MeuVisualizador />`.
-
-## Convenções da copy (importante)
-
-- **Sem travessão** (`—`) na copy do site. Use pontuação simples. Confira com `grep -rn "—" src/`.
-- Conteúdo em **português**. A comunidade é feminina: "a comunidade", "pela", "da comunidade
-  Craft & Code Club" (nunca "o/pelo/do").
-- Apoio é enquadrado como **"apoie a comunidade"** (não "custos"). Discord e Apoiar são os CTAs
-  primários; contribuir é discreto. A experiência de estudo fica limpa.
 
 ## Progresso do usuário
 
@@ -92,10 +89,8 @@ e `ccc-dsa-problemas` (problemas resolvidos). Sem login, sem backend.
 
 ## Deploy
 
-Site estático (`out/`) publicado no **Cloudflare Pages** via **Wrangler**. O deploy roda no CI
-(`.github/workflows/cloudflare-pages-deploy.yml`) em push para `main`; PRs de forks não fazem
-deploy. Local: `npx wrangler pages deploy out`. Requer os secrets `CLOUDFLARE_API_TOKEN` e
-`CLOUDFLARE_ACCOUNT_ID` no repositório.
+CI/CD: o deploy roda automaticamente logo após o merge na `main`. Todo PR precisa da aprovação
+de um mantenedor da comunidade antes do merge.
 
 ## Contribuindo
 
