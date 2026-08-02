@@ -1,6 +1,6 @@
 # Roadmap DSA
 
-O maior guia **visual e gratuito** de Algoritmos e Estruturas de Dados em português.
+O maior guia **visual, gratuito e open source** de Algoritmos e Estruturas de Dados em português.
 Feito pela comunidade [Craft & Code Club](https://craftcodeclub.io). Cada tópico reúne, numa
 página só: o **algoritmo rodando passo a passo**, o **artigo**, o **vídeo**, uma lista de
 **problemas** do LeetCode / GeeksforGeeks e **referências**, com o progresso salvo no navegador.
