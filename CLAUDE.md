@@ -58,9 +58,12 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
 
 ## Navegação e links
 
-- **`src/lib/links.ts` é ponto único.** Todo link de Discord lê `LINKS.discord` (convite direto).
-  Comunidade = `LINKS.site` (craftcodeclub.io); repo = `LINKS.github`; apoio = `LINKS.apoiar`
-  (campanha na APOIA.se).
+- **`src/lib/links.ts` é ponto único.** Comunidade = `LINKS.site` (craftcodeclub.io); repo =
+  `LINKS.github` (`craft-code-club/roadmap-dsa`); apoio = `LINKS.apoiar` (campanha na APOIA.se).
+- **Discord tem duas portas, por design.** *Dentro do app*: `LINKS.discord`, convite direto, um
+  clique só. *Fora do app* (README, CONTRIBUTING, SECURITY, templates do `.github/`, qualquer
+  `.md`): `https://craftcodeclub.io/join`, que é o ponto de rotação da comunidade. Nunca cole
+  `discord.gg/<código>` cru em arquivo de documentação.
 - Barra: **esquerda** = Início, Roadmap; **direita** = YouTube, Discord, Apoiar + menu `⋯`.
   O menu `⋯` tem: Craft & Code Club, GitHub do projeto, Apoiadores e Parceiros (e, só no mobile,
   Início/Roadmap/YouTube que somem da barra).
