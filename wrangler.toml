@@ -1,0 +1,9 @@
+# Cloudflare Pages — projeto do Roadmap DSA (deploy via Wrangler).
+# O site é 100% estático (Next.js `output: "export"` → ./out).
+#
+# Deploy local:   npx wrangler pages deploy out
+# No CI, o project-name e a branch são passados no comando (ver
+# .github/workflows/cloudflare-pages-deploy.yml).
+name = "roadmap-dsa"
+pages_build_output_dir = "out"
+compatibility_date = "2026-08-02"

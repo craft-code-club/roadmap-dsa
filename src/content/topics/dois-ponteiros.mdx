@@ -1,0 +1,33 @@
+<Callout>
+Dois ponteiros é a ideia mais simples de otimização de array: em vez de dois laços aninhados (O(n²)), você usa **dois índices que caminham de forma coordenada** e resolve em uma passada, O(n).
+</Callout>
+
+## O padrão
+
+Existem dois sabores principais:
+
+- **Convergentes**, um ponteiro na ponta esquerda, outro na direita, e eles se aproximam. Clássico em **array ordenado**: "existe um par que soma o alvo?", "container com mais água", palíndromo.
+- **Na mesma direção**, os dois começam à esquerda e avançam em ritmos diferentes (lento/rápido). É o motor da [Janela Deslizante](/topico/janela-deslizante-fixa) e de detecção de ciclo em listas ligadas.
+
+Aqui vamos ao caso convergente, que é o mais visual.
+
+## Two Sum num array ordenado
+
+Dado um array **ordenado** e um `alvo`, ache dois números que somem o alvo. Como está ordenado, você não precisa testar todos os pares: se a soma atual for **grande demais**, o único jeito de diminuir é recuar a direita; se for **pequena demais**, avançar a esquerda. Cada passo elimina uma coluna inteira de possibilidades.
+
+Rode abaixo, repare como o espaço de busca (as células acesas) encolhe a cada passo. Use **Expandir** para ver o código lado a lado.
+
+<DoisPonteirosVisualizer />
+
+## Por que funciona
+
+O array estar ordenado é o que dá o direito de mover só um ponteiro por vez sem perder soluções:
+
+- Se `soma < alvo`, **nenhum** par usando a direita atual com um índice ainda menor que a esquerda serviria (todos seriam ≤ a soma atual). Então a direita está "gasta" para esse esquerda, avança a esquerda.
+- Se `soma > alvo`, simetricamente, a esquerda atual não fecha com nenhuma direita ainda maior. Recua a direita.
+
+Cada índice é visitado no máximo uma vez → **O(n)** tempo, **O(1)** espaço.
+
+<Callout tipo="aviso">
+**Precisa estar ordenado.** Se o array não estiver ordenado e você não puder ordenar (porque os índices originais importam), dois ponteiros convergentes não valem, aí o caminho costuma ser um hashmap de complementos.
+</Callout>

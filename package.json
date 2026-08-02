@@ -1,0 +1,33 @@
+{
+  "name": "dsa-visual",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSA Visual — o guia visual e gratuito de Algoritmos e Estruturas de Dados, feito pela comunidade Craft & Code Club.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "serve": "npx --yes serve out",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:build": "next build && playwright test",
+    "screenshots": "bash scripts/smoke-screenshots.sh"
+  },
+  "dependencies": {
+    "@mdx-js/loader": "^3.1.0",
+    "@mdx-js/react": "^3.1.0",
+    "@next/mdx": "16.2.12",
+    "next": "16.2.12",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,61 @@
+# === dependencies ===
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+
+# === next.js / build output ===
+/.next/
+/out/
+/build
+*.tsbuildinfo
+# gerado pelo Next no build (regenera sozinho); evita import de .next em clone limpo
+next-env.d.ts
+next-env.d.ts.timestamp
+
+# === tests (Playwright) ===
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
+
+# === deploy (Cloudflare / Wrangler) ===
+/.wrangler/
+.dev.vars
+.dev.vars.*
+/.vercel
+
+# === arquivos temporários / gerados ===
+# Pasta de scratch: prints/GIFs/artefatos gerados durante o desenvolvimento
+# (ex.: screenshots de review) NÃO vão para o repositório. Gere-os aqui.
+/screenshots/
+/.scratch/
+/tmp/
+
+# === artefatos de design (export do Claude Design, não faz parte do build) ===
+/Roadmap DSA visual app/
+
+# === arquivos locais soltos (protótipo, notas, HTML original — não fazem parte do app) ===
+/prototype.html
+/janela-deslizante.html
+/follow-ups.md
+
+# === env ===
+.env
+.env*.local
+
+# === logs ===
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === sistema operacional / editores ===
+.DS_Store
+*.pem
+.idea/
+.vscode/*
+!.vscode/extensions.json

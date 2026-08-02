@@ -1,0 +1,45 @@
+<Callout>
+Janela deslizante é **dois ponteiros com uma regra**: em vez de olhar todos os subarrays, você mantém um pedaço contíguo e vai ajustando as bordas. O que era O(n²) vira O(n).
+</Callout>
+
+## O problema com a força bruta
+
+Imagine que você precisa da maior soma de *k* elementos seguidos em um array. A solução óbvia é: para cada posição, somar os próximos *k* elementos e guardar o maior. Funciona, e é lento. Você refaz quase a mesma soma *n* vezes.
+
+Repare no desperdício: as janelas `[3,6,2]` e `[6,2,8]` compartilham dois elementos. Se você já sabe a soma da primeira, a segunda custa **uma soma e uma subtração**, não três somas.
+
+## A ideia, em uma frase
+
+Empurre a borda direita para incluir o elemento novo e a borda esquerda para descartar o que saiu. O estado da janela (a soma) é atualizado em O(1) a cada passo. Rode o visualizador abaixo, ele mostra exatamente isso, com o código acompanhando linha a linha. Use **Expandir** para ver o código lado a lado, bem grande.
+
+<JanelaVisualizer variant="fixa" />
+
+Edite o array e o `k` acima, a animação e o código se ajustam. Este é o caso de **tamanho fixo**: a janela sempre tem `k` elementos, então a cada passo entra um pela direita e sai um pela esquerda.
+
+## Janela fixa vs. variável
+
+O exemplo acima tem tamanho travado. Existe também a **janela variável**, em que a direita sempre avança e a esquerda só se move enquanto a janela for inválida, é assim que você resolve "maior substring sem repetir caracteres" ou "menor subarray com soma ≥ alvo". Veja essa versão na página [Janela Deslizante (Dinâmica)](/topico/janela-deslizante-dinamica).
+
+<Colunas>
+<Cartao titulo="Fixa">
+Você sabe o tamanho de antemão. Entra um, sai um.
+
+```python
+for direita in range(n):
+    soma += nums[direita]
+    if direita >= k - 1:
+        melhor = max(melhor, soma)
+        soma -= nums[direita - k + 1]
+```
+</Cartao>
+
+<Cartao titulo="Variável">
+O tamanho depende de uma condição. Encolhe até voltar a valer.
+
+```python
+while invalida(janela):
+    soma -= nums[esquerda]
+    esquerda += 1
+```
+</Cartao>
+</Colunas>
