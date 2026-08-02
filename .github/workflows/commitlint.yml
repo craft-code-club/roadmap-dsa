@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: read
+  # A action lista os commits do PR pela API. Sem esta permissão ela morre com
+  # "Resource not accessible by integration" e o job reprova qualquer PR, mesmo
+  # com as mensagens corretas.
+  pull-requests: read
 
 jobs:
   commitlint:

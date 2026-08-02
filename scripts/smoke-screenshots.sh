@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenera as capturas do app (screenshots/) a partir do build estático.
-# Requer: Node (build) + Python3 (servidor) + `agent-browser` no PATH
+# Requer: Node (build) + Python3 (servidor) + curl + `agent-browser` no PATH
 # (Vercel Labs: https://github.com/vercel-labs/agent-browser).
 #
 #   npm run screenshots
@@ -15,6 +15,14 @@ if ! command -v agent-browser >/dev/null 2>&1; then
   exit 1
 fi
 
+# Sem esta checagem, curl ausente deixaria a resposta vazia lá embaixo e o erro
+# sairia como "sem resposta", culpando o servidor ou o slug em vez da falta da
+# dependência.
+if ! command -v curl >/dev/null 2>&1; then
+  echo "✗ curl não encontrado no PATH. É usado para conferir cada rota antes do print."
+  exit 1
+fi
+
 echo "→ build (SSG)"
 npm run build >/dev/null
 
@@ -26,6 +34,16 @@ sleep 1
 mkdir -p "$OUT"
 
 shot() { # <rota> <arquivo>
+  # Confere a rota antes de capturar: sem isso, um slug renomeado gera um print
+  # da página 404 e o script termina "verde", escondendo o erro.
+  local code
+  # `|| true`: sem isso, o `set -e` mataria o script sem mensagem se o servidor
+  # não subisse (curl sai 7), e o motivo real ficaria invisível.
+  code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT$1" || true)
+  if [ "$code" != "200" ]; then
+    echo "✗ $1 respondeu ${code:-sem resposta} (slug renomeado ou servidor fora do ar?)"
+    exit 1
+  fi
   agent-browser open "http://localhost:$PORT$1" >/dev/null 2>&1
   agent-browser wait 900 >/dev/null 2>&1
   agent-browser screenshot "$OUT/$2" --full >/dev/null 2>&1
@@ -33,10 +51,12 @@ shot() { # <rota> <arquivo>
 }
 
 echo "→ capturando"
-shot "/"                                  01-home.png
-shot "/roadmap/"                          02-roadmap.png
-shot "/topico/dois-ponteiros/"            03-dois-ponteiros.png
-shot "/topico/janela-deslizante-fixa/"    04-janela-fixa.png
-shot "/topico/janela-deslizante-dinamica/" 05-janela-dinamica.png
+shot "/"                                   01-home.png
+shot "/introducao/"                        02-introducao.png
+shot "/roadmap/"                           03-roadmap.png
+shot "/topico/two-pointers/"               04-two-pointers.png
+shot "/topico/sliding-window-fixed/"       05-sliding-window-fixed.png
+shot "/topico/sliding-window-dynamic/"     06-sliding-window-dynamic.png
+shot "/apoie/"                             07-apoie.png
 
 echo "✓ pronto → $OUT/"

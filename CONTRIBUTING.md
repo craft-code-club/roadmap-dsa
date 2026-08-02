@@ -1,8 +1,13 @@
 # Contribuindo
 
-Adoraríamos a sua ajuda para tornar o **Roadmap DSA** ainda melhor! Feito pela
-comunidade [Craft & Code Club](https://craftcodeclub.io), para a comunidade.
-Este guia explica como contribuir com o mínimo de atrito.
+Adoraríamos a sua ajuda para tornar o **Roadmap DSA** ainda melhor! É um projeto
+**gratuito e open source**, feito pela comunidade
+[Craft & Code Club](https://craftcodeclub.io), para a comunidade: o código e o
+conteúdo estão todos aqui, e qualquer pessoa pode ler, estudar, adaptar e
+propor mudança. Este guia explica como contribuir com o mínimo de atrito.
+
+Ficou com dúvida em qualquer ponto? Chama a gente no
+[Discord](https://craftcodeclub.io/join), é o jeito mais rápido de destravar.
 
 - [Código de Conduta](#codigo-de-conduta)
 - [Como rodar o projeto](#como-rodar)
@@ -40,23 +45,37 @@ progresso) são ilhas client; o resto é estático.
 
 ## <a name="adicionar-topico"></a> Adicionar ou completar um tópico
 
-1. **Índice** — em `src/content/roadmap.ts`, adicione (ou edite) o tópico no
-   grupo certo. Só isso já coloca o tópico no menu e no roadmap. Campos úteis:
-   `youtube` (vídeo), `artigo` (link do blog), `videosExtras` (mais vídeos),
-   `referencias` (artigos), `problemas` (LeetCode/GeeksforGeeks), `viz`.
+O conteúdo mora em `content/`, na raiz do projeto (irmão de `src/`, que guarda
+só o código de estrutura). Os **nomes dos campos são em inglês**; os valores
+exibidos ficam em português.
+
+1. **Índice** — em `content/roadmap.ts`, adicione (ou edite) o tópico no grupo
+   certo. Só isso já coloca o tópico no menu e no roadmap. Campos úteis:
+   `youtube` (id do vídeo), `article` (link do artigo no blog), `extraVideos`
+   (mais vídeos), `references` (leituras), `problems` (LeetCode/GeeksforGeeks)
+   e `viz` (visualizador).
 
    ```ts
-   { slug: "kadane", nome: "Kadane", grupo: "Arrays e Strings",
-     nivel: "Médio", status: "soon", youtube: "VIDEO_ID",
-     descricao: "Maior soma contígua, o clássico." }
+   { slug: "kadane", name: "Kadane", group: "Arrays e Strings",
+     level: "Médio", status: "soon", youtube: "VIDEO_ID",
+     description: "Maior soma contígua, o clássico." }
    ```
 
-2. **Artigo** — para virar `status: "ready"`, crie `src/content/topics/<slug>.mdx`.
+2. **Artigo** — para virar `status: "ready"`, crie `content/topics/<slug>.mdx`.
    Dentro do MDX já dá para usar, sem importar: `<Callout>`, `<Colunas>`,
    `<Cartao>` e os visualizadores (ver `mdx-components.tsx`).
 
-3. **Ligue o artigo** — registre em `src/content/topics/index.ts` e mude o
-   `status` para `"ready"` em `roadmap.ts`.
+3. **Ligue o artigo** — registre em `content/topics/index.ts` e mude o `status`
+   para `"ready"` em `content/roadmap.ts`. No registro vão o componente e o
+   `summary`, que alimenta o índice "Nesta página" e precisa repetir os títulos
+   `h2` do artigo **no texto exato**:
+
+   ```ts
+   "kadane": {
+     Body: Kadane,
+     summary: ["O problema", "A ideia, em uma frase", "Por que funciona"],
+   },
+   ```
 
 **Sem travessão:** na copy do site, use pontuação simples (vírgula, ponto, dois
 pontos), nunca o caractere `—`.
@@ -64,10 +83,10 @@ pontos), nunca o caractere `—`.
 
 ## <a name="adicionar-visualizador"></a> Adicionar um visualizador
 
-O padrão vive em `src/components/JanelaVisualizer.tsx` e
-`src/components/DoisPonteirosVisualizer.tsx`: um **gerador puro de passos** +
-a mesma casca de UI (células, código sincronizado, painel de variáveis,
-controles e o botão **Expandir**). Para uma técnica nova:
+Os visualizadores ficam em `content/visualizers/`. O padrão vive em
+`SlidingWindowVisualizer.tsx` e `TwoPointersVisualizer.tsx`: um **gerador puro
+de passos** + a mesma casca de UI (células, código sincronizado, painel de
+variáveis, controles e o botão **Expandir**). Para uma técnica nova:
 
 1. Copie o componente, troque `gerarPassos` e a constante `CODIGO`.
 2. Exponha-o em `mdx-components.tsx`.
@@ -176,4 +195,8 @@ liberar a execução.
 
 Ao contribuir, você concorda que a sua contribuição será licenciada sob a
 **[PolyForm Noncommercial License 1.0.0](./LICENSE)** — livre para qualquer uso
-**não comercial**. Uso comercial não é permitido.
+**não comercial** (estudo, ensino, comunidade, outros projetos livres). Uso
+comercial não é permitido.
+
+Na prática, é o que garante que o guia siga aberto e gratuito para quem quer
+aprender, sem virar produto de ninguém.
