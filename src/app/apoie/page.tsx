@@ -5,7 +5,7 @@ import { fetchSupporters, PARTNERS } from "./apoiadores";
 export const metadata: Metadata = {
   title: "Seja um apoiador da Comunidade",
   description:
-    "O Roadmap DSA é livre, aberto e feito pela comunidade. Conheça os apoiadores e parceiros que mantêm tudo gratuito, e junte-se a eles.",
+    "O Roadmap de Estruturas de Dados e Algoritmos da comunidade Craft & Code Club é livre, aberto e feito pela comunidade. Conheça os apoiadores e parceiros que mantêm tudo gratuito, e junte-se a eles.",
 };
 
 // Página estática: a lista de apoiadores é buscada na APOIA.se no build.
@@ -18,7 +18,8 @@ export default async function ApoiePage() {
       <span className="hero-badge">Feito pela comunidade, para a comunidade</span>
       <h1>Seja um apoiador da Comunidade</h1>
       <p className="lead">
-        O Roadmap DSA é <strong style={{ color: "#fff" }}>livre, aberto e feito pela comunidade</strong>.
+        O Roadmap de Estruturas de Dados e Algoritmos da comunidade Craft &amp; Code Club é{" "}
+        <strong style={{ color: "#fff" }}>livre, aberto e feito pela comunidade</strong>.
         Ele se mantém com o apoio de pessoas e empresas que acreditam em ensino de qualidade e
         gratuito para todo mundo. Sem paywall, sem login e{" "}
         <strong style={{ color: "#fff" }}>sem anúncios, nunca</strong>.
@@ -30,8 +31,8 @@ export default async function ApoiePage() {
         <h3>Seja um apoiador</h3>
         <p style={{ color: "#dcc9a8", maxWidth: "54ch" }}>
           Sua contribuição, do valor que você quiser, mantém o conteúdo saindo e as visualizações
-          novas chegando, e deixa o guia livre e aberto para quem vem depois. Você entra na lista de
-          apoiadores abaixo.
+          novas chegando, e deixa o guia livre e aberto para quem vem depois. E você entra na lista
+          de apoiadores abaixo.
         </p>
         <a href={LINKS.apoiar} className="btn btn-coffee" target="_blank" rel="noopener noreferrer">Quero apoiar →</a>
       </div>

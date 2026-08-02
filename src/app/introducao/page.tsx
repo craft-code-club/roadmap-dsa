@@ -5,7 +5,7 @@ import { LINKS } from "@/lib/links";
 export const metadata: Metadata = {
   title: "Introdução",
   description:
-    "Como o Roadmap DSA funciona: aprenda algoritmos vendo cada um rodar passo a passo, com pseudocódigo em português, artigo, vídeo e uma lista de problemas para praticar.",
+    "Como o Roadmap DSA funciona: aprenda algoritmos vendo cada um rodar passo a passo, com o código em Python, artigo, vídeo e uma lista de problemas para praticar.",
 };
 
 export const dynamic = "force-static";
@@ -37,8 +37,8 @@ export default function IntroducaoPage() {
       <p className="prose-p">
         Os exemplos e as soluções deste guia são em <strong className="prose-strong">Python</strong>.
         Não porque você precise conhecer a linguagem, mas porque a sintaxe do Python é limpa e
-        enxuta, quase um pseudocódigo que roda de verdade: dá para ler a ideia sem ruído e é fácil
-        traduzir a solução para a linguagem que você usa, seja Java, C++, JavaScript ou outra. Nas
+        enxuta, fácil de ler mesmo sem conhecer a linguagem: dá para entender a ideia sem ruído e é
+        fácil traduzir a solução para a que você usa, seja Java, C++, JavaScript ou outra. Nas
         visualizações, esse código aparece ao lado das células e destaca a linha que está rodando a
         cada passo.
       </p>

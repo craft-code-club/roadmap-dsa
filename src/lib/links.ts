@@ -9,7 +9,9 @@ export const LINKS = {
   // Destino do apoio: a campanha da comunidade na APOIA.se. A lista de
   // apoiadores em /apoie é puxada dessa mesma campanha no build.
   apoiar: "https://apoia.se/craftcodeclub",
-  github: "https://github.com/craft-code-club/roadmap-dsa",
+  // Org pública da comunidade. Aponta para a org (e não para o repo) porque o
+  // repositório ainda é privado; quando ficar público, dá para trocar pelo repo.
+  github: "https://github.com/craft-code-club",
   site: "https://craftcodeclub.io",
   blog: "https://craftcodeclub.io/blog",
   clubeDoLivro: "https://craftcodeclub.io/book-clubs/designing-data-intensive-applications",
