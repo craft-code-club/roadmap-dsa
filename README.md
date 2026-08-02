@@ -12,7 +12,6 @@ página só: o **algoritmo rodando passo a passo**, o **artigo**, o **vídeo**, 
 
 - **Stack:** Next.js 16 (App Router) + React 19, **SSG puro** (`output: "export"`). Requer Node 22+.
 - **Conteúdo:** MDX. As partes dinâmicas (visualizadores, checkboxes) são ilhas client; o resto é estático.
-- **Deploy:** Cloudflare Pages via Wrangler (grátis, sem servidor).
 
 ## Rodar
 
