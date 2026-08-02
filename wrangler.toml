@@ -1,8 +1,0 @@
-# Cloudflare Pages, projeto do Roadmap DSA (deploy via Wrangler).
-# Site 100% estático (Next.js output: "export", gera ./out).
-#
-# O nome do projeto não fica versionado (infra interna). No CI ele vem do
-# secret CLOUDFLARE_PROJECT_NAME; localmente, passe no comando:
-#   npx wrangler pages deploy out --project-name <nome-do-projeto>
-pages_build_output_dir = "out"
-compatibility_date = "2026-08-02"
