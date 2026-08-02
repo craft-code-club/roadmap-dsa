@@ -6,9 +6,9 @@ export const SITE_URL = "https://dsa.craftcodeclub.io";
 // trocar/rotacionar o convite, mude apenas aqui.
 export const LINKS = {
   discord: "https://discord.gg/b5NnndAbFc",
-  // Destino do apoio. Ideal migrar para um Open Collective (transparente, com
-  // níveis para pessoas e empresas). Placeholder por enquanto.
-  apoiar: "https://www.buymeacoffee.com/craftcodeclub",
+  // Destino do apoio: a campanha da comunidade na APOIA.se. A lista de
+  // apoiadores em /apoie é puxada dessa mesma campanha no build.
+  apoiar: "https://apoia.se/craftcodeclub",
   github: "https://github.com/craft-code-club/roadmap-dsa",
   site: "https://craftcodeclub.io",
   blog: "https://craftcodeclub.io/blog",

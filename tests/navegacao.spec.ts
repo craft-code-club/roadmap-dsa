@@ -50,7 +50,7 @@ test("página de apoio mostra apoiadores, parceiros e o link de doação", async
   await expect(page.getByRole("heading", { name: "Seja um apoiador da Comunidade" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Apoiadores" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Parceiros" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Quero apoiar/ }).first()).toHaveAttribute("href", /buymeacoffee/);
+  await expect(page.getByRole("link", { name: /Quero apoiar/ }).first()).toHaveAttribute("href", /apoia\.se\/craftcodeclub/);
 });
 
 test("Two Pointers é uma página completa com visualizador e problemas", async ({ page }) => {
