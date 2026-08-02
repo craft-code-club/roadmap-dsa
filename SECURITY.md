@@ -4,9 +4,18 @@
 
 Levamos a segurança dos nossos repositórios a sério, incluindo todos os projetos mantidos sob a nossa [organização Craft Code Club no GitHub](https://github.com/craft-code-club).
 
-Todos os nossos projetos usam GitHub Issues para acompanhar bugs e melhorias. Se você acredita ter encontrado uma vulnerabilidade de segurança em algum dos nossos repositórios, por favor abra uma issue no projeto correspondente para nos avisar.
+**Não abra uma issue pública para relatar uma vulnerabilidade.** Como os repositórios são públicos, uma issue expõe a falha para todo mundo antes de existir correção. Use um dos canais privados abaixo:
 
-Se você também tiver uma correção para a vulnerabilidade, fique à vontade para abrir um Pull Request com a sua sugestão de melhoria. Vamos revisar a sua contribuição com cuidado e, se ela resolver o problema de forma adequada, faremos o merge em uma versão futura do projeto.
+1. **GitHub Security Advisories (preferido)**: na aba **Security** do repositório, clique em **Report a vulnerability**. O relato fica visível só para você e para quem mantém o projeto, e é por lá que coordenamos a correção e o crédito.
+2. **E-mail**: se preferir, escreva para **craftcodeclub@gmail.com** com o assunto começando por `[security]`.
+
+No relato, ajuda muito incluir: o que está vulnerável, como reproduzir, qual o impacto esperado e, se souber, uma sugestão de correção.
+
+Confirmamos o recebimento e, a partir daí, mantemos você informado sobre o andamento. Pedimos que aguarde a correção ser publicada antes de divulgar a falha publicamente.
+
+Se você também tiver uma correção, ótimo, mas **não abra um Pull Request público** com ela: um PR de segurança denuncia a falha tanto quanto uma issue. Anexe o patch ao relato privado e combinamos a melhor forma de publicar.
+
+Bugs e melhorias que **não** são de segurança seguem normalmente por [issues](https://github.com/craft-code-club/roadmap-dsa/issues) e Pull Requests.
 
 Obrigado por colaborar conosco para tornar nossos projetos mais seguros.
 
