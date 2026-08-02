@@ -39,6 +39,11 @@ jobs:
 
       - name: Build with Next.js
         run: npm run build
+        env:
+          # Apoiadores vêm da APOIA.se no build. Sem os secrets, a lista fica
+          # vazia e a página mostra o convite "seja o primeiro".
+          APOIASE_TOKEN: ${{ secrets.APOIASE_TOKEN }}
+          APOIASE_CAMPAIGN_ID: ${{ secrets.APOIASE_CAMPAIGN_ID }}
 
       - name: Upload artifact
         if: github.event.pull_request.head.repo.fork == false

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LINKS } from "@/lib/links";
-import { SUPPORTERS, PARTNERS } from "./apoiadores";
+import { fetchSupporters, PARTNERS } from "./apoiadores";
 
 export const metadata: Metadata = {
   title: "Seja um apoiador da Comunidade",
@@ -8,7 +8,11 @@ export const metadata: Metadata = {
     "O Roadmap DSA é livre, aberto e feito pela comunidade. Conheça os apoiadores e parceiros que mantêm tudo gratuito, e junte-se a eles.",
 };
 
-export default function ApoiePage() {
+// Página estática: a lista de apoiadores é buscada na APOIA.se no build.
+export const dynamic = "force-static";
+
+export default async function ApoiePage() {
+  const supporters = await fetchSupporters();
   return (
     <div className="apoie-wrap">
       <span className="hero-badge">Feito pela comunidade, para a comunidade</span>
@@ -52,15 +56,11 @@ export default function ApoiePage() {
           <h2>Apoiadores</h2>
           <span className="wall-sub">Pessoas que bancam o projeto</span>
         </div>
-        {SUPPORTERS.length > 0 ? (
+        {supporters.length > 0 ? (
           <div className="apoiadores-grid">
-            {SUPPORTERS.map((a) =>
-              a.url ? (
-                <a key={a.name} className="apoiador-chip" href={a.url} target="_blank" rel="noopener noreferrer">{a.name}</a>
-              ) : (
-                <span key={a.name} className="apoiador-chip">{a.name}</span>
-              )
-            )}
+            {supporters.map((a) => (
+              <span key={a.name} className="apoiador-chip">{a.name}</span>
+            ))}
           </div>
         ) : (
           <div className="wall-empty">
