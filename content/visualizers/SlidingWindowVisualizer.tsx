@@ -30,34 +30,34 @@ type Passo = {
   nota: string;
 };
 
-// Pseudocódigo em português. As linhas mapeiam 1:1 com os passos (campo `linha`
-// em gerarPassos*), então a ordem e a quantidade de linhas não podem mudar.
+// As linhas mapeiam 1:1 com os passos (campo `linha` em gerarPassos*), então a
+// ordem e a quantidade de linhas não podem mudar.
 const CODIGO_FIXA = [
-  "função melhor_soma(nums, k):",
-  "    soma ← 0",
-  "    melhor ← 0",
-  "    esquerda ← 0",
-  "    para direita de 0 até n - 1:",
-  "        soma ← soma + nums[direita]",
-  "        se direita >= k - 1:",
-  "            melhor ← máx(melhor, soma)",
-  "            soma ← soma - nums[esquerda]",
-  "            esquerda ← esquerda + 1",
-  "    retorna melhor",
+  "def melhor_soma(nums, k):",
+  "    soma = 0",
+  "    melhor = 0",
+  "    esquerda = 0",
+  "    for direita in range(len(nums)):",
+  "        soma += nums[direita]",
+  "        if direita >= k - 1:",
+  "            melhor = max(melhor, soma)",
+  "            soma -= nums[esquerda]",
+  "            esquerda += 1",
+  "    return melhor",
 ];
 
 const CODIGO_DINAMICA = [
-  "função maior_subarray(nums, k):",
-  "    esquerda ← 0",
-  "    soma ← 0",
-  "    melhor ← 0",
-  "    para direita de 0 até n - 1:",
-  "        soma ← soma + nums[direita]",
-  "        enquanto soma > k:",
-  "            soma ← soma - nums[esquerda]",
-  "            esquerda ← esquerda + 1",
-  "        melhor ← máx(melhor, direita - esquerda + 1)",
-  "    retorna melhor",
+  "def maior_subarray(nums, k):",
+  "    esquerda = 0",
+  "    soma = 0",
+  "    melhor = 0",
+  "    for direita in range(len(nums)):",
+  "        soma += nums[direita]",
+  "        while soma > k:",
+  "            soma -= nums[esquerda]",
+  "            esquerda += 1",
+  "        melhor = max(melhor, direita - esquerda + 1)",
+  "    return melhor",
 ];
 
 const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
@@ -266,7 +266,7 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
 
         <div className="viz-split">
           <div className="viz-code">
-            <div className="viz-code-head">Pseudocódigo</div>
+            <div className="viz-code-head">solucao.py</div>
             <div className="viz-code-body">
               {CODIGO.map((txt, n) => (
                 <div key={n} className={`viz-line${n === p.linha ? " on" : ""}`}>
