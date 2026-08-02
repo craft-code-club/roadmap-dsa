@@ -5,9 +5,9 @@ Feito pela comunidade [Craft & Code Club](https://craftcodeclub.io). Cada tópic
 página só: o **algoritmo rodando passo a passo**, o **artigo**, o **vídeo**, uma lista de
 **problemas** do LeetCode / GeeksforGeeks e **referências**, com o progresso salvo no navegador.
 
-🔗 **No ar:** https://dsa.craftcodeclub.io
-💬 **Comunidade:** [Discord](https://discord.gg/b5NnndAbFc) 
-▶️ [YouTube](https://www.youtube.com/@CraftCodeClub)
+🔗 **A Plataforma:** https://dsa.craftcodeclub.io \
+💬 **Comunidade:** [Discord](https://discord.gg/b5NnndAbFc) \
+▶️ [YouTube](https://www.youtube.com/@CraftCodeClub) \
 ☕ [Apoie](https://dsa.craftcodeclub.io/apoie)
 
 - **Stack:** Next.js 16 (App Router) + React 19, **SSG puro** (`output: "export"`). Requer Node 22+.
