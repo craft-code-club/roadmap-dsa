@@ -9,7 +9,7 @@ on:
 
 env:
   ARTIFACT_NAME: roadmap-dsa-artifact
-  CF_PROJECT_NAME: roadmap-dsa
+  CF_PROJECT_NAME: c3-dsa-roadmap
 
 jobs:
   build:

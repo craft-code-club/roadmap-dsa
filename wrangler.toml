@@ -4,6 +4,6 @@
 # Deploy local:   npx wrangler pages deploy out
 # No CI, o project-name e a branch são passados no comando (ver
 # .github/workflows/cloudflare-pages-deploy.yml).
-name = "roadmap-dsa"
+name = "c3-dsa-roadmap"
 pages_build_output_dir = "out"
 compatibility_date = "2026-08-02"
