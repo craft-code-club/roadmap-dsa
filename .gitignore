@@ -59,3 +59,10 @@ pnpm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# === ferramentas de agente (config local da máquina) ===
+# Guarda caminhos e permissões da máquina de quem edita, não do projeto.
+# O CLAUDE.md (esse sim versionado) é a configuração compartilhada.
+.claude/settings.local.json
+.claude/scheduled_tasks.*
+.claude/worktrees/
