@@ -23,7 +23,7 @@ export type Problem = {
   url: string;
 };
 
-export type Visualizer = "sliding-window-fixed" | "sliding-window-dynamic" | "two-pointers";
+export type Visualizer = "sliding-window-fixed" | "sliding-window-dynamic" | "two-pointers" | "big-o";
 
 // Vídeos extras de um tópico: aparecem como links clicáveis (não embed).
 export type VideoLink = { title: string; youtube?: string; url?: string; duration?: string };
@@ -70,7 +70,33 @@ export const GROUPS: Group[] = [
     name: "Introdução",
     intro: { name: "Introdução", href: "/introducao", description: "Como o guia funciona e por onde começar." },
     topics: [
-      { slug: "big-o", name: "Notação Big O", group: "Introdução", level: "Fácil", status: "soon", youtube: yt("MtLv9Rwb55Q"), description: "Como medir tempo e espaço de um algoritmo sem cronômetro." },
+      {
+        slug: "big-o",
+        name: "Notação Big O",
+        group: "Introdução",
+        level: "Fácil",
+        status: "ready",
+        viz: "big-o",
+        youtube: yt("MtLv9Rwb55Q"),
+        videoMinutes: "1:38:08",
+        readingTime: "10 min",
+        language: "Python",
+        description: "Como medir tempo e espaço de um algoritmo sem cronômetro.",
+        problems: [
+          { id: "lc-704", name: "Binary Search", number: "704", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/binary-search/" },
+          { id: "lc-217", name: "Contains Duplicate", number: "217", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/contains-duplicate/" },
+          { id: "lc-121", name: "Best Time to Buy and Sell Stock", number: "121", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/" },
+          { id: "lc-1", name: "Two Sum", number: "1", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/two-sum/" },
+          { id: "lc-509", name: "Fibonacci Number", number: "509", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/fibonacci-number/" },
+          { id: "gfg-complexidade", name: "Practice Questions on Time Complexity Analysis", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/practice-questions-time-complexity-analysis/" },
+        ],
+        references: [
+          { title: "Big O Notation", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/analysis-algorithms-big-o-analysis/" },
+          { title: "Analysis of Algorithms: Asymptotic Analysis", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/analysis-of-algorithms-set-1-asymptotic-analysis/" },
+          { title: "Big-O Cheat Sheet: complexidade das estruturas de dados", source: "bigocheatsheet.com", url: "https://www.bigocheatsheet.com/" },
+          { title: "Time and Space Complexity: cartão do LeetCode Explore", source: "LeetCode", url: "https://leetcode.com/explore/learn/card/recursion-i/256/complexity-analysis/" },
+        ],
+      },
     ],
   },
   {

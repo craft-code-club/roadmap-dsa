@@ -1,0 +1,124 @@
+<Callout>
+Big O é o jeito de responder "esse algoritmo aguenta?" **sem rodar cronômetro**. Em vez de medir segundos, que dependem da sua máquina, ele mede **como o número de operações cresce quando a entrada cresce**. É a primeira ferramenta do roadmap porque, daqui para frente, todo tópico volta a ela.
+</Callout>
+
+## O que o Big O mede
+
+Todo algoritmo recebe uma entrada. Chamamos de **n** o tamanho dela: o número de posições de um array, a quantidade de nós de uma árvore, o número de linhas de uma tabela. A pergunta do Big O é sempre a mesma:
+
+**Se n dobrar, o que acontece com o trabalho que o algoritmo faz?**
+
+Repare no que ficou de fora. O Big O não diz quantos segundos algo leva, porque isso depende de processador, memória, linguagem e compilador. Ele **tira a máquina da equação** e classifica o algoritmo em uma **família de crescimento**. Dois algoritmos O(n) podem ter tempos bem diferentes na prática, mas os dois reagem do mesmo jeito quando a entrada aumenta.
+
+<Colunas>
+<Cartao titulo="Complexidade de tempo">
+Quantas **operações** o algoritmo executa em função de n. "Tempo" aqui é contagem de passos, não relógio de parede.
+</Cartao>
+<Cartao titulo="Complexidade de espaço">
+Quanta **memória extra** ele precisa além da entrada: arrays auxiliares, hashes, a pilha da recursão. Também se mede em Big O.
+</Cartao>
+</Colunas>
+
+Existem outras notações para a mesma família de perguntas (Ω para o limite inferior, Θ quando os dois limites coincidem), mas Big O virou o padrão porque é o **limite superior**: a promessa de que, a partir de um certo n, o algoritmo não passa disso.
+
+## As três regras
+
+Na prática você quase nunca precisa da definição formal. Três regras resolvem quase todo caso do dia a dia.
+
+**1. n é o tamanho da entrada.** Quando aparecem duas entradas independentes, elas ganham letras próprias: percorrer dois arrays diferentes é O(n + m), não O(2n).
+
+**2. Constantes somem.** Um algoritmo que faz `3n` operações e outro que faz `n` estão na mesma família: os dois são O(n). Multiplicar por 3, ou dividir por 2, desloca a curva mas não muda o formato dela. Processar o array pela metade continua sendo O(n).
+
+**3. Fica só o termo dominante.** Em uma **soma**, o termo de maior grau engole os outros:
+
+```python
+# 4n³ + 3n² + n + 1000  →  O(n³)
+```
+
+Cuidado com o outro lado da regra 3: ela vale para **soma**, não para multiplicação. Dois laços em sequência somam, e o resultado é O(n). Um laço dentro do outro multiplica, e vira O(n²).
+
+```python
+for x in nums:      # n operações
+    ...
+for x in nums:      # + n operações  →  O(n + n) = O(n)
+    ...
+
+for x in nums:          # n vezes...
+    for y in nums:      # ...n operações cada  →  O(n × n) = O(n²)
+        ...
+```
+
+<Callout tipo="aviso">
+Termos com **variáveis diferentes** não se cancelam. `n² + k²` continua `O(n² + k²)`, porque você não sabe qual dos dois é maior. Só simplifique quando souber que uma entrada domina a outra.
+</Callout>
+
+## As famílias, do O(1) ao O(n!)
+
+Esta é a tabela que vale colar na parede. Repare menos nos nomes e mais na coluna de n = 1.000: é ali que as famílias deixam de ser parecidas.
+
+<BigOFamilias />
+
+O gráfico abaixo é a mesma tabela em movimento. Ligue e desligue as famílias, arraste o marcador sobre a curva e, principalmente, **aumente a entrada máxima**: o que parecia dramático com n = 10 vira uma linha colada no chão quando n chega a 1.000. É esse efeito que faz a constante ser descartada.
+
+<BigOChartVisualizer />
+
+<Callout>
+Ligue O(2ⁿ) e O(n!) e veja o gráfico inteiro achatar: do lado dessas duas, todas as outras viram uma linha colada no chão. Aí troque para a escala **logarítmica** e diminua a entrada máxima para 25. Cada família vira uma inclinação diferente, e dá para comparar as oito de uma vez.
+</Callout>
+
+Dois detalhes que confundem no começo:
+
+- **O log do Big O é base 2**, não base 10. A busca binária corta o espaço de busca ao meio a cada passo, então a conta natural é log₂. Com 1.024 posições são 10 passos; com 1 milhão, 20.
+- **O(1) não quer dizer "uma operação"**. Atualizar três campos de um objeto são três operações, mas continuam sendo três com qualquer entrada. Constante é isso: **não reage ao tamanho de n**.
+
+## Contando operações no mesmo array
+
+Teoria bonita, mas o que convence mesmo é ver o contador. Abaixo, quatro algoritmos rodando sobre o **mesmo array de 8 posições**. Troque entre eles e compare o número final de operações, e também o campo "pior caso com n = 16".
+
+<BigOCounterVisualizer />
+
+O que você deveria ver ao rodar os quatro:
+
+| Algoritmo | Pior caso com n = 8 | Pior caso com n = 16 | Família |
+| --- | --- | --- | --- |
+| Acesso por índice | 1 | 1 | O(1) |
+| Busca binária | 4 | 5 | O(log n) |
+| Busca linear | 8 | 16 | O(n) |
+| Todos os pares | 28 | 120 | O(n²) |
+
+Dobrar a entrada não fez nada com o primeiro, somou 1 no segundo, dobrou o terceiro e **praticamente quadruplicou** o quarto. Essa é a diferença entre famílias, e é por isso que a discussão sobre performance começa aqui, não no micro-otimizador de linha de código.
+
+Repare também na busca binária procurando o 20: ela acerta em 3 passos, contra os 5 da busca linear. Com 1 milhão de posições seriam 20 passos contra 1 milhão. É o mesmo motivo pelo qual um índice de banco de dados transforma um full scan em algo instantâneo.
+
+## Melhor caso, caso médio e pior caso
+
+O mesmo algoritmo pode ter três respostas dependendo da entrada que chega.
+
+<Colunas>
+<Cartao titulo="Melhor caso">
+A busca linear acha o alvo na primeira posição: O(1). Um Bubble Sort otimizado recebe o array já ordenado e faz uma passada só: O(n). Bonito, e raro.
+</Cartao>
+<Cartao titulo="Pior caso">
+O alvo não existe e a busca linear percorre tudo: O(n). É o que se assume por padrão, inclusive em entrevista, quando ninguém especifica qual caso.
+</Cartao>
+</Colunas>
+
+O **caso médio** é o que costuma governar a decisão de arquitetura, mas é o mais difícil de calcular, porque depende da distribuição real dos dados. Por isso o pior caso ganha tanto espaço: ele é o contrato, a garantia de que pior do que aquilo não fica.
+
+Algumas estruturas existem justamente para eliminar essa distância. Uma **árvore AVL** se rebalanceia a cada inserção para que nenhum ramo fique muito mais alto que o outro, e com isso busca, inserção e remoção ficam em O(log n) **no pior caso**, não só na média. Uma BST comum, sem rebalanceamento, degenera para uma lista e cai para O(n) quando os dados chegam já ordenados.
+
+## As armadilhas que pegam todo mundo
+
+**Eficiente não é a mesma coisa que rápido.** Levar 500 TB de dados num caminhão de São Paulo ao Rio é O(1): o tempo não muda se você colocar mais um disco. Mandar pela internet é O(n): dobrou o volume, dobrou o tempo. Para 1 GB a internet ganha fácil; para 500 TB, o caminhão. Complexidade fala de **escala**, o custo absoluto de cada operação continua importando.
+
+**Ordenar para depois buscar quase sempre é pior.** A tentação é clássica: "busca binária é O(log n), muito melhor que O(n), então vou ordenar e buscar". Só que ordenar custa O(n log n), e `n log n + log n` continua sendo O(n log n), que é **pior** que a busca linear O(n). A conta só vira quando você ordena uma vez e busca muitas: aí o custo inicial se dilui, que é exatamente o raciocínio por trás de um índice de banco de dados.
+
+**Com entrada pequena, a família não decide nada.** Ordenar as 26 letras do alfabeto vai ser instantâneo com qualquer algoritmo. Se o problema garante que n é pequeno e limitado, escolha o código mais simples de ler e manter. O Big O só cobra a conta quando a escala aparece.
+
+**Complexidade não é legibilidade.** Um algoritmo O(n²) pode ser trivial de entender e um O(n) pode ser um quebra-cabeça. São eixos diferentes, e "complexo" no sentido do Big O não quer dizer "complicado de ler".
+
+<Callout tipo="aviso">
+Quando o problema é naturalmente O(2ⁿ) ou O(n!), como o caixeiro viajante ou montar todas as permutações, não existe truque de implementação que salve. O caminho passa a ser outro: heurísticas, aproximações, programação dinâmica ou podar o espaço de busca com [backtracking](/topico/backtracking). Uma boa solução rápida costuma valer mais que a ótima que nunca termina.
+</Callout>
+
+O próximo passo é aplicar isso em algo concreto: veja como [Two Pointers](/topico/two-pointers) transforma um O(n²) em O(n), e como a [Sliding Window](/topico/sliding-window-fixed) evita recalcular o que já foi calculado.

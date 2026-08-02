@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import BigO from "./big-o.mdx";
 import TwoPointers from "./two-pointers.mdx";
 import SlidingWindowFixed from "./sliding-window-fixed.mdx";
 import SlidingWindowDynamic from "./sliding-window-dynamic.mdx";
@@ -12,6 +13,17 @@ export type Article = { Body: ComponentType; summary: string[] };
 // summary = SÓ os títulos (h2) do artigo, no texto exato. A página do tópico
 // acrescenta "Vídeo da aula" e "Problemas para praticar" quando existem.
 export const ARTICLES: Record<string, Article> = {
+  "big-o": {
+    Body: BigO,
+    summary: [
+      "O que o Big O mede",
+      "As três regras",
+      "As famílias, do O(1) ao O(n!)",
+      "Contando operações no mesmo array",
+      "Melhor caso, caso médio e pior caso",
+      "As armadilhas que pegam todo mundo",
+    ],
+  },
   "two-pointers": {
     Body: TwoPointers,
     summary: ["O padrão", "Two Sum num array ordenado", "Por que funciona"],
