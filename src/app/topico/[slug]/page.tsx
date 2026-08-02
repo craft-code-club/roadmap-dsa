@@ -39,9 +39,16 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
   const { previous, next } = getNeighbors(slug);
 
   // Onde o tópico já pode ser estudado hoje (usado no aviso de quem não tem artigo).
-  const ondeEstudar = [t.youtube ? "no vídeo da aula" : null, t.article ? "no artigo do blog" : null]
-    .filter(Boolean)
-    .join(" e ");
+  // Cobre tudo que a página mostra, inclusive os vídeos extras.
+  const ondeEstudar = [
+    t.youtube ? "no vídeo da aula" : null,
+    t.extraVideos && t.extraVideos.length ? "nos vídeos extras" : null,
+    t.article ? "no artigo do blog" : null,
+  ].filter((x): x is string => x !== null);
+  const ondeEstudarTexto =
+    ondeEstudar.length > 1
+      ? `${ondeEstudar.slice(0, -1).join(", ")} e ${ondeEstudar[ondeEstudar.length - 1]}`
+      : ondeEstudar[0];
 
   // Índice "Nesta página": títulos do artigo + seções que a página acrescenta.
   const toc: string[] = [
@@ -77,10 +84,10 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
             <p className="prose-p" style={{ marginTop: 18 }}>{t.description}</p>
             <div className="soon-note">
               {t.noViz ? (
-                ondeEstudar ? (
+                ondeEstudarTexto ? (
                   <>
-                    Este tópico não tem visualizador interativo: o conteúdo vive {ondeEstudar}.
-                    Dúvidas e sugestões, no Discord da comunidade.
+                    Este tópico não tem visualizador interativo: o conteúdo vive{" "}
+                    {ondeEstudarTexto}. Dúvidas e sugestões, no Discord da comunidade.
                   </>
                 ) : (
                   <>
