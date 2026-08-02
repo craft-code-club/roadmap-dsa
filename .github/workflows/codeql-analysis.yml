@@ -17,13 +17,15 @@ on:
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [ "main" ]
-  schedule:
-    - cron: '0 5 * * 0'
 
 jobs:
   analyze:
     name: 'CodeQL Analyze'
     runs-on: ubuntu-latest
+    # Code scanning em repositório privado exige GitHub Advanced Security (pago).
+    # Enquanto o repo é privado, o job é pulado (CI fica verde). Ao torná-lo
+    # público, o scan roda sozinho, de graça.
+    if: ${{ github.event.repository.visibility == 'public' }}
     permissions:
       actions: read
       contents: read
