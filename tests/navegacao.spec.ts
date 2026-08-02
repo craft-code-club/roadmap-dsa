@@ -74,3 +74,10 @@ test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) =>
   const href = await toc.getAttribute("href");
   await expect(page.locator(href!)).toHaveCount(1);
 });
+
+test("página de introdução explica o guia e leva ao primeiro tópico", async ({ page }) => {
+  await page.goto("/introducao/");
+  await expect(page.getByRole("heading", { level: 1, name: "Introdução" })).toBeVisible();
+  await page.getByRole("link", { name: "Começar por Big O" }).click();
+  await expect(page).toHaveURL(/topico\/big-o/);
+});
