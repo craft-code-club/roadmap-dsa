@@ -50,7 +50,13 @@ export type Topic = {
   references?: Reference[];
 };
 
-export type Group = { id: string; name: string; topics: Topic[] };
+export type Group = {
+  id: string;
+  name: string;
+  topics: Topic[];
+  // Página de abertura do grupo (ex.: Introdução), aparece como primeiro item.
+  intro?: { name: string; href: string; description: string };
+};
 
 const yt = (id: string) => id;
 
@@ -58,6 +64,7 @@ export const GROUPS: Group[] = [
   {
     id: "introducao",
     name: "Introdução",
+    intro: { name: "Introdução", href: "/introducao", description: "Como o guia funciona e por onde começar." },
     topics: [
       { slug: "big-o", name: "Notação Big O", group: "Introdução", level: "Fácil", status: "soon", youtube: yt("MtLv9Rwb55Q"), description: "Como medir tempo e espaço de um algoritmo sem cronômetro." },
     ],

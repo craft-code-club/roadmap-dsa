@@ -12,7 +12,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
 
   const [busca, setBusca] = useState("");
-  const [abertos, setAbertos] = useState<Record<string, boolean>>({ "arrays-strings": true });
+  const [abertos, setAbertos] = useState<Record<string, boolean>>({ introducao: true, "arrays-strings": true });
   const [mobileNav, setMobileNav] = useState(false);
   const [menu, setMenu] = useState(false);
 
@@ -66,7 +66,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="topnav nav-left">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
-            <Link href="/introducao" className={`nav-hide-sm${navOn("/introducao") ? " on" : ""}`}>Introdução</Link>
             <Link href="/roadmap" className={`nav-hide-sm${navOn("/roadmap") ? " on" : ""}`}>Roadmap</Link>
           </nav>
         </div>
@@ -94,9 +93,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   {/* somem da barra no mobile → voltam aqui */}
                   <Link className="menu-item only-mobile" href="/" onClick={() => setMenu(false)}>
                     <span className="mi-ico">⌂</span> Início
-                  </Link>
-                  <Link className="menu-item only-mobile" href="/introducao" onClick={() => setMenu(false)}>
-                    <span className="mi-ico">✦</span> Introdução
                   </Link>
                   <Link className="menu-item only-mobile" href="/roadmap" onClick={() => setMenu(false)}>
                     <span className="mi-ico">▤</span> Roadmap
@@ -153,6 +149,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 </button>
                 {g.aberto && (
                   <div className="side-items">
+                    {g.intro && (
+                      <Link href={g.intro.href} className={`side-item${navOn(g.intro.href) ? " on" : ""}`}>
+                        <span className="side-intro-ico" aria-hidden="true">✦</span>
+                        <span className="side-item-name">{g.intro.name}</span>
+                      </Link>
+                    )}
                     {g.itens.map((t) => {
                       const feito = isTopico(t.slug);
                       const ativo = slugAtivo === t.slug;

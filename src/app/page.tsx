@@ -40,9 +40,6 @@ export default function Home() {
           </Link>
           <Link href="/roadmap" className="btn">Ver o roadmap completo</Link>
         </div>
-        <Link href="/introducao" className="link-btn" style={{ display: "inline-block", marginTop: 16 }}>
-          Primeira vez por aqui? Leia a introdução →
-        </Link>
       </section>
 
       <section className="stats">

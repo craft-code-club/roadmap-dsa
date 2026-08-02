@@ -277,6 +277,7 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
             </div>
           </div>
           <div className="viz-vars">
+            <div className="viz-vars-head">Variáveis</div>
             {variaveis.map((v) => (
               <div className="viz-var" key={v.nome}>
                 <span className="viz-var-name">{v.nome}</span>

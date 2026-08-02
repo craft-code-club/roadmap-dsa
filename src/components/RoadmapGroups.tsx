@@ -20,6 +20,14 @@ export function RoadmapGroups() {
               <div className="rgroup-rule" />
             </div>
             <div className="grid-3">
+              {g.intro && (
+                <Link href={g.intro.href} className="topic-card">
+                  <div className="topic-card-top">
+                    <span className="topic-card-name">{g.intro.name}</span>
+                  </div>
+                  <p>{g.intro.description}</p>
+                </Link>
+              )}
               {g.topics.map((t) => {
                 const feito = isTopico(t.slug);
                 return (

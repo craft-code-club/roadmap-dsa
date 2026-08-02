@@ -162,6 +162,7 @@ html { scroll-behavior: smooth; }
 }
 .side-check.done { border-color: rgba(52, 211, 153, 0.6); background: rgba(52, 211, 153, 0.18); color: var(--ccc-green); }
 .side-item-name { flex: 1; }
+.side-intro-ico { display: grid; place-items: center; width: 16px; flex: none; font-size: 11px; color: var(--ccc-muted); }
 .badge-novo { padding: 1px 6px; border-radius: 5px; background: rgba(124, 58, 237, 0.2); color: #c4b5fd; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; }
 .badge-soon { padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: #7f93ad; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; }
 .side-apoio { display: flex; flex-direction: column; gap: 9px; padding: 12px; border-top: 1px solid var(--ccc-line); }
@@ -409,6 +410,7 @@ html { scroll-behavior: smooth; }
 .viz-line .ln { display: inline-block; width: 26px; color: #4c5f79; }
 .viz-line.on { color: #e7edf6; background: rgba(59, 130, 246, 0.15); box-shadow: inset 2px 0 0 var(--ccc-accent); }
 .viz-vars { display: flex; flex-direction: column; gap: 8px; }
+.viz-vars-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); font-weight: 600; margin-bottom: 2px; }
 .viz-var { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border: 1px solid var(--ccc-line); border-radius: 9px; background: #0e1725; }
 .viz-var-name { font-family: var(--mono); font-size: 12.5px; color: #8ba0bb; }
 .viz-var-val { font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: #fff; }
