@@ -6,7 +6,7 @@ página só: o **algoritmo rodando passo a passo**, o **artigo**, o **vídeo**, 
 **problemas** do LeetCode / GeeksforGeeks e **referências**, com o progresso salvo no navegador.
 
 🔗 **A Plataforma:** https://dsa.craftcodeclub.io \
-💬 **Comunidade:** [Discord](https://discord.gg/b5NnndAbFc) \
+💬 **Comunidade:** [Discord](https://craftcodeclub.io/join) \
 ▶️ [YouTube](https://www.youtube.com/@CraftCodeClub) \
 ☕ [Apoie](https://dsa.craftcodeclub.io/apoie)
 
