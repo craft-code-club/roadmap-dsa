@@ -95,17 +95,63 @@ controles e o botão **Expandir**). Para uma técnica nova:
 
 ### <a name="conventional-commits"></a> Conventional Commits
 
-Padrão: `<tipo>(<escopo>): <resumo>`. Saiba mais em
-[conventionalcommits.org](https://conventionalcommits.org/).
+Usamos [Conventional Commits](https://www.conventionalcommits.org/pt-br/). Um
+workflow de CI (`commitlint`) valida as mensagens em cada Pull Request, então
+vale seguir o padrão desde o primeiro commit.
 
-Tipos comuns: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `build`,
-`test`, `ci`, `chore`, `revert`.
+**Formato:**
 
-Exemplos:
+```
+<tipo>(<escopo opcional>): <resumo no imperativo>
+
+<corpo opcional: explica o porquê da mudança, não o como>
+
+<rodapé opcional: BREAKING CHANGE, referência a issue>
+```
+
+**Tipos:**
+
+| Tipo | Quando usar |
+| --- | --- |
+| `feat` | recurso novo para quem usa (tópico, visualizador, página) |
+| `fix` | correção de bug |
+| `docs` | só documentação (README, CONTRIBUTING, comentários) |
+| `style` | formatação, sem mudar comportamento (espaços, ponto e vírgula) |
+| `refactor` | muda o código sem corrigir bug nem adicionar recurso |
+| `perf` | melhora de desempenho |
+| `test` | adiciona ou ajusta testes |
+| `ci` | pipelines, GitHub Actions, deploy |
+| `build` | build, dependências, config do bundler |
+| `chore` | manutenção que não se encaixa nas de cima |
+| `revert` | reverte um commit anterior |
+
+**Escopos sugeridos** (a área tocada): `roadmap`, `topics`, `viz`, `nav`, `ui`,
+`apoie`, `home`, `seo`, `test`, `deps`, `ci`. O escopo é opcional; use quando
+ajuda a localizar a mudança.
+
+**Regras:**
+
+- Resumo no **imperativo** e em minúsculas: "adiciona", não "adicionado" nem "Adiciona".
+- Sem ponto final no resumo. Até ~72 caracteres.
+- Em **português** (inglês só para os nomes técnicos consagrados, como no resto do site).
+- **Um commit, uma mudança.** Commits atômicos facilitam a revisão e o revert.
+- Mudança incompatível: use `feat!:` (o `!`) ou um rodapé `BREAKING CHANGE: <descrição>`.
+
+**Exemplos:**
+
 ```
 feat(roadmap): adiciona tópico de Kadane
 fix(viz): corrige overflow do painel de código no mobile
+refactor(apoie): puxa apoiadores da APOIA.se no build
 docs: melhora o guia de contribuição
+ci: valida mensagens de commit com commitlint
+```
+
+Para conferir sua última mensagem localmente, sem instalar nada:
+
+```bash
+npx --yes --package @commitlint/cli --package @commitlint/config-conventional \
+  commitlint --from HEAD~1
 ```
 
 
