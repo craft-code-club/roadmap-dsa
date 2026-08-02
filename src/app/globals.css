@@ -434,6 +434,50 @@ html { scroll-behavior: smooth; }
 .viz-overlay .viz-line { font-size: 14px; line-height: 1.9; }
 .viz-overlay .viz-cell { width: 58px; height: 58px; font-size: 19px; }
 
+/* ------ Big O: gráfico de crescimento, contador e tabela de famílias ------ */
+.bigo-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.bigo-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid var(--ccc-line); border-radius: 99px; background: transparent; color: var(--ccc-muted); font: inherit; font-family: var(--mono); font-size: 12.5px; cursor: pointer; }
+.bigo-chip:hover { background: rgba(255, 255, 255, 0.05); }
+.bigo-chip.on { background: rgba(255, 255, 255, 0.05); font-weight: 600; }
+.bigo-chip .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.bigo-canvas-wrap { border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); overflow: hidden; }
+.bigo-canvas { display: block; width: 100%; touch-action: pan-y; cursor: crosshair; }
+.bigo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.bigo-card { min-width: 0; padding: 10px 12px; border: 1px solid var(--ccc-line); border-left: 3px solid var(--ccc-line); border-radius: 9px; background: #0e1725; }
+.bigo-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.bigo-card-nome { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+.bigo-card-val { font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: #fff; }
+.bigo-card-ex { margin-top: 3px; font-size: 11.5px; color: var(--ccc-muted); }
+.bigo-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 14px; }
+.bigo-stat { min-width: 0; padding: 10px 12px; border: 1px solid var(--ccc-line); border-radius: 9px; background: #0e1725; }
+.bigo-stat span { display: block; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ccc-muted); }
+.bigo-stat strong { display: block; margin-top: 3px; font-family: var(--mono); font-size: 19px; font-weight: 600; color: #fff; }
+
+.bigo-fam { margin: 0 0 30px; border: 1px solid var(--ccc-line); border-radius: 14px; background: var(--ccc-surface); overflow: hidden; }
+.bigo-fam-head { display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-bottom: 1px solid var(--ccc-line); background: #0f1826; font-size: 13px; font-weight: 600; }
+.bigo-fam-head .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ccc-accent); flex: none; }
+.bigo-fam-scroll { overflow-x: auto; }
+.bigo-fam-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13.5px; }
+.bigo-fam-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); border-bottom: 1px solid var(--ccc-line); }
+.bigo-fam-table td { padding: 11px 14px; border-bottom: 1px solid var(--ccc-line); vertical-align: top; color: #b9c9dd; }
+.bigo-fam-table tr:last-child td { border-bottom: none; }
+.bigo-fam-table .nums { text-align: right; font-family: var(--mono); font-size: 13px; white-space: nowrap; color: #cbd9ea; }
+.bigo-fam-not { font-family: var(--mono); font-size: 14px; font-weight: 600; color: #fff; }
+.bigo-fam-nome { font-size: 11.5px; color: var(--ccc-muted); }
+.bigo-fam-barra { margin-top: 6px; width: 92px; max-width: 100%; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.bigo-fam-barra span { display: block; height: 100%; border-radius: 99px; }
+.bigo-fam-ex { max-width: 34ch; }
+.bigo-fam-tag { display: block; margin-top: 5px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.bigo-fam .v-otimo .bigo-fam-barra span { background: #34d399; }
+.bigo-fam .v-otimo .bigo-fam-tag { color: var(--ccc-green); }
+.bigo-fam .v-bom .bigo-fam-barra span { background: #60a5fa; }
+.bigo-fam .v-bom .bigo-fam-tag { color: #93bbfd; }
+.bigo-fam .v-atencao .bigo-fam-barra span { background: #fbbf24; }
+.bigo-fam .v-atencao .bigo-fam-tag { color: #fbbf24; }
+.bigo-fam .v-ruim .bigo-fam-barra span { background: #f87171; }
+.bigo-fam .v-ruim .bigo-fam-tag { color: #f87171; }
+.bigo-fam figcaption { padding: 12px 16px; border-top: 1px solid var(--ccc-line); font-size: 12.5px; line-height: 1.55; color: var(--ccc-muted); }
+
 /* ------ apoie page ------ */
 .apoie-wrap { padding: 56px; max-width: 820px; }
 .apoie-wrap h1 { font-size: 40px; font-weight: 600; letter-spacing: -0.03em; margin: 12px 0 14px; }
