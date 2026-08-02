@@ -67,11 +67,9 @@ html { scroll-behavior: smooth; }
 .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nav-left { margin-left: 10px; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand-mark {
-  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
-  background: linear-gradient(150deg, var(--ccc-purple), var(--ccc-accent));
-  font-weight: 700; font-size: 11.5px; color: #fff; letter-spacing: -0.03em; flex: none;
-}
+/* logo do Craft & Code Club: a arte já tem forma e fundo próprios, então aqui
+   só reservamos a caixa (contain evita distorcer o desenho, que não é quadrado). */
+.brand-mark { width: 34px; height: 34px; object-fit: contain; flex: none; }
 .brand-name { display: block; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
 .brand-sub { font-size: 11px; color: var(--ccc-muted); line-height: 1.15; }
 .topnav { display: flex; align-items: center; gap: 4px; }

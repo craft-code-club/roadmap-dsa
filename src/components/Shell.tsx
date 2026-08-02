@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -58,7 +59,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           <Link href="/" className="brand" style={{ textDecoration: "none", color: "inherit" }}>
-            <span className="brand-mark">DSA</span>
+            <Image
+              className="brand-mark"
+              src="/logo.png"
+              alt="Craft &amp; Code Club"
+              width={34}
+              height={34}
+              priority
+            />
             <span>
               <span className="brand-name">Roadmap DSA</span>
               <span className="brand-sub">por Craft &amp; Code Club</span>
