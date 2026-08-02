@@ -493,6 +493,10 @@ html { scroll-behavior: smooth; }
   .foot-links { order: -1; }
   .foot-text { flex-direction: column; gap: 4px; }
   .foot-sep { display: none; }
+  /* visualizador: no celular o código polui, então some no inline
+     (as células + variáveis já contam a história) e volta ao Expandir. */
+  .viz-code { display: none; }
+  .viz-overlay .viz-code { display: block; }
 }
 @media (max-width: 560px) {
   .brand-name { display: none; } /* no celular, só o logo */
