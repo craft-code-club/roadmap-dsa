@@ -161,7 +161,10 @@ function gerarPassos(nums: number[], alvo: number, modo: Modo): Passo[] {
   }
 
   if (modo === "entraria") {
-    const existe = nums[esq] === alvo;
+    // `esq` pode parar em nums.length quando o alvo é maior que tudo, então o
+    // limite é checado antes de indexar. Em JS isso devolveria undefined e a
+    // comparação daria falso por acidente; depender disso esconde a intenção.
+    const existe = esq < nums.length && nums[esq] === alvo;
     out.push({
       esq, dir, meio: null, anotado, comparacoes, linha: 8, fim: true, ok: true,
       nota: existe
@@ -213,6 +216,13 @@ const PRESETS: Preset[] = [
     nums: REPETIDOS,
     alvo: 0,
     dica: "A borda de baixo. A posição de inserção é 0, e nenhum passo do algoritmo precisa de tratamento especial para isso.",
+  },
+  {
+    key: "depois",
+    rotulo: "Maior que tudo: procurando 20",
+    nums: REPETIDOS,
+    alvo: 20,
+    dica: "A borda de cima, e a mais fácil de errar: a esquerda para em 9, que é o tamanho do array e não é índice de ninguém. Inserir ali continua correto (é o fim da lista), mas todo código que for LER nessa posição precisa checar o limite antes.",
   },
 ];
 
@@ -278,7 +288,7 @@ export function BuscaBinariaFronteira() {
   // O retorno negativo do Arrays.binarySearch é o do caso de FALHA. Quando o
   // valor existe, a posição onde a esquerda parou é uma ocorrência de verdade e
   // a função devolveria um índice não negativo.
-  const existeNaParada = p.fim && nums[p.esq] === preset.alvo;
+  const existeNaParada = p.fim && p.esq < nums.length && nums[p.esq] === preset.alvo;
   const pctPasso = Math.round(((idx + 1) / total) * 100);
 
   const cells = nums.map((v, i) => {

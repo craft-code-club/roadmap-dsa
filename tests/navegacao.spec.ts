@@ -590,6 +590,12 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
   await resposta(/^onde o valor entraria/);
   await expect(retorno).toContainText("1");
   await expect(retorno).not.toContainText("-");
+
+  // Borda de cima: a esquerda para em 9, que é o tamanho do array e não indexa
+  // ninguém. É onde a checagem de existência leria fora do intervalo.
+  await viz.getByRole("button", { name: /Maior que tudo/ }).click();
+  await expect(await resposta(/^onde o valor entraria/)).toContainText("9");
+  await expect(retorno).toContainText("-10");
 });
 
 // Regressão: cinco visualizadores foram parar num PR com o estado de animação

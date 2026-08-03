@@ -428,7 +428,7 @@ export function HeapSortVisualizer() {
 
         <div className="bigo-stats">
           <div className="bigo-stat">
-            <span>tamanho (n)</span>
+            <span>tamanho do array</span>
             <strong>{p.arr.length}</strong>
           </div>
           <div className="bigo-stat">
