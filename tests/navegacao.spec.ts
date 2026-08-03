@@ -191,6 +191,23 @@ test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) =>
   await expect(page.locator(href!)).toHaveCount(1);
 });
 
+test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
+  await page.goto("/topico/prefix-sum/");
+  const bloco = page.locator(".code-block.com-lang").first();
+  await expect(bloco.locator(".code-lang")).toHaveText("Python");
+  // Shiki roda no build: o HTML já chega tokenizado (nada de highlight no cliente)
+  await expect(bloco.locator("pre.shiki code.language-python")).toHaveCount(1);
+  const cores = await bloco
+    .locator("pre span[style*='color']")
+    .evaluateAll((spans) => [...new Set(spans.map((s) => getComputedStyle(s).color))]);
+  expect(cores.length).toBeGreaterThan(3);
+
+  // diagrama em ASCII (cerca sem linguagem) continua sem selo e sem cor
+  const semSelo = page.locator(".code-block:not(.com-lang)");
+  expect(await semSelo.count()).toBeGreaterThan(0);
+  await expect(semSelo.locator(".code-lang")).toHaveCount(0);
+});
+
 test("página de introdução explica o guia e leva ao primeiro tópico", async ({ page }) => {
   await page.goto("/introducao/");
   await expect(page.getByRole("heading", { level: 1, name: "Introdução" })).toBeVisible();

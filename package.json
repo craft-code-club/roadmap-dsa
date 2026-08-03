@@ -24,10 +24,12 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@shikijs/rehype": "^4.4.1",
     "@types/mdx": "^2.0.13",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "shiki": "^4.4.1",
     "typescript": "^5.7.0"
   }
 }

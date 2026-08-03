@@ -65,6 +65,11 @@ exibidos ficam em português.
    Dentro do MDX já dá para usar, sem importar: `<Callout>`, `<Colunas>`,
    `<Cartao>` e os visualizadores (ver `mdx-components.tsx`).
 
+   **Sempre declare a linguagem na cerca do bloco de código** (` ```python `). O
+   destaque de sintaxe é gerado no build (Shiki), não no navegador, e é a cerca
+   que também põe o selo discreto de linguagem no canto do bloco. Cerca sem
+   linguagem fica sem cor e sem selo: é o certo para diagrama em ASCII.
+
 3. **Ligue o artigo** — registre em `content/topics/index.ts` e mude o `status`
    para `"ready"` em `content/roadmap.ts`. No registro vão o componente e o
    `summary`, que alimenta o índice "Nesta página" e precisa repetir os títulos

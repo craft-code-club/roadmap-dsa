@@ -76,6 +76,11 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
    Dentro do MDX você já pode usar, sem importar: `<Callout>`, `<Colunas>`, `<Cartao>` e
    qualquer visualizador exposto em `mdx-components.tsx`.
 
+   Blocos de código levam **sempre a linguagem na cerca** (` ```python `): o destaque de sintaxe
+   é gerado no build pelo Shiki (nenhum JS extra no cliente) e é dela que sai o selo discreto de
+   linguagem no canto do bloco. Cerca sem linguagem sai sem cor e sem selo, que é justamente o
+   que se quer em diagrama ASCII e pseudo-fórmula.
+
 3. **Ligue o artigo:** registre em `content/topics/index.ts` e mude `status` para `"ready"`.
 
 ## Como adicionar um visualizador
