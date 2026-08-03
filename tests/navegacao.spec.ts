@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ALL_TOPICS } from "../content/roadmap";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
@@ -226,6 +227,23 @@ test("código Python sai colorido do build, com selo discreto da linguagem", asy
   const semSelo = page.locator(".code-block:not(.com-lang)");
   expect(await semSelo.count()).toBeGreaterThan(0);
   await expect(semSelo.locator(".code-lang")).toHaveCount(0);
+});
+
+test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({ page }) => {
+  const marcados = ALL_TOPICS.filter((t) => t.isNew);
+  await page.goto("/topico/big-o/");
+
+  // abre todo grupo ainda fechado, para que os selos de todos os tópicos contem
+  const grupos = page.locator(".side-group");
+  for (let i = 0; i < (await grupos.count()); i++) {
+    const g = grupos.nth(i);
+    if ((await g.locator(".side-caret.open").count()) === 0) await g.locator(".side-group-btn").click();
+  }
+
+  await expect(page.locator(".side-item .badge-novo")).toHaveCount(marcados.length);
+  for (const t of marcados) {
+    await expect(page.locator(`.side-item[href="/topico/${t.slug}/"] .badge-novo`)).toBeVisible();
+  }
 });
 
 test("página de introdução explica o guia e leva ao primeiro tópico", async ({ page }) => {

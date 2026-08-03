@@ -72,6 +72,10 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
    um visualizador, o selo some sozinho, e tópico `ready` nunca leva o selo. Se o tópico não
    vai ter visualizador, marque `noViz: true` para a página não prometer um que não vem.
 
+   O selo **"NOVO"** é o oposto: uma **tag manual**, `isNew: true`. Não tem data, então não
+   envelhece sozinho. Quem publica um tópico marca o dele e **tira a marca dos anteriores**, no
+   mesmo PR. É a única forma de o selo continuar querendo dizer "chegou agora".
+
 2. **Escreva o artigo** (para virar `status: "ready"`): crie `content/topics/kadane.mdx`.
    Dentro do MDX você já pode usar, sem importar: `<Callout>`, `<Colunas>`, `<Cartao>` e
    qualquer visualizador exposto em `mdx-components.tsx`.

@@ -47,6 +47,11 @@ export type Topic = {
   // não acrescenta nada). Marque `noViz: true` para não prometer um que não vem:
   // a página deixa de exibir o aviso de "visualização em construção".
   noViz?: boolean;
+  // Selo "NOVO" no menu lateral. É uma TAG manual, não uma data: quem entra na
+  // trilha recebe `isNew: true` no PR que publica o tópico, e perde a marca no
+  // PR seguinte, quando outro tópico assume o posto. Sem data para envelhecer
+  // sozinha, o combinado é simples: tirar daqui é parte de publicar o próximo.
+  isNew?: boolean;
   problems?: Problem[];
   readingTime?: string;
   language?: string;
