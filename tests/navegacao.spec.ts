@@ -59,6 +59,18 @@ test("Two Pointers é uma página completa com visualizador e problemas", async 
   await expect(page.getByRole("link", { name: /Two Sum II/ }).first()).toHaveAttribute("href", /leetcode\.com/);
 });
 
+test("Big O traz o gráfico de crescimento, o contador de operações e a tabela de famílias", async ({ page }) => {
+  await page.goto("/topico/big-o/");
+  // gráfico: o canvas existe e o marcador reage ao chip de uma família
+  await expect(page.locator("canvas.bigo-canvas")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "O(n!)" })).toBeVisible();
+  // contador: a casca padrão de visualizador, com passo a passo
+  await expect(page.getByRole("button", { name: /Rodar/ })).toBeVisible();
+  // tabela de famílias: estática, precisa estar no HTML mesmo sem JS
+  await expect(page.locator(".bigo-fam-table tbody tr")).toHaveCount(8);
+  await expect(page.getByRole("link", { name: /Big O Notation/ })).toHaveAttribute("href", /geeksforgeeks/);
+});
+
 test("marcar um tópico como concluído persiste na sessão", async ({ page }) => {
   await page.goto("/topico/sliding-window-fixed/");
   // Há dois botões de concluir (topo e fim da página); ambos alternam juntos.
