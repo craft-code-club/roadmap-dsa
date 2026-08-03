@@ -207,14 +207,21 @@ test("índice 'Nesta página' fica grudado ao rolar o artigo", async ({ page }) 
 
   // grudado: a posição na janela não muda por mais que o artigo role
   expect(Math.round(depois.y)).toBe(Math.round(antes.y));
-  expect(Math.round(depois.y)).toBe(88);
+  // e para no offset que o próprio CSS declara (sem número mágico aqui)
+  const topoDoSticky = await toc.evaluate((n) => parseFloat(getComputedStyle(n).top));
+  expect(Math.round(depois.y)).toBe(Math.round(topoDoSticky));
   // e o índice nunca é mais alto que a janela (senão o fim dele ficaria inalcançável)
   expect(depois.height).toBeLessThanOrEqual(page.viewportSize()!.height);
 });
 
 test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
   await page.goto("/topico/prefix-sum/");
-  const bloco = page.locator(".code-block.com-lang").first();
+  // pega o bloco Python pelo conteúdo, não pela ordem: um bloco de outra
+  // linguagem pode entrar antes dele no artigo sem quebrar o teste
+  const bloco = page
+    .locator(".code-block.com-lang")
+    .filter({ has: page.locator("code.language-python") })
+    .first();
   await expect(bloco.locator(".code-lang")).toHaveText("Python");
   // Shiki roda no build: o HTML já chega tokenizado (nada de highlight no cliente)
   await expect(bloco.locator("pre.shiki code.language-python")).toHaveCount(1);
