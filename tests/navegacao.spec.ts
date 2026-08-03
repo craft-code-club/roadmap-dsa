@@ -324,32 +324,33 @@ test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async
   const irAteOFim = async () => {
     const proximo = viz.getByRole("button", { name: "Próximo ›" });
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
-    return (await viz.locator(".tt-saida-item").allTextContents()).join(" ");
   };
 
-  // as quatro sequências da árvore do encontro (raiz 1, esquerda 2 com 4 e 5, direita 3 com 6)
-  const esperado: Record<string, string> = {
-    "Pré-ordem": "1 2 4 5 3 6",
-    "Em ordem": "4 2 5 1 6 3",
-    "Pós-ordem": "4 5 2 6 3 1",
-    "Por nível (BFS)": "1 2 3 4 5 6",
+  // as quatro sequências da árvore do artigo (raiz 1, esquerda 2 com 4 e 5, direita 3 com 6)
+  const esperado: Record<string, string[]> = {
+    "Pré-ordem": ["1", "2", "4", "5", "3", "6"],
+    "Em ordem": ["4", "2", "5", "1", "6", "3"],
+    "Pós-ordem": ["4", "5", "2", "6", "3", "1"],
+    "Por nível (BFS)": ["1", "2", "3", "4", "5", "6"],
   };
   for (const [ordem, saida] of Object.entries(esperado)) {
     // exact: true porque o chip "Em ordem" colide com o preset "Uma BST: em ordem sai ordenado"
     await viz.getByRole("button", { name: ordem, exact: true }).click();
-    expect(await irAteOFim(), `${ordem} deveria sair ${saida}`).toBe(saida);
+    await irAteOFim();
+    // asserção web-first: reconsulta até a saída completa aparecer, em vez de
+    // ler uma vez e torcer para o React já ter renderizado o último passo
+    await expect(viz.locator(".tt-saida-item"), `${ordem} deveria sair ${saida.join(" ")}`).toHaveText(saida);
   }
 });
 
 test("BST: a mesma sequência inserida em ordem degenera a árvore", async ({ page }) => {
   await page.goto("/topico/bst/");
   const viz = page.locator("figure.viz").first();
-  // casa o card cujo rótulo é exatamente "altura": `hasText: "altura"` pegaria
-  // também o card "altura mínima", e depender do .first() por ordem de DOM
-  // deixaria o teste refém do layout
+  // O texto do card é rótulo + valor concatenados ("altura3"), então a regex
+  // ancorada casa só o card certo: "altura mínima3" não bate. Evita tanto o
+  // `.first()` por ordem de DOM quanto o locator aninhado do `has`.
   const altura = async () => {
-    const card = viz.locator(".bigo-stat").filter({ has: page.getByText("altura", { exact: true }) });
-    const txt = await card.textContent();
+    const txt = await viz.locator(".bigo-stat").filter({ hasText: /^altura\d/ }).textContent();
     return parseInt((txt ?? "").replace(/\D+/g, ""), 10);
   };
   await viz.getByRole("button", { name: /Inserindo pelo meio/ }).click();
