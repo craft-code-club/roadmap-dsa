@@ -255,7 +255,7 @@ export const ARTICLES: Record<string, Article> = {
     Body: TreeTraversals,
     summary: [
       "Duas famílias, uma decisão",
-      "A árvore do encontro, e as quatro respostas",
+      "Uma árvore, quatro respostas",
       "O truque das três visitas",
       "O template: uma linha muda tudo",
       "Pré-ordem: quando o pai precisa existir antes do filho",

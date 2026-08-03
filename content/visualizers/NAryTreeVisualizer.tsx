@@ -41,7 +41,7 @@ type Arvore = { key: string; rotulo: string; nos: No[]; legenda: string };
 const ARVORES: Arvore[] = [
   {
     key: "encontro",
-    rotulo: "A árvore do encontro",
+    rotulo: "A árvore do artigo",
     legenda: "Pré: 1 2 3 4 5 6 7 8 9 · Pós: 3 4 5 2 7 8 9 6 1 · Nível: 1 2 6 3 4 5 7 8 9",
     nos: [
       { rot: "1", filhos: [1, 5] },

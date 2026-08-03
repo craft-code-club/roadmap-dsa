@@ -81,7 +81,7 @@ def altura(no):
 Repare que as duas são [pós-ordem](/topico/tree-traversals): o resultado do pai depende dos dois filhos, então o pai só é resolvido depois deles. Sempre que a resposta de um nó é função das respostas dos filhos, o percurso é pós-ordem, e você já sabe escrever a função antes de pensar nela.
 
 <Callout>
-Uma armadilha comum: no encontro apareceu a observação de que uma árvore em que todo nó tem um filho só é, na prática, uma lista encadeada. Isso é literalmente verdade, e é uma boa lente. A árvore não é melhor que a lista por ser árvore; ela é melhor **quando ramifica**. Sem ramificação, você pagou o custo de dois ponteiros por nó para ter exatamente o desempenho de uma lista.
+Uma observação que vale como lente: uma árvore em que todo nó tem um filho só é, na prática, uma lista encadeada. A árvore não é melhor que a lista por ser árvore; ela é melhor **quando ramifica**. Sem ramificação, você pagou o custo de dois ponteiros por nó para ter exatamente o desempenho de uma lista.
 </Callout>
 
 ## Os cinco formatos

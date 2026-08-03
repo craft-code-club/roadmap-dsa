@@ -20,9 +20,9 @@ Pilha devolve o último que entrou, então o percurso mergulha. Fila devolve o p
 
 Dentro do DFS ainda há uma segunda decisão, e é aqui que quase todo mundo se embola: **em que momento você processa o nó**. Antes de descer, no meio, ou depois de tudo? Cada resposta é um percurso com nome próprio: pré-ordem, em ordem e pós-ordem.
 
-## A árvore do encontro, e as quatro respostas
+## Uma árvore, quatro respostas
 
-Esta é a árvore que foi desenhada no quadro no encontro, e é a que o visualizador usa:
+Esta árvore acompanha o tópico inteiro, e é a mesma que o visualizador usa. Vale desenhá-la num papel ao lado, porque quase todo raciocínio daqui para frente volta nela:
 
 ```text
             1
@@ -55,7 +55,7 @@ Três experimentos que valem a pena:
 
 ## O truque das três visitas
 
-Tem um jeito de nunca mais confundir as três ordens, e ele apareceu no encontro pela boca do Mateus, que tinha lido num artigo. Contorne a árvore com um lápis, no sentido anti-horário, começando à esquerda da raiz e sem tirar a ponta do papel. Você vai passar **três vezes** por cada nó: uma pela esquerda dele, uma por baixo, e uma pela direita.
+Tem um jeito de nunca mais confundir as três ordens, e ele é puramente geométrico. Contorne a árvore com um lápis, no sentido anti-horário, começando à esquerda da raiz e sem tirar a ponta do papel. Você vai passar **três vezes** por cada nó: uma pela esquerda dele, uma por baixo, e uma pela direita.
 
 ```text
      visita 1 (esquerda)  ->  PRÉ-ordem
@@ -84,7 +84,7 @@ def percorre(no):
     # (C)
 ```
 
-Coloque `processa(no)` em **(A)** e você tem pré-ordem. Em **(B)**, em ordem. Em **(C)**, pós-ordem. O resto do código é byte por byte idêntico. Foi assim que apareceu no encontro, e é assim que vale a pena memorizar: não são três algoritmos, é um algoritmo com três pontos de saída.
+Coloque `processa(no)` em **(A)** e você tem pré-ordem. Em **(B)**, em ordem. Em **(C)**, pós-ordem. O resto do código é byte por byte idêntico. É assim que vale a pena memorizar: não são três algoritmos, é um algoritmo com três pontos de saída.
 
 <Colunas>
 <Cartao titulo="Pré-ordem">
@@ -168,16 +168,16 @@ Isso rende dois usos que aparecem muito em entrevista:
 - **k-ésimo menor elemento**: pare o percurso no k-ésimo nó processado. Você não precisa da saída inteira, só do contador.
 
 <Callout tipo="aviso">
-Em ordem só produz saída ordenada se a árvore for uma BST. Numa árvore binária qualquer, como a do encontro, em ordem devolve 4, 2, 5, 1, 6, 3, que não tem ordem nenhuma. O percurso não ordena a árvore: ele revela uma ordem que a BST já tinha.
+Em ordem só produz saída ordenada se a árvore for uma BST. Numa árvore binária qualquer, como a do começo deste artigo, em ordem devolve 4, 2, 5, 1, 6, 3, que não tem ordem nenhuma. O percurso não ordena a árvore: ele revela uma ordem que a BST já tinha.
 </Callout>
 
 ## Pós-ordem: quando o pai depende dos filhos
 
 Pós-ordem processa o nó **depois** dos dois filhos. Use quando o resultado do pai é função dos resultados dos filhos, ou quando destruir o pai antes do filho seria um erro.
 
-O exemplo que apareceu no encontro é **apagar uma árvore de diretórios**. Você não consegue remover uma pasta que ainda tem arquivo dentro: precisa esvaziar primeiro e só então apagar a pasta. Isso é pós-ordem, e o mesmo raciocínio vale para liberar memória de uma árvore em linguagem sem coletor de lixo.
+O exemplo mais direto é **apagar uma árvore de diretórios**. Você não consegue remover uma pasta que ainda tem arquivo dentro: precisa esvaziar primeiro e só então apagar a pasta. Isso é pós-ordem, e o mesmo raciocínio vale para liberar memória de uma árvore em linguagem sem coletor de lixo.
 
-O segundo exemplo é mais bonito: **avaliar uma árvore de expressão**. Nela, folha é número e nó interno é operador. Foi montada no quadro assim:
+O segundo exemplo é mais bonito: **avaliar uma árvore de expressão**. Nela, folha é número e nó interno é operador. Considere esta:
 
 ```text
              +
@@ -203,7 +203,7 @@ def avalia(no):
 Quem já usou calculadora HP reconhece o padrão: a saída em pós-ordem **é** a notação polonesa reversa. Você digita os operandos e o operador por último, que é exatamente a ordem em que a árvore se resolve.
 
 <Callout>
-A generalização vale a pena guardar: sempre que um problema vira uma árvore de dependências, em que um nó só pode ser resolvido depois de todos os filhos, a resposta é pós-ordem. No encontro citaram o Jira: subtarefa fecha antes da tarefa, que fecha antes do épico, que fecha antes da sprint.
+A generalização vale a pena guardar: sempre que um problema vira uma árvore de dependências, em que um nó só pode ser resolvido depois de todos os filhos, a resposta é pós-ordem. Pense num quadro de tarefas: subtarefa fecha antes da tarefa, que fecha antes do épico, que fecha antes da sprint.
 </Callout>
 
 E se a operação não depende de ninguém, como imprimir um valor? Aí **tanto faz**. Os três passam por todos os nós exatamente uma vez; muda só o instante. Escolher entre eles é uma decisão sobre dependência, não sobre corretude.
@@ -247,14 +247,14 @@ while fila:
 É o esqueleto de meia dúzia de problemas clássicos: vista lateral direita da árvore (o último de cada nível), profundidade mínima, média por nível, percurso em zigue-zague.
 
 <Callout>
-A analogia que ficou do encontro: espalhar uma notícia. No DFS você conta para um amigo, que conta para um amigo dele, e a informação vai até a ponta antes de o seu vizinho ficar sabendo. No BFS você conta para todos os seus vizinhos, e só depois eles contam para os deles. Contágio, propagação e viralização são BFS, e é por isso que o BFS aparece muito mais em grafos do que em árvores.
+A analogia que fixa a diferença: espalhar uma notícia. No DFS você conta para um amigo, que conta para um amigo dele, e a informação vai até a ponta antes de o seu vizinho ficar sabendo. No BFS você conta para todos os seus vizinhos, e só depois eles contam para os deles. Contágio, propagação e viralização são BFS, e é por isso que o BFS aparece muito mais em grafos do que em árvores.
 </Callout>
 
 ## O custo: por que o espaço não é o mesmo
 
 Tempo é fácil e vale para os quatro: cada nó entra e sai uma vez, então é **O(n)**. Não existe percurso mais barato, você precisa tocar em todo mundo.
 
-Espaço é onde mora a diferença, e foi onde a discussão do encontro rendeu mais.
+Espaço é onde mora a diferença, e é a parte que mais confunde.
 
 **DFS gasta O(h)**, com h sendo a altura da árvore. A pilha guarda o caminho da raiz até o nó atual, e mais nada: quando você desce um galho, os nós já resolvidos do galho anterior já saíram. A pilha nunca fica maior que a altura, mesmo que a árvore tenha um milhão de nós.
 

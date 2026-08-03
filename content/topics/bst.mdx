@@ -155,7 +155,7 @@ Como a BST pura não se protege, a solução é acrescentar um mecanismo que man
 - **Rubro-negra**: garante balanceamento mais frouxo, com regras de cor, e por isso rebalanceia menos. É o que costuma estar por trás do `TreeMap` do Java, do `std::map` do C++ e de vários schedulers de kernel.
 - **[Skip List](/topico/skip-list)**: resolve o mesmo problema sem rotação nenhuma, sorteando a altura de cada nó. Consegue O(log n) **esperado** em vez de garantido, com código muito mais simples.
 
-Uma observação prática que apareceu no encontro: para árvore que rebalanceia, a representação com **ponteiros** ganha da representação em array. Uma rotação mexe em três ou quatro ponteiros; num array, a mesma rotação obrigaria a mover subárvores inteiras de posição.
+Uma observação prática de implementação: para árvore que rebalanceia, a representação com **ponteiros** ganha da representação em array. Uma rotação mexe em três ou quatro ponteiros; num array, a mesma rotação obrigaria a mover subárvores inteiras de posição.
 
 ## A armadilha de validar uma BST
 
