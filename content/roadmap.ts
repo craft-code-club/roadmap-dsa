@@ -226,7 +226,7 @@ export const GROUPS: Group[] = [
         viz: "sliding-window",
         youtube: yt("OvIJw1AMNzI"),
         videoMinutes: "18:24",
-        readingTime: "15 min",
+        readingTime: "12 min",
         language: "Python",
         description: "Uma janela contígua que anda pelo array. Fixa, com tamanho travado em k, ou variável, crescendo pela direita e encolhendo pela esquerda enquanto está inválida.",
         problems: [

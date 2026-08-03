@@ -24,6 +24,7 @@ import { PrefixSumGrade2D } from "@content/visualizers/PrefixSumGrade2D";
 import { IntervalsSobreposicaoVisualizer } from "@content/visualizers/IntervalsSobreposicaoVisualizer";
 import { IntervalsVisualizer } from "@content/visualizers/IntervalsVisualizer";
 import { IntervalsSweepVisualizer } from "@content/visualizers/IntervalsSweepVisualizer";
+import { SlidingWindowForcaBruta } from "@content/visualizers/SlidingWindowForcaBruta";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -108,6 +109,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     IntervalsSobreposicaoVisualizer,
     IntervalsVisualizer,
     IntervalsSweepVisualizer,
+    SlidingWindowForcaBruta,
     ...components,
   };
 }

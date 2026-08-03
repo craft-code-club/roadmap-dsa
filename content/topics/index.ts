@@ -131,12 +131,15 @@ export const ARTICLES: Record<string, Article> = {
   "sliding-window": {
     Body: SlidingWindow,
     summary: [
-      "O problema com a força bruta",
-      "A ideia, em uma frase",
-      "Janela fixa: o tamanho travado em k",
-      "Janela variável: quando o tamanho não é dado",
-      "Por que dá para descartar o que saiu",
-      "Fixa ou variável: como escolher",
+      "O problema que faz a técnica nascer",
+      "A intuição: o que entra e o que sai",
+      "Construindo a janela fixa",
+      "Construindo a janela variável",
+      "O padrão generalizado",
+      "Como reconhecer que é janela deslizante",
+      "Complexidade",
+      "As armadilhas",
+      "Como praticar",
     ],
   },
 };

@@ -136,10 +136,11 @@ test("Tabelas Hash: os contadores da tela batem com os números do artigo", asyn
 test("Sliding Window reúne janela fixa e variável na mesma página", async ({ page }) => {
   await page.goto("/topico/sliding-window/");
   await expect(page.getByRole("heading", { level: 1, name: "Sliding Window" })).toBeVisible();
-  // um visualizador para cada variação, com o preset certo
-  await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(2);
-  await expect(page.getByText("maior soma de uma janela de tamanho k")).toBeVisible();
-  await expect(page.getByText("maior subarray com soma ≤ k")).toBeVisible();
+  // três visualizadores: o contraste com a força bruta e um para cada variação
+  await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(3);
+  await expect(page.getByText("força bruta contra janela, no mesmo array")).toBeVisible();
+  await expect(page.getByText("janela fixa, a maior soma de k elementos seguidos")).toBeVisible();
+  await expect(page.getByText("janela variável, o maior subarray com soma ≤ k")).toBeVisible();
   // as duas instâncias têm estado próprio: avançar uma não mexe na outra
   const passos = page.locator(".viz-step");
   await page.getByRole("button", { name: /Próximo/ }).first().click();
