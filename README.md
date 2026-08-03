@@ -66,6 +66,12 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
      description: "Maior soma contígua, o clássico." }
    ```
 
+   O selo **"em breve"** no menu lateral aparece só nos tópicos ainda sem nenhum material:
+   `status: "soon"` **e** sem `youtube`, `article`, `viz` e `extraVideos` (é a regra do
+   `isEmptyTopic()`, em `content/roadmap.ts`). Assim que o tópico ganha um vídeo, um artigo ou
+   um visualizador, o selo some sozinho, e tópico `ready` nunca leva o selo. Se o tópico não
+   vai ter visualizador, marque `noViz: true` para a página não prometer um que não vem.
+
 2. **Escreva o artigo** (para virar `status: "ready"`): crie `content/topics/kadane.mdx`.
    Dentro do MDX você já pode usar, sem importar: `<Callout>`, `<Colunas>`, `<Cartao>` e
    qualquer visualizador exposto em `mdx-components.tsx`.

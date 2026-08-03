@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { GROUPS, TOTAL_TOPICS } from "@content/roadmap";
+import { GROUPS, TOTAL_TOPICS, isEmptyTopic } from "@content/roadmap";
 import { LINKS } from "@/lib/links";
 import { useProgress } from "@/components/ProgressProvider";
 
@@ -158,8 +158,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     {g.itens.map((t) => {
                       const feito = isTopico(t.slug);
                       const ativo = slugAtivo === t.slug;
+                      // "Em breve" é só para quem ainda não tem nada: se já existe vídeo,
+                      // artigo ou visualização, o tópico é navegável como qualquer outro.
+                      const vazio = isEmptyTopic(t);
                       return (
-                        <Link key={t.slug} href={`/topico/${t.slug}`} className={`side-item${ativo ? " on" : ""}${t.status === "soon" ? " soon" : ""}`}>
+                        <Link key={t.slug} href={`/topico/${t.slug}`} className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}>
                           <span
                             className={`side-check${feito ? " done" : ""}`}
                             role="checkbox"
@@ -173,7 +176,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                           </span>
                           <span className="side-item-name">{t.name}</span>
                           {t.viz && <span className="badge-novo">NOVO</span>}
-                          {t.status === "soon" && !t.viz && <span className="badge-soon">em breve</span>}
+                          {vazio && <span className="badge-soon">em breve</span>}
                         </Link>
                       );
                     })}

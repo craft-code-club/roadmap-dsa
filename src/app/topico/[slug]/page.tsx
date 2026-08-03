@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTopic, getNeighbors, ALL_TOPICS } from "@content/roadmap";
+import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
 import { levelClass } from "@/lib/ui";
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!t) return { title: "Tópico" };
   // Não indexa páginas realmente vazias (sem vídeo, artigo ou visualização) para
   // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram.
-  const emptyTopic = t.status === "soon" && !t.youtube && !t.article && !t.viz && !(t.extraVideos && t.extraVideos.length);
+  const emptyTopic = isEmptyTopic(t);
   return {
     title: t.name,
     description: t.description,
@@ -37,6 +37,18 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
   const article = getArticle(slug);
   const Body = article?.Body;
   const { previous, next } = getNeighbors(slug);
+
+  // Onde o tópico já pode ser estudado hoje (usado no aviso de quem não tem artigo).
+  // Cobre tudo que a página mostra, inclusive os vídeos extras.
+  const ondeEstudar = [
+    t.youtube ? "no vídeo da aula" : null,
+    t.extraVideos && t.extraVideos.length ? "nos vídeos extras" : null,
+    t.article ? "no artigo do blog" : null,
+  ].filter((x): x is string => x !== null);
+  const ondeEstudarTexto =
+    ondeEstudar.length > 1
+      ? `${ondeEstudar.slice(0, -1).join(", ")} e ${ondeEstudar[ondeEstudar.length - 1]}`
+      : ondeEstudar[0];
 
   // Índice "Nesta página": títulos do artigo + seções que a página acrescenta.
   const toc: string[] = [
@@ -68,12 +80,28 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           <Body />
         ) : (
           <>
-            <span className="soon-badge">🚧 Visualização em construção</span>
+            {!t.noViz && <span className="soon-badge">🚧 Visualização em construção</span>}
             <p className="prose-p" style={{ marginTop: 18 }}>{t.description}</p>
             <div className="soon-note">
-              O visualizador interativo deste tópico está a caminho. Por enquanto, assista à aula no
-              vídeo abaixo{t.article ? " e leia o artigo completo no blog" : ""}, e acompanhe o
-              cronograma de produção no Discord da comunidade.
+              {t.noViz ? (
+                ondeEstudarTexto ? (
+                  <>
+                    Este tópico não tem visualizador interativo: o conteúdo vive{" "}
+                    {ondeEstudarTexto}. Dúvidas e sugestões, no Discord da comunidade.
+                  </>
+                ) : (
+                  <>
+                    Este tópico não vai ter visualizador interativo, e o material ainda está sendo
+                    escrito. Acompanhe o cronograma de produção no Discord da comunidade.
+                  </>
+                )
+              ) : (
+                <>
+                  O visualizador interativo deste tópico está a caminho. Por enquanto, assista à
+                  aula no vídeo abaixo{t.article ? " e leia o artigo completo no blog" : ""}, e
+                  acompanhe o cronograma de produção no Discord da comunidade.
+                </>
+              )}
             </div>
             {t.article && (
               <a className="btn" href={t.article} target="_blank" rel="noopener noreferrer" style={{ marginBottom: 8 }}>

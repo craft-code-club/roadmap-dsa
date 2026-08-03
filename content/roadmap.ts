@@ -43,6 +43,10 @@ export type Topic = {
   article?: string; // url do artigo/aula no blog
   repo?: string; // implementação de referência
   viz?: Visualizer;
+  // Alguns tópicos não pedem visualizador (são conceituais, ou o passo a passo
+  // não acrescenta nada). Marque `noViz: true` para não prometer um que não vem:
+  // a página deixa de exibir o aviso de "visualização em construção".
+  noViz?: boolean;
   problems?: Problem[];
   readingTime?: string;
   language?: string;
@@ -320,6 +324,13 @@ export function topicTags(t: Topic): Tag[] {
   if (t.youtube || (t.extraVideos && t.extraVideos.length)) tags.push({ kind: "video", label: "Vídeo" });
   if (t.problems && t.problems.length) tags.push({ kind: "exercises", label: "Exercícios" });
   return tags;
+}
+
+// Tópico realmente vazio: ainda não tem nenhum material (vídeo, artigo ou
+// visualização). Só esses recebem o rótulo "em breve" no menu e ficam fora do
+// índice do Google; quem já tem ao menos um material não é mais "em breve".
+export function isEmptyTopic(t: Topic): boolean {
+  return t.status === "soon" && !t.youtube && !t.article && !t.viz && !t.extraVideos?.length;
 }
 
 export function getNeighbors(slug: string): { previous?: Topic; next?: Topic } {

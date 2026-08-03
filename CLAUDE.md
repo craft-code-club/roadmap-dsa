@@ -47,8 +47,12 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
   Greedy Algorithms) como grupos próprios.
 - **Nomes dos campos em inglês; valores exibidos em português.** Campos do tópico: `name`, `group`,
   `level`, `description`, `youtube` (id), `article` (link do blog), `extraVideos`, `references`,
-  `problems`, `viz`, `status: "ready" | "soon"`.
+  `problems`, `viz`, `noViz`, `status: "ready" | "soon"`.
 - Tópicos "ready" têm corpo em `content/topics/<slug>.mdx`, registrado em `content/topics/index.ts`.
+- **"Em breve" é só para tópico vazio.** `isEmptyTopic()` (em `content/roadmap.ts`) = `soon` sem
+  `youtube`, `article`, `viz` nem `extraVideos`. Só esses levam o selo "em breve" no menu lateral e
+  o `noindex`; quem já tem qualquer material aparece normal. Tópico que nunca vai ter visualizador
+  recebe `noViz: true` e deixa de mostrar o aviso de "visualização em construção".
 - Visualizadores ficam em `content/visualizers/` (ex.: `SlidingWindowVisualizer`,
   `TwoPointersVisualizer`), expostos em `mdx-components.tsx`. A lista de apoiadores fica em
   `src/app/apoie/apoiadores.ts` (página fixa, não é conteúdo de DSA).
