@@ -394,8 +394,14 @@ test("todo visualizador com passos tem controles que funcionam", async ({ page }
         continue;
       }
       await proximo.click();
-      const depois = await viz.locator(".viz-step").first().textContent();
-      if (depois === rotulo) naoAvanca.push(`${t.slug}[${i}]: travou em "${rotulo}"`);
+      // O React re-renderiza de forma assíncrona, então ler o texto na hora
+      // pegaria o valor antigo mesmo quando avançou. A asserção web-first
+      // reconsulta até mudar (ou até o timeout), que é o que torna isto honesto.
+      try {
+        await expect(viz.locator(".viz-step").first()).not.toHaveText(rotulo, { timeout: 3000 });
+      } catch {
+        naoAvanca.push(`${t.slug}[${i}]: travou em "${rotulo}"`);
+      }
     }
   }
 
