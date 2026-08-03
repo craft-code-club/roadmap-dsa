@@ -1,0 +1,408 @@
+<Callout>
+Prefix Sum é a técnica que troca **memória por tempo, de propósito**: você paga uma passada O(n) no começo e, depois disso, responde "qual é a soma entre as posições i e j?" em **O(1)**, quantas vezes quiser. É o primeiro tópico do roadmap em que a resposta certa não depende só do algoritmo, depende de **quantas perguntas vão chegar**.
+</Callout>
+
+## O problema: recalcular a mesma soma toda vez
+
+No encontro o problema apareceu assim: uma classe recebe um array de números no construtor e, de tempos em tempos, recebe uma requisição com dois índices, o início e o fim, e precisa devolver a soma daquele intervalo.
+
+```python
+nums = [10, 30, 20, 45, 60, 40, 50]
+#        0   1   2   3   4   5   6
+
+soma(2, 3)  ->  20 + 45             = 65
+soma(1, 4)  ->  30 + 20 + 45 + 60   = 155
+soma(0, 6)  ->  o array inteiro     = 255
+```
+
+A primeira solução que vem à cabeça é a direta, e ela está certa:
+
+```python
+def soma(nums, i, j):
+    total = 0
+    for k in range(i, j + 1):
+        total += nums[k]
+    return total
+```
+
+O problema não é a soma, é a **repetição**. Cada consulta custa O(j - i + 1), que no pior caso é O(n). Com `q` consultas o total vira **O(q × n)**. Como resumiram no encontro: se quem chama mandar 1 milhão de requisições pegando o array inteiro, você percorre o array 1 milhão de vezes, sempre refazendo somas que já fez.
+
+Coloque números de verdade nisso: um array de 100.000 posições e 1.000.000 de consultas cobrindo, em média, 500 elementos cada. São **500 milhões** de operações. Guarde esse número, ele volta na seção do trade-off.
+
+O desperdício é exatamente o mesmo que motiva a [Sliding Window](/topico/sliding-window): recalcular do zero uma soma que já foi calculada. A diferença é que aqui as consultas chegam em qualquer ordem, então não existe uma janela andando para frente que você possa aproveitar.
+
+## A ideia: uma tabela com todas as somas que começam no zero
+
+O truque é não calcular a soma que pediram. É calcular, uma vez só, **todas as somas que começam no índice 0**:
+
+```
+nums = [10,  30,  20,  45,  60,  40,  50]
+P    = [10,  40,  60, 105, 165, 205, 255]
+```
+
+`P[k]` é a soma de `nums[0]` até `nums[k]`. Foi essa a tabela montada na tela do encontro: 10, depois 10 + 30 = 40, depois 40 + 20 = 60, e assim por diante até 255, que é o array inteiro. Daí o nome: cada posição guarda a soma do **prefixo** que termina ali.
+
+Agora a parte que faz tudo funcionar. Qualquer intervalo é a **diferença entre dois prefixos**:
+
+```
+P[4] = 10 + 30 + 20 + 45 + 60  = 165    (do início até a posição 4)
+P[0] = 10                      =  10    (do início até a posição 0)
+                                 ----
+soma(1, 4) = P[4] - P[0]       = 155
+```
+
+Você tira, do prefixo que termina no **fim** do intervalo, o prefixo que termina **logo antes** do começo dele. O que sobra é exatamente o pedaço do meio, e a conta foi uma subtração só, não quatro somas.
+
+A fórmula geral fica `soma(i, j) = P[j] - P[i-1]`, e aí aparece a primeira armadilha, que apareceu também no encontro: quando `i` é 0, esse `P[-1]` não existe. Você precisa de um `if` para tratar o começo do array, e é justamente esse `if` que costuma sumir na pressa de uma entrevista.
+
+<Callout>
+No encontro apareceu um contorno esperto: usar `P[j] - P[i] + nums[i]`, ou seja, tirar o prefixo do próprio começo do intervalo e devolver o elemento que foi tirado a mais. Com o exemplo: 165 - 40 + 30 = 155. Funciona para qualquer `i`, sem `if`, mas custa um acesso extra ao array original, e só serve se você ainda tiver esse array por perto.
+</Callout>
+
+## A sentinela e a fórmula que dispensa o if
+
+O caminho que a literatura prega, e que é o que você vai encontrar na maioria das soluções publicadas, é outro: **deixe uma posição extra no começo da tabela, valendo zero**.
+
+```
+índice:  0    1    2    3     4     5     6     7
+P     = [0,  10,  40,  60,  105,  165,  205,  255]
+```
+
+`P` passa a ter `n + 1` posições, e o significado de cada célula muda de lugar: `P[k]` vira "a soma dos **primeiros k** elementos". `P[0] = 0` é a soma de nenhum elemento, que é o que a matemática já dizia. É a mesma ideia do nó sentinela das [listas encadeadas](/topico/listas-ligadas): um elemento falso na ponta para o caso de borda deixar de ser caso de borda.
+
+Com esse deslocamento de uma casa, a fórmula fica:
+
+**soma(i, j) = P[j + 1] - P[i]**
+
+E ela vale para todo `i`, inclusive `i = 0`, porque `P[0]` existe e vale 0:
+
+| Consulta | Conta | Resultado |
+| --- | --- | --- |
+| soma(1, 4) | P[5] - P[1] = 165 - 10 | 155 |
+| soma(2, 3) | P[4] - P[2] = 105 - 40 | 65 |
+| soma(0, 2) | P[3] - P[0] = 60 - 0 | 60 |
+| soma(0, 6) | P[7] - P[0] = 255 - 0 | 255 |
+
+O preço do offset é lembrar que o índice do fim é `j + 1`, e não `j`. Vale muito a troca, e é por isso que o visualizador abaixo já monta a tabela com a sentinela.
+
+<PrefixSumVisualizer />
+
+Rode do começo e acompanhe as duas fitas de células. Na fase de construção, repare que **cada passo faz uma soma só**: `p[k+1] = p[k] + nums[k]`. Sete elementos, sete somas, e o contador "somas no pré-processamento" para em 7. Depois clique em **Pular para a consulta** e veja o que acende: uma célula com `+` (o `p[j+1]`, que entra) e uma com `-` (o `p[i]`, que sai). É a fórmula inteira, em duas células.
+
+Agora experimente, nesta ordem:
+
+- **Do início: soma(0, 2)**. A célula que sai é o `p[0] = 0`. Sem a sentinela, aqui teria um `if`.
+- **Um elemento: soma(3, 3)**. O intervalo tem tamanho 1 e ainda assim são duas leituras: `105 - 60 = 45`. A conta não fica mais barata para intervalos pequenos, ela já era constante.
+- **Tudo: soma(0, 6)**. Compare os dois contadores no painel: 1 operação na consulta contra 7 na força bruta.
+- **Com negativos**. A tabela deixa de ser crescente (`p` fica 0, 3, 1, 6, 5, 9, 3, 5) e a fórmula continua valendo, porque subtração não se importa com sinal. Guarde isso, é o que separa Prefix Sum de Sliding Window mais adiante.
+
+## O template em Python
+
+O template é curto o suficiente para caber na memória, e é isso que você quer numa entrevista. Três variações da mesma coisa:
+
+```python
+# 1. o padrão: tabela com sentinela, n + 1 posições
+def construir(nums):
+    p = [0] * (len(nums) + 1)
+    for k, valor in enumerate(nums):
+        p[k + 1] = p[k] + valor
+    return p
+
+def soma(p, i, j):        # i e j inclusivos
+    return p[j + 1] - p[i]
+```
+
+```python
+# 2. o mesmo, em uma linha, quando você está com pressa
+from itertools import accumulate
+p = list(accumulate(nums, initial=0))   # já nasce com o zero na frente
+```
+
+```python
+# 3. in-place: sem array auxiliar, mas o original se perde
+def prefixar(nums):
+    for k in range(1, len(nums)):
+        nums[k] += nums[k - 1]
+```
+
+A versão in-place derruba a complexidade de espaço para O(1) extra, e no encontro ela apareceu como uma boa carta para entrevista: "vai ter complexidade de memória, mas eu posso neutralizar usando a própria entrada". O contraponto veio junto, e é honesto: em produção você normalmente **não pode** sobrescrever o que chegou, porque outra parte do sistema ainda precisa dos valores originais.
+
+Se o problema é orientado a objeto, como o do encontro (e como o LeetCode 303), o pré-processamento vai para o construtor e a consulta fica trivial:
+
+```python
+class SomaDeIntervalo:
+    def __init__(self, nums):
+        self.p = [0] * (len(nums) + 1)
+        for k, valor in enumerate(nums):
+            self.p[k + 1] = self.p[k] + valor
+
+    def soma(self, i, j):
+        return self.p[j + 1] - self.p[i]
+```
+
+E se os dados chegam aos poucos, em vez de todos de uma vez? Essa pergunta apareceu no encontro, e a resposta é que a tabela cresce junto com o stream. Não é preciso ter o array inteiro para começar:
+
+```python
+class SomaEmStream:
+    def __init__(self):
+        self.p = [0]
+
+    def chegou(self, valor):          # O(1) por elemento que entra
+        self.p.append(self.p[-1] + valor)
+
+    def soma(self, i, j):             # O(1), sobre o que já chegou
+        return self.p[j + 1] - self.p[i]
+```
+
+**O outro template: a soma que sobra à direita.** Uma família inteira de problemas não pergunta "quanto vale o intervalo (i, j)", e sim "existe um corte onde o que está à esquerda empata com o que está à direita?". Aqui você não precisa de duas tabelas: como `p[n]` é a soma do array inteiro, a direita é só o complemento da esquerda.
+
+```
+esquerda(k) = p[k + 1]          # nums[0..k], com o próprio k dentro
+direita(k)  = p[n] - p[k + 1]   # nums[k+1..n-1], tudo depois de k
+```
+
+Com o array da página, `esquerda(2) = p[3] = 60` (10 + 30 + 20) e `direita(2) = 255 - 60 = 195` (45 + 60 + 40 + 50). Os dois somam 255, que é o total, como tem que ser.
+
+E quando você só precisa varrer uma vez, a tabela nem chega a existir: basta carregar o prefixo numa variável e derivar a direita a cada passo.
+
+```python
+def ponto_de_equilibrio(nums):
+    total = sum(nums)          # 1ª passada: o "p[n]"
+    esquerda = 0
+    for k, valor in enumerate(nums):
+        direita = total - esquerda - valor    # tudo depois de k
+        if esquerda == direita:
+            return k
+        esquerda += valor                     # agora k entrou na esquerda
+    return -1
+```
+
+Duas passadas O(n) e **O(1) de espaço extra**: é a versão que o entrevistador quer ouvir depois que você mostrou a tabela. É esse o esqueleto do LeetCode 724 (achar o índice pivô) e do 2270 (contar de quantas formas dá para cortar o array), e foi exatamente o que o encontro construiu ao vivo, montando o prefixo primeiro e comparando os dois lados numa segunda varredura.
+
+<Callout tipo="aviso">
+Cuidado com quem entra na esquerda. No 724 o próprio `k` **não** conta para nenhum dos lados; no 2270 o corte é entre `k` e `k + 1`, então `k` fica na esquerda. Um deslocamento de uma casa aqui passa nos exemplos do enunciado e falha nos casos de teste escondidos.
+</Callout>
+
+## Quando compensa pré-processar
+
+Aqui é onde Prefix Sum deixa de ser um truque e vira uma decisão. Chame de `n` o tamanho do array, `q` o número de consultas e `m` o tamanho médio do intervalo consultado:
+
+| Abordagem | Custo de montar | Custo por consulta | Total |
+| --- | --- | --- | --- |
+| Força bruta | 0 | m | q × m |
+| Prefix Sum | n | 1 | n + q |
+
+As duas contas se cruzam quando `q × m = n + q`, ou seja, quando `q = n / (m - 1)`. Antes desse ponto, montar a tabela é desperdício puro. Depois dele, a distância só cresce.
+
+Volte ao número que ficou guardado lá em cima: `n` de 100.000, `q` de 1.000.000 e `m` de 500. A força bruta faz 500.000.000 de operações; o prefixo faz 100.000 + 1.000.000 = 1.100.000. São **mais de 450 vezes menos operações**, pagas com 100.001 inteiros de memória a mais.
+
+E o contrário também é verdade, e foi dito de forma bem direta no encontro: se você vai fazer **uma** consulta só, pegue o intervalo e some. Não monte tabela nenhuma. Prefix Sum é um investimento, e investimento só faz sentido quando existe um "depois".
+
+<PrefixSumTradeoff />
+
+Comece com o padrão (`n` = 1.000, intervalo médio de 5% de `n`) e arraste o marcador da esquerda para a direita. Repare que a reta da força bruta (a amarela) sai do zero e sobe rápido, enquanto a do prefixo (a verde) já nasce lá em cima, no custo de montar, e depois quase não sobe. O cruzamento das duas é o ponto de virada.
+
+Três cenários que vale testar:
+
+- Clique em **Uma consulta só**. A nota fica vermelha: a força bruta ganha de lavada, porque a tabela custou 1.000 operações para poupar as 50 de uma consulta única.
+- Clique em **No ponto de virada** e depois em **Muitas consultas**. Com o padrão, a virada acontece na **21ª consulta**: `1.000 / (50 - 1)` dá 20,4.
+- Arraste o segundo controle para **n inteiro**, ou seja, consultas que cobrem o array todo. O ponto de virada cai para **2 consultas**: a partir da segunda pergunta, pré-processar já valeu a pena.
+
+<Callout tipo="aviso">
+O trade-off tem duas pontas, e a de memória é real. A força bruta gasta O(1) de espaço extra; o prefixo gasta O(n). Numa entrevista, a pergunta "e se você não tiver memória sobrando?" é justa, e a resposta é montar o prefixo dentro do próprio array de entrada, ou desistir dele e voltar para a varredura.
+</Callout>
+
+## Prefix Sum ou Sliding Window?
+
+Esse foi o melhor debate do encontro, e ele vale mais que a técnica isolada. O problema da discussão: dado um array e um `k`, achar a **maior média** entre todos os subarrays de `k` elementos (é o LeetCode 643).
+
+Três soluções, todas corretas:
+
+<Colunas>
+<Cartao titulo="Força bruta">
+Para cada posição, somar os `k` vizinhos e dividir.
+
+**O(n × k)** de tempo, **O(1)** de espaço. Recalcula `k - 1` números que já estavam somados.
+</Cartao>
+
+<Cartao titulo="Prefix Sum">
+Montar a tabela e usar `p[i+1] - p[i-k+1]` em cada posição.
+
+**O(n)** de tempo, **O(n)** de espaço. Bem melhor, mas paga um array inteiro de memória.
+</Cartao>
+</Colunas>
+
+A terceira é a janela fixa: soma um elemento pela direita, tira um pela esquerda, e pronto. **O(n)** de tempo e **O(1)** de espaço, que ganha das duas.
+
+O critério que saiu do encontro é o mais útil que existe para escolher entre elas, e cabe em uma pergunta:
+
+**O acesso é linear ou aleatório?**
+
+- **Linear**, quando as consultas andam sempre para frente, de tamanho previsível: a [Sliding Window](/topico/sliding-window) domina, porque faz o mesmo trabalho sem gastar memória. Se você montou um prefixo e depois percebeu que só andava para frente, provavelmente dava para trocar por uma janela. Isso é normal e é parte do caminho: monta o prefixo, resolve, olha de novo e simplifica.
+- **Aleatório**, quando os índices chegam de fora e você não controla a ordem (o `soma(i, j)` do começo desta página): não tem como fugir da tabela. Nenhuma janela consegue pular de um intervalo para outro sem refazer a soma.
+
+Tem um terceiro caso, e ele é o mais interessante: quando o array tem **números negativos**, a janela variável quebra. Toda a lógica de "encolher pela esquerda só melhora" depende de os valores serem positivos. Aí o caminho é combinar prefixo com um hash: em vez de guardar a tabela inteira, guarde quantas vezes cada valor de prefixo já apareceu.
+
+```python
+def subarrays_com_soma(nums, k):
+    vistos = {0: 1}          # o prefixo 0 já apareceu: é a mesma sentinela
+    prefixo = 0
+    total = 0
+    for valor in nums:
+        prefixo += valor
+        total += vistos.get(prefixo - k, 0)
+        vistos[prefixo] = vistos.get(prefixo, 0) + 1
+    return total
+```
+
+A leitura da linha do meio é: se o prefixo `prefixo - k` já apareceu antes, então existe um subarray terminando **aqui** cuja soma é exatamente `k`, porque a diferença entre os dois prefixos é `k`. É o LeetCode 560, e é a ponte natural entre este tópico e [Tabelas Hash](/topico/hash-table).
+
+Vale rodar na mão, porque essa é a parte que trava todo mundo. Com `nums = [1, -1, 0]` e `k = 0`:
+
+| Entra | prefixo | já vi `prefixo - k` | total |
+| --- | --- | --- | --- |
+| 1 | 1 | 0 vezes | 0 |
+| -1 | 0 | 1 vez (a sentinela) | 1 |
+| 0 | 0 | 2 vezes | 3 |
+
+Resposta 3, e conferindo na mão: `[1, -1]`, `[1, -1, 0]` e `[0]`. Repare em duas coisas. Primeiro, o `vistos = {0: 1}` inicial é o que faz o subarray que **começa no índice 0** ser contado, exatamente o papel da sentinela. Segundo, o dicionário guarda uma **contagem**, não um "já vi": no último passo o prefixo 0 tinha aparecido duas vezes, e as duas viraram resposta. Trocar por um `set` aqui é o bug mais comum do 560.
+
+## Não é só soma: saldo, estoque e a variação de um período
+
+Um dos melhores momentos do encontro foi quando o exemplo saiu do array de inteiros e virou um caso de negócio. Um empréstimo de 90, pago em seis parcelas:
+
+| Mês | Parcela paga | Saldo devedor no início do mês |
+| --- | --- | --- |
+| 1 | 20 | 90 |
+| 2 | 20 | 70 |
+| 3 | 15 | 50 |
+| 4 | 15 | 35 |
+| 5 | 10 | 20 |
+| 6 | 10 | 10 |
+
+Quanto foi pago nos meses 3, 4 e 5? Somando as parcelas: 15 + 15 + 10 = 40. Pela coluna do saldo: 50 (início do mês 3) menos 10 (início do mês 6) = **40**. A mesma técnica, com subtração no lugar da soma.
+
+Repare no que acontece aqui: **a coluna do saldo já é uma tabela de prefixos**, montada de trás para frente. O negócio entregou o pré-processamento de graça, porque ele já precisava daquele número por outro motivo. Isso muda a conversa: o custo O(n) de montar deixa de existir e sobra só o O(1) da consulta.
+
+Depois que você enxerga esse formato, ele aparece em todo lugar:
+
+<Colunas>
+<Cartao titulo="Extrato bancário">
+O banco mostra o **saldo de cada dia**, não só a movimentação. A movimentação da semana é o saldo de hoje menos o saldo de sete dias atrás.
+</Cartao>
+
+<Cartao titulo="Controle de estoque">
+Cada linha guarda o saldo do produto depois da entrada ou da saída. Quanto entrou e saiu num período é uma subtração, com milhões de linhas ou com dez.
+</Cartao>
+</Colunas>
+
+E não é só soma e subtração. A técnica funciona para **qualquer operação que tenha inverso**:
+
+- **Soma**, inverso é a subtração. É o caso padrão.
+- **XOR**, que é seu próprio inverso: monte `X[k+1] = X[k] ^ nums[k]` e o XOR de um intervalo vira `X[j+1] ^ X[i]`.
+- **Produto**, com a divisão como inverso, mas cuidado dobrado: um único zero no array derruba tudo dali para frente.
+- **Mínimo e máximo não funcionam**, e é importante saber disso. Não existe operação que "desfaça" um mínimo. Para consultas de mínimo em intervalo o caminho é outro: sparse table ou segment tree.
+
+## Duas extensões: matriz 2D e difference array
+
+A ideia de prefixo não para em uma dimensão. Numa matriz, `p[r][c]` guarda a soma de **todo o retângulo** que vai da origem até `(r-1, c-1)`, e a tabela ganha uma linha e uma coluna sentinela pelo mesmo motivo de antes:
+
+```python
+def construir(m):
+    linhas, colunas = len(m), len(m[0])
+    p = [[0] * (colunas + 1) for _ in range(linhas + 1)]
+    for r in range(linhas):
+        for c in range(colunas):
+            p[r+1][c+1] = m[r][c] + p[r][c+1] + p[r+1][c] - p[r][c]
+    return p
+
+def soma(p, r1, c1, r2, c2):
+    return (p[r2+1][c2+1] - p[r1][c2+1]
+            - p[r2+1][c1] + p[r1][c1])
+```
+
+Quatro termos em vez de dois, e o motivo é geométrico: você pega o retângulo grande, tira a faixa de cima, tira a faixa da esquerda e percebe que o canto superior esquerdo foi descontado **duas vezes**, uma em cada faixa. Então devolve ele uma vez. Isso se chama inclusão e exclusão, e é bem mais fácil de ver do que de ler.
+
+<PrefixSumGrade2D />
+
+Clique em **Rodar** com o preset **LeetCode 304**, que soma o retângulo de `(2, 1)` até `(4, 3)`. A cada passo, o retângulo pintado na matriz da esquerda é o que aquele termo da fórmula representa, e a célula acesa na tabela da direita é de onde o número veio. O resultado é **8**, e são sempre **4 leituras** contra as 9 somas da força bruta.
+
+Depois teste os casos que quebram a intuição:
+
+- **Encostado na origem**, o retângulo de `(0, 0)` a `(1, 2)`. Os passos 3, 4 e 5 leem zeros: não há faixa de cima, não há faixa da esquerda, não há canto para devolver. É a linha e a coluna sentinela salvando você de três `if`.
+- **A matriz toda**: 25 células na força bruta, ainda 4 leituras com o prefixo. Esse 4 nunca muda, nem numa matriz de 1.000 por 1.000.
+- Clique em **Aumentar para 8 × 8** e selecione um retângulo grande. O card do pré-processamento sai de 25 para 64 e as células do retângulo sobem junto, mas o contador de **leituras na tabela** continua parado em 4. Essa é a frase inteira desta seção, num número só.
+- Clique em duas células quaisquer para montar o seu próprio retângulo, e tente prever o resultado antes de rodar.
+
+A segunda extensão é o **difference array**, que é o Prefix Sum de cabeça para baixo. Em vez de consultas rápidas sobre um array parado, ele dá **atualizações rápidas** em intervalos:
+
+```python
+d = [0] * (n + 1)
+
+def somar(i, j, v):     # soma v em todo nums[i..j], em O(1)
+    d[i] += v
+    d[j + 1] -= v
+
+# no fim, o array final é o prefixo de d
+final = list(accumulate(d))[:n]
+```
+
+Com `n = 5`, começando tudo em zero: `somar(1, 3, 5)` e depois `somar(0, 2, 3)` deixam `d` valendo `[3, 5, 0, -3, -5, 0]`. O prefixo de `d` é `[3, 8, 8, 5, 0]`, que é exatamente o resultado das duas operações aplicadas uma a uma. Duas atualizações em O(1) cada, mais uma passada O(n) no final, no lugar de duas varreduras.
+
+O `d[j + 1] -= v` é o motivo de `d` ter `n + 1` posições: é a sentinela da outra ponta, para o `j` na última casa não estourar o array. A leitura de `d` é "aqui começa um degrau de +v, e ali ele termina", e o prefixo no fim é só descer a escada.
+
+Juntando tudo o que a página ensinou, a tabela de consulta fica assim:
+
+| Variação | Montar | Consultar | Espaço extra |
+| --- | --- | --- | --- |
+| Prefix Sum 1D | O(n) | O(1) | O(n), ou O(1) in-place |
+| Prefix Sum 2D | O(linhas × colunas) | O(1), sempre 4 leituras | O(linhas × colunas) |
+| Difference array | O(1) por atualização | O(n) uma vez, no fim | O(n) |
+| Prefixo + hash (LC 560) | tudo numa passada O(n) | conta durante, não consulta | O(n) |
+| Fenwick Tree ou segment tree | O(n) | O(log n), e **aceita atualização** | O(n) |
+
+A última linha é a saída para o caso que o Prefix Sum não cobre, e vale guardar o nome: quando o array muda entre as consultas, o O(1) sai de cena e o melhor que se consegue é O(log n) para as duas operações.
+
+## As armadilhas que pegam todo mundo
+
+**Misturar as duas fórmulas.** Com sentinela é `p[j+1] - p[i]`. Sem sentinela é `p[j] - p[i-1]`, com `if`. As duas estão certas, a mistura das duas não. Escolha uma e escreva no comentário se `j` é inclusivo, porque metade dos bugs de off-by-one em prefixo nascem aí.
+
+**Assumir que o array não muda.** Prefix Sum vale para entrada **imutável**. Se `nums[k]` mudar, toda a tabela da posição `k` em diante fica errada e refazer custa O(n). Quando o problema mistura atualizações e consultas, a técnica certa é outra: **Fenwick Tree** (BIT) ou **segment tree**, que fazem as duas coisas em O(log n). O nome do LeetCode 303 entrega isso de propósito: "Range Sum Query, **Immutable**".
+
+**Inicializar a resposta com zero quando há negativos.** Isso aconteceu ao vivo no encontro: no problema da maior média, `melhor = 0` fazia a solução falhar num array com todos os valores negativos, porque nenhuma média conseguia superar o zero. O certo é `float("-inf")`.
+
+**Esperar que a tabela seja crescente.** Ela só é crescente se todos os valores forem positivos. Com negativos ela sobe e desce, e isso está certo. Quem depende de a tabela ser ordenada (para fazer busca binária nela, por exemplo) precisa checar essa hipótese antes.
+
+**Overflow, fora do Python.** A soma total de um array grande estoura um inteiro de 32 bits com facilidade: 100.000 elementos de até 10⁹ dão 10¹⁴, muito acima do teto de 2,1 bilhões. Em C#, Java, Go ou C++, o tipo do prefixo tem que ser de 64 bits, mesmo que os elementos caibam em 32.
+
+**Montar a tabela por reflexo.** Antes de escrever o `p = [0] * (n + 1)`, responda duas perguntas: quantas consultas vão chegar, e elas andam para frente? Se a resposta for "uma" ou "sim", provavelmente existe uma solução mais simples e mais barata em memória.
+
+**Os quatro casos de borda que derrubam a submissão.** Rode cada um deles de cabeça antes de clicar em Submit, são 30 segundos e pegam quase todo bug de índice:
+
+- **Array vazio.** A tabela vira `p = [0]`, com uma posição só, e nenhuma consulta é válida. Nada quebra desde que o código não leia `nums[0]` antes do laço, que é o erro da versão "começa com o primeiro elemento e depois soma" em vez da versão com sentinela.
+- **Um elemento só.** `p = [0, nums[0]]` e `soma(0, 0) = p[1] - p[0]`. É aqui que a fórmula sem sentinela (`p[j] - p[i-1]`) tenta ler `p[-1]`, e em Python isso é pior que um erro: `p[-1]` existe, é a última posição, e você recebe um número errado em silêncio.
+- **`k` maior que `n`** em problemas de janela fixa. Não existe subarray de tamanho `k`, e um laço `for i in range(k - 1, n)` simplesmente não roda. Se a resposta foi inicializada com `float("-inf")`, você devolve `-inf`; se foi com `0`, devolve `0`. Nenhum dos dois é certo por natureza, quem decide é o enunciado.
+- **Todos os elementos iguais a `v`.** A tabela vira a progressão `0, v, 2v, 3v...` e qualquer intervalo de tamanho `L` tem que dar `L × v`. É o teste mais rápido do mundo para caçar off-by-one: se `soma(0, 0)` não devolver `v`, o seu índice está deslocado de uma casa.
+
+## Como praticar
+
+Antes de ir para o LeetCode, use os visualizadores desta página para **prever** o resultado. Abra o primeiro e responda de cabeça, antes de clicar:
+
+- Um array de um elemento só, com `i = j = 0`. Quantas somas no pré-processamento? Quanto dá a consulta?
+- Um array com todos os valores iguais a 7. Como fica a tabela de prefixos?
+- Um array todo negativo. A tabela cresce ou diminui? A fórmula ainda funciona?
+- `j` na última posição. Qual índice da tabela é lido?
+
+Depois clique em **Sortear** umas cinco vezes e, a cada uma, diga o resultado da consulta **antes** de rodar o passo a passo. Quando acertar cinco seguidas, a fórmula parou de ser decoreba.
+
+No visualizador da matriz, o exercício é o mesmo com uma pergunta a mais: escolha um retângulo qualquer com dois cliques e responda **quais quatro células da tabela** vão acender, e com que sinal, antes de clicar em Rodar. Se você consegue apontar as quatro, você entendeu inclusão e exclusão.
+
+Depois, os problemas na ordem em que eles constroem a técnica: comece pelo **303**, que é literalmente a classe do encontro; siga para o **724**, o ponto de equilíbrio, que é onde entra o `direita = total - esquerda`; o **643** é onde você vai sentir na pele a diferença entre prefixo e janela; o **2270** é o mesmo par esquerda/direita, agora contando cortes; o **304** fecha a extensão 2D com as quatro leituras; e o **560** é a versão com hash, o pulo do gato para arrays com negativos.
+
+<Callout>
+Uma leitura que ajuda a fixar: os cinco primeiros são o mesmo `p[j+1] - p[i]` vestido de roupas diferentes. Se num deles você travar, volte ao visualizador desta página, monte a entrada do enunciado na mão e veja quais duas células você precisaria ler. Quase sempre o problema não é a técnica, é o índice.
+</Callout>
+
+Uma dica de estudo que saiu no fim do encontro e vale para o roadmap inteiro: se num problema fácil você passar mais de 10 minutos sem sequer identificar a técnica, vá para o editorial e estude a solução. O tempo rende muito mais fechando o buraco de conhecimento do que insistindo. E, de tempos em tempos, refaça um problema fácil de cada técnica só para o padrão continuar fresco na cabeça.
+
+Daqui, os vizinhos naturais: [Sliding Window](/topico/sliding-window), quando o acesso é linear e dá para economizar memória; [Two Pointers](/topico/two-pointers), o outro jeito de trocar um laço aninhado por uma varredura; [Tabelas Hash](/topico/hash-table), para a versão com negativos; e [Big O](/topico/big-o), se a conta de "quando compensa pré-processar" ainda parecer abstrata. Vale também revisitar [subarray, substring, subsequence e subset](/topico/subarray-substring-subsequence-subset): Prefix Sum só resolve o que é **contíguo**.
