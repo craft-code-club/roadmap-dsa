@@ -131,7 +131,7 @@ function gerarPassos(paredes: boolean[][], modo: Modo): Passo[] {
     ok,
   });
 
-  const nomeModo = modo === "astar" ? "A*" : modo === "dijkstra" ? "Dijkstra" : "guloso";
+  const nomeModo = modo === "astar" ? "A*" : modo === "dijkstra" ? "Dijkstra" : "Guloso";
   out.push(snap(INICIO, `${nomeModo}: começo na origem. ${
     modo === "dijkstra"
       ? "A prioridade é só o custo já pago (g). O algoritmo não sabe onde fica o alvo, então explora igualmente em todas as direções."
@@ -240,7 +240,7 @@ export function AStarVisualizer() {
       <div className="viz-head">
         <div className="viz-head-title">
           <span className="dot" />
-          <span>Visualizador · A*, Dijkstra e guloso no mesmo mapa</span>
+          <span>Visualizador · A*, Dijkstra e Guloso no mesmo mapa</span>
         </div>
         <div className="viz-head-right">
           <span className="viz-step">{p.fechados.length} expandidas · passo {idx + 1} de {total}</span>
@@ -314,7 +314,7 @@ export function AStarVisualizer() {
             <div className="viz-vars-head">No mapa atual</div>
             {comparacao.map((c) => (
               <div className="viz-var" key={c.modo}>
-                <span className="viz-var-name">{c.modo === "astar" ? "A*" : c.modo === "dijkstra" ? "Dijkstra" : "guloso"}</span>
+                <span className="viz-var-name">{c.modo === "astar" ? "A*" : c.modo === "dijkstra" ? "Dijkstra" : "Guloso"}</span>
                 <span className={`viz-var-val${c.modo === modo ? " best" : ""}`}>
                   {c.expandidas} células · custo {c.custo ?? "-"}
                 </span>
