@@ -410,6 +410,30 @@ test("todo visualizador com passos tem controles que funcionam", async ({ page }
   expect(naoAvanca, "visualizadores cujos controles não avançam o passo").toEqual([]);
 });
 
+// Regressão: um bloco de CSS foi parar DEPOIS da seção responsiva do
+// globals.css, então o override de `.gr-split` para uma coluna era vencido por
+// ordem de cascata e o segundo painel colapsava para 0px no celular. Não havia
+// overflow (as colunas usam minmax(0, ...) e encolhem), então o teste de
+// overflow passava enquanto metade do visualizador sumia da tela.
+test("no celular, nenhum painel de visualizador colapsa", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const colapsados: string[] = [];
+
+  for (const t of TOPICOS_PRONTOS) {
+    await page.goto(`/topico/${t.slug}/`);
+    const paineis = await page
+      .locator("article figure.viz .gr-painel, article figure.viz .tt-painel")
+      .evaluateAll((els) =>
+        els.map((e) => ({ cls: e.className, w: Math.round(e.getBoundingClientRect().width) }))
+      );
+    for (const p of paineis) {
+      if (p.w < 80) colapsados.push(`${t.slug}: .${p.cls.split(" ")[0]} com ${p.w}px`);
+    }
+  }
+
+  expect(colapsados, "painéis que sumiram da tela no celular").toEqual([]);
+});
+
 test("nenhuma página de tópico rola na horizontal no celular", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const t of TOPICOS_PRONTOS) {

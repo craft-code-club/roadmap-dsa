@@ -1276,6 +1276,93 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .foot-text { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .foot-links { display: flex; align-items: center; gap: 16px; }
 
+/* ---- Árvores n-árias: nó com rótulo largo (nome de arquivo, tag do DOM) ---- */
+.na-no rect { fill: #0f1826; stroke: rgba(255, 255, 255, 0.14); stroke-width: 1.5; transition: fill 0.18s ease, stroke 0.18s ease; }
+.na-no text { font-family: var(--mono); font-size: 11px; fill: #8ba0bb; transition: fill 0.18s ease; }
+.na-no.aux rect { stroke: rgba(251, 191, 36, 0.6); fill: rgba(251, 191, 36, 0.12); }
+.na-no.aux text { fill: #fcd34d; }
+.na-no.saiu rect { fill: rgba(52, 211, 153, 0.2); stroke: rgba(52, 211, 153, 0.55); }
+.na-no.saiu text { fill: #d1fae5; }
+.na-no.on rect { fill: rgba(59, 130, 246, 0.5); stroke: var(--ccc-accent); stroke-width: 2.5; }
+.na-no.on text { fill: #fff; font-weight: 600; }
+/* O chip de "em ordem?" é uma pergunta, não um modo: fica em âmbar para não
+   parecer uma quarta opção válida ao lado das três que existem de verdade. */
+.bigo-chip.na { border-color: rgba(251, 191, 36, 0.4); color: #fcd34d; }
+.bigo-chip.na.on { border-color: rgba(251, 191, 36, 0.8); background: rgba(251, 191, 36, 0.16); }
+/* BST: o caminho da busca fica âmbar; o nó em foco, azul. */
+.bst-no.caminho circle { fill: rgba(251, 191, 36, 0.18); stroke: rgba(251, 191, 36, 0.6); }
+.bst-no.caminho text { fill: #fcd34d; }
+/* ---- Grafos: representação (matriz x lista de adjacência) ---- */
+.gr-split { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.gr-painel { min-width: 0; padding: 12px 14px; border: 1px solid var(--ccc-line); border-radius: 12px; background: var(--ccc-panel); overflow-x: auto; }
+.gr-matriz { border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+.gr-matriz th { padding: 3px 6px; font-weight: 600; color: var(--ccc-muted); }
+.gr-matriz tbody th { cursor: default; }
+.gr-matriz tr.on th, .gr-matriz tr.on td .gr-cel { border-color: rgba(59, 130, 246, 0.45); }
+.gr-matriz tr.on th { color: var(--ccc-accent-2); }
+.gr-matriz td { padding: 2px; }
+.gr-cel { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; background: #0f1826; color: #4c5f79; font: inherit; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.gr-cel:hover:not(:disabled) { border-color: rgba(59, 130, 246, 0.5); }
+.gr-cel.on { border-color: rgba(59, 130, 246, 0.6); background: rgba(59, 130, 246, 0.28); color: #fff; font-weight: 600; }
+.gr-cel.diag { background: transparent; border-style: dashed; opacity: 0.35; cursor: not-allowed; }
+.gr-lista { display: flex; flex-direction: column; gap: 6px; }
+.gr-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 8px; }
+.gr-linha.on { background: rgba(59, 130, 246, 0.12); }
+.gr-linha-no { display: grid; place-items: center; width: 26px; height: 26px; border: 1.5px solid rgba(59, 130, 246, 0.5); border-radius: 7px; font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: #93bbfd; }
+.gr-seta { font-family: var(--mono); font-size: 12px; color: #4c5f79; }
+.gr-viz-item { padding: 3px 9px; border: 1px solid var(--ccc-line); border-radius: 99px; background: #0f1826; font-family: var(--mono); font-size: 12px; color: #cbd9ea; }
+/* Grafo: aresta em uso no passo atual, distância ao lado do vértice */
+.tt-aresta.ativa { stroke: rgba(251, 191, 36, 0.9); stroke-width: 2.5; }
+.gr-dist { font-family: var(--mono); font-size: 10.5px; fill: #fcd34d; font-weight: 600; }
+.gr-dists { display: flex; flex-wrap: wrap; gap: 6px; }
+.gr-dist-item { position: relative; display: grid; place-items: center; min-width: 32px; height: 34px; padding: 8px 5px 0; border: 1.5px solid rgba(52, 211, 153, 0.35); border-radius: 8px; background: rgba(52, 211, 153, 0.08); font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: #a7f3d0; }
+.gr-dist-item i { position: absolute; top: 1px; left: 0; right: 0; font-style: normal; font-size: 9px; text-align: center; color: #4c5f79; }
+.gr-dist-item.off { border-color: rgba(255,255,255,0.1); background: #0f1826; color: #4c5f79; }
+/* Peso da aresta; negativo em vermelho para o preset que quebra o Dijkstra */
+.gr-peso { font-family: var(--mono); font-size: 11px; font-weight: 600; fill: #9db1c9; paint-order: stroke; stroke: #0d1420; stroke-width: 3px; stroke-linejoin: round; }
+.gr-peso.neg { fill: #fca5a5; }
+.gr-dist-item.fechado { border-color: rgba(59, 130, 246, 0.6); background: rgba(59, 130, 246, 0.18); color: #dbeafe; }
+/* Bellman-Ford: aresta que prova ciclo negativo, e a tabela de rodadas */
+.tt-aresta.erro { stroke: #f87171; stroke-width: 3; }
+.bf-tab td { padding: 3px 7px; text-align: center; font-family: var(--mono); font-size: 12px; color: #8ba0bb; }
+.bf-tab td.inf { color: #4c5f79; }
+.bf-tab td.mudou { background: rgba(52, 211, 153, 0.16); color: #a7f3d0; font-weight: 600; border-radius: 5px; }
+.bf-tab tr.on th, .bf-tab tr.on td { color: #dbeafe; }
+.bf-tab tbody th { padding: 3px 8px; font-family: var(--mono); font-size: 11px; color: var(--ccc-muted); text-align: right; }
+/* ---- A*: a grade e os estados de cada célula ---- */
+.as-cel rect { fill: #0f1826; stroke: rgba(255, 255, 255, 0.06); stroke-width: 1; transition: fill 0.15s ease; }
+.as-cel text { font-family: var(--mono); font-size: 11px; font-weight: 700; fill: #fff; }
+.as-cel.parede rect { fill: #243146; stroke: rgba(255, 255, 255, 0.12); }
+.as-cel.fronteira rect { fill: rgba(251, 191, 36, 0.28); }
+.as-cel.fechado rect { fill: rgba(59, 130, 246, 0.3); }
+.as-cel.atual rect { fill: rgba(59, 130, 246, 0.85); }
+.as-cel.caminho rect { fill: rgba(52, 211, 153, 0.65); }
+.as-cel.inicio rect { fill: rgba(167, 139, 250, 0.75); }
+.as-cel.alvo rect { fill: rgba(248, 113, 113, 0.75); }
+.as-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 12px; font-size: 11.5px; color: var(--ccc-muted); }
+.as-legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.as-i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.as-i.fechado { background: rgba(59, 130, 246, 0.3); }
+.as-i.fronteira { background: rgba(251, 191, 36, 0.28); }
+.as-i.caminho { background: rgba(52, 211, 153, 0.65); }
+.as-i.parede { background: #243146; }
+/* Ordenação topológica: rótulo curto em cima, grau de entrada embaixo */
+.topo-no text { font-size: 10.5px; }
+.topo-no .topo-grau { font-size: 10px; fill: #fcd34d; font-weight: 700; }
+.topo-no.saiu .topo-grau { fill: var(--ccc-green); }
+/* MST: aresta escolhida, recusada, e a lista de arestas por peso */
+.tt-aresta.mst { stroke: rgba(52, 211, 153, 0.9); stroke-width: 3; }
+.tt-aresta.rejeitada { stroke: rgba(248, 113, 113, 0.35); stroke-dasharray: 4 4; }
+.mst-no circle { transition: fill 0.18s ease, stroke 0.18s ease; stroke-width: 2; }
+.mst-no text { fill: #fff; }
+.mst-lista { display: flex; flex-wrap: wrap; gap: 6px; }
+.mst-item { padding: 4px 9px; border: 1px solid var(--ccc-line); border-radius: 7px; background: #0f1826; font-family: var(--mono); font-size: 12px; color: #8ba0bb; }
+.mst-item b { color: #cbd9ea; }
+.mst-item.ok { border-color: rgba(52, 211, 153, 0.6); background: rgba(52, 211, 153, 0.14); color: #a7f3d0; }
+.mst-item.ok b { color: #d1fae5; }
+.mst-item.rej { border-color: rgba(248, 113, 113, 0.35); color: #61748c; text-decoration: line-through; }
+
+
 /* ------------------------------ responsive ------------------------------ */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
@@ -1327,91 +1414,3 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .prevnext { flex-direction: column; }
   .topic-done { flex-direction: column; align-items: flex-start; }
 }
-
-/* ---- Árvores n-árias: nó com rótulo largo (nome de arquivo, tag do DOM) ---- */
-.na-no rect { fill: #0f1826; stroke: rgba(255, 255, 255, 0.14); stroke-width: 1.5; transition: fill 0.18s ease, stroke 0.18s ease; }
-.na-no text { font-family: var(--mono); font-size: 11px; fill: #8ba0bb; transition: fill 0.18s ease; }
-.na-no.aux rect { stroke: rgba(251, 191, 36, 0.6); fill: rgba(251, 191, 36, 0.12); }
-.na-no.aux text { fill: #fcd34d; }
-.na-no.saiu rect { fill: rgba(52, 211, 153, 0.2); stroke: rgba(52, 211, 153, 0.55); }
-.na-no.saiu text { fill: #d1fae5; }
-.na-no.on rect { fill: rgba(59, 130, 246, 0.5); stroke: var(--ccc-accent); stroke-width: 2.5; }
-.na-no.on text { fill: #fff; font-weight: 600; }
-/* O chip de "em ordem?" é uma pergunta, não um modo: fica em âmbar para não
-   parecer uma quarta opção válida ao lado das três que existem de verdade. */
-.bigo-chip.na { border-color: rgba(251, 191, 36, 0.4); color: #fcd34d; }
-.bigo-chip.na.on { border-color: rgba(251, 191, 36, 0.8); background: rgba(251, 191, 36, 0.16); }
-/* BST: o caminho da busca fica âmbar; o nó em foco, azul. */
-.bst-no.caminho circle { fill: rgba(251, 191, 36, 0.18); stroke: rgba(251, 191, 36, 0.6); }
-.bst-no.caminho text { fill: #fcd34d; }
-
-/* ---- Grafos: representação (matriz x lista de adjacência) ---- */
-.gr-split { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 12px; align-items: start; }
-.gr-painel { min-width: 0; padding: 12px 14px; border: 1px solid var(--ccc-line); border-radius: 12px; background: var(--ccc-panel); overflow-x: auto; }
-.gr-matriz { border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
-.gr-matriz th { padding: 3px 6px; font-weight: 600; color: var(--ccc-muted); }
-.gr-matriz tbody th { cursor: default; }
-.gr-matriz tr.on th, .gr-matriz tr.on td .gr-cel { border-color: rgba(59, 130, 246, 0.45); }
-.gr-matriz tr.on th { color: var(--ccc-accent-2); }
-.gr-matriz td { padding: 2px; }
-.gr-cel { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; background: #0f1826; color: #4c5f79; font: inherit; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
-.gr-cel:hover:not(:disabled) { border-color: rgba(59, 130, 246, 0.5); }
-.gr-cel.on { border-color: rgba(59, 130, 246, 0.6); background: rgba(59, 130, 246, 0.28); color: #fff; font-weight: 600; }
-.gr-cel.diag { background: transparent; border-style: dashed; opacity: 0.35; cursor: not-allowed; }
-.gr-lista { display: flex; flex-direction: column; gap: 6px; }
-.gr-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 8px; }
-.gr-linha.on { background: rgba(59, 130, 246, 0.12); }
-.gr-linha-no { display: grid; place-items: center; width: 26px; height: 26px; border: 1.5px solid rgba(59, 130, 246, 0.5); border-radius: 7px; font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: #93bbfd; }
-.gr-seta { font-family: var(--mono); font-size: 12px; color: #4c5f79; }
-.gr-viz-item { padding: 3px 9px; border: 1px solid var(--ccc-line); border-radius: 99px; background: #0f1826; font-family: var(--mono); font-size: 12px; color: #cbd9ea; }
-/* Grafo: aresta em uso no passo atual, distância ao lado do vértice */
-.tt-aresta.ativa { stroke: rgba(251, 191, 36, 0.9); stroke-width: 2.5; }
-.gr-dist { font-family: var(--mono); font-size: 10.5px; fill: #fcd34d; font-weight: 600; }
-.gr-dists { display: flex; flex-wrap: wrap; gap: 6px; }
-.gr-dist-item { position: relative; display: grid; place-items: center; min-width: 32px; height: 34px; padding: 8px 5px 0; border: 1.5px solid rgba(52, 211, 153, 0.35); border-radius: 8px; background: rgba(52, 211, 153, 0.08); font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: #a7f3d0; }
-.gr-dist-item i { position: absolute; top: 1px; left: 0; right: 0; font-style: normal; font-size: 9px; text-align: center; color: #4c5f79; }
-.gr-dist-item.off { border-color: rgba(255,255,255,0.1); background: #0f1826; color: #4c5f79; }
-/* Peso da aresta; negativo em vermelho para o preset que quebra o Dijkstra */
-.gr-peso { font-family: var(--mono); font-size: 11px; font-weight: 600; fill: #9db1c9; paint-order: stroke; stroke: #0d1420; stroke-width: 3px; stroke-linejoin: round; }
-.gr-peso.neg { fill: #fca5a5; }
-.gr-dist-item.fechado { border-color: rgba(59, 130, 246, 0.6); background: rgba(59, 130, 246, 0.18); color: #dbeafe; }
-/* Bellman-Ford: aresta que prova ciclo negativo, e a tabela de rodadas */
-.tt-aresta.erro { stroke: #f87171; stroke-width: 3; }
-.bf-tab td { padding: 3px 7px; text-align: center; font-family: var(--mono); font-size: 12px; color: #8ba0bb; }
-.bf-tab td.inf { color: #4c5f79; }
-.bf-tab td.mudou { background: rgba(52, 211, 153, 0.16); color: #a7f3d0; font-weight: 600; border-radius: 5px; }
-.bf-tab tr.on th, .bf-tab tr.on td { color: #dbeafe; }
-.bf-tab tbody th { padding: 3px 8px; font-family: var(--mono); font-size: 11px; color: var(--ccc-muted); text-align: right; }
-
-/* ---- A*: a grade e os estados de cada célula ---- */
-.as-cel rect { fill: #0f1826; stroke: rgba(255, 255, 255, 0.06); stroke-width: 1; transition: fill 0.15s ease; }
-.as-cel text { font-family: var(--mono); font-size: 11px; font-weight: 700; fill: #fff; }
-.as-cel.parede rect { fill: #243146; stroke: rgba(255, 255, 255, 0.12); }
-.as-cel.fronteira rect { fill: rgba(251, 191, 36, 0.28); }
-.as-cel.fechado rect { fill: rgba(59, 130, 246, 0.3); }
-.as-cel.atual rect { fill: rgba(59, 130, 246, 0.85); }
-.as-cel.caminho rect { fill: rgba(52, 211, 153, 0.65); }
-.as-cel.inicio rect { fill: rgba(167, 139, 250, 0.75); }
-.as-cel.alvo rect { fill: rgba(248, 113, 113, 0.75); }
-.as-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 12px; font-size: 11.5px; color: var(--ccc-muted); }
-.as-legenda span { display: inline-flex; align-items: center; gap: 6px; }
-.as-i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
-.as-i.fechado { background: rgba(59, 130, 246, 0.3); }
-.as-i.fronteira { background: rgba(251, 191, 36, 0.28); }
-.as-i.caminho { background: rgba(52, 211, 153, 0.65); }
-.as-i.parede { background: #243146; }
-/* Ordenação topológica: rótulo curto em cima, grau de entrada embaixo */
-.topo-no text { font-size: 10.5px; }
-.topo-no .topo-grau { font-size: 10px; fill: #fcd34d; font-weight: 700; }
-.topo-no.saiu .topo-grau { fill: var(--ccc-green); }
-/* MST: aresta escolhida, recusada, e a lista de arestas por peso */
-.tt-aresta.mst { stroke: rgba(52, 211, 153, 0.9); stroke-width: 3; }
-.tt-aresta.rejeitada { stroke: rgba(248, 113, 113, 0.35); stroke-dasharray: 4 4; }
-.mst-no circle { transition: fill 0.18s ease, stroke 0.18s ease; stroke-width: 2; }
-.mst-no text { fill: #fff; }
-.mst-lista { display: flex; flex-wrap: wrap; gap: 6px; }
-.mst-item { padding: 4px 9px; border: 1px solid var(--ccc-line); border-radius: 7px; background: #0f1826; font-family: var(--mono); font-size: 12px; color: #8ba0bb; }
-.mst-item b { color: #cbd9ea; }
-.mst-item.ok { border-color: rgba(52, 211, 153, 0.6); background: rgba(52, 211, 153, 0.14); color: #a7f3d0; }
-.mst-item.ok b { color: #d1fae5; }
-.mst-item.rej { border-color: rgba(248, 113, 113, 0.35); color: #61748c; text-decoration: line-through; }
