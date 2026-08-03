@@ -18,7 +18,7 @@ test("nav do topo abre o roadmap e um tópico", async ({ page }) => {
 });
 
 test("página de tópico traz vídeo e problemas com links externos certos", async ({ page }) => {
-  await page.goto("/topico/sliding-window-fixed/");
+  await page.goto("/topico/sliding-window/");
   await expect(page.locator("iframe")).toHaveCount(1);
   const problema = page.getByRole("link", { name: /Maximum Average Subarray I/ }).first();
   await expect(problema).toHaveAttribute("href", /leetcode\.com/);
@@ -59,6 +59,23 @@ test("Two Pointers é uma página completa com visualizador e problemas", async 
   await expect(page.getByRole("link", { name: /Two Sum II/ }).first()).toHaveAttribute("href", /leetcode\.com/);
 });
 
+test("Sliding Window reúne janela fixa e variável na mesma página", async ({ page }) => {
+  await page.goto("/topico/sliding-window/");
+  await expect(page.getByRole("heading", { level: 1, name: "Sliding Window" })).toBeVisible();
+  // um visualizador para cada variação, com o preset certo
+  await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(2);
+  await expect(page.getByText("maior soma de uma janela de tamanho k")).toBeVisible();
+  await expect(page.getByText("maior subarray com soma ≤ k")).toBeVisible();
+  // as duas instâncias têm estado próprio: avançar uma não mexe na outra
+  const passos = page.locator(".viz-step");
+  await page.getByRole("button", { name: /Próximo/ }).first().click();
+  await expect(passos.first()).toContainText("passo 2 de");
+  await expect(passos.nth(1)).toContainText("passo 1 de");
+  // os problemas das duas variações convivem na mesma lista
+  await expect(page.getByRole("link", { name: /Maximum Average Subarray I/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Minimum Size Subarray Sum/ }).first()).toBeVisible();
+});
+
 test("Big O traz o gráfico de crescimento, o contador de operações e a tabela de famílias", async ({ page }) => {
   await page.goto("/topico/big-o/");
   // gráfico: o canvas existe e o marcador reage ao chip de uma família
@@ -72,14 +89,14 @@ test("Big O traz o gráfico de crescimento, o contador de operações e a tabela
 });
 
 test("marcar um tópico como concluído persiste na sessão", async ({ page }) => {
-  await page.goto("/topico/sliding-window-fixed/");
+  await page.goto("/topico/sliding-window/");
   // Há dois botões de concluir (topo e fim da página); ambos alternam juntos.
   await page.getByRole("button", { name: "Marcar como concluído" }).first().click();
   await expect(page.getByRole("button", { name: "✓ Concluído" }).first()).toBeVisible();
 });
 
 test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) => {
-  await page.goto("/topico/sliding-window-fixed/");
+  await page.goto("/topico/sliding-window/");
   const toc = page.locator(".toc-links a").first();
   await expect(toc).toHaveAttribute("href", /^#.+/);
   // a âncora precisa existir na página (id no título correspondente)

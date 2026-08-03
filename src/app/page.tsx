@@ -18,7 +18,7 @@ const FEATURES = [
 export default function Home() {
   const stats = [
     { n: `${TOTAL_TOPICS}`, rot: "tópicos no roadmap" },
-    { n: `${TOTAL_VISUALIZERS}`, rot: "visualizadores interativos" },
+    { n: `${TOTAL_VISUALIZERS}`, rot: "tópicos com visualização" },
     { n: `${TOTAL_PROBLEMS}`, rot: "problemas selecionados" },
     { n: "Gratuito", rot: "para sempre" },
   ];
