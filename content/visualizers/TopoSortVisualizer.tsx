@@ -111,7 +111,9 @@ function gerarPassos(arestas: [number, number][]): Passo[] {
   while (fila.length && guarda++ < 300) {
     const u = fila.shift() as number;
     ordem.push(u);
-    // linha 10 = `u = fila.popleft()`, que é a ação que a nota descreve primeiro.
+    // `linha` é ÍNDICE em CODIGO (0-based); o painel numera a partir de 1. O 10
+    // aqui é `u = fila.popleft()`, que aparece como linha 11 na tela e é a ação
+    // que a nota descreve primeiro.
     out.push(snap(u, 10, `Tiro ${ROT[u]} da fila: o grau de entrada dele é zero, então nenhum pré-requisito está pendente. Ele entra na ordem final na posição ${ordem.length}.`));
 
     for (const v of adj[u]) {
