@@ -76,7 +76,7 @@ function alturaDe(on: boolean[], i: number): number {
 // transforma o veredito em aprendizado: dizer "não é completa" não ensina nada,
 // dizer "o índice 5 está vazio e o 6 está ocupado" ensina.
 function classificar(on: boolean[]) {
-  const ativos = [];
+  const ativos: number[] = [];
   for (let i = 0; i < TAM; i++) if (on[i]) ativos.push(i);
   const n = ativos.length;
 
