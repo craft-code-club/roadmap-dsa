@@ -30,7 +30,11 @@ type Passo = {
   linha: number;
   comparacoes: number;
   fim?: boolean;
-  achou?: boolean;
+  // `ok` é o estado terminal BOM do passo, não "o valor existe". No modo
+  // entraria a operação sempre tem sucesso, mesmo com o alvo ausente, porque a
+  // resposta dela é a posição de inserção. Quem diz se o valor existe é o texto
+  // da nota. É o mesmo nome que os visualizadores de heap usam para este campo.
+  ok?: boolean;
   nota: string;
 };
 
@@ -159,7 +163,7 @@ function gerarPassos(nums: number[], alvo: number, modo: Modo): Passo[] {
   if (modo === "entraria") {
     const existe = nums[esq] === alvo;
     out.push({
-      esq, dir, meio: null, anotado, comparacoes, linha: 8, fim: true, achou: true,
+      esq, dir, meio: null, anotado, comparacoes, linha: 8, fim: true, ok: true,
       nota: `O intervalo esvaziou e a esquerda parou em ${esq}. ${
         existe
           ? `Como nums[${esq}] é ${alvo}, essa é a posição da primeira ocorrência.`
@@ -170,7 +174,7 @@ function gerarPassos(nums: number[], alvo: number, modo: Modo): Passo[] {
   }
 
   out.push({
-    esq, dir, meio: null, anotado, comparacoes, linha: 11, fim: true, achou: anotado >= 0,
+    esq, dir, meio: null, anotado, comparacoes, linha: 11, fim: true, ok: anotado >= 0,
     nota:
       anotado >= 0
         ? `Fim: a ${LADO[modo]} de ${alvo} está na posição ${anotado}, encontrada em ${comparacoes} comparações. Uma varredura linear daria a mesma resposta em até ${nums.length} passos.`
@@ -344,7 +348,7 @@ export function BuscaBinariaFronteira() {
           ))}
         </div>
 
-        <p className={"viz-note" + (p.fim ? (p.achou ? " ok" : " invalid") : "")}>{p.nota}</p>
+        <p className={"viz-note" + (p.fim ? (p.ok ? " ok" : " invalid") : "")}>{p.nota}</p>
 
         <div className="viz-split">
           <div className="viz-code">
