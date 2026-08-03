@@ -1,0 +1,186 @@
+<Callout>
+Array dá acesso instantâneo por índice, mas inserir no meio custa deslocar tudo. Lista encadeada insere de graça, mas achar alguma coisa custa varrer tudo. As duas operações que você mais faz, buscar e inserir, puxam para lados opostos. A árvore binária é a estrutura que tenta ficar boa nas duas ao mesmo tempo, e o preço é uma condição que quase todo material esquece de dizer em voz alta: **ela só cumpre a promessa se a forma dela for boa**. Este tópico é sobre a forma.
+</Callout>
+
+## Por que existe uma estrutura hierárquica
+
+Vale começar pelo problema, porque a árvore não nasce de vontade de complicar. Olhe o que você já tem:
+
+| Estrutura | Buscar um valor | Inserir no meio |
+| --- | --- | --- |
+| Array | O(n), ou O(log n) se ordenado | O(n), desloca a massa de dados |
+| Lista encadeada | O(n) | O(1), se você já está no lugar |
+| Árvore binária de busca | O(h) | O(h) |
+
+O array ordenado consegue busca binária em O(log n), mas o preço de manter ordenado é altíssimo: cada inserção empurra metade dos elementos. A lista encadeada inverte: inserir é trocar dois ponteiros, mas ela não tem índice, então buscar é sempre varrer.
+
+A árvore compra as duas coisas com o mesmo mecanismo. Ela mantém a ordem como o array ordenado mantém, mas o "deslocar a massa de dados" vira "trocar um ponteiro", como na lista. O `h` da tabela é a altura da árvore, e o tópico inteiro gira em torno de quanto esse `h` vale.
+
+<Callout>
+Uma árvore é um caso particular de grafo: conexo, sem ciclo, com um nó de entrada. A restrição é o que dá poder. Num grafo qualquer, um nó pode apontar para qualquer outro, inclusive para trás; numa árvore, cada nó tem exatamente um pai (menos a raiz) e nunca existe caminho de volta. É por isso que percorrer uma árvore não precisa marcar visitados e percorrer um [grafo](/topico/grafos-intro) precisa.
+</Callout>
+
+## O vocabulário, de uma vez
+
+Estes termos aparecem em todo enunciado de entrevista, então vale fixar agora:
+
+<Colunas>
+<Cartao titulo="Sobre os nós">
+**Raiz**: o único sem pai, e o ponto de entrada.
+**Folha**: nó sem filho. Também chamado de nó externo.
+**Nó interno**: qualquer um que tenha ao menos um filho.
+**Irmãos**: nós que compartilham o mesmo pai.
+**Grau**: quantos filhos um nó tem. Numa árvore binária, 0, 1 ou 2.
+</Cartao>
+
+<Cartao titulo="Sobre as distâncias">
+**Profundidade** de um nó: quantas arestas dele até a raiz. A raiz tem profundidade 0.
+**Altura** de um nó: quantas arestas até a folha mais distante abaixo dele. Folha tem altura 0.
+**Altura da árvore**: a altura da raiz.
+**Nível**: o conjunto de nós com a mesma profundidade.
+**Subárvore**: qualquer nó com tudo que pende dele.
+</Cartao>
+</Colunas>
+
+<Callout tipo="aviso">
+**Profundidade e altura andam em sentidos opostos, e as duas convenções existem.** Profundidade conta de cima para baixo, altura conta de baixo para cima. Pior: metade da literatura conta altura em **arestas** (folha tem altura 0) e a outra metade conta em **níveis** (folha tem altura 1). As duas estão certas, e as fórmulas mudam junto. Aqui e no visualizador, altura é **número de níveis**: uma árvore de um nó só tem altura 1. Numa entrevista, diga qual convenção você está usando antes de escrever a fórmula.
+</Callout>
+
+## O nó, e a definição que se define a si mesma
+
+Em código, a estrutura é minúscula:
+
+```python
+class No:
+    def __init__(self, valor):
+        self.valor = valor
+        self.esq = None
+        self.dir = None
+```
+
+Três campos. O que faz a árvore não é o nó, é a definição recursiva que ele carrega: **uma árvore binária é ou vazia, ou um nó com duas árvores binárias penduradas nele**.
+
+Essa frase é a razão de quase toda operação sobre árvore ser recursiva de três linhas. Contar nós, por exemplo, é a definição transcrita:
+
+```python
+def conta(no):
+    if no is None:
+        return 0
+    return 1 + conta(no.esq) + conta(no.dir)
+```
+
+E a altura é a mesma coisa com `max` no lugar de `+`:
+
+```python
+def altura(no):
+    if no is None:
+        return 0
+    return 1 + max(altura(no.esq), altura(no.dir))
+```
+
+Repare que as duas são [pós-ordem](/topico/tree-traversals): o resultado do pai depende dos dois filhos, então o pai só é resolvido depois deles. Sempre que a resposta de um nó é função das respostas dos filhos, o percurso é pós-ordem, e você já sabe escrever a função antes de pensar nela.
+
+<Callout>
+Uma observação que vale como lente: uma árvore em que todo nó tem um filho só é, na prática, uma lista encadeada. A árvore não é melhor que a lista por ser árvore; ela é melhor **quando ramifica**. Sem ramificação, você pagou o custo de dois ponteiros por nó para ter exatamente o desempenho de uma lista.
+</Callout>
+
+## Os cinco formatos
+
+Aqui está a parte que costuma virar decoreba e não precisa. São cinco palavras, e cada uma responde uma pergunta diferente sobre a forma:
+
+<Colunas>
+<Cartao titulo="Cheia (full)">
+Todo nó tem **0 ou 2 filhos**. Não existe nó com exatamente um filho. Não diz nada sobre níveis.
+</Cartao>
+
+<Cartao titulo="Perfeita (perfect)">
+Cheia **e** todas as folhas no mesmo nível. É a árvore mais compacta possível: nível k tem exatamente 2^k nós.
+</Cartao>
+
+<Cartao titulo="Completa (complete)">
+Todos os níveis cheios, **menos possivelmente o último**, que é preenchido da esquerda para a direita sem buraco. É a forma da heap.
+</Cartao>
+
+<Cartao titulo="Balanceada (balanced)">
+Em **todo** nó, as alturas das duas subárvores diferem em no máximo 1. É a condição que garante altura O(log n).
+</Cartao>
+</Colunas>
+
+E a quinta, que é o pesadelo: **degenerada**, quando nenhum nó tem dois filhos. É a lista encadeada de novo.
+
+As definições parecem próximas, e a intuição erra bastante ao combiná-las. O visualizador abaixo existe justamente para você parar de acreditar em mim e ir conferir:
+
+<BinaryTreeFormatos />
+
+Comece pelos botões e leia o motivo de cada "não". Depois monte na mão, clicando nas posições, e persiga estes casos:
+
+- **Cheia mas não completa**: ligue 0, 1, 2, 5, 6. Todo nó tem 0 ou 2 filhos, mas o último nível pula posições. Cheia não implica completa.
+- **Completa mas não cheia**: ligue 0, 1, 2, 3, 4, 5. Sem buraco nenhum, mas o nó 2 ficou com um filho só. Completa não implica cheia.
+- **Balanceada mas nem cheia nem completa**: ligue 0, 1, 2, 3, 6. As três definições são realmente independentes.
+- **Um nó sozinho**: ligue só o 0. Ele é cheio, perfeito, completo, balanceado **e** degenerado ao mesmo tempo. Não é bug: as cinco definições são satisfeitas por vacuidade, e casos de borda assim são exatamente o que quebra código escrito às pressas.
+
+A única implicação que vale de verdade é uma: **perfeita implica completa e cheia**. Todas as outras setas que a intuição desenha estão erradas.
+
+## A conta que amarra tudo
+
+Duas fórmulas explicam por que árvore é interessante. Num nível k (com a raiz no nível 0) cabem no máximo **2^k** nós, porque cada nível dobra. Somando os níveis de uma árvore com h níveis:
+
+```
+1 + 2 + 4 + ... + 2^(h-1) = 2^h - 1 nós
+```
+
+Invertendo: com n nós, a **menor altura possível** é `log₂(n + 1)`, arredondado para cima. Um milhão de nós cabe em 20 níveis. Um bilhão, em 30.
+
+Esse é o número que faz a estrutura valer a pena, e é dele que sai o O(log n) da busca: se cada passo desce um nível e a árvore tem 20 níveis, a busca custa 20 comparações em vez de um milhão.
+
+<Callout tipo="aviso">
+A fórmula diz **menor altura possível**, não altura. A mesma árvore de um milhão de nós pode ter altura um milhão se você inserir em ordem crescente numa BST sem balanceamento. Compare sempre os dois números no painel do visualizador: "altura" contra "altura mínima possível". A distância entre eles é o desperdício, e mantê-la em zero é o trabalho inteiro das árvores balanceadas.
+</Callout>
+
+## A árvore que mora num array
+
+Existe um segundo jeito de guardar árvore binária, sem ponteiro nenhum. Ponha a raiz no índice 0 e use aritmética:
+
+```
+filho esquerdo de i   ->  2i + 1
+filho direito de i    ->  2i + 2
+pai de i              ->  (i - 1) // 2
+```
+
+O painel de array do visualizador mostra isso ao vivo: clique num nó e veja em que índice ele cai. Não há ponteiro guardado em lugar nenhum; a estrutura é implícita, ela vive na conta.
+
+As vantagens são reais: zero memória com ponteiros, e todos os nós contíguos, o que agrada muito o cache do processador (é o mesmo argumento que faz array ganhar de lista na prática, discutido em [Arrays e Listas](/topico/arrays)).
+
+A desvantagem é o que os buracos mostram. Numa árvore degenerada de 20 nós, o nó mais fundo cai no índice 2^19, então você reserva meio milhão de posições para guardar 20 valores. Por isso a regra é simples:
+
+- **Árvore completa** (ou quase): use array. É exatamente o caso da **heap**, e é por isso que ela é implementada assim.
+- **Forma qualquer**: use ponteiros.
+
+## A forma decide o custo
+
+Fechando o círculo: a promessa lá do começo, buscar e inserir em O(h), só é boa se `h` for pequeno.
+
+| Forma | Altura com n nós | Busca numa BST |
+| --- | --- | --- |
+| Perfeita ou balanceada | ~log₂ n | O(log n) |
+| Degenerada | n | O(n) |
+
+Com um milhão de nós, isso é a diferença entre 20 e 1.000.000 de passos. Não é uma constante: é a diferença entre a estrutura funcionar e ela ser uma lista encadeada cara.
+
+O detalhe cruel é que a degeneração não vem de código errado. Ela vem de dado ordenado, que é o caso mais comum do mundo real: inserir 1, 2, 3, 4, 5 numa BST sem balanceamento produz uma linha reta. Foi para resolver isso que apareceram AVL e rubro-negra, que rebalanceiam a cada inserção, e a [Skip List](/topico/skip-list), que resolve o mesmo problema por sorteio em vez de rotação.
+
+<Callout>
+O contraste com a heap vale guardar. A heap também é uma árvore binária, mas ela **não** é de busca: a invariante dela é só entre pai e filho (o pai é sempre maior, ou sempre menor), e não da esquerda para a direita. Por isso ela consegue manter a forma completa de graça, e por isso ela serve para achar o mínimo rápido, mas não para buscar um valor qualquer.
+</Callout>
+
+## Como praticar
+
+Comece pelas duas funções recursivas deste artigo, porque elas são o esqueleto de metade dos problemas de árvore: **Maximum Depth of Binary Tree** é a `altura` que você já escreveu, e **Count Complete Tree Nodes** é a `conta`, com uma otimização que usa exatamente a fórmula 2^h - 1.
+
+Depois vá para as que cobram a forma: **Balanced Binary Tree** pede a definição de balanceada em todo nó, e a solução ingênua recalcula altura demais (é O(n²)); a boa devolve altura e veredito na mesma passada, em pós-ordem. **Diameter of Binary Tree** é o mesmo truque: o caminho mais longo pode não passar pela raiz, então cada nó precisa devolver duas coisas ao pai.
+
+Por fim, **Invert Binary Tree** é o clássico de três linhas que mostra como a definição recursiva faz o trabalho, e **Same Tree** é o passo para comparar duas árvores ao mesmo tempo.
+
+A pergunta que resolve a maioria: "a resposta deste nó depende dos filhos?". Se sim, escreva pós-ordem e devolva ao pai tudo que ele vai precisar, num único retorno. Recalcular por cima é o que transforma O(n) em O(n²).
+
+O próximo passo natural é a [Árvore de Busca Binária](/topico/bst), que acrescenta a invariante de ordem e transforma essa estrutura numa ferramenta de busca de verdade. Se você ainda não viu como andar pela árvore, [Percursos em Árvore](/topico/tree-traversals) vem antes, e as [Árvores N-árias](/topico/n-ary-trees) generalizam a mesma ideia para qualquer número de filhos.

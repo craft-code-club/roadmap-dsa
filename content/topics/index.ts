@@ -14,6 +14,17 @@ import SubTypes from "./subarray-substring-subsequence-subset.mdx";
 import Strings from "./strings.mdx";
 import HashTable from "./hash-table.mdx";
 import Recursao from "./recursao.mdx";
+import TreeTraversals from "./tree-traversals.mdx";
+import ArvoresBinarias from "./arvores-binarias.mdx";
+import NAryTrees from "./n-ary-trees.mdx";
+import Bst from "./bst.mdx";
+import GrafosIntro from "./grafos-intro.mdx";
+import DfsBfs from "./dfs-bfs.mdx";
+import Dijkstra from "./dijkstra.mdx";
+import BellmanFord from "./bellman-ford.mdx";
+import AStar from "./a-star.mdx";
+import TopoSort from "./topological-sort.mdx";
+import Mst from "./mst.mdx";
 
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
@@ -237,6 +248,151 @@ export const ARTICLES: Record<string, Article> = {
       "Como reconhecer que é janela deslizante",
       "Complexidade",
       "As armadilhas",
+      "Como praticar",
+    ],
+  },
+  "tree-traversals": {
+    Body: TreeTraversals,
+    summary: [
+      "Duas famílias, uma decisão",
+      "Uma árvore, quatro respostas",
+      "O truque das três visitas",
+      "O template: uma linha muda tudo",
+      "Pré-ordem: quando o pai precisa existir antes do filho",
+      "Em ordem: o percurso que ordena",
+      "Pós-ordem: quando o pai depende dos filhos",
+      "BFS: quando o que importa é a distância",
+      "O custo: por que o espaço não é o mesmo",
+      "Como praticar",
+    ],
+  },
+  "arvores-binarias": {
+    Body: ArvoresBinarias,
+    summary: [
+      "Por que existe uma estrutura hierárquica",
+      "O vocabulário, de uma vez",
+      "O nó, e a definição que se define a si mesma",
+      "Os cinco formatos",
+      "A conta que amarra tudo",
+      "A árvore que mora num array",
+      "A forma decide o custo",
+      "Como praticar",
+    ],
+  },
+  "n-ary-trees": {
+    Body: NAryTrees,
+    summary: [
+      "Quando dois filhos não bastam",
+      "O nó muda: de dois ponteiros para uma lista",
+      "O template sobrevive, o laço muda",
+      "Em ordem morre aqui",
+      "O grau achata a árvore",
+      "Por que o banco de dados usa grau alto",
+      "O truque do primeiro filho e do irmão",
+      "Onde você já usa isso",
+      "Como praticar",
+    ],
+  },
+  "bst": {
+    Body: Bst,
+    summary: [
+      "A invariante, e o que ela compra",
+      "Buscar e inserir são o mesmo passeio",
+      "Em ordem devolve a ordem",
+      "Remover: os três casos",
+      "A letra miúda: dado ordenado destrói a árvore",
+      "Balanceamento: as três saídas",
+      "A armadilha de validar uma BST",
+      "BST ou tabela hash?",
+      "Como praticar",
+    ],
+  },
+  "grafos-intro": {
+    Body: GrafosIntro,
+    summary: [
+      "O que é, em duas palavras",
+      "Guardar o grafo: as duas formas",
+      "Qual escolher, e por quê",
+      "O grafo que você não desenhou",
+      "Onde ficam os ciclos, e por que isso importa",
+      "Como praticar",
+    ],
+  },
+  "dfs-bfs": {
+    Body: DfsBfs,
+    summary: [
+      "A única linha nova",
+      "Pilha ou fila, e o que muda",
+      "Por que o BFS acha o caminho mais curto",
+      "Onde cada um brilha",
+      "Detectar ciclo: onde os dois divergem",
+      "Um percurso não cobre o grafo",
+      "Complexidade e memória",
+      "Como praticar",
+    ],
+  },
+  "dijkstra": {
+    Body: Dijkstra,
+    summary: [
+      "O que muda quando a aresta tem peso",
+      "Relaxar: o verbo do algoritmo",
+      "Por que fechar o menor é seguro",
+      "O dia em que a hipótese cai",
+      "O detalhe do `continue`",
+      "Complexidade",
+      "Reconstruir o caminho, e não só o custo",
+      "Onde isso aparece de verdade",
+      "Como praticar",
+    ],
+  },
+  "bellman-ford": {
+    Body: BellmanFord,
+    summary: [
+      "Quando o peso pode ser negativo",
+      "A ideia: insistir em vez de escolher",
+      "De onde sai o V-1",
+      "A rodada que sobra",
+      "Dijkstra ou Bellman-Ford",
+      "Duas otimizações honestas",
+      "Como praticar",
+    ],
+  },
+  "a-star": {
+    Body: AStar,
+    summary: [
+      "O problema do Dijkstra num mapa",
+      "As duas parcelas",
+      "Admissível: a condição que garante o ótimo",
+      "Escolhendo o h",
+      "O código, e o que muda em relação ao Dijkstra",
+      "A honestidade sobre o ganho",
+      "Onde aparece",
+      "Como praticar",
+    ],
+  },
+  "topological-sort": {
+    Body: TopoSort,
+    summary: [
+      "O problema, e a condição para ele ter solução",
+      "Kahn: remover quem não depende de ninguém",
+      "A detecção de ciclo vem de graça",
+      "A outra saída: DFS com pós-ordem",
+      "Um bônus do Kahn: quantos passos em paralelo",
+      "Onde isso já está rodando",
+      "Como praticar",
+    ],
+  },
+  "mst": {
+    Body: Mst,
+    summary: [
+      "O que é uma árvore geradora",
+      "A propriedade do corte, que faz o guloso funcionar",
+      "Kruskal: ordene as arestas e vá colando",
+      "O union-find, em duas linhas de ideia",
+      "Prim: faça a árvore crescer",
+      "Kruskal ou Prim",
+      "O que a MST não faz",
+      "Onde aparece",
       "Como praticar",
     ],
   },

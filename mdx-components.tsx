@@ -45,6 +45,17 @@ import { QueueDequeMonotonico } from "@content/visualizers/QueueDequeMonotonico"
 import { TailRecursionVisualizer } from "@content/visualizers/TailRecursionVisualizer";
 import { TailRecursionForma } from "@content/visualizers/TailRecursionForma";
 import { TailRecursionTrampolim } from "@content/visualizers/TailRecursionTrampolim";
+import { TreeTraversalVisualizer } from "@content/visualizers/TreeTraversalVisualizer";
+import { BinaryTreeFormatos } from "@content/visualizers/BinaryTreeFormatos";
+import { NAryTreeVisualizer } from "@content/visualizers/NAryTreeVisualizer";
+import { BSTVisualizer } from "@content/visualizers/BSTVisualizer";
+import { GrafoRepresentacao } from "@content/visualizers/GrafoRepresentacao";
+import { GrafoDfsBfs } from "@content/visualizers/GrafoDfsBfs";
+import { DijkstraVisualizer } from "@content/visualizers/DijkstraVisualizer";
+import { BellmanFordVisualizer } from "@content/visualizers/BellmanFordVisualizer";
+import { AStarVisualizer } from "@content/visualizers/AStarVisualizer";
+import { TopoSortVisualizer } from "@content/visualizers/TopoSortVisualizer";
+import { MstVisualizer } from "@content/visualizers/MstVisualizer";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -200,6 +211,17 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     TailRecursionVisualizer,
     TailRecursionForma,
     TailRecursionTrampolim,
+    TreeTraversalVisualizer,
+    BinaryTreeFormatos,
+    NAryTreeVisualizer,
+    BSTVisualizer,
+    GrafoRepresentacao,
+    GrafoDfsBfs,
+    DijkstraVisualizer,
+    BellmanFordVisualizer,
+    AStarVisualizer,
+    TopoSortVisualizer,
+    MstVisualizer,
     ...components,
   };
 }
