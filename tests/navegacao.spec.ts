@@ -290,6 +290,9 @@ const TOPICOS_PRONTOS = [
   { slug: "a-star", h1: "A* (A Estrela)", vizMin: 1 },
   { slug: "topological-sort", h1: "Ordenação Topológica", vizMin: 1 },
   { slug: "mst", h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
+  { slug: "binary-heap", h1: "Binary Heap", vizMin: 2 },
+  { slug: "heap-sort", h1: "Heap Sort", vizMin: 2 },
+  { slug: "busca-binaria", h1: "Busca Binária", vizMin: 3 },
 ];
 
 for (const t of TOPICOS_PRONTOS) {
@@ -377,6 +380,166 @@ test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
   expect(numeros[0]).toBe(numeros[1]);
 });
 
+test("heap: inserir, remover e construir contam trabalho diferente sobre os mesmos dados", async ({ page }) => {
+  await page.goto("/topico/binary-heap/");
+  const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
+  const irAteOFim = async () => {
+    const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    for (let i = 0; i < 120 && (await proximo.isEnabled()); i++) await proximo.click();
+  };
+  // O texto do card é rótulo + valor concatenados ("trocas16"), então a regex
+  // ancorada casa só o card certo e evita depender da ordem no DOM.
+  const trocas = async () => {
+    const txt = await viz.locator(".bigo-stat").filter({ hasText: /^trocas\d/ }).textContent();
+    return parseInt((txt ?? "").replace(/\D+/g, ""), 10);
+  };
+
+  // Os MESMOS nove valores: em ordem crescente o min-heap não move ninguém,
+  // ao contrário todo valor que chega vira o novo mínimo e sobe até a raiz.
+  await viz.getByRole("button", { name: /Chegando em ordem/ }).click();
+  await irAteOFim();
+  expect(await trocas()).toBe(0);
+
+  await viz.getByRole("button", { name: /Chegando ao contrário/ }).click();
+  await irAteOFim();
+  expect(await trocas()).toBe(16);
+
+  // E o max-heap inverte exatamente os papéis, o que prova que o custo vem da
+  // ordem de chegada e não dos dados.
+  await viz.getByRole("button", { name: "max-heap" }).click();
+  await irAteOFim();
+  expect(await trocas()).toBe(0);
+});
+
+test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ page }) => {
+  await page.goto("/topico/binary-heap/");
+  const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
+  await viz.getByRole("button", { name: "remover o topo" }).click();
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  // asserção web-first: reconsulta até a saída completa aparecer
+  await expect(viz.locator(".tt-saida-item")).toHaveText(["1", "2", "3", "4", "5", "6"]);
+});
+
+test("índices do heap: clicar num nó acende pai e filhos com as contas certas", async ({ page }) => {
+  await page.goto("/topico/binary-heap/");
+  // a tabela de escolha de estrutura é estática e não entra na contagem de viz
+  await expect(page.locator("article figure.bigo-fam")).toHaveCount(1);
+  const viz = page.locator("figure.viz").filter({ hasText: "clique num nó e veja de onde saem pai e filhos" });
+
+  // O mesmo índice é clicável no array e na árvore, com o mesmo aria-label, então
+  // o locator precisa ser escopado para não casar os dois de uma vez.
+  await viz.locator(".hp-arr").getByRole("button", { name: "Índice 4, valor" }).click();
+  await expect(viz.locator(".hp-formula-conta").first()).toHaveText("(4 - 1) // 2 = 1");
+  await expect(viz.locator(".hp-formula-conta").nth(1)).toHaveText("2 x 4 + 1 = 9");
+  // clicar no array acende a árvore: um foco, um pai e os dois filhos de 4
+  await expect(viz.locator("svg .tt-no.on")).toHaveCount(1);
+  await expect(viz.locator("svg .tt-no.aux")).toHaveCount(1);
+  await expect(viz.locator("svg .tt-no.filho")).toHaveCount(2);
+
+  // e o caminho inverso: clicar no nó da árvore refaz as contas
+  await viz.locator("svg").getByRole("button", { name: "Índice 2, valor" }).click();
+  await expect(viz.locator(".hp-formula-conta").first()).toHaveText("(2 - 1) // 2 = 0");
+
+  // trocar k muda as fórmulas de verdade, não só o rótulo: o "2" delas é o
+  // número de filhos por nó, e com k = 3 o índice 2 passa a ter filho em 7
+  await viz.getByRole("button", { name: "3", exact: true }).click();
+  await expect(viz.locator(".hp-formula-conta").first()).toHaveText("(2 - 1) // 3 = 0");
+  await expect(viz.locator(".hp-formula-conta").nth(1)).toHaveText("3 x 2 + 1 = 7");
+  await expect(viz.locator(".hp-formula-conta")).toHaveCount(4); // pai + 3 filhos
+});
+
+test("heap sort: a fronteira anda e o array sai ordenado", async ({ page }) => {
+  await page.goto("/topico/heap-sort/");
+  const viz = page.locator("figure.viz").filter({ hasText: "heap sort: duas fases no mesmo array" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  // no fim, toda posição está congelada e na ordem crescente
+  await expect(viz.locator(".hp-cel.fixo")).toHaveCount(10);
+  // cada célula concatena índice e valor: posição 0 com o valor 1 lê "01"
+  await expect(viz.locator(".hp-arr .hp-cel")).toHaveText([
+    "01", "12", "23", "34", "45", "56", "67", "78", "89", "910",
+  ]);
+});
+
+test("heap sort é instável: os empates saem fora da ordem de entrada", async ({ page }) => {
+  await page.goto("/topico/heap-sort/");
+  const viz = page.locator("figure.viz").filter({ hasText: "significa na prática" });
+  const nomes = (fila: number) =>
+    viz.locator(".hs-fila").nth(fila).locator(".hp-cel.reg em");
+
+  // preset padrão: entrada em ordem alfabética, reordenada por idade
+  await expect(nomes(0)).toHaveText(["Ana", "Bia", "Caio", "Davi", "Enzo", "Fran"]);
+  // o estável mantém os nomes alfabéticos dentro de cada idade
+  await expect(nomes(1)).toHaveText(["Davi", "Fran", "Ana", "Caio", "Bia", "Enzo"]);
+  // o heap sort inverte os três pares empatados
+  await expect(nomes(2)).toHaveText(["Fran", "Davi", "Caio", "Ana", "Enzo", "Bia"]);
+  await expect(viz.locator(".hp-cel.reg.inverteu")).toHaveCount(6);
+
+  // a tabela comparativa é estática (figure.bigo-fam), então não conta como
+  // figure.viz e precisa de asserção própria
+  await expect(page.locator("article figure.bigo-fam")).toHaveCount(1);
+  await expect(page.getByText("Heap sort ao lado dos vizinhos de prateleira")).toBeVisible();
+});
+
+test("busca binária: descarta metade por passo e para no ponto de inserção", async ({ page }) => {
+  await page.goto("/topico/busca-binaria/");
+  const viz = page.locator("figure.viz").filter({ hasText: "metade some a cada olhada" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const irAteOFim = async () => {
+    for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+  };
+
+  // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear
+  await irAteOFim();
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
+  await expect(stat(/^comparações até aqui\d/)).toContainText("3");
+  await expect(stat(/^busca linear gastaria\d/)).toContainText("5");
+
+  // dobrar o array de 8 para 16 acrescenta UMA comparação, não dobra o trabalho
+  await viz.getByRole("button", { name: /16 posições/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações até aqui\d/)).toContainText("4");
+});
+
+test("busca binária: a fórmula ingênua do meio estoura o inteiro de 32 bits", async ({ page }) => {
+  await page.goto("/topico/busca-binaria/");
+  const viz = page.locator("figure.viz").filter({ hasText: "as duas formas de achar o meio" });
+
+  // com índices pequenos as duas fórmulas concordam, que é o motivo de o bug passar
+  await viz.getByRole("button", { name: /Índices de um array de exemplo/ }).click();
+  await expect(viz.locator(".viz-step")).toHaveText("as duas concordam");
+  await expect(viz.locator(".bb-bit.sinal")).not.toHaveClass(/\bon\b/);
+
+  // com índices grandes e válidos, a soma dá a volta e o meio vira negativo
+  await viz.getByRole("button", { name: /Alguns passos depois/ }).click();
+  await expect(viz.locator(".viz-step")).toHaveText("as duas discordam");
+  await expect(viz.locator(".bb-bit.sinal")).toHaveClass(/\bon\b/);
+  await expect(viz.locator(".bb-formula").first().locator("li b").last()).toContainText("-397.483.648");
+  await expect(viz.locator(".bb-formula").nth(1).locator("li b").last()).toContainText("1.750.000.000");
+});
+
+test("fronteira: a mesma busca devolve primeira, última e ponto de inserção", async ({ page }) => {
+  await page.goto("/topico/busca-binaria/");
+  const viz = page.locator("figure.viz").filter({ hasText: "repetidos, bordas e a posição de inserção" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const resposta = async (rot: RegExp) => {
+    for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    return viz.locator(".bigo-stat").filter({ hasText: rot });
+  };
+
+  // [1, 3, 3, 3, 5, 8, 8, 11, 14] procurando 3: bloco nas posições 1, 2 e 3
+  await expect(await resposta(/^primeira ocorrência/)).toContainText("1");
+  await viz.getByRole("button", { name: "última ocorrência" }).click();
+  await expect(await resposta(/^última ocorrência/)).toContainText("3");
+
+  // um valor ausente: a busca falha, mas a posição de inserção sai de graça
+  await viz.getByRole("button", { name: "onde entraria" }).click();
+  await viz.getByRole("button", { name: /não existe: 7/ }).click();
+  await expect(await resposta(/^onde o valor entraria/)).toContainText("5");
+  await expect(viz.locator(".bigo-stat").filter({ hasText: /^retorno do Java se falhar/ })).toContainText("-6");
+});
+
 // Regressão: cinco visualizadores foram parar num PR com o estado de animação
 // completo (passo, tocando, velocidade) e SEM os controles renderizados, então o
 // aluno ficava preso no passo 1 sem nenhum aviso. Os testes de contrato não
@@ -427,7 +590,11 @@ test("no celular, nenhum painel de visualizador colapsa", async ({ page }) => {
   for (const t of TOPICOS_PRONTOS) {
     await page.goto(`/topico/${t.slug}/`);
     const paineis = await page
-      .locator("article figure.viz .gr-painel, article figure.viz .tt-painel")
+      .locator(
+        "article figure.viz .gr-painel, article figure.viz .tt-painel, " +
+          "article figure.viz .hp-bloco, article figure.viz .hs-fila, " +
+          "article figure.viz .bb-formula, article figure.viz .hp-formula"
+      )
       .evaluateAll((els) =>
         els.map((e) => ({ cls: e.className, w: Math.round(e.getBoundingClientRect().width) }))
       );
