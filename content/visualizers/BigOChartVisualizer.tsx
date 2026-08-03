@@ -287,6 +287,25 @@ export function BigOChartVisualizer() {
     setMarcadorPct(Math.min(1, Math.max(0.001, pct)));
   };
 
+  // O marcador também anda pelo teclado: o canvas é um slider ao longo do eixo
+  // n, então setas andam de pouco em pouco, PageUp/PageDown de muito em muito e
+  // Home/End vão para as pontas.
+  const aoTeclar = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const passos: Record<string, number> = {
+      ArrowLeft: -0.02, ArrowRight: 0.02, ArrowDown: -0.02, ArrowUp: 0.02,
+      PageDown: -0.1, PageUp: 0.1,
+    };
+    if (e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      setMarcadorPct(e.key === "Home" ? 0.001 : 1);
+      return;
+    }
+    const d = passos[e.key];
+    if (d === undefined) return;
+    e.preventDefault();
+    setMarcadorPct((p) => Math.min(1, Math.max(0.001, p + d)));
+  };
+
   // Capturar o ponteiro mantém o arrasto vivo mesmo com o cursor saindo do
   // canvas. É um extra: se o navegador recusar o id, o arrasto normal segue
   // funcionando, então a falha é engolida de propósito.
@@ -344,9 +363,18 @@ export function BigOChartVisualizer() {
             ref={canvasRef}
             className="bigo-canvas"
             style={{ height: altura }}
+            role="slider"
+            tabIndex={0}
+            aria-label="Marcador do gráfico de crescimento: escolhe o tamanho da entrada lido nas curvas"
+            aria-valuemin={1}
+            aria-valuemax={nMax}
+            aria-valuenow={nMarcador}
+            aria-valuetext={`n igual a ${num(nMarcador)}, ${leitura.map((l) => `${l.valor} operações em ${l.rotulo}`).join(", ")}`}
+            onKeyDown={aoTeclar}
             onPointerDown={(e) => { moverMarcador(e); capturar(e); }}
             onPointerMove={(e) => { if (e.buttons === 1) moverMarcador(e); }}
             onPointerUp={soltar}
+            onPointerCancel={soltar}
           />
         </div>
 
@@ -358,7 +386,7 @@ export function BigOChartVisualizer() {
               <strong style={{ color: l.cor }}>{l.valor}</strong> operações em {l.rotulo}
             </span>
           ))}
-          . Arraste sobre o gráfico para mover o marcador.
+          . Arraste sobre o gráfico, ou use as setas do teclado, para mover o marcador.
         </p>
 
         <div className="bigo-grid">
