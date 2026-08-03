@@ -68,7 +68,9 @@ export function HeapIndicesVisualizer() {
 
   const arr = useMemo(() => construir(n, k), [n, k]);
 
-  // Encolher o array (ou aumentar k) pode deixar a seleção fora do heap.
+  // Só encolher o array tira a seleção do intervalo válido: os índices vão de 0 a
+  // n - 1 seja qual for o k. Trocar k muda quem é pai e quem é filho, nunca
+  // quantas posições existem.
   useEffect(() => {
     if (sel >= n) setSel(Math.max(0, n - 1));
   }, [n, sel]);
