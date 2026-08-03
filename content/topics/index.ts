@@ -25,6 +25,9 @@ import BellmanFord from "./bellman-ford.mdx";
 import AStar from "./a-star.mdx";
 import TopoSort from "./topological-sort.mdx";
 import Mst from "./mst.mdx";
+import BinaryHeap from "./binary-heap.mdx";
+import HeapSort from "./heap-sort.mdx";
+import BuscaBinaria from "./busca-binaria.mdx";
 
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
@@ -394,6 +397,42 @@ export const ARTICLES: Record<string, Article> = {
       "O que a MST não faz",
       "Onde aparece",
       "Como praticar",
+    ],
+  },
+  "binary-heap": {
+    Body: BinaryHeap,
+    summary: [
+      "A pergunta que o heap responde",
+      "A regra, e o que ela não promete",
+      "A árvore que mora dentro de um array",
+      "Subir e descer: as duas únicas operações",
+      "Construir um heap de uma vez custa O(n)",
+      "Onde o heap já está rodando no seu código",
+      "As armadilhas",
+    ],
+  },
+  "heap-sort": {
+    Body: HeapSort,
+    summary: [
+      "Ordenar é remover o topo n vezes",
+      "Fase 1: virar o array num max-heap",
+      "Fase 2: a fronteira que anda para trás",
+      "Por que max-heap para ordenar crescente",
+      "A conta: n log n no melhor e no pior caso",
+      "In-place e instável",
+      "Heap sort, merge sort ou quick sort",
+    ],
+  },
+  "busca-binaria": {
+    Body: BuscaBinaria,
+    summary: [
+      "Cortar o problema pela metade",
+      "O contrato: sem ordem, não existe busca binária",
+      "O algoritmo, e as três decisões de cada passo",
+      "O bug do meio, que sobreviveu uma década no Java",
+      "Quando não acha, a resposta ainda serve",
+      "Busca binária sem array",
+      "As armadilhas",
     ],
   },
 };
