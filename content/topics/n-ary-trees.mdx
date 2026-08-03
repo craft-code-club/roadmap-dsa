@@ -1,0 +1,186 @@
+<Callout>
+A árvore binária é uma escolha de projeto, não uma lei da natureza. Nada no mundo diz que um nó tem dois filhos: uma pasta tem quantos arquivos couberem, um elemento HTML tem quantos filhos o autor escreveu, uma categoria de e-commerce tem quantas subcategorias o time criou. A árvore n-ária é a versão sem essa restrição, e a boa notícia é que quase tudo que você aprendeu continua valendo. A má notícia é que uma coisa morre no caminho, e é justamente ela que ensina o que a restrição estava fazendo ali.
+</Callout>
+
+## Quando dois filhos não bastam
+
+Se você abrir o navegador agora e olhar a página, está olhando uma árvore n-ária. O `<body>` tem quantos filhos o HTML declarou; a `<ul>` tem uma `<li>` por item da lista. Nenhum limite de dois.
+
+A mesma forma aparece em todo lugar assim que você para de procurar por "árvore":
+
+- **Sistema de arquivos**: uma pasta contém arquivos e outras pastas, sem limite.
+- **JSON e XML**: objeto com n chaves, elemento com n filhos.
+- **Categorias e menus**: hierarquia de departamentos, organograma, comentários aninhados.
+- **Índices de banco de dados**: a B-tree, que é n-ária de propósito, e a última seção explica por quê.
+
+Todas essas estruturas são hierárquicas, sem ciclo, com um ponto de entrada. São árvores. Só não são binárias.
+
+## O nó muda: de dois ponteiros para uma lista
+
+A mudança na estrutura é pequena. A [árvore binária](/topico/arvores-binarias) tem dois campos fixos:
+
+```python
+class NoBinario:
+    def __init__(self, valor):
+        self.valor = valor
+        self.esq = None
+        self.dir = None
+```
+
+A n-ária troca os dois por uma coleção:
+
+```python
+class No:
+    def __init__(self, valor):
+        self.valor = valor
+        self.filhos = []       # zero, um, ou quantos forem
+```
+
+É só isso. E note o que se ganha e o que se perde: você ganha grau arbitrário, e perde a **posição** como informação. Em `esq` e `dir`, o nome do campo já dizia alguma coisa (numa BST, "menor" e "maior"). Numa lista, `filhos[0]` e `filhos[1]` são só o primeiro e o segundo, e qualquer significado precisa ser convencionado por você.
+
+<Callout>
+O **grau** de um nó é quantos filhos ele tem, e o grau da árvore é o maior grau entre os nós. Uma árvore binária é o caso grau máximo 2. Quando o grau é fixo e conhecido, às vezes se diz árvore **k-ária**, e aí `filhos` pode ser um array de tamanho k com buracos, em vez de uma lista que cresce.
+</Callout>
+
+## O template sobrevive, o laço muda
+
+Aqui está a parte tranquilizadora. Todo o [percurso em profundidade](/topico/tree-traversals) que você já escreveu continua valendo, com uma substituição mecânica: onde havia duas chamadas, agora há um `for`.
+
+<Colunas>
+<Cartao titulo="Binária">
+```python
+def percorre(no):
+    if no is None:
+        return
+    processa(no)
+    percorre(no.esq)
+    percorre(no.dir)
+```
+</Cartao>
+
+<Cartao titulo="N-ária">
+```python
+def percorre(no):
+    if no is None:
+        return
+    processa(no)
+    for filho in no.filhos:
+        percorre(filho)
+```
+</Cartao>
+</Colunas>
+
+Pré-ordem continua sendo "processa antes de descer". Pós-ordem continua sendo "processa depois que todos os filhos voltaram", e é ainda mais natural aqui: o `processa(no)` fica **depois** do `for`, e a leitura é literal.
+
+O BFS também não muda de ideia, só de laço:
+
+```python
+def por_nivel(raiz):
+    fila = deque([raiz])
+    while fila:
+        no = fila.popleft()
+        processa(no)
+        for filho in no.filhos:      # era: if no.esq / if no.dir
+            fila.append(filho)
+```
+
+<NAryTreeVisualizer />
+
+Rode em **pré-ordem** e acompanhe a pilha: ela continua limitada pela **altura**, não pelo grau. Um nó com dez filhos não põe dez quadros na pilha; ele põe um por vez, e o `for` guarda a posição. Depois troque para a **árvore de diretórios** e rode em **pós-ordem**: a saída é exatamente a ordem em que você teria que apagar as coisas, arquivos antes da pasta que os contém.
+
+Agora compare o BFS na árvore de diretórios com o DFS: no BFS a fila chega a segurar mais nós que a pilha do DFS jamais segurou. Esse é o mesmo trade-off da árvore binária, e ele piora com o grau: quanto mais filhos por nó, mais larga a árvore, maior a fila.
+
+## Em ordem morre aqui
+
+Este é o detalhe que ensina mais do que parece. Dos quatro percursos, **em ordem não generaliza**.
+
+A definição é "subárvore esquerda, o nó, subárvore direita". Ela depende de existir exatamente **dois** lados, com o nó no meio. Com três filhos, onde o nó entra? Depois do primeiro? Depois do segundo? No meio de qual par? Não existe resposta canônica, então o percurso simplesmente não é definido para grau maior que 2.
+
+Clique no chip **"Em ordem?"** do visualizador para ver isso dito na tela.
+
+<Callout tipo="aviso">
+Isso não é uma limitação chata, é uma pista. Em ordem existia na árvore binária porque a estrutura tinha uma **posição do meio**, e era exatamente essa posição que a [BST](/topico/bst) usava para guardar ordem. Quando você abre o grau, perde a posição do meio e perde a ordem total de graça junto. A B-tree recupera isso guardando as chaves **dentro** do nó, ordenadas, e intercalando filhos entre elas. Ou seja: ela não desiste da ordem, ela paga por ela de outro jeito.
+</Callout>
+
+Pré e pós sobrevivem porque as definições delas não falam de posição: "antes de todos os filhos" e "depois de todos os filhos" continuam fazendo sentido com qualquer grau, inclusive zero.
+
+## O grau achata a árvore
+
+Agora a razão pela qual alguém escolheria grau alto de propósito. Numa árvore de grau k, cada nível multiplica o número de nós por k, então a altura mínima para guardar n nós é o **logaritmo na base k**:
+
+```
+altura ≈ log_k(n)
+```
+
+E logaritmo de base grande é pequeno. A tabela dentro do visualizador mostra um milhão de nós:
+
+| Grau | Altura | Comparações no total |
+| --- | --- | --- |
+| 2 | 20 | ~20 |
+| 4 | 11 | ~22 |
+| 16 | 6 | ~24 |
+| 256 | 4 | ~32 |
+
+Olhe as duas colunas juntas, porque a segunda é a que quase todo material esquece. A altura despenca de 20 para 4, mas o total de comparações **não melhora**: fica em torno de 20 a 32. Faz sentido, e a conta explica: você tem `log_k(n)` níveis, e dentro de cada nó precisa achar entre k filhos, o que custa `log₂(k)` com busca binária. Multiplicando, `log_k(n) × log₂(k) = log₂(n)`. É o mesmo trabalho, redistribuído.
+
+Então grau alto não te dá nada? Dá, e muito, quando **ler um nó é caro**.
+
+## Por que o banco de dados usa grau alto
+
+Numa árvore binária guardada em disco, cada nível é um acesso a disco. Vinte níveis, vinte idas ao disco, e uma ida ao disco custa entre dez mil e um milhão de vezes uma comparação na memória. Nesse cenário, o que importa não é o número de comparações, é o número de **nós lidos**.
+
+É exatamente a coluna que despenca. Grau 256 lê quatro nós em vez de vinte: cinco vezes menos acesso a disco, pelo preço de algumas comparações a mais dentro de cada nó, que acontecem na memória e são praticamente de graça.
+
+Daí sai o desenho da **B-tree**: o grau é escolhido para que um nó ocupe exatamente uma página de disco (tipicamente 4 KB ou 8 KB), o que na prática dá centenas de filhos por nó. É por isso que o índice de uma tabela com milhões de linhas tem três ou quatro níveis, e por isso a busca por chave primária é rápida mesmo quando o índice não cabe na memória.
+
+<Callout>
+Regra prática que vale levar: **árvore binária otimiza comparações, árvore n-ária de grau alto otimiza leituras**. Se os dados estão na memória, use binária balanceada. Se estão em disco ou na rede, use grau alto. O mesmo raciocínio explica por que a mesma B-tree aparece em sistema de arquivos (NTFS, ext4, HFS+) e não só em banco de dados.
+</Callout>
+
+## O truque do primeiro filho e do irmão
+
+Existe uma representação que costuma surpreender: **toda árvore n-ária pode virar uma árvore binária**, sem perder informação. A ideia é reinterpretar os dois ponteiros:
+
+```
+esq  ->  primeiro filho
+dir  ->  próximo irmão
+```
+
+Uma pasta com cinco arquivos vira um nó cujo `esq` aponta para o primeiro arquivo, e cada arquivo aponta pelo `dir` para o próximo. A lista de filhos vira uma lista encadeada pendurada no pai.
+
+```python
+class No:
+    def __init__(self, valor):
+        self.valor = valor
+        self.primeiro_filho = None
+        self.proximo_irmao = None
+
+def percorre(no):
+    if no is None:
+        return
+    processa(no)
+    percorre(no.primeiro_filho)   # desce
+    percorre(no.proximo_irmao)    # anda de lado
+```
+
+Isso se chama **left-child right-sibling**, e serve para dois propósitos reais: guardar árvore de grau variável com memória fixa por nó (dois ponteiros, sempre), e reaproveitar algoritmos escritos para árvore binária. O preço é que a árvore fica mais alta, porque andar entre irmãos passou a custar um nível.
+
+## Onde você já usa isso
+
+Vale terminar com o mapa, porque árvore n-ária é o tipo de estrutura que você usa há anos sem chamar pelo nome:
+
+- **DOM**: `querySelector` é um percurso, `element.children` é a lista de filhos, e `getElementsByTagName` é um BFS ou DFS dependendo da implementação.
+- **JSON aninhado**: todo parser é uma recursão sobre árvore n-ária, e todo "achatar o JSON" é um percurso em pré-ordem.
+- **Sistema de arquivos**: `du -sh` é uma pós-ordem (precisa do tamanho dos filhos para somar o da pasta), e `find` é um DFS.
+- **Trie**: uma árvore n-ária de grau 26 (ou do tamanho do alfabeto), em que o caminho da raiz até o nó **é** a string. É o próximo passo natural depois deste tópico.
+- **Árvore de decisão e AST**: compilador, interpretador e engine de regras percorrem árvore n-ária o tempo todo.
+
+## Como praticar
+
+O LeetCode tem uma família inteira de problemas de árvore n-ária, e eles são bons de propósito: quase todos são o problema binário equivalente com o `for` no lugar das duas chamadas, o que deixa a substituição óbvia.
+
+Comece por **N-ary Tree Preorder Traversal** e **Postorder**, para sentir o laço. Depois **Maximum Depth of N-ary Tree**, que é a mesma recursão da altura com `max` sobre a lista em vez de sobre dois valores. **N-ary Tree Level Order Traversal** é o BFS com o `len(fila)` travando o nível, igualzinho ao da árvore binária.
+
+Quando esses estiverem confortáveis, **Encode N-ary Tree to Binary Tree** é a implementação do truque de primeiro filho e próximo irmão, e é um ótimo exercício para entender que representação e estrutura são coisas diferentes.
+
+Depois daqui, [Trie](/topico/trie) é a n-ária mais útil do roadmap, e a [Árvore de Busca Binária](/topico/bst) fecha o outro lado da história: o que acontece quando você mantém o grau em 2 e usa a posição para guardar ordem.
