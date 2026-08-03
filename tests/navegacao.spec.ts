@@ -279,6 +279,17 @@ const TOPICOS_PRONTOS = [
   { slug: "filas", h1: "Filas e Deques", vizMin: 3 },
   { slug: "recursao", h1: "Recursão: Fundamentos", vizMin: 2 },
   { slug: "recursao-funcional", h1: "Recursão: Programação Funcional", vizMin: 2 },
+  { slug: "tree-traversals", h1: "Percursos em Árvore (DFS/BFS)", vizMin: 1 },
+  { slug: "arvores-binarias", h1: "Árvores Binárias", vizMin: 1 },
+  { slug: "n-ary-trees", h1: "Árvores N-árias", vizMin: 1 },
+  { slug: "bst", h1: "Árvore de Busca Binária", vizMin: 1 },
+  { slug: "grafos-intro", h1: "Introdução a Grafos", vizMin: 1 },
+  { slug: "dfs-bfs", h1: "DFS e BFS em Grafos", vizMin: 1 },
+  { slug: "dijkstra", h1: "Dijkstra", vizMin: 1 },
+  { slug: "bellman-ford", h1: "Bellman-Ford", vizMin: 1 },
+  { slug: "a-star", h1: "A* (A Estrela)", vizMin: 1 },
+  { slug: "topological-sort", h1: "Ordenação Topológica", vizMin: 1 },
+  { slug: "mst", h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
 ];
 
 for (const t of TOPICOS_PRONTOS) {
@@ -306,6 +317,55 @@ for (const t of TOPICOS_PRONTOS) {
     await expect(page.locator(".problem-name").first()).toHaveAttribute("href", /^https?:\/\//);
   });
 }
+
+test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async ({ page }) => {
+  await page.goto("/topico/tree-traversals/");
+  const viz = page.locator("figure.viz").first();
+  const irAteOFim = async () => {
+    const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    return (await viz.locator(".tt-saida-item").allTextContents()).join(" ");
+  };
+
+  // as quatro sequências da árvore do encontro (raiz 1, esquerda 2 com 4 e 5, direita 3 com 6)
+  const esperado: Record<string, string> = {
+    "Pré-ordem": "1 2 4 5 3 6",
+    "Em ordem": "4 2 5 1 6 3",
+    "Pós-ordem": "4 5 2 6 3 1",
+    "Por nível (BFS)": "1 2 3 4 5 6",
+  };
+  for (const [ordem, saida] of Object.entries(esperado)) {
+    // exact: true porque o chip "Em ordem" colide com o preset "Uma BST: em ordem sai ordenado"
+    await viz.getByRole("button", { name: ordem, exact: true }).click();
+    expect(await irAteOFim(), `${ordem} deveria sair ${saida}`).toBe(saida);
+  }
+});
+
+test("BST: a mesma sequência inserida em ordem degenera a árvore", async ({ page }) => {
+  await page.goto("/topico/bst/");
+  const viz = page.locator("figure.viz").first();
+  const altura = async () => {
+    const txt = await viz.locator(".bigo-stat", { hasText: "altura" }).first().textContent();
+    return parseInt((txt ?? "").replace(/\D+/g, ""), 10);
+  };
+  await viz.getByRole("button", { name: /Inserindo pelo meio/ }).click();
+  const balanceada = await altura();
+  await viz.getByRole("button", { name: /Inserindo ordenado/ }).click();
+  const degenerada = await altura();
+  // mesmos 7 valores: pelo meio dá altura 3, ordenado dá 7
+  expect(balanceada).toBe(3);
+  expect(degenerada).toBe(7);
+});
+
+test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
+  await page.goto("/topico/mst/");
+  const viz = page.locator("figure.viz").first();
+  const pesos = viz.locator(".viz-var", { hasText: /Kruskal|Prim/ });
+  const textos = await pesos.allTextContents();
+  const numeros = textos.map((t) => parseInt(t.replace(/\D+/g, ""), 10));
+  expect(numeros).toHaveLength(2);
+  expect(numeros[0]).toBe(numeros[1]);
+});
 
 test("nenhuma página de tópico rola na horizontal no celular", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
