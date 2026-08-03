@@ -107,14 +107,16 @@ export const GROUPS: Group[] = [
       { slug: "strings", name: "Strings", group: "Arrays e Strings", level: "Fácil", status: "soon", youtube: yt("B9CCEwjoXBk"), description: "Manipulação e processamento de texto e caracteres.", extraVideos: [{ title: "LeetCode 1704: Determine if String Halves Are Alike", youtube: "qtPcJclLlmI" }] },
       {
         slug: "subarray-substring-subsequence-subset",
-        name: "Subarray x Substring x Subsequence x Subset",
+        name: 'Os 4 "sub"',
         group: "Arrays e Strings",
         level: "Fácil",
         status: "ready",
         viz: "sub-types",
         readingTime: "9 min",
         language: "Python",
-        description: "Quatro palavras parecidas que levam a quatro algoritmos diferentes. Duas perguntas separam todas: os elementos precisam ser contíguos? A ordem importa?",
+        // O nome é curto de propósito (cabe em uma linha no menu), então os quatro
+        // termos vivem aqui: é esta descrição que vira a meta description da página.
+        description: "Subarray, substring, subsequence e subset: quatro palavras parecidas que levam a algoritmos diferentes. Duas perguntas separam todas: os elementos precisam ser contíguos? A ordem importa?",
         problems: [
           { id: "lc-53", name: "Maximum Subarray", number: "53", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/maximum-subarray/" },
           { id: "lc-560", name: "Subarray Sum Equals K", number: "560", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/subarray-sum-equals-k/" },
