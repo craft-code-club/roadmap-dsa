@@ -23,7 +23,7 @@ export type Problem = {
   url: string;
 };
 
-export type Visualizer = "sliding-window-fixed" | "sliding-window-dynamic" | "two-pointers" | "big-o" | "sub-types";
+export type Visualizer = "sliding-window" | "two-pointers" | "big-o" | "sub-types";
 
 // Vídeos extras de um tópico: aparecem como links clicáveis (não embed).
 export type VideoLink = { title: string; youtube?: string; url?: string; duration?: string };
@@ -160,44 +160,32 @@ export const GROUPS: Group[] = [
         ],
       },
       {
-        slug: "sliding-window-fixed",
-        name: "Sliding Window (Fixed)",
+        // Fixa e variável são o mesmo padrão com uma regra diferente na borda
+        // esquerda, então vivem na mesma página, com um visualizador para cada.
+        slug: "sliding-window",
+        name: "Sliding Window",
         group: "Arrays e Strings",
         level: "Médio",
         status: "ready",
-        viz: "sliding-window-fixed",
+        viz: "sliding-window",
         youtube: yt("OvIJw1AMNzI"),
         videoMinutes: "18:24",
-        readingTime: "9 min",
+        readingTime: "15 min",
         language: "Python",
-        description: "Tamanho travado em k: entra um elemento pela direita, sai um pela esquerda. O(n) sem refazer conta.",
+        description: "Uma janela contígua que anda pelo array. Fixa, com tamanho travado em k, ou variável, crescendo pela direita e encolhendo pela esquerda enquanto está inválida.",
         problems: [
+          // Da janela fixa para a variável, os dois difíceis no fim e o guia por último.
           { id: "lc-643", name: "Maximum Average Subarray I", number: "643", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/maximum-average-subarray-i/" },
           { id: "lc-1343", name: "Sub-arrays of Size K with Average ≥ Threshold", number: "1343", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/number-of-sub-arrays-of-size-k-and-average-greater-than-or-equal-to-threshold/" },
           { id: "lc-1456", name: "Maximum Number of Vowels in a Substring of Given Length", number: "1456", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/maximum-number-of-vowels-in-a-substring-of-given-length/" },
           { id: "lc-567", name: "Permutation in String", number: "567", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/permutation-in-string/" },
-          { id: "lc-239", name: "Sliding Window Maximum", number: "239", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/sliding-window-maximum/" },
-          { id: "gfg-sliding", name: "Window Sliding Technique", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/window-sliding-technique/" },
-        ],
-      },
-      {
-        slug: "sliding-window-dynamic",
-        name: "Sliding Window (Dynamic)",
-        group: "Arrays e Strings",
-        level: "Médio",
-        status: "ready",
-        viz: "sliding-window-dynamic",
-        youtube: yt("OvIJw1AMNzI"),
-        videoMinutes: "18:24",
-        readingTime: "11 min",
-        language: "Python",
-        description: "A direita sempre avança; a esquerda encolhe só enquanto a janela é inválida. Resolve 'maior substring sem repetir' e 'menor subarray com soma ≥ alvo'.",
-        problems: [
           { id: "lc-3", name: "Longest Substring Without Repeating Characters", number: "3", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/longest-substring-without-repeating-characters/" },
           { id: "lc-209", name: "Minimum Size Subarray Sum", number: "209", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/minimum-size-subarray-sum/" },
           { id: "lc-1004", name: "Max Consecutive Ones III", number: "1004", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/max-consecutive-ones-iii/" },
           { id: "lc-713", name: "Subarray Product Less Than K", number: "713", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/subarray-product-less-than-k/" },
+          { id: "lc-239", name: "Sliding Window Maximum", number: "239", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/sliding-window-maximum/" },
           { id: "lc-76", name: "Minimum Window Substring", number: "76", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/minimum-window-substring/" },
+          { id: "gfg-sliding", name: "Window Sliding Technique", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/window-sliding-technique/" },
         ],
       },
       { slug: "prefix-sum", name: "Prefix Sum", group: "Arrays e Strings", level: "Médio", status: "soon", youtube: yt("yMnLofkS7DM"), description: "Somas de intervalo em tempo constante depois de um pré-processamento." },
@@ -362,6 +350,8 @@ export const GROUPS: Group[] = [
 export const ALL_TOPICS: Topic[] = GROUPS.flatMap((g) => g.topics);
 
 export const TOTAL_TOPICS = ALL_TOPICS.length;
+// Conta TÓPICOS que já têm visualização, não o número de visualizadores na tela
+// (um tópico pode embutir vários, como Big O e Sliding Window).
 export const TOTAL_VISUALIZERS = ALL_TOPICS.filter((t) => t.viz).length;
 export const TOTAL_PROBLEMS = ALL_TOPICS.reduce((n, t) => n + (t.problems?.length ?? 0), 0);
 

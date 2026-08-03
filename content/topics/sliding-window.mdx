@@ -1,0 +1,76 @@
+<Callout>
+Janela deslizante é **dois ponteiros com uma regra**: em vez de olhar todos os subarrays, você mantém um pedaço contíguo e vai ajustando as bordas. O que era O(n²) vira O(n).
+</Callout>
+
+## O problema com a força bruta
+
+Imagine que você precisa da maior soma de *k* elementos seguidos em um array. A solução óbvia é: para cada posição, somar os próximos *k* elementos e guardar o maior. Funciona, e é lento. Você refaz quase a mesma soma *n* vezes.
+
+Repare no desperdício: as janelas `[3,6,2]` e `[6,2,8]` compartilham dois elementos. Se você já sabe a soma da primeira, a segunda custa **uma soma e uma subtração**, não três somas.
+
+## A ideia, em uma frase
+
+Empurre a borda direita para incluir o elemento novo e a borda esquerda para descartar o que saiu. O estado da janela (a soma) é atualizado em O(1) a cada passo.
+
+Daí em diante só existem duas variações do mesmo padrão, e é isso que o resto da página mostra, cada uma com o seu visualizador:
+
+- **Janela fixa**: o tamanho é dado pelo enunciado. Entra um, sai um.
+- **Janela variável**: o tamanho é o que você procura. Cresce pela direita, encolhe pela esquerda enquanto estiver inválida.
+
+## Janela fixa: o tamanho travado em k
+
+A janela sempre tem `k` elementos, então a cada passo entra um pela direita e sai um pela esquerda. Rode o visualizador abaixo, ele mostra exatamente isso, com o código acompanhando linha a linha. Use **Expandir** para ver o código lado a lado, bem grande.
+
+<SlidingWindowVisualizer variant="fixed" />
+
+Edite o array e o `k` acima, a animação e o código se ajustam. Note que a soma nunca é recalculada do zero: ela só recebe o elemento que entrou e devolve o que saiu.
+
+## Janela variável: quando o tamanho não é dado
+
+Aqui o tamanho **varia**: o enunciado define quando uma janela é *válida* (soma ≤ k, no máximo um zero, produto < k, caracteres sem repetir…) e pede a maior, ou a menor, janela válida. Em vez de um `k` para contar elementos, você tem uma condição para respeitar.
+
+A mecânica é sempre a mesma:
+
+- **Cresça pela direita** sempre, adicionando `nums[direita]` à métrica.
+- **Encolha pela esquerda** enquanto a janela for inválida, removendo `nums[esquerda]`.
+- **Atualize a resposta** quando a janela estiver válida.
+
+No visualizador abaixo a métrica é a **soma**, a restrição é **soma ≤ k**, e a resposta é o **maior tamanho** de janela válida. Repare que agora a esquerda fica parada por vários passos e depois anda várias casas de uma vez.
+
+<SlidingWindowVisualizer variant="dynamic" />
+
+## Por que dá para descartar o que saiu
+
+Com números positivos, remover um elemento da esquerda só **diminui** a soma, nunca a aumenta. Então, quando a janela estoura `k`, encolher pela esquerda é a única forma de voltar a valer, e o elemento que saiu nunca mais vai ajudar (qualquer janela futura que o contivesse seria ainda maior). É esse argumento que garante que cada ponteiro percorre o array uma única vez: **O(n)** no total.
+
+<Callout tipo="aviso">
+**Cuidado com números negativos.** Toda essa lógica depende de "encolher só melhora". Com valores negativos, uma janela maior pode ter soma menor, e o padrão quebra, nesse caso o caminho costuma ser soma de prefixos com hashmap.
+</Callout>
+
+## Fixa ou variável: como escolher
+
+Leia o enunciado procurando o tamanho da janela. Se ele aparece como um número dado ("de tamanho k", "de 3 caracteres"), é fixa. Se o que se pede é o próprio tamanho ("a maior substring que…", "o menor subarray que…"), é variável.
+
+<Colunas>
+<Cartao titulo="Fixa">
+Você sabe o tamanho de antemão. Entra um, sai um.
+
+```python
+for direita in range(n):
+    soma += nums[direita]
+    if direita >= k - 1:
+        melhor = max(melhor, soma)
+        soma -= nums[direita - k + 1]
+```
+</Cartao>
+
+<Cartao titulo="Variável">
+O tamanho depende de uma condição. Encolhe até voltar a valer.
+
+```python
+while invalida(janela):
+    soma -= nums[esquerda]
+    esquerda += 1
+```
+</Cartao>
+</Colunas>

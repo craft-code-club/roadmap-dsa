@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
 // variant="dynamic"  → maior subarray com soma ≤ k (cresce/encolhe)
 // ---------------------------------------------------------------------------
 
-type Variant = "fixed" | "dynamic" | "sliding-window-fixed" | "sliding-window-dynamic";
+type Variant = "fixed" | "dynamic";
 
 type Passo = {
   l: number;
@@ -62,10 +62,6 @@ const CODIGO_DINAMICA = [
 
 const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
 const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
-
-function normalize(v: Variant): "fixed" | "dynamic" {
-  return v === "dynamic" || v === "sliding-window-dynamic" ? "dynamic" : "fixed";
-}
 
 function gerarPassosFixa(nums: number[], k: number): Passo[] {
   const out: Passo[] = [];
@@ -117,7 +113,7 @@ const PRESETS = {
 };
 
 export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Variant }) {
-  const modo = normalize(variant);
+  const modo = variant;
   const preset = PRESETS[modo];
   const CODIGO = modo === "fixed" ? CODIGO_FIXA : CODIGO_DINAMICA;
 
