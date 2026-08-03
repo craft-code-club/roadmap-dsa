@@ -9,18 +9,18 @@ import { createPortal } from "react-dom";
 // Mesmo padrão dos outros visualizadores (gerador puro de passos + a casca
 // compartilhada), só que no lugar das células de um array o palco é a call
 // stack: cada chamada empilha um frame com o SEU próprio n, o caso base
-// devolve um valor, e os valores sobem de volta resolvendo a operação que
-// ficou pendurada em cada frame.
+// devolve o primeiro valor concreto, e os valores sobem de volta resolvendo a
+// operação que ficou pendurada em cada frame.
 //
 // Três modos, porque o encontro comparou os três:
 //   - clássico: a multiplicação fica pendente e só resolve na subida
 //   - cauda: o acumulador desce pronto, nada fica pendente na volta
-//   - sem caso base: a pilha só cresce até estourar o limite
+//   - caso base inalcançável: existe caso base, mas o estado anda para longe
 //
 // O "limite da pilha" é um campo editável de propósito. O limite real do
 // CPython é 1000 e não caberia na tela, mas a lição é a mesma: estourar não é
-// culpa de "esquecer o caso base", é passar da profundidade que a linguagem
-// aguenta. Com limite 6, fatorial(10) estoura igualzinho.
+// só "esquecer o caso base", é passar da profundidade que a linguagem aguenta.
+// Com limite 6, fatorial(10) estoura igualzinho.
 // ---------------------------------------------------------------------------
 
 type Estado = "espera" | "ativo" | "base" | "volta" | "estoura";
@@ -28,6 +28,7 @@ type Estado = "espera" | "ativo" | "base" | "volta" | "estoura";
 type Frame = {
   id: number;
   nivel: number;
+  n: number;
   rotulo: string;
   pendente?: string;
   retorno?: string;
@@ -66,8 +67,10 @@ const CAUDA = [
   "    return fatorial(n - 1, acc * n)",
 ];
 
-const SEM_BASE = [
+const INALCANCAVEL = [
   "def contagem(n):",
+  "    if n == 0:",
+  "        return",
   "    print(n)",
   "    return contagem(n + 1)",
 ];
@@ -89,7 +92,8 @@ function fatorialDe(n: number): number {
 
 // --------------------------------------------------------------------------
 // Modo clássico: a operação pendente é o coração da coisa. Cada frame guarda
-// "n × ?" enquanto espera, e é isso que impede a pilha de ser descartada.
+// "n × ?" enquanto espera, e é isso que impede a pilha de encolher antes da
+// hora.
 // --------------------------------------------------------------------------
 function gerarClassico(n0: number, limite: number): Passo[] {
   const out: Passo[] = [];
@@ -122,15 +126,14 @@ function gerarClassico(n0: number, limite: number): Passo[] {
 
   while (guarda++ < 40) {
     const meu = id++;
-    frames.push({ id: meu, nivel: frames.length + 1, rotulo: `fatorial(n=${k})`, estado: "ativo" });
+    frames.push({ id: meu, nivel: frames.length + 1, n: k, rotulo: `fatorial(n=${k})`, estado: "ativo" });
     chamadas++;
-    maxProf = Math.max(maxProf, frames.length);
 
     if (frames.length > limite) {
       frames[frames.length - 1].estado = "estoura";
       passo(
         0,
-        `Frame ${frames.length} na pilha e o limite é ${limite}: RecursionError, maximum recursion depth exceeded. Nenhuma resposta voltou, porque nenhuma chamada chegou ao caso base antes do teto.`,
+        `Tentei abrir o frame ${frames.length} e o limite da pilha é ${limite}: RecursionError, maximum recursion depth exceeded. Nenhuma resposta voltou, porque nenhuma chamada chegou ao caso base antes do teto.`,
         `${k}`,
         "-",
         { fim: true, erro: true },
@@ -139,6 +142,7 @@ function gerarClassico(n0: number, limite: number): Passo[] {
       estourou = true;
       break;
     }
+    maxProf = Math.max(maxProf, frames.length);
 
     passo(
       0,
@@ -177,16 +181,15 @@ function gerarClassico(n0: number, limite: number): Passo[] {
   frames.pop();
   while (frames.length > 0 && guarda++ < 80) {
     const topo = frames[frames.length - 1];
-    const n = parseInt(topo.rotulo.replace(/\D/g, ""), 10);
-    const novo = n * valor;
+    const novo = topo.n * valor;
     topo.estado = "volta";
     topo.pendente = undefined;
-    topo.retorno = `${num(novo)}`;
+    topo.retorno = num(novo);
     passo(
       4,
-      `fatorial(${n}) recebe ${num(valor)} de baixo, resolve a conta pendente ${n} × ${num(valor)} = ${num(novo)} e devolve. O frame sai da pilha e a memória dele é liberada.`,
-      `${n}`,
-      `${num(novo)}`
+      `fatorial(${topo.n}) recebe ${num(valor)} de baixo, resolve a conta que estava pendurada, ${topo.n} × ${num(valor)} = ${num(novo)}, e devolve. O frame sai da pilha e a memória dele é liberada.`,
+      `${topo.n}`,
+      num(novo)
     );
     valor = novo;
     frames.pop();
@@ -197,10 +200,10 @@ function gerarClassico(n0: number, limite: number): Passo[] {
     frames: [],
     chamadas,
     maxProf,
-    nota: `A pilha voltou a ficar vazia: fatorial(${n0}) = ${num(valor)}. Foram ${chamadas} ${chamadas === 1 ? "chamada" : "chamadas"} e, no pico, ${maxProf} ${maxProf === 1 ? "frame vivo" : "frames vivos"} ao mesmo tempo. Esse pico é a complexidade de espaço: O(n).`,
+    nota: `A pilha voltou a ficar vazia: fatorial(${n0}) = ${num(valor)}. Deu ${chamadas} ${chamadas === 1 ? "chamada" : "chamadas"} no total e, no pico, ${maxProf} ${maxProf === 1 ? "frame vivo" : "frames vivos"} ao mesmo tempo. Esse pico é a complexidade de espaço da recursão: O(n).`,
     vars: [
       { nome: "n (frame do topo)", valor: "-" },
-      { nome: "valor devolvido", valor: `${num(valor)}` },
+      { nome: "valor devolvido", valor: num(valor) },
       { nome: "frames na pilha", valor: "0" },
       { nome: "chamadas", valor: `${chamadas}`, best: true },
     ],
@@ -211,9 +214,9 @@ function gerarClassico(n0: number, limite: number): Passo[] {
 }
 
 // --------------------------------------------------------------------------
-// Modo cauda: o acumulador desce pronto. Na subida não sobra nenhuma conta,
-// e é exatamente esse "nada pendente" que abre espaço para a otimização de
-// chamada final.
+// Modo cauda: o acumulador desce pronto. Na subida não sobra nenhuma conta, e
+// é exatamente esse "nada pendente" que abre espaço para a otimização de
+// chamada final nas linguagens que a fazem.
 // --------------------------------------------------------------------------
 function gerarCauda(n0: number, limite: number): Passo[] {
   const out: Passo[] = [];
@@ -226,7 +229,7 @@ function gerarCauda(n0: number, limite: number): Passo[] {
   const vars = (topo: string, acc: string, devolvido: string): Var[] => [
     { nome: "n (frame do topo)", valor: topo },
     { nome: "acc", valor: acc },
-    { nome: "frames na pilha", valor: `${frames.length}` },
+    { nome: "valor devolvido", valor: devolvido },
     { nome: "chamadas", valor: `${chamadas}`, best: true },
   ];
   const passo = (
@@ -248,17 +251,16 @@ function gerarCauda(n0: number, limite: number): Passo[] {
 
   while (guarda++ < 40) {
     const meu = id++;
-    frames.push({ id: meu, nivel: frames.length + 1, rotulo: `fatorial(n=${k}, acc=${num(acc)})`, estado: "ativo" });
+    frames.push({ id: meu, nivel: frames.length + 1, n: k, rotulo: `fatorial(n=${k}, acc=${num(acc)})`, estado: "ativo" });
     chamadas++;
-    maxProf = Math.max(maxProf, frames.length);
 
     if (frames.length > limite) {
       frames[frames.length - 1].estado = "estoura";
       passo(
         0,
-        `Frame ${frames.length} na pilha e o limite é ${limite}: RecursionError. Sem otimização de chamada final, a recursão de cauda empilha exatamente igual à outra.`,
+        `Tentei abrir o frame ${frames.length} e o limite da pilha é ${limite}: RecursionError. Sem otimização de chamada final, a recursão de cauda empilha exatamente igual à clássica.`,
         `${k}`,
-        `${num(acc)}`,
+        num(acc),
         "-",
         { fim: true, erro: true },
         meu
@@ -266,32 +268,33 @@ function gerarCauda(n0: number, limite: number): Passo[] {
       estourou = true;
       break;
     }
+    maxProf = Math.max(maxProf, frames.length);
 
     passo(
       0,
       `Entro em fatorial(${k}, acc=${num(acc)}). Repare que o trabalho já vem feito de cima: o acumulador carrega tudo o que foi multiplicado até aqui.`,
       `${k}`,
-      `${num(acc)}`,
+      num(acc),
       "-",
       undefined,
       meu
     );
 
     if (k <= 1) {
-      passo(1, `n = ${k} bate no caso base.`, `${k}`, `${num(acc)}`, "-");
+      passo(1, `n = ${k} bate no caso base.`, `${k}`, num(acc), "-");
       frames[frames.length - 1].estado = "base";
-      frames[frames.length - 1].retorno = `${num(acc)}`;
+      frames[frames.length - 1].retorno = num(acc);
       passo(
         2,
         `Devolvo o acumulador: ${num(acc)}. A resposta final já estava pronta ANTES da volta começar, ninguém precisa calcular mais nada na subida.`,
         `${k}`,
-        `${num(acc)}`,
-        `${num(acc)}`
+        num(acc),
+        num(acc)
       );
       break;
     }
 
-    passo(1, `n = ${k} ainda não é caso base.`, `${k}`, `${num(acc)}`, "-");
+    passo(1, `n = ${k} ainda não é caso base.`, `${k}`, num(acc), "-");
     const proximo = acc * k;
     frames[frames.length - 1].estado = "espera";
     frames[frames.length - 1].pendente = "nada pendente";
@@ -299,7 +302,7 @@ function gerarCauda(n0: number, limite: number): Passo[] {
       3,
       `Chamo fatorial(${k - 1}, ${num(acc)} × ${k} = ${num(proximo)}). A chamada é a ÚLTIMA operação da função: depois dela não sobra nenhuma conta neste frame.`,
       `${k}`,
-      `${num(acc)}`,
+      num(acc),
       "-"
     );
     acc = proximo;
@@ -312,16 +315,15 @@ function gerarCauda(n0: number, limite: number): Passo[] {
   frames.pop();
   while (frames.length > 0 && guarda++ < 80) {
     const topo = frames[frames.length - 1];
-    const n = parseInt(topo.rotulo.replace(/^\D+/, ""), 10);
     topo.estado = "volta";
     topo.pendente = undefined;
-    topo.retorno = `${num(resultado)}`;
+    topo.retorno = num(resultado);
     passo(
       3,
-      `O frame de fatorial(${n}, ...) recebe ${num(resultado)} e só repassa, porque não tinha nada pendente. Este frame ficou vivo à toa: é justamente ele que a otimização de chamada final sabe reaproveitar.`,
-      `${n}`,
-      `${num(acc)}`,
-      `${num(resultado)}`
+      `O frame de fatorial(${topo.n}, ...) recebe ${num(resultado)} e só repassa, porque não tinha nada pendente. Este frame ficou vivo à toa: é justamente ele que a otimização de chamada final sabe reaproveitar.`,
+      `${topo.n}`,
+      num(acc),
+      num(resultado)
     );
     frames.pop();
   }
@@ -331,11 +333,11 @@ function gerarCauda(n0: number, limite: number): Passo[] {
     frames: [],
     chamadas,
     maxProf,
-    nota: `fatorial(${n0}) = ${num(resultado)} com ${chamadas} ${chamadas === 1 ? "chamada" : "chamadas"} e pico de ${maxProf} ${maxProf === 1 ? "frame" : "frames"}, os mesmos números do modo clássico. Em Python o custo é idêntico: o ganho da cauda só aparece em linguagem que faz a otimização.`,
+    nota: `fatorial(${n0}) = ${num(resultado)} com ${chamadas} ${chamadas === 1 ? "chamada" : "chamadas"} e pico de ${maxProf} ${maxProf === 1 ? "frame" : "frames"}: os mesmos números do modo clássico. Em Python o custo é idêntico, o ganho da cauda só aparece em linguagem que faz a otimização.`,
     vars: [
       { nome: "n (frame do topo)", valor: "-" },
-      { nome: "acc", valor: `${num(resultado)}` },
-      { nome: "frames na pilha", valor: "0" },
+      { nome: "acc", valor: num(resultado) },
+      { nome: "valor devolvido", valor: num(resultado) },
       { nome: "chamadas", valor: `${chamadas}`, best: true },
     ],
     ok: true,
@@ -345,9 +347,10 @@ function gerarCauda(n0: number, limite: number): Passo[] {
 }
 
 // --------------------------------------------------------------------------
-// Modo sem caso base: nada segura a descida, a pilha cresce até o teto.
+// Modo caso base inalcançável: o caso base EXISTE, o que falha é a regra 2. O
+// estado anda, mas para o lado errado, e a pilha cresce até o teto.
 // --------------------------------------------------------------------------
-function gerarSemBase(n0: number, limite: number): Passo[] {
+function gerarInalcancavel(n0: number, limite: number): Passo[] {
   const out: Passo[] = [];
   const frames: Frame[] = [];
   let chamadas = 0;
@@ -364,7 +367,7 @@ function gerarSemBase(n0: number, limite: number): Passo[] {
       nota,
       vars: [
         { nome: "n (frame do topo)", valor: topo },
-        { nome: "caso base", valor: "não existe" },
+        { nome: "caso base", valor: "n == 0" },
         { nome: "frames na pilha", valor: `${frames.length}` },
         { nome: "chamadas", valor: `${chamadas}`, best: true },
       ],
@@ -376,29 +379,30 @@ function gerarSemBase(n0: number, limite: number): Passo[] {
   let guarda = 0;
   while (guarda++ < 40) {
     const meu = id++;
-    frames.push({ id: meu, nivel: frames.length + 1, rotulo: `contagem(n=${k})`, estado: "ativo" });
+    frames.push({ id: meu, nivel: frames.length + 1, n: k, rotulo: `contagem(n=${k})`, estado: "ativo" });
     chamadas++;
-    maxProf = Math.max(maxProf, frames.length);
 
     if (frames.length > limite) {
       frames[frames.length - 1].estado = "estoura";
       passo(
-        2,
-        `Frame ${frames.length} e o limite da pilha é ${limite}: RecursionError, maximum recursion depth exceeded. Sem caso base, o estado nunca chega a uma condição de parada, e a pilha é finita.`,
+        4,
+        `Frame ${frames.length} com o limite em ${limite}: RecursionError, maximum recursion depth exceeded. O caso base n == 0 existe e está escrito ali, mas eu comecei em ${n0} e ando para cima: cada chamada me deixa mais longe dele, não mais perto.`,
         `${k}`,
         { fim: true, erro: true },
         meu
       );
       return out;
     }
+    maxProf = Math.max(maxProf, frames.length);
 
-    passo(0, `Entro em contagem(${k}). Nada aqui pergunta "já posso parar?", porque esta função não tem caso base.`, `${k}`, undefined, meu);
-    passo(1, `Imprimo ${k} e sigo em frente.`, `${k}`);
+    passo(0, `Entro em contagem(${k}). Mais um frame no topo, mais um escopo vivo na memória.`, `${k}`, undefined, meu);
+    passo(1, `Testo o caso base: ${k} == 0? Não. Então sigo.`, `${k}`);
+    passo(3, `Imprimo ${k} e vou em frente.`, `${k}`);
     frames[frames.length - 1].estado = "espera";
     frames[frames.length - 1].pendente = "nunca resolve";
     passo(
-      2,
-      `Chamo contagem(${k + 1}). O estado muda a cada chamada, mas para o lado errado: quanto mais eu ando, mais longe de qualquer parada eu fico.`,
+      4,
+      `Chamo contagem(${k + 1}). O estado muda a cada chamada, que é a regra 2, mas muda para o lado errado: de ${k} para ${k + 1}, sempre se afastando do zero.`,
       `${k}`
     );
     k++;
@@ -420,7 +424,7 @@ type Modo = {
 const MODOS: Modo[] = [
   { key: "classico", rotulo: "fatorial clássico", arquivo: "fatorial.py", codigo: CLASSICO, nRotulo: "n", nMin: 0, nMax: 12, gerar: gerarClassico },
   { key: "cauda", rotulo: "fatorial em cauda", arquivo: "fatorial_cauda.py", codigo: CAUDA, nRotulo: "n", nMin: 0, nMax: 12, gerar: gerarCauda },
-  { key: "sembase", rotulo: "sem caso base", arquivo: "contagem.py", codigo: SEM_BASE, nRotulo: "começa em", nMin: 0, nMax: 12, gerar: gerarSemBase },
+  { key: "inalcancavel", rotulo: "caso base inalcançável", arquivo: "contagem.py", codigo: INALCANCAVEL, nRotulo: "começa em", nMin: 1, nMax: 12, gerar: gerarInalcancavel },
 ];
 
 type Preset = { key: string; rotulo: string; modo: string; n: number; limite: number };
@@ -430,7 +434,7 @@ const PRESETS: Preset[] = [
   { key: "base", rotulo: "fatorial(1): caso base de cara", modo: "classico", n: 1, limite: 12 },
   { key: "cauda", rotulo: "fatorial(5) em cauda", modo: "cauda", n: 5, limite: 12 },
   { key: "fundo", rotulo: "fatorial(10) com limite 6", modo: "classico", n: 10, limite: 6 },
-  { key: "sembase", rotulo: "sem caso base: estoura", modo: "sembase", n: 1, limite: 6 },
+  { key: "solto", rotulo: "caso base fora de alcance", modo: "inalcancavel", n: 1, limite: 6 },
 ];
 
 export function RecursionVisualizer() {
@@ -478,11 +482,15 @@ export function RecursionVisualizer() {
 
   const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
 
-  const trocarModo = (i: number) => { reiniciar(); setIModo(i); setPreset(""); };
+  const trocarModo = (i: number) => {
+    reiniciar(); setPreset("");
+    setIModo(i);
+    setN((v) => Math.min(MODOS[i].nMax, Math.max(MODOS[i].nMin, v)));
+  };
   const aoMudarN = (v: string) => {
     const x = parseInt(v, 10);
     reiniciar(); setPreset("");
-    setN(isNaN(x) ? 0 : Math.min(modo.nMax, Math.max(modo.nMin, x)));
+    setN(isNaN(x) ? modo.nMin : Math.min(modo.nMax, Math.max(modo.nMin, x)));
   };
   const aoMudarLimite = (v: string) => {
     const x = parseInt(v, 10);
@@ -499,7 +507,11 @@ export function RecursionVisualizer() {
   const notaCls = "viz-note" + (p.ok ? " ok" : p.erro ? " invalid" : "");
   const pctPasso = Math.round(((idx + 1) / total) * 100);
 
-  const esperado = modo.key === "sembase" ? null : fatorialDe(n);
+  // A execução chega a devolver alguma coisa? Se ela estoura na pilha, mostrar
+  // "fatorial(10) = 3.628.800" no painel seria mentira: aquele valor nunca
+  // voltou. Nesse caso o card diz o que de fato aconteceu.
+  const estourou = passos[total - 1].erro === true;
+  const esperado = modo.key === "inalcancavel" || estourou ? null : fatorialDe(n);
 
   const viz = (
     <figure className="viz" style={{ margin: 0 }}>
@@ -557,7 +569,7 @@ export function RecursionVisualizer() {
         </div>
 
         <div className="rec-stack-lbl">
-          <span>Call stack {frames.length > 0 ? "· topo em cima" : ""}</span>
+          <span>Call stack{frames.length > 0 ? " · topo em cima" : ""}</span>
           <span>{frames.length} de {limite} frames</span>
         </div>
         <div className="rec-stack">
@@ -565,10 +577,7 @@ export function RecursionVisualizer() {
             <div className="rec-stack-vazia">pilha vazia</div>
           ) : (
             frames.map((f, i) => (
-              <div
-                key={f.id}
-                className={`rec-frame ${f.estado}${f.novo ? " novo" : ""}`}
-              >
+              <div key={f.id} className={`rec-frame ${f.estado}${f.novo ? " novo" : ""}`}>
                 <span className="rec-frame-nome">{f.rotulo}</span>
                 {f.pendente ? <span className="rec-frame-pend">{f.pendente}</span> : null}
                 {f.retorno ? <span className="rec-frame-ret">devolve {f.retorno}</span> : null}
@@ -576,9 +585,7 @@ export function RecursionVisualizer() {
               </div>
             ))
           )}
-          {p.erro ? (
-            <div className="rec-limite-linha">— limite da pilha: {limite} frames —</div>
-          ) : null}
+          {p.erro ? <div className="rec-limite">limite da pilha: {limite} frames</div> : null}
         </div>
 
         <p className={notaCls}>{p.nota}</p>
@@ -621,7 +628,7 @@ export function RecursionVisualizer() {
           </div>
           <div className="bigo-stat">
             <span>{esperado === null ? "resposta" : `fatorial(${n})`}</span>
-            <strong>{esperado === null ? "nunca chega" : num(esperado)}</strong>
+            <strong>{esperado === null ? (estourou ? "estourou" : "nunca chega") : num(esperado)}</strong>
           </div>
         </div>
 

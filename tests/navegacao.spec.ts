@@ -197,3 +197,59 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
   await page.getByRole("link", { name: "Começar por Big O" }).click();
   await expect(page).toHaveURL(/topico\/big-o/);
 });
+
+// Cobertura de todos os tópicos "ready": em vez de um teste artesanal por
+// página, este bloco garante o contrato que toda página completa precisa
+// cumprir. Ao promover um tópico novo, acrescente o slug aqui.
+const TOPICOS_PRONTOS = [
+  { slug: "big-o", h1: "Notação Big O", vizMin: 2 },
+  { slug: "arrays", h1: "Arrays e Listas", vizMin: 3 },
+  { slug: "strings", h1: "Strings", vizMin: 3 },
+  { slug: "subarray-substring-subsequence-subset", h1: 'Os 4 "sub"', vizMin: 1 },
+  { slug: "two-pointers", h1: "Two Pointers", vizMin: 3 },
+  { slug: "sliding-window", h1: "Sliding Window", vizMin: 3 },
+  { slug: "prefix-sum", h1: "Prefix Sum", vizMin: 2 },
+  { slug: "intervals", h1: "Intervalos", vizMin: 2 },
+  { slug: "hash-table", h1: "Tabelas Hash", vizMin: 2 },
+  { slug: "listas-ligadas", h1: "Listas Encadeadas", vizMin: 3 },
+  { slug: "skip-list", h1: "Skip List", vizMin: 2 },
+  { slug: "pilhas", h1: "Pilhas (Stacks)", vizMin: 3 },
+  { slug: "filas", h1: "Filas e Deques", vizMin: 3 },
+  { slug: "recursao", h1: "Recursão: Fundamentos", vizMin: 2 },
+  { slug: "recursao-funcional", h1: "Recursão: Programação Funcional", vizMin: 2 },
+];
+
+for (const t of TOPICOS_PRONTOS) {
+  test(`tópico ${t.slug} entrega artigo, visualizadores e âncoras válidas`, async ({ page }) => {
+    await page.goto(`/topico/${t.slug}/`);
+    await expect(page.getByRole("heading", { level: 1, name: t.h1 })).toBeVisible();
+
+    // o artigo existe de verdade (não é o cartão de "em construção")
+    await expect(page.locator(".soon-badge")).toHaveCount(0);
+    expect(await page.locator("article h2").count()).toBeGreaterThanOrEqual(5);
+
+    // os visualizadores chegaram na página
+    expect(await page.locator("article figure.viz").count()).toBeGreaterThanOrEqual(t.vizMin);
+
+    // toda entrada do índice "Nesta página" aponta para uma âncora existente
+    const hrefs = await page.locator(".toc-links a").evaluateAll((as) =>
+      as.map((a) => a.getAttribute("href") ?? "")
+    );
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      await expect(page.locator(href)).toHaveCount(1);
+    }
+
+    // problemas e referências apontam para fora
+    await expect(page.locator(".problem-name").first()).toHaveAttribute("href", /^https?:\/\//);
+  });
+}
+
+test("nenhuma página de tópico rola na horizontal no celular", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const t of TOPICOS_PRONTOS) {
+    await page.goto(`/topico/${t.slug}/`);
+    const estoura = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
+    expect(estoura, `${t.slug} estoura a largura no mobile`).toBe(false);
+  }
+});

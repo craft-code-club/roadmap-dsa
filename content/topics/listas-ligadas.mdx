@@ -1,0 +1,507 @@
+<Callout>
+A lista encadeada é onde você para de pensar em **posições** e começa a pensar em **referências**. Essa virada de chave é o que abre as portas de tudo que vem depois: árvore, grafo, trie, LRU cache e a pilha de chamadas da sua linguagem são todos a mesma ideia, nós apontando para nós. E é o tópico em que o código é curto, a lógica é simples e mesmo assim quase todo mundo trava na primeira vez, porque um ponteiro religado na ordem errada não dá erro: ele só faz metade da sua lista sumir.
+</Callout>
+
+## O nó: um valor e um endereço
+
+Um array guarda os elementos **um do lado do outro**. Uma lista encadeada guarda cada elemento numa caixinha própria, e dentro da caixinha, junto com o valor, mora o **endereço da próxima caixinha**. Essa caixinha é o **nó**, e ela tem só dois campos:
+
+```python
+class No:
+    def __init__(self, valor):
+        self.valor = valor    # o dado: um número, um objeto, o que for
+        self.prox = None      # a referência para o próximo nó
+```
+
+O último nó aponta para `None`, e é assim que a lista sabe onde termina. Percorrer é seguir `prox` até cair no `None`.
+
+Repare no que **não** existe nesse desenho: índice. O nó 3 não sabe que é o terceiro, ele só sabe quem vem depois dele. Essa é a diferença que gera todas as outras.
+
+Em volta dos nós costuma existir uma casca, a classe que você chama de "lista":
+
+```python
+class ListaEncadeada:
+    def __init__(self):
+        self.cabeca = None    # onde a lista começa
+        self.cauda = None     # atalho para o fim (opcional)
+        self.tamanho = 0      # contador (opcional, evita um O(n) inteiro)
+```
+
+Três coisas importam nesse trecho:
+
+- **`cabeca` é uma variável, não um nó.** Ela guarda o endereço do primeiro nó. Inserir na frente da lista significa mudar essa variável, e é exatamente por isso que a cabeça vive virando caso especial no código.
+- **`cauda` e `tamanho` são otimizações, não parte da definição.** A lista funciona sem os dois. Com eles, `append` cai de O(n) para O(1) e `len()` cai de O(n) para O(1). Guardar informação para não recalcular depois é um padrão que se repete no roadmap inteiro.
+- **A casca não é a estrutura.** A estrutura de dados é o nó apontando para o nó. A classe em volta é só a interface das operações, e é por isso que no LeetCode você quase nunca recebe uma `ListaEncadeada`: recebe direto a `cabeca` e vira nela.
+
+<Callout>
+Vale a distinção que apareceu no encontro: **fila, pilha e dicionário são tipos abstratos de dados (ADT)**, ou seja, um contrato de operações. Lista encadeada e array são **estruturas de dados**, ou seja, uma forma concreta de guardar os bytes. Uma fila pode ser feita com lista encadeada ou com array, e quem usa não deveria precisar saber qual. É a mesma relação entre uma interface e a classe que a implementa.
+</Callout>
+
+## Contígua ou espalhada: onde cada estrutura mora na memória
+
+Essa seção é o coração do trade-off, e o desenho do encontro explica melhor que qualquer definição.
+
+Para alocar um array de 4 posições, o sistema precisa de **4 espaços consecutivos livres**. Se a memória estiver picotada, com buracos de 1 e 2 posições espalhados, não adianta ter espaço sobrando no total: o array não cabe. E quando ele enche, a saída é achar um bloco maior em outro lugar e **copiar tudo**.
+
+A lista encadeada não pede nada disso. Cada nó é uma alocação pequena e independente, e vai para qualquer buraco em que couber. Um nó pode estar no começo da memória e o seguinte lá no fim, que a lista continua funcionando: o `prox` faz a ponte. Por isso a lista convive bem com **memória fragmentada**, e por isso ela nunca precisa parar tudo para copiar a estrutura inteira, que é justamente o que o [array dinâmico](/topico/arrays) faz quando a capacidade estoura.
+
+A conta vira do outro lado assim que o processador entra na história.
+
+<Colunas>
+<Cartao titulo="Array: o cache trabalha a seu favor">
+Quando a CPU lê `nums[0]`, ela não traz 4 bytes da RAM: traz uma **linha de cache** inteira, tipicamente 64 bytes. Num array de inteiros de 4 bytes, isso são 16 elementos de uma vez. Os 15 acessos seguintes já estão no cache e saem quase de graça.
+</Cartao>
+<Cartao titulo="Lista: cada salto é uma aposta">
+Os nós estão espalhados, então ler `no.prox.valor` costuma cair fora da linha que já está no cache. O processador não tem como adivinhar o endereço antes de ler o nó atual, então ele não consegue nem antecipar a busca. Percorrer 1 milhão de nós pode ser bem mais lento que percorrer 1 milhão de posições de array, mesmo os dois sendo O(n).
+</Cartao>
+</Colunas>
+
+Tem também o custo de memória. Num sistema de 64 bits, cada ponteiro ocupa **8 bytes**. Um nó com um inteiro de 4 bytes e um ponteiro gasta 12 bytes, 16 com alinhamento, contra os 4 bytes do mesmo inteiro dentro de um array. Guardar 1 milhão de inteiros numa lista encadeada custa umas 4 vezes mais memória, e numa lista duplamente encadeada, com dois ponteiros por nó, mais ainda.
+
+<Callout tipo="aviso">
+**Eficiente não é a mesma coisa que rápido.** Pelo livro, a melhor estrutura para implementar uma fila é a lista encadeada: inserir no fim e remover do começo são O(1) nas duas pontas. Mesmo assim, a `Queue` do C# e o `ArrayDeque` do Java, que é a fila recomendada lá, são feitos **com array por baixo**. O motivo é o cache: o array perde na notação e ganha no relógio. Complexidade fala de escala, o custo de cada operação continua importando. Se isso soa estranho, o [Big O](/topico/big-o) explica por quê.
+</Callout>
+
+## Religar ponteiros: inserir, remover e buscar
+
+Toda operação de lista encadeada é a mesma coreografia em duas partes: **achar o nó anterior** e **religar de um a dois ponteiros**. A segunda parte é sempre O(1). A primeira é quem cobra a conta.
+
+O visualizador abaixo faz as quatro operações principais, e aceita a lista, a posição e o valor que você quiser. Comece pelo caso **"Inserir 5 na cabeça"**, rode até o último passo e olhe o par de números embaixo do desenho: **2 ponteiros religados** contra **5 deslocamentos num array**. Depois troque para **"Inserir 35 na posição 3"** e repare na ordem em que os contadores sobem: os **3 nós percorridos** aparecem todos antes de qualquer religamento acontecer. A parte cara termina antes de a parte barata começar, e é essa separação que a tabela de complexidade esconde.
+
+<LinkedListVisualizer />
+
+Repare no nó novo: ele entra **fora da linha**, e nenhum nó da lista se mexe. Isso não é licença poética do desenho, é literalmente o que acontece na memória. Num array, inserir na posição 3 de uma lista de 5 elementos empurra os 2 últimos uma casa para a direita, e com 1 milhão de elementos empurra os que faltam, um por um.
+
+O código da inserção no meio é este:
+
+```python
+def inserir(self, pos, valor):
+    novo = No(valor)
+    if pos == 0:                      # o caso especial da cabeça
+        novo.prox = self.cabeca
+        self.cabeca = novo
+        return
+    anterior = self.cabeca
+    for _ in range(pos - 1):          # O(n): achar quem vem antes
+        anterior = anterior.prox
+    novo.prox = anterior.prox         # 1. o novo olha para a frente
+    anterior.prox = novo              # 2. só então o anterior solta
+```
+
+<Callout tipo="aviso">
+**A ordem das duas últimas linhas não é opinião.** Se você fizer `anterior.prox = novo` primeiro, o endereço do resto da lista some no mesmo instante: ninguém mais aponta para ele, e o nó novo aponta para `None`. Você acabou de trocar a metade final da sua lista por um nó. E o pior: o programa não quebra, ele só devolve uma lista mais curta. Esse é o bug clássico de lista encadeada, e ele é silencioso.
+</Callout>
+
+Na remoção, a coreografia é a mesma de trás para frente. Para tirar um nó da lista, quem precisa mudar é o **anterior** dele:
+
+```python
+def remover(self, pos):
+    if pos == 0:
+        self.cabeca = self.cabeca.prox
+        return
+    anterior = self.cabeca
+    for _ in range(pos - 1):
+        anterior = anterior.prox
+    anterior.prox = anterior.prox.prox   # pula o nó removido
+```
+
+O nó removido continua exatamente onde estava na memória. O que mudou foi que ninguém aponta mais para ele, e a partir daí ele é lixo: em Java, C#, Python ou Go, o coletor recolhe sozinho; em C ou C++, essa é a hora do `free`.
+
+Isso leva ao detalhe mais importante desta seção, e o que mais cai em entrevista:
+
+**Numa lista simplesmente encadeada, ter a referência do nó que você quer remover não basta.** Você tem o nó, mas não tem quem aponta para ele, e para descobrir isso você percorre a lista do começo: O(n). Na duplamente encadeada, o ponteiro para trás entrega o anterior de graça e a remoção vira O(1) de verdade. É por isso que a lista duplamente encadeada existe, e ela tem uma seção só dela mais adiante.
+
+<Callout>
+**Existe um truque para isso, e ele revela como a lista realmente funciona.** Se você tem só a referência do nó e ele **não é o último**, dá para "remover" em O(1) sem achar o anterior: copie o valor do próximo nó para dentro do nó atual e então remova o próximo, que você alcança pelo `prox`.
+
+```python
+def remover_este_no(no):        # só funciona se no.prox existir
+    no.valor = no.prox.valor    # o nó atual vira uma cópia do seguinte
+    no.prox = no.prox.prox      # e o seguinte é quem sai da lista
+```
+
+Você não removeu aquele nó, removeu o **seguinte** depois de roubar o conteúdo dele. Para quem olha de fora a lista fica idêntica ao esperado, e é justamente aí que está a lição: numa lista encadeada o que identifica uma posição não é o objeto, é **quem aponta para ele**. É o LeetCode 237, e ele deixa claro por que o enunciado promete que o nó nunca é o último: sem `prox`, não existe conteúdo para roubar.
+</Callout>
+
+Já a busca é o caso sem saída:
+
+```python
+def buscar(self, valor):
+    atual = self.cabeca          # o ponteiro auxiliar que só serve para andar
+    while atual is not None:
+        if atual.valor == valor:
+            return atual
+        atual = atual.prox
+    return None
+```
+
+Sempre O(n), e sem chance de melhorar. Num array ordenado você pularia para o meio e faria busca binária em O(log n). Numa lista encadeada, "pular para o meio" já custa O(n), porque o único jeito de chegar no meio é andando até lá. Manter a lista ordenada te deixa parar mais cedo quando passar do valor procurado, mas a complexidade continua O(n): é uma das poucas estruturas em que ordenar não compra busca rápida.
+
+## A tabela de custos, operação por operação
+
+Esta é a tabela que a galera preencheu ao vivo no encontro, linha por linha. Vale colar na parede, porque quase toda decisão de usar (ou não usar) lista encadeada está nela.
+
+<LinkedListOperacoes />
+
+Duas linhas merecem um parágrafo extra.
+
+**Inserir no fim empata, mas por motivos opostos.** A lista precisa do ponteiro de cauda: sem ele, `append` percorre a lista inteira para achar o último nó. Volte ao visualizador da seção anterior, escolha "Inserir 60 no fim" e conte os nós percorridos: são 5. Agora ligue o chip **ponteiro de cauda** e rode de novo: 1. Do outro lado, o array dinâmico é O(1) **amortizado**: quase sempre ele só escreve na próxima vaga livre, mas de vez em quando a capacidade estoura e ele aloca um bloco maior, copia tudo e continua. No C#, uma `List` vazia começa sem capacidade nenhuma, salta para 4 no primeiro `Add` e dobra a partir dali: 4, 8, 16, 32.
+
+**Remover o último é O(1) no array e O(n) na lista simples**, o que surpreende quase todo mundo. O array só precisa diminuir o tamanho lógico, e nem apaga o valor que ficou para trás: a posição vira vaga e será sobrescrita na próxima inserção. Já a lista simples precisa do **penúltimo** nó para atualizar o `prox` dele, e o único caminho até o penúltimo é percorrer tudo. O ponteiro de cauda não salva aqui, porque a partir da cauda não dá para voltar.
+
+## Duplamente encadeada, circular e o preço de andar para trás
+
+A lista duplamente encadeada acrescenta um campo ao nó:
+
+```python
+class NoDuplo:
+    def __init__(self, valor):
+        self.valor = valor
+        self.prox = None
+        self.ant = None       # o endereço do nó anterior (o "prev" dos livros)
+```
+
+O que esse campo compra:
+
+- **Remover um nó em O(1) tendo só a referência dele.** Com `ant` e `prox` na mão, são duas atribuições e acabou. É a operação que a lista simples não consegue fazer.
+- **Percorrer nos dois sentidos**, o que transforma a lista numa deque (fila de duas pontas) com as quatro operações de ponta em O(1).
+- **Remover o último em O(1)**, combinando `cauda` com `ant`.
+
+O que esse campo custa: **8 bytes a mais por nó** e o dobro de ponteiros para manter certos em cada operação. Toda inserção e toda remoção agora mexem em até quatro referências, e cada uma delas é uma chance a mais de deixar a lista inconsistente.
+
+<Colunas>
+<Cartao titulo="No mundo real">
+A `LinkedList` do Java é **sempre** duplamente encadeada. O `collections.deque` do Python é uma lista duplamente encadeada de blocos. E o `LinkedHashMap` do Java junta uma tabela hash com uma lista duplamente encadeada, para ter O(1) de busca **e** ordem de inserção preservada.
+</Cartao>
+<Cartao titulo="O LRU cache">
+É a receita acima virando produto: um dicionário aponta para os nós, e a lista dupla guarda a ordem de uso. Achar a chave é O(1) pelo hash, e mover aquele nó para a frente é O(1) porque a lista é dupla. Sem o `ant`, o mover viraria O(n) e o cache perderia a graça.
+</Cartao>
+</Colunas>
+
+Na **lista circular**, o último nó aponta de volta para o primeiro em vez de apontar para `None`. Ela aparece em escalonadores round robin, em buffers circulares e em qualquer coisa que precise girar para sempre. O preço é que o `while atual is not None` nunca mais termina: em lista circular, a condição de parada passa a ser "voltei para o nó de onde saí".
+
+E um aviso que vale para as três variações: **a lista encadeada é um grafo com regras**. Cada nó tem no máximo um vizinho de saída, e ninguém pode ser apontado duas vezes. Uma [árvore binária](/topico/arvores-binarias) é o mesmo nó com dois ponteiros em vez de um, e uma árvore de busca completamente desbalanceada degenera exatamente numa lista encadeada, com busca em O(n). Quem entende o nó daqui entende o layout de metade do roadmap.
+
+### O LRU cache, do cartão ao código
+
+Vale abrir aquele cartão, porque é nele que a lista duplamente encadeada deixa de ser curiosidade e vira a única saída. O contrato do LRU cache é duro: `get` e `put` em **O(1)**, e quando a capacidade estoura, quem sai é a chave usada há mais tempo.
+
+Nenhuma estrutura resolve isso sozinha. A [tabela hash](/topico/hash-table) acha a chave em O(1) mas não guarda ordem nenhuma, então descobrir "quem foi usado há mais tempo" custaria O(n). A lista guarda a ordem mas não acha a chave, então o `get` custaria O(n). Casadas, cada uma tapa o buraco da outra:
+
+- o **dicionário** leva a chave até o nó em O(1);
+- a **lista dupla** guarda a ordem de uso, com o mais recente colado na cabeça e o candidato ao despejo colado na cauda;
+- os **dois nós falsos**, um em cada ponta, fazem toda inserção e toda remoção acontecerem "no meio", sem um `if` sequer. Eles são os sentinelas da próxima seção, e este é o melhor exemplo de por que eles existem.
+
+```python
+class NoCache:
+    def __init__(self, chave, valor):
+        self.chave = chave           # a chave mora aqui dentro, não só no dicionário
+        self.valor = valor
+        self.ant = None
+        self.prox = None
+
+class LRUCache:
+    def __init__(self, capacidade):
+        self.cap = capacidade
+        self.mapa = {}                        # chave -> nó
+        self.cabeca = NoCache(None, None)     # sentinela do lado "usado agora"
+        self.cauda = NoCache(None, None)      # sentinela do lado "vai ser despejado"
+        self.cabeca.prox = self.cauda         # a lista vazia é isto: os dois
+        self.cauda.ant = self.cabeca          # sentinelas apontando um para o outro
+
+    def _desligar(self, no):                  # tira o nó de onde ele estiver
+        no.ant.prox = no.prox
+        no.prox.ant = no.ant
+
+    def _para_a_frente(self, no):             # devolve o nó logo depois da cabeça
+        primeiro = self.cabeca.prox
+        no.ant = self.cabeca
+        no.prox = primeiro
+        self.cabeca.prox = no
+        primeiro.ant = no
+
+    def get(self, chave):
+        if chave not in self.mapa:
+            return -1
+        no = self.mapa[chave]
+        self._desligar(no)                    # O(1): o nó já sabe quem vem antes
+        self._para_a_frente(no)
+        return no.valor
+
+    def put(self, chave, valor):
+        if chave in self.mapa:
+            self._desligar(self.mapa[chave])
+        elif len(self.mapa) >= self.cap:
+            vitima = self.cauda.ant           # o último da fila é o menos usado
+            self._desligar(vitima)
+            del self.mapa[vitima.chave]       # e é aqui que a chave no nó salva
+        no = NoCache(chave, valor)
+        self.mapa[chave] = no
+        self._para_a_frente(no)
+```
+
+Duas coisas para levar daqui. A primeira: **não existe um único laço nesse código**, e é por isso que `get` e `put` continuam O(1) com um milhão de chaves. A segunda é o detalhe que derruba quem escreve de primeira: a chave mora **dentro do nó**, não só no dicionário. Sem ela, na hora do despejo você teria o nó vítima na mão e nenhum jeito de saber qual entrada apagar do dicionário, o que exigiria varrer o mapa inteiro e mataria o O(1) que você tinha acabado de conquistar.
+
+E repare no `_desligar`: ele mexe em `no.ant.prox` e `no.prox.ant` sem perguntar nada. Numa lista sem sentinelas essas duas linhas seriam quatro, porque `no.ant` pode ser `None` (o nó é o primeiro) e `no.prox` também (o nó é o último). É esse `if` que a próxima seção mata.
+
+## O nó sentinela elimina o caso especial da cabeça
+
+Repare que os dois códigos da seção de operações começam do mesmo jeito:
+
+```python
+if pos == 0:
+    ...   # trata a cabeça de um jeito
+...       # e o resto da lista de outro
+```
+
+Esse `if` existe porque quem aponta para o primeiro nó não é outro nó, é a variável `cabeca`. Ele se repete em toda operação que mexe no começo da lista, e é a fonte número um de bug em exercício de lista encadeada.
+
+O **nó sentinela** (também chamado de dummy head) resolve isso de um jeito quase bobo: a lista passa a ter um nó a mais, na frente de tudo, que **não guarda valor nenhum e nunca sai dali**. A cabeça sempre aponta para ele. Como o sentinela nunca é `None` e nunca é removido, o primeiro nó de verdade deixa de ser especial: ele agora tem um anterior, como todos os outros.
+
+```python
+class ListaComSentinela:
+    def __init__(self):
+        self.cabeca = No(None)        # o sentinela: existe mesmo com a lista vazia
+
+    def inserir(self, pos, valor):
+        novo = No(valor)
+        anterior = self.cabeca        # nunca é None, então nunca precisa de if
+        for _ in range(pos):
+            anterior = anterior.prox
+        novo.prox = anterior.prox
+        anterior.prox = novo
+
+    def remover(self, pos):
+        anterior = self.cabeca
+        for _ in range(pos):
+            anterior = anterior.prox
+        anterior.prox = anterior.prox.prox
+```
+
+Conte os `if`: zero. Volte ao visualizador da seção de operações, ligue o chip **nó sentinela** e escolha "Remover o primeiro". O painel de código encolhe de 8 para 5 linhas e o caminho especial some, porque agora remover o primeiro nó é igual a remover qualquer outro. O preço é um nó a mais na memória e um salto a mais em cada operação, que é o que o contador de "nós percorridos" mostra.
+
+<Callout>
+**Sentinela e ponteiro auxiliar não são a mesma coisa**, e no encontro essa confusão apareceu bonita. O **sentinela** é um nó de verdade, alocado na memória, que fica parado guardando a ponta da lista. O **ponteiro auxiliar** (o `atual` do laço de busca, às vezes chamado de dummy pointer) é só uma variável que caminha: você reatribui ele o tempo todo e joga fora no fim. Um marca um lugar, o outro anda.
+</Callout>
+
+Numa lista **simplesmente** encadeada, só o sentinela da frente vale a pena: chegar no fim já é fácil, basta procurar o `None`. Numa lista **duplamente** encadeada, vale ter os dois, um sentinela de cabeça e um de cauda, e aí a lista vazia deixa de ser `None`: são os dois sentinelas apontando um para o outro. Toda inserção e toda remoção passam a ser sempre "no meio", sem uma exceção sequer para tratar. É exatamente o que o LRU cache da seção anterior faz.
+
+O exemplo que motivou tudo isso no encontro foi um problema de LeetCode: **remover o k-ésimo nó contando de trás para frente**. A solução esbarra num caso chato, o de quando o nó a remover é justamente o primeiro, que obriga um `if` só para devolver `cabeca.prox`. Com sentinela, esse `if` desaparece e o código fica com um caminho só. É o LeetCode 19 da lista de problemas do fim desta página, e ele usa três coisas ao mesmo tempo: sentinela, ponteiro auxiliar e dois ponteiros com uma distância fixa entre eles, que é o assunto de duas seções à frente.
+
+### O sentinela como cabeça de obra: montando uma lista nova
+
+Existe um segundo uso do sentinela, e no LeetCode ele é ainda mais frequente que o primeiro: quando o problema pede uma lista **nova** de saída. Sem sentinela, todo laço que constrói uma lista começa com o mesmo `if` chato, "se a saída ainda está vazia então este é o primeiro nó, senão pendure no fim". Com um sentinela, a saída nunca está vazia, e sobra um caminho só.
+
+O exemplo canônico é intercalar duas listas já ordenadas:
+
+```python
+def intercalar(a, b):
+    sentinela = No(None)
+    cauda = sentinela                  # o ponteiro auxiliar que constrói a saída
+    while a is not None and b is not None:
+        if a.valor <= b.valor:
+            cauda.prox = a             # pendura o menor dos dois...
+            a = a.prox                 # ...e avança só naquela lista
+        else:
+            cauda.prox = b
+            b = b.prox
+        cauda = cauda.prox
+    cauda.prox = a if a is not None else b   # o que sobrou já está ordenado
+    return sentinela.prox              # a cabeça de verdade é quem veio depois dele
+```
+
+Os dois papéis da seção aparecem lado a lado aqui: `sentinela` fica **parado** segurando o começo da saída, e `cauda` **caminha**. No fim você devolve `sentinela.prox`, nunca o sentinela. Esse `return sentinela.prox` é a assinatura da técnica, e ele sai igualzinho no LeetCode 21 (intercalar duas listas), no 2 (somar dois números guardados de trás para frente) e no 203 (remover todas as ocorrências de um valor).
+
+De brinde, esse `intercalar` é o coração do **merge sort de lista encadeada**, que é o jeito de ordenar uma lista em O(n log n). Aqui o merge sort ganha do quicksort com folga, e por um motivo específico da estrutura: intercalar duas listas encadeadas só religa ponteiros, sem o array auxiliar do tamanho da entrada que o merge sort de array precisa alocar. O que falta é partir a lista ao meio sem saber o tamanho dela, e isso é o ponteiro rápido e lento, duas seções à frente.
+
+## Inverter a lista: a dança dos três ponteiros
+
+Inverter uma lista encadeada é o exercício que faz todo mundo travar na primeira vez. O motivo é simples: você está andando para a frente e precisa apontar para trás, mas numa lista simples **não existe "para trás"**. Assim que você vira a seta de um nó, o resto da lista fica inacessível.
+
+A saída é carregar o passado com você. São três ponteiros:
+
+- `anterior`: o nó que já foi virado. Começa em `None`, porque o primeiro nó vai virar o último.
+- `atual`: o nó que está sendo virado agora.
+- `proximo`: uma cópia de `atual.prox`, guardada **antes** de a seta virar. É o cinto de segurança.
+
+```python
+def reverter(cabeca):
+    anterior = None
+    atual = cabeca
+    while atual is not None:
+        proximo = atual.prox    # 1. guardo o resto da lista
+        atual.prox = anterior   # 2. viro a seta
+        anterior = atual        # 3. anterior anda
+        atual = proximo         # 4. atual anda
+    return anterior             # o antigo último virou a nova cabeça
+```
+
+Quatro linhas, nesta ordem, e nenhuma delas é opcional. Rode passo a passo:
+
+<LinkedListReversao />
+
+Pare no passo em que a seta do primeiro nó vira para `None` e olhe o desenho com calma: **a lista está partida em duas** naquele instante, e a única coisa que segura a metade da frente é a variável `proximo`. Tire a linha 1 do laço e você perde a lista inteira a partir do segundo nó, que é o erro mais comum aqui. Use também o caso "Só dois nós": é o menor exemplo em que a coisa ainda tem graça, e o mais fácil de simular no papel antes de rodar.
+
+O custo é uma passada só: **O(n) de tempo e O(1) de memória**, sem criar nenhum nó novo e sem copiar valor nenhum. Só as setas mudam.
+
+A versão recursiva existe e é elegante, mas cobra caro:
+
+```python
+def reverter_rec(no, anterior=None):
+    if no is None:
+        return anterior
+    proximo = no.prox
+    no.prox = anterior
+    return reverter_rec(proximo, no)
+```
+
+Ela é O(n) de tempo, mas O(n) de **espaço**, porque empilha uma chamada por nó. Numa lista de 10 mil nós, o Python estoura o limite de recursão (o padrão é 1000) antes de terminar. É um belo exemplo de que a [recursão](/topico/recursao) tem um custo escondido na pilha, e é por isso que a versão iterativa é a que se leva para a entrevista.
+
+## Rápido e lento: achar o meio sem saber o tamanho
+
+Como você acha o nó do meio de uma lista encadeada? A resposta óbvia é: percorro tudo para contar (`n` passos), divido por dois e percorro de novo até `n // 2` (mais `n / 2` passos). Funciona, custa cerca de `1,5n` visitas e precisa de duas passadas pela lista.
+
+A resposta melhor usa **dois ponteiros em ritmos diferentes**, o padrão que aparece em toda a família de [Two Pointers](/topico/two-pointers):
+
+```python
+def meio(cabeca):
+    lento = rapido = cabeca
+    while rapido is not None and rapido.prox is not None:
+        lento = lento.prox            # 1 nó por volta
+        rapido = rapido.prox.prox     # 2 nós por volta
+    return lento
+```
+
+Quando o rápido chega ao fim, ele andou o dobro do lento. Logo o lento andou metade: está no meio. **Uma passada só**, e ninguém precisou saber o tamanho da lista antes.
+
+Continua sendo O(n), e é bom deixar isso claro: o ganho não é de complexidade, é de constante. Só que a constante importa quando a lista tem milhões de nós e cada salto é uma leitura fora do cache. Metade de 2 segundos de latência é 1 segundo de latência.
+
+<LinkedListFloyd />
+
+Escolha o caso **"Sem ciclo: 6 nós (acha o meio)"** e rode até o fim. O rápido sai da lista, o laço acaba, e repare onde o lento parou: no **nó 3**. Depois rode "Sem ciclo: 5 nós": o lento para no **nó 2**. Nos dois casos ele para em `n // 2`.
+
+<Callout tipo="aviso">
+Com um número **par** de nós existem dois meios, e este laço sempre devolve o **segundo** deles: numa lista de 6 nós (índices 0 a 5), os meios são o 2 e o 3, e você recebe o 3. O enunciado do LeetCode 876 pede exatamente esse. Se o seu problema pedir o primeiro meio, mude a condição para `while rapido.prox is not None and rapido.prox.prox is not None`, lembrando de tratar a lista vazia antes, porque essa versão não sobrevive a uma cabeça `None`. Antes de escrever qualquer código, pergunte qual meio o problema quer: no encontro, alguém resumiu isso perfeitamente com "se o cliente pede o pacote do meio e são seis pacotes, qual deles ele quer?".
+</Callout>
+
+### A mesma ideia com distância fixa: o k-ésimo de trás para frente
+
+O rápido e lento é um caso particular de uma ideia maior: **dois ponteiros percorrendo a mesma lista com uma relação fixa entre eles**. Ali a relação era de velocidade, um andava o dobro do outro. Agora ela vai ser de **distância**: os dois andam no mesmo ritmo, mas um largou `k` nós na frente.
+
+É esse o segredo do problema que ficou pendente lá na seção do sentinela, remover o k-ésimo nó contando de trás para frente. A solução ingênua faz duas passadas: conta os nós, descobre que são `n`, e volta do começo até a posição `n - k`. A solução de uma passada abre a distância antes de começar a andar:
+
+```python
+def remover_k_do_fim(cabeca, k):
+    sentinela = No(None)              # sem ele, remover a cabeça vira caso especial
+    sentinela.prox = cabeca
+    frente = tras = sentinela
+    for _ in range(k):                # 1. abro a distância de k nós
+        frente = frente.prox
+    while frente.prox is not None:    # 2. os dois andam juntos até o fim
+        frente = frente.prox
+        tras = tras.prox
+    tras.prox = tras.prox.prox        # 3. tras parou no anterior ao alvo
+    return sentinela.prox
+```
+
+A parte que não é óbvia é por que `tras` para no lugar certo, e a única forma de acreditar nisso é rodar na mão. Com a lista `1 → 2 → 3 → 4 → 5` e `k = 2`, que é o exemplo do enunciado:
+
+| Momento | frente | tras |
+| --- | --- | --- |
+| depois do `for` | nó 2 | sentinela |
+| 1ª volta do `while` | nó 3 | nó 1 |
+| 2ª volta | nó 4 | nó 2 |
+| 3ª volta | nó 5 | nó 3 |
+
+O `while` para quando `frente` chega no **último** nó, e nesse instante `tras` está no nó 3, que é justamente o anterior ao nó 4, o segundo contando de trás para frente. Não é coincidência: a distância entre os dois nunca muda, porque os dois andam um passo por volta, e o sentinela na largada é o que garante que `tras` fique um nó **atrás** do alvo em vez de em cima dele.
+
+Os casos de borda deste problema são o melhor argumento a favor do sentinela que existe nesta página:
+
+- **`k = n`, remover a cabeça.** O `for` deixa `frente` no último nó, o `while` não roda nenhuma vez e `tras` continua no sentinela. A linha `tras.prox = tras.prox.prox` tira o primeiro nó sem um `if`, e `sentinela.prox` já devolve a nova cabeça. Sem sentinela, esse é exatamente o caso que obriga um `return cabeca.prox` avulso.
+- **`k = 1`, remover o último.** O `for` anda um passo só e `tras` termina no penúltimo, que é quem precisa apontar para `None`.
+- **Lista de um nó com `k = 1`.** Sobra `sentinela.prox = None`, a lista vazia, devolvida corretamente e sem tratamento especial.
+- **`k > n`.** O `for` passa do fim e o programa quebra com `AttributeError` em `None.prox`. O enunciado do LeetCode 19 garante `1 ≤ k ≤ n`, mas fora dele esse é o guard que falta.
+
+Guarde o formato, porque ele reaparece muito: **um ponteiro na frente, um atrás, distância constante, uma passada só**. É assim que se acha o k-ésimo nó de trás para frente, que se descobre se a lista tem pelo menos k nós sem contá-los, e que se parte uma lista em blocos de tamanho k para inverter grupo a grupo.
+
+## Floyd: existe ciclo, e onde ele começa
+
+Uma lista tem **ciclo** quando algum nó aponta para um nó que já passou. O `while atual is not None` nunca mais termina, e o seu programa trava sem dar erro. Detectar isso com um `set` de nós visitados é fácil, mas custa O(n) de memória. O algoritmo do ciclo de Floyd, apelidado de lebre e tartaruga, faz o mesmo com **O(1) de memória**.
+
+**Fase 1: existe ciclo?** É o mesmo laço de achar o meio. Se a lista termina, o rápido cai no `None` e a resposta é não. Se existe ciclo, o rápido entra nele, o lento entra depois, e como o rápido ganha exatamente 1 nó de distância por volta, ele acaba alcançando o lento por trás. Não tem como escapar: os dois se encontram.
+
+**Fase 2: onde o ciclo começa?** Aqui está a sacada que dá nome ao algoritmo. Assim que os dois se encontram, você devolve **um** deles para a cabeça e faz os dois andarem de **1 em 1**. Onde eles se encontrarem de novo é o primeiro nó do ciclo.
+
+```python
+def inicio_do_ciclo(cabeca):
+    lento = rapido = cabeca
+    while rapido is not None and rapido.prox is not None:
+        lento = lento.prox
+        rapido = rapido.prox.prox
+        if lento is rapido:               # fase 1: se encontraram
+            lento = cabeca                # fase 2: um volta para o começo
+            while lento is not rapido:
+                lento = lento.prox
+                rapido = rapido.prox
+            return lento                  # os dois param no início do ciclo
+    return None                           # não tem ciclo
+```
+
+No visualizador acima, escolha o caso **"Clássico: 3 antes + ciclo de 5"** e rode até o fim. Os números que você vai ver: o encontro acontece no **nó 5**, na **5ª iteração**, e a fase 2 leva **3 passos** para os dois pararem no **nó 3**, que é onde o ciclo começa. Guarde esse 3, porque ele é a chave da explicação.
+
+Por que a fase 2 funciona? Chame de **μ** a quantidade de nós antes do ciclo (aqui, 3) e de **λ** o tamanho do ciclo (aqui, 5). No momento do encontro:
+
+- o lento andou `d` passos e o rápido andou `2d`, porque ele anda o dobro;
+- o lento entrou no ciclo no passo `μ` e encontrou o rápido `k` passos depois da entrada, então `d = μ + k`;
+- os dois estão no mesmo nó, e a diferença entre o que andaram (`2d - d = d`) só pode ser um número inteiro de voltas: `d = n · λ`.
+
+Junte as duas últimas linhas: `μ + k = n · λ`, ou seja, **`μ = n · λ - k`**. Ler essa igualdade é o pulo do gato: andar `μ` passos a partir do nó do encontro é dar voltas completas e depois voltar `k` passos, o que aterrissa exatamente na entrada do ciclo. E andar `μ` passos a partir da cabeça também chega lá, por definição de `μ`. Os dois ponteiros, andando no mesmo ritmo, se encontram no início do ciclo.
+
+Confira com os números do visualizador: μ = 3, λ = 5, o encontro foi no nó 5, que fica k = 2 passos depois da entrada (nó 3). Então `d = 3 + 2 = 5` e `n · λ = 1 · 5 = 5`. Fecha. E `μ = 5 - 2 = 3`, que é exatamente o número de passos da fase 2.
+
+Vale rodar mais dois casos para ver a fórmula se comportar:
+
+- **"Tudo é ciclo: 6 nós em roda"**: μ = 0, e a fase 2 termina em **0 passos**, porque o encontro já é a cabeça, que já é o início do ciclo.
+- **"Laço em 1 nó: 4 + ciclo de 1"**: μ = 4, e a fase 2 leva **4 passos**. O nó que aponta para si mesmo é a menor lista com ciclo possível, e é o caso de borda que costuma quebrar implementação apressada.
+
+<Callout>
+Achado o início do ciclo, você ganha de brinde a capacidade de **desfazer** o ciclo: basta caminhar até o nó anterior à entrada e apontar o `prox` dele para `None`. É o mesmo raciocínio que serve para detectar laço em rede, em cadeia de dependências ou em qualquer coisa que não deveria voltar para o começo. E sim, o Robert W. Floyd deste algoritmo é o mesmo do Floyd-Warshall de caminhos mínimos em [grafos](/topico/grafos-intro).
+</Callout>
+
+## As armadilhas que pegam todo mundo
+
+**A `list` do Python não é uma lista encadeada.** Nem a `List` do C#, nem o `ArrayList` do Java, nem o slice do Go. Todas são array dinâmico. Quando você lê "lista" numa linguagem moderna, presuma array até provarem o contrário: se fosse lista encadeada, `nums[500]` não seria O(1).
+
+**Religar na ordem errada perde a lista, em silêncio.** Sempre guarde o endereço do que vem depois antes de sobrescrever um `prox`. Esse é o mesmo erro na inserção, na remoção e na inversão.
+
+**"É O(1)" quase sempre vem depois de um O(n).** Inserir no meio é O(1) **se você já tem o nó anterior na mão**. Se o problema te dá só a posição, achar o anterior é O(n) e a operação inteira é O(n). Fale sempre a frase completa em entrevista.
+
+**Esquecer de avançar o ponteiro trava o programa.** Um `while atual is not None` sem `atual = atual.prox` no fim do corpo é laço infinito. E se a lista tiver ciclo, o laço nunca termina mesmo com o avanço correto: é para isso que o Floyd serve.
+
+**Uma lista não sabe o próprio tamanho.** Contar é O(n). Se o seu código chama `len()` dentro de um laço, você acabou de criar um O(n²) sem perceber. Guarde um contador na casca da lista e atualize nas operações.
+
+**Recursão em lista longa estoura a pilha.** O Python para em 1000 chamadas por padrão. Toda travessia recursiva de lista tem uma versão iterativa equivalente, e ela é a versão segura.
+
+**Limpar a lista inteira é O(1) de código, não de trabalho.** Aponte a cabeça (e a cauda) para `None` e todos os nós ficam inalcançáveis de uma vez, sem você percorrer nada. Mas recolher os n nós continua custando n: o trabalho só saiu do seu código e foi para o coletor de lixo, e no CPython, que conta referências, ele acontece na hora, em cascata. Sem coletor, ou quando cada nó tem algo para fechar (uma conexão, um arquivo), aí não tem jeito mesmo: você percorre e libera nó a nó.
+
+<Callout tipo="aviso">
+**Escolher lista encadeada por causa da tabela de complexidade costuma ser um erro.** Na prática, o array dinâmico ganha na maioria dos casos do dia a dia por causa do cache, e a lista só compensa quando você tem muita inserção e remoção no meio **com a referência do nó já em mãos**, como no LRU cache, ou quando precisa de ponteiros estáveis, que não mudam quando a estrutura cresce. Fora isso, meça antes de trocar.
+</Callout>
+
+## Como praticar
+
+A lista de problemas no fim desta página vai do mais direto ao mais difícil, e cada um deles cobra uma seção específica do que você acabou de ler:
+
+- **LeetCode 206 (Reverse Linked List)** é a dança dos três ponteiros, pura. Resolva na mão, no papel, antes de digitar. Depois escreva a versão recursiva e compare o consumo de pilha.
+- **LeetCode 876 (Middle of the Linked List)** é o rápido e lento da seção do meio da lista. Teste com 5 e com 6 nós e confirme qual dos dois meios o enunciado quer.
+- **LeetCode 19 (Remove Nth Node From End of List)** junta três coisas de uma vez: o sentinela para o caso da cabeça, o ponteiro auxiliar e os dois ponteiros com `k` nós de distância. O código está na seção do rápido e lento, mas tente antes de olhar, e refaça a tabela de `frente` e `tras` com a sua própria lista. É o problema que estava sendo discutido no encontro.
+- **LeetCode 142 (Linked List Cycle II)** é a fase 2 do Floyd. Se ele parecer mágico, volte ao visualizador e rode a conta `μ = n · λ - k` com os números que aparecem na tela.
+- **LeetCode 146 (LRU Cache)** é a lista duplamente encadeada com sentinelas nas duas pontas, casada com um dicionário. É difícil, é longo, e é o problema que mais parece com código de produção nesta lista inteira. O esqueleto está na seção da lista dupla; o que ele não te dá é a disciplina de rodar `get` e `put` na mão até a ordem da lista bater com a ordem de uso.
+
+Se sobrar fôlego, três que não estão na lista mas fecham o assunto: o **21 (Merge Two Sorted Lists)** é o sentinela construindo saída e sai quase de graça depois desta página; o **237 (Delete Node in a Linked List)** é o truque de roubar o valor do próximo; e o **148 (Sort List)** casa o 21 com o 876 e vira o merge sort de lista encadeada inteiro, que é o problema mais completo que este tema tem para oferecer.
+
+O guia do GeeksforGeeks, no fim da lista, é a referência canônica para consultar depois: ele cobre lista simples, dupla e circular com o código de cada operação.
+
+Depois de resolver, dois hábitos que economizam horas: **desenhe antes de codar** (com três nós já dá para ver o bug) e **teste sempre os quatro casos de borda**, que são lista vazia, um nó só, dois nós, e a operação acontecendo na cabeça. Os visualizadores desta página têm um chip para cada um deles: no primeiro, "Lista vazia + inserir", "Um nó só + remover" e "Dois nós + inserir no meio"; no da inversão, "Lista vazia", "Um nó só" e "Só dois nós"; no do Floyd, arraste os dois controles até zero. O ritual que funciona é sempre o mesmo: escolha o caso, **preveja o resultado em voz alta**, e só então clique em Rodar.
+
+O caminho natural daqui são as estruturas que usam a lista encadeada por baixo: [pilhas](/topico/pilhas) e [filas](/topico/filas) são listas com as operações restritas às pontas, a [tabela hash](/topico/hash-table) resolve colisão com uma lista encadeada em cada bucket, e a [Skip List](/topico/skip-list) empilha várias listas ordenadas em níveis para conseguir busca em O(log n), que é a única forma de uma lista encadeada fugir do O(n) da busca.

@@ -1,4 +1,9 @@
 import type { ComponentType } from "react";
+import RecursaoFuncional from "./recursao-funcional.mdx";
+import Filas from "./filas.mdx";
+import Pilhas from "./pilhas.mdx";
+import SkipList from "./skip-list.mdx";
+import ListasLigadas from "./listas-ligadas.mdx";
 import Intervals from "./intervals.mdx";
 import PrefixSum from "./prefix-sum.mdx";
 import Arrays from "./arrays.mdx";
@@ -8,6 +13,7 @@ import SlidingWindow from "./sliding-window.mdx";
 import SubTypes from "./subarray-substring-subsequence-subset.mdx";
 import Strings from "./strings.mdx";
 import HashTable from "./hash-table.mdx";
+import Recursao from "./recursao.mdx";
 
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
@@ -18,6 +24,98 @@ export type Article = { Body: ComponentType; summary: string[] };
 // summary = SÓ os títulos (h2) do artigo, no texto exato. A página do tópico
 // acrescenta "Vídeo da aula" e "Problemas para praticar" quando existem.
 export const ARTICLES: Record<string, Article> = {
+  "recursao-funcional": {
+    Body: RecursaoFuncional,
+    summary: [
+      "Por que linguagem funcional vive de recursão",
+      "A pilha que cresce e a conta que espera",
+      "Posição de cauda: a regra de uma linha só",
+      "O acumulador: fazer a conta na ida",
+      "Tail call optimization: quem otimiza e quem não",
+      "Trampolim: quando a linguagem não ajuda",
+      "De cauda nem sempre é mais rápido",
+      "Armadilhas e como praticar",
+    ],
+  },
+  "recursao": {
+    Body: Recursao,
+    summary: [
+      "O que é recursão, e por que ela aparece em tudo depois daqui",
+      "Caso base e caso recursivo: as três regras",
+      "A pilha de chamadas: onde a recursão acontece de verdade",
+      "Stack overflow: por que a pilha tem teto",
+      "A árvore do Fibonacci e o retrabalho exponencial",
+      "Memoização: de 21.891 chamadas para 39",
+      "Como ler a complexidade de uma função recursiva",
+      "Os tipos de recursão",
+      "Recursão ou iteração: como escolher",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  "filas": {
+    Body: Filas,
+    summary: [
+      "Por que a fila existe",
+      "O contrato: enfileirar, desenfileirar, espiar",
+      "A fila ingênua sobre array, e o pedágio do desenfileirar",
+      "O buffer circular: o índice que dá a volta",
+      "Cheia ou vazia? O detalhe que trava a implementação",
+      "Fila com lista encadeada: o preço do ponteiro",
+      "Fila com duas pilhas",
+      "Deque: a fila de duas pontas",
+      "O deque monotônico e o máximo da janela",
+      "Complexidade e o que dizer numa entrevista",
+      "Armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  "pilhas": {
+    Body: Pilhas,
+    summary: [
+      "Uma lista com uma porta só",
+      "push, pop e peek: tudo acontece no topo",
+      "Pilha sobre array: um ponteiro que sobe e desce",
+      "Pilha sobre lista ligada: sem resize, com um ponteiro a mais",
+      "Parênteses balanceados: o primeiro problema de verdade",
+      "A pilha que você já usava sem saber: a call stack",
+      "Inverter, desfazer e avaliar: três padrões diretos",
+      "Pilha monotônica: o próximo maior elemento em O(n)",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  "skip-list": {
+    Body: SkipList,
+    summary: [
+      "O problema: três estruturas, três buracos",
+      "A ideia: uma pista expressa por cima da lista",
+      "A busca: começa no topo e desce em escada",
+      "A moeda: a altura de cada nó é sorteada uma vez só",
+      "Inserção e remoção: o rastro de candidatos",
+      "O head: o sentinela que quase ninguém desenha",
+      "De onde sai o log n, e por que ele é esperado e não garantido",
+      "Skip List na vida real",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  "listas-ligadas": {
+    Body: ListasLigadas,
+    summary: [
+      "O nó: um valor e um endereço",
+      "Contígua ou espalhada: onde cada estrutura mora na memória",
+      "Religar ponteiros: inserir, remover e buscar",
+      "A tabela de custos, operação por operação",
+      "Duplamente encadeada, circular e o preço de andar para trás",
+      "O nó sentinela elimina o caso especial da cabeça",
+      "Inverter a lista: a dança dos três ponteiros",
+      "Rápido e lento: achar o meio sem saber o tamanho",
+      "Floyd: existe ciclo, e onde ele começa",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
   "hash-table": {
     Body: HashTable,
     summary: [

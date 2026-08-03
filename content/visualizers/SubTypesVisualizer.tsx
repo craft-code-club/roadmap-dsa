@@ -184,7 +184,7 @@ export function SubTypesVisualizer() {
             <div key={l.nome} className={`sub-veredito ${l.cor}${vazio ? " off" : l.ok ? " ok" : " no"}`}>
               <div className="sub-veredito-cab">
                 <span className="sub-veredito-nome">{l.nome}</span>
-                <span className="sub-veredito-selo">{vazio ? "—" : l.ok ? "✓ é" : "✕ não é"}</span>
+                <span className="sub-veredito-selo">{vazio ? "·" : l.ok ? "✓ é" : "✕ não é"}</span>
               </div>
               <span className="sub-veredito-sub">{l.sub}</span>
               <p className="sub-veredito-txt">{l.txt}</p>

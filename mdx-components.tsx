@@ -25,6 +25,26 @@ import { IntervalsSobreposicaoVisualizer } from "@content/visualizers/IntervalsS
 import { IntervalsVisualizer } from "@content/visualizers/IntervalsVisualizer";
 import { IntervalsSweepVisualizer } from "@content/visualizers/IntervalsSweepVisualizer";
 import { SlidingWindowForcaBruta } from "@content/visualizers/SlidingWindowForcaBruta";
+import { RecursionVisualizer } from "@content/visualizers/RecursionVisualizer";
+import { RecursionArvoreVisualizer } from "@content/visualizers/RecursionArvoreVisualizer";
+import { RecursionTipos } from "@content/visualizers/RecursionTipos";
+import { LinkedListVisualizer } from "@content/visualizers/LinkedListVisualizer";
+import { LinkedListOperacoes } from "@content/visualizers/LinkedListOperacoes";
+import { LinkedListReversao } from "@content/visualizers/LinkedListReversao";
+import { LinkedListFloyd } from "@content/visualizers/LinkedListFloyd";
+import { SkipListVisualizer } from "@content/visualizers/SkipListVisualizer";
+import { SkipListInsercao } from "@content/visualizers/SkipListInsercao";
+import { SkipListNiveis } from "@content/visualizers/SkipListNiveis";
+import { StackVisualizer } from "@content/visualizers/StackVisualizer";
+import { StackCallStackVisualizer } from "@content/visualizers/StackCallStackVisualizer";
+import { StackMonotonicaVisualizer } from "@content/visualizers/StackMonotonicaVisualizer";
+import { StackImplementacoes } from "@content/visualizers/StackImplementacoes";
+import { QueueVisualizer } from "@content/visualizers/QueueVisualizer";
+import { QueueDuasPilhas } from "@content/visualizers/QueueDuasPilhas";
+import { QueueDequeMonotonico } from "@content/visualizers/QueueDequeMonotonico";
+import { TailRecursionVisualizer } from "@content/visualizers/TailRecursionVisualizer";
+import { TailRecursionForma } from "@content/visualizers/TailRecursionForma";
+import { TailRecursionTrampolim } from "@content/visualizers/TailRecursionTrampolim";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -110,6 +130,26 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     IntervalsVisualizer,
     IntervalsSweepVisualizer,
     SlidingWindowForcaBruta,
+    RecursionVisualizer,
+    RecursionArvoreVisualizer,
+    RecursionTipos,
+    LinkedListVisualizer,
+    LinkedListOperacoes,
+    LinkedListReversao,
+    LinkedListFloyd,
+    SkipListVisualizer,
+    SkipListInsercao,
+    SkipListNiveis,
+    StackVisualizer,
+    StackCallStackVisualizer,
+    StackMonotonicaVisualizer,
+    StackImplementacoes,
+    QueueVisualizer,
+    QueueDuasPilhas,
+    QueueDequeMonotonico,
+    TailRecursionVisualizer,
+    TailRecursionForma,
+    TailRecursionTrampolim,
     ...components,
   };
 }

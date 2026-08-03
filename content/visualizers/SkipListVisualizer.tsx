@@ -6,18 +6,18 @@ import { createPortal } from "react-dom";
 // ---------------------------------------------------------------------------
 // SkipListVisualizer, a busca descendo em escada pelos níveis.
 //
-// Nível é a única coisa que não se entende lendo: precisa ver a estrutura
-// desenhada e o caminho descendo. Por isso aqui o desenho é um SVG com layout
-// calculado (uma coluna por elemento, uma linha por nível) em vez da fileira de
-// células dos outros visualizadores. O gerador de passos continua puro, igual
-// ao TwoPointersVisualizer.
+// Nível é a única coisa deste tópico que não se entende lendo: precisa ver a
+// estrutura desenhada e o caminho descendo. Por isso aqui o desenho é um SVG
+// com layout calculado (uma coluna por elemento, uma linha por nível) em vez da
+// fileira de células dos outros visualizadores. O gerador de passos continua
+// puro, igual ao TwoPointersVisualizer.
 //
 // Duas coisas que o aluno precisa enxergar acontecendo:
 //   1. a escada: a linha azul que sai do head no topo e desce até o nível 0;
 //   2. o preço: o contador de comparações da skip list ao lado do contador da
 //      mesma busca feita só no nível 0, que é uma lista encadeada comum.
 //
-// As alturas padrão dão a pirâmide de livro (12 / 6 / 3 / 1 nós por nível), e o
+// As alturas padrão dão a pirâmide de livro (12 / 6 / 3 / 1 nós por nível) e o
 // botão "Sortear alturas" mostra o que o encontro repetiu o tempo todo: a mesma
 // entrada gera estruturas diferentes, mas o resultado da busca não muda.
 // ---------------------------------------------------------------------------
@@ -56,13 +56,26 @@ const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 const MAX_NIVEIS = 4; // altura máxima de um nó, o `MAX_NIVEL` da implementação
 
 // Doze elementos com a pirâmide exata da teoria: 12 nós no nível 0, 6 no
-// nível 1, 3 no nível 2 e 1 no nível 3. É o desenho do encontro.
-const VALORES = [3, 9, 17, 23, 31, 42, 50, 59, 73, 80, 92, 98];
-const ALTURAS_PADRAO = [1, 3, 1, 2, 1, 4, 1, 2, 3, 1, 2, 1];
-const ALTURAS_PLANAS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+// nível 1, 3 no nível 2 e 1 no nível 3. São os números do desenho do encontro.
+const VALORES_PADRAO = [3, 9, 17, 23, 31, 42, 50, 59, 73, 80, 92, 98];
+const CICLO_PADRAO = [1, 3, 1, 2, 1, 4, 1, 2, 3, 1, 2, 1];
 
-function montar(alturas: number[]): No[] {
-  return VALORES.map((valor, i) => ({ valor, altura: alturas[i] ?? 1 }));
+// Alturas determinísticas: o mesmo padrão do encontro, repetido em ciclo quando
+// o aluno digita um array maior. Nada de Math.random no caminho de render.
+function alturasPadrao(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => CICLO_PADRAO[i % CICLO_PADRAO.length]);
+}
+
+function limpar(texto: string): number[] {
+  const vistos = new Set<number>();
+  const saida: number[] = [];
+  for (const bruto of texto.split(",")) {
+    const v = parseInt(bruto.trim(), 10);
+    if (isNaN(v) || vistos.has(v)) continue;
+    vistos.add(v);
+    saida.push(v);
+  }
+  return saida.sort((a, b) => a - b).slice(0, 14);
 }
 
 // O próximo nó de `i` no nível `nivel`: o primeiro à direita que chega lá.
@@ -94,6 +107,7 @@ function comparacoesLista(nos: No[], alvo: number): number {
 
 function gerarPassos(nos: No[], alvo: number): Passo[] {
   const out: Passo[] = [];
+  if (!nos.length) return out;
   const topo = Math.max(1, ...nos.map((n) => n.altura)) - 1;
   let nivel = topo;
   let atual = -1;
@@ -138,7 +152,7 @@ function gerarPassos(nos: No[], alvo: number): Passo[] {
           nota:
             pulados === 0
               ? `Avancei para o ${v}. Neste salto não pulei ninguém: no nível ${nivel} ele já era o vizinho imediato.`
-              : `Avancei para o ${v} de uma vez só, sem nem olhar os ${pulados} ${pulados === 1 ? "elemento que ficou" : "elementos que ficaram"} para trás no nível 0. É isso que o atalho compra.`,
+              : `Avancei para o ${v} de uma vez só, sem nem olhar ${pulados === 1 ? "o elemento que ficou" : `os ${pulados} elementos que ficaram`} para trás no nível 0. É isso que o atalho compra.`,
         });
         continue;
       }
@@ -162,6 +176,7 @@ function gerarPassos(nos: No[], alvo: number): Passo[] {
   }
 
   const candidato = forwardDe(nos, atual, 0);
+  if (candidato !== null) visitados.push(`0:${candidato}`);
   out.push({
     ...base(),
     olhando: candidato,
@@ -188,12 +203,53 @@ function gerarPassos(nos: No[], alvo: number): Passo[] {
   return out;
 }
 
-type Preset = { key: string; rotulo: string; alvo: number; alturas: number[] };
+type Preset = { key: string; rotulo: string; alvo: number; valores: number[]; alturas: number[] };
 const PRESETS: Preset[] = [
-  { key: "encontro", rotulo: "Do encontro: procurar o 73", alvo: 73, alturas: ALTURAS_PADRAO },
-  { key: "longe", rotulo: "Lá no fim: procurar o 92", alvo: 92, alturas: ALTURAS_PADRAO },
-  { key: "ausente", rotulo: "Não existe: procurar o 44", alvo: 44, alturas: ALTURAS_PADRAO },
-  { key: "plano", rotulo: "Pior caso: todo mundo no nível 0", alvo: 92, alturas: ALTURAS_PLANAS },
+  {
+    key: "encontro",
+    rotulo: "Do encontro: procurar o 73",
+    alvo: 73,
+    valores: VALORES_PADRAO,
+    alturas: alturasPadrao(VALORES_PADRAO.length),
+  },
+  {
+    key: "longe",
+    rotulo: "Lá no fim: procurar o 92",
+    alvo: 92,
+    valores: VALORES_PADRAO,
+    alturas: alturasPadrao(VALORES_PADRAO.length),
+  },
+  {
+    key: "ausente",
+    rotulo: "Não existe: procurar o 44",
+    alvo: 44,
+    valores: VALORES_PADRAO,
+    alturas: alturasPadrao(VALORES_PADRAO.length),
+  },
+  {
+    key: "plano",
+    rotulo: "Azar total: ninguém passou do nível 0",
+    alvo: 92,
+    valores: VALORES_PADRAO,
+    alturas: VALORES_PADRAO.map(() => 1),
+  },
+  // Os dois casos de borda que o artigo manda prever antes de rodar. O "antes
+  // de todos" é o único em que a skip list perde para a lista comum, e é por
+  // isso que ele merece um botão em vez de ficar escondido no texto.
+  {
+    key: "antes",
+    rotulo: "Antes de todos: procurar o 1",
+    alvo: 1,
+    valores: VALORES_PADRAO,
+    alturas: alturasPadrao(VALORES_PADRAO.length),
+  },
+  {
+    key: "unico",
+    rotulo: "Um elemento só: procurar o 42",
+    alvo: 42,
+    valores: [42],
+    alturas: [1],
+  },
 ];
 
 // --- layout do desenho -----------------------------------------------------
@@ -207,7 +263,9 @@ const RH = 38; // distância entre níveis
 const TOP = 12;
 
 export function SkipListVisualizer() {
-  const [alturas, setAlturas] = useState<number[]>(ALTURAS_PADRAO);
+  const [valores, setValores] = useState<number[]>(VALORES_PADRAO);
+  const [entrada, setEntrada] = useState(VALORES_PADRAO.join(", "));
+  const [alturas, setAlturas] = useState<number[]>(alturasPadrao(VALORES_PADRAO.length));
   const [alvo, setAlvo] = useState(73);
   const [preset, setPreset] = useState("encontro");
   const [passo, setPasso] = useState(0);
@@ -219,9 +277,12 @@ export function SkipListVisualizer() {
 
   useEffect(() => setMounted(true), []);
 
-  const nos = useMemo(() => montar(alturas), [alturas]);
+  const nos = useMemo<No[]>(
+    () => valores.map((valor, i) => ({ valor, altura: Math.min(MAX_NIVEIS, alturas[i] ?? 1) })),
+    [valores, alturas]
+  );
   const passos = useMemo(() => gerarPassos(nos, alvo), [nos, alvo]);
-  const total = passos.length;
+  const total = Math.max(1, passos.length);
   const idx = Math.min(passo, total - 1);
   const p = passos[idx];
 
@@ -263,16 +324,26 @@ export function SkipListVisualizer() {
     setPreset("");
     setAlvo(parseInt(v, 10) || 0);
   };
+  const aoMudarEntrada = (v: string) => {
+    const novos = limpar(v);
+    reiniciar();
+    setPreset("");
+    setEntrada(v);
+    setValores(novos.length ? novos : [1]);
+    setAlturas(alturasPadrao(Math.max(1, novos.length)));
+  };
   const aplicarPreset = (pr: Preset) => {
     reiniciar();
     setPreset(pr.key);
+    setValores(pr.valores);
+    setEntrada(pr.valores.join(", "));
     setAlturas(pr.alturas);
     setAlvo(pr.alvo);
   };
-  // Math.random só aqui, num handler de clique: no caminho de render ele
-  // faria o HTML do build divergir do cliente na hidratação.
+  // Math.random só aqui, num handler de clique: no caminho de render ele faria
+  // o HTML do build divergir do cliente e quebrar a hidratação.
   const sortear = () => {
-    const novas = VALORES.map(() => {
+    const novas = valores.map(() => {
       let h = 1;
       while (Math.random() < 0.5 && h < MAX_NIVEIS) h++;
       return h;
@@ -286,7 +357,7 @@ export function SkipListVisualizer() {
   const topo = Math.max(1, ...nos.map((n) => n.altura)) - 1;
   const niveis = topo + 1;
   const n = nos.length;
-  const larguraSvg = X0 + n * COL + 36;
+  const larguraSvg = X0 + n * COL + 44;
   const alturaSvg = TOP + topo * RH + H + 14;
 
   const yDe = (nivel: number) => TOP + (topo - nivel) * RH;
@@ -295,33 +366,40 @@ export function SkipListVisualizer() {
   const larDe = (i: number) => (i < 0 ? HEAD_W : W);
   const cxDe = (i: number) => xDe(i) + larDe(i) / 2;
 
-  const visitadosSet = useMemo(() => new Set(p.visitados), [p.visitados]);
+  const visitadosSet = useMemo(() => new Set(p ? p.visitados : []), [p]);
 
   // A escada: uma polilinha ligando, na ordem, cada posição por onde o ponteiro
   // `atual` passou. Trechos horizontais são saltos, trechos verticais são
   // descidas de nível.
-  const escada = p.visitados
+  const escada = (p ? p.visitados : [])
     .map((k) => {
       const [nv, ix] = k.split(":").map((s) => parseInt(s, 10));
       return `${cxDe(ix).toFixed(1)},${cyDe(nv).toFixed(1)}`;
     })
     .join(" ");
 
-  // Setas de cada nível: head → nós daquele nível → None.
+  // Setas de cada nível: head -> nós daquele nível -> None. A última seta de
+  // cada linha morre no rótulo None, que é o `forward[nivel] is None` do código.
   type Seta = { k: string; x1: number; x2: number; y: number };
   const setas: Seta[] = [];
+  const nones: { k: string; x: number; y: number }[] = [];
+  const ocupacao: number[] = [];
   for (let nv = 0; nv <= topo; nv++) {
     const participantes = nos.map((no, i) => ({ no, i })).filter((c) => c.no.altura > nv);
+    ocupacao.push(participantes.length);
     let anterior = -1;
     const y = cyDe(nv);
     for (const c of participantes) {
       setas.push({ k: `s${nv}-${c.i}`, x1: xDe(anterior) + larDe(anterior), x2: xDe(c.i) - 5, y });
       anterior = c.i;
     }
-    setas.push({ k: `n${nv}`, x1: xDe(anterior) + larDe(anterior), x2: xDe(anterior) + larDe(anterior) + 16, y });
+    const fim = xDe(anterior) + larDe(anterior);
+    setas.push({ k: `n${nv}`, x1: fim, x2: fim + 14, y });
+    nones.push({ k: `none${nv}`, x: fim + 18, y });
   }
 
   const corDoNo = (i: number, nv: number) => {
+    if (!p) return { fill: "#0f1826", stroke: "rgba(255,255,255,0.13)", txt: "#8ba0bb" };
     if (p.encontrou && p.olhando === i) return { fill: "rgba(52,211,153,0.26)", stroke: "#34d399", txt: "#eafff5" };
     if (p.olhando === i && p.atual !== i) return { fill: "rgba(245,158,11,0.22)", stroke: "#f59e0b", txt: "#fff" };
     if (p.atual === i && p.nivel === nv) return { fill: "rgba(59,130,246,0.3)", stroke: "#3b82f6", txt: "#fff" };
@@ -330,9 +408,9 @@ export function SkipListVisualizer() {
   };
 
   const variaveis = [
-    { nome: "nivel", valor: `${p.nivel}` },
-    { nome: "atual", valor: p.atual < 0 ? "head" : `${nos[p.atual].valor}` },
-    { nome: "prox", valor: p.olhando === null ? "None" : `${nos[p.olhando].valor}` },
+    { nome: "nivel", valor: p ? `${p.nivel}` : "-" },
+    { nome: "atual", valor: !p || p.atual < 0 ? "head" : `${nos[p.atual].valor}` },
+    { nome: "prox", valor: !p || p.olhando === null ? "None" : `${nos[p.olhando].valor}` },
     { nome: "alvo", valor: `${alvo}`, best: true },
   ];
 
@@ -340,13 +418,13 @@ export function SkipListVisualizer() {
   const estatisticas = [
     { k: "n", rot: "elementos (n)", val: `${n}` },
     { k: "niv", rot: "níveis", val: `${niveis}` },
-    { k: "cmp", rot: "comparações na skip list", val: `${p.comparacoes}` },
+    { k: "cmp", rot: "comparações na skip list", val: p ? `${p.comparacoes}` : "0" },
     { k: "lst", rot: "comparações numa lista comum", val: `${naLista}` },
   ];
 
-  const notaCls = "viz-note" + (p.encontrou ? " ok" : p.fim ? " invalid" : "");
+  const notaCls = "viz-note" + (p && p.encontrou ? " ok" : p && p.fim ? " invalid" : "");
   const pctPasso = Math.round(((idx + 1) / total) * 100);
-  const descricao = `Skip list com ${n} elementos e ${niveis} ${niveis === 1 ? "nível" : "níveis"}, procurando o ${alvo}. A busca está no nível ${p.nivel}, em ${p.atual < 0 ? "head" : nos[p.atual].valor}, com ${p.comparacoes} comparações feitas.`;
+  const descricao = `Skip list com ${n} elementos e ${niveis} ${niveis === 1 ? "nível" : "níveis"}, procurando o ${alvo}. A busca está no nível ${p ? p.nivel : 0}, em ${!p || p.atual < 0 ? "head" : nos[p.atual].valor}, com ${p ? p.comparacoes : 0} comparações feitas.`;
 
   const viz = (
     <figure className="viz" style={{ margin: 0 }}>
@@ -380,6 +458,10 @@ export function SkipListVisualizer() {
         </div>
 
         <div className="viz-inputs">
+          <label className="viz-field grow">
+            <span>Lista (ordenada sozinha, sem repetidos)</span>
+            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+          </label>
           <label className="viz-field">
             <span>procurar</span>
             <input className="viz-input k" type="number" value={alvo} onChange={(e) => aoMudarAlvo(e.target.value)} />
@@ -387,14 +469,13 @@ export function SkipListVisualizer() {
           <button className="viz-btn" onClick={sortear}>
             Sortear alturas
           </button>
-          <button className="viz-btn" onClick={() => aplicarPreset(PRESETS[0])}>
-            Alturas do encontro
-          </button>
         </div>
 
         <div className="sl-wrap">
           <svg
             className="sl-svg"
+            width={Math.round(larguraSvg)}
+            height={Math.round(alturaSvg)}
             viewBox={`0 0 ${Math.round(larguraSvg)} ${Math.round(alturaSvg)}`}
             role="img"
             aria-label={descricao}
@@ -418,6 +499,20 @@ export function SkipListVisualizer() {
               />
             ))}
 
+            {nones.map((o) => (
+              <text
+                key={o.k}
+                x={o.x}
+                y={o.y}
+                fill="#4c5f79"
+                fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                fontSize={10}
+                dominantBaseline="central"
+              >
+                None
+              </text>
+            ))}
+
             {Array.from({ length: niveis }, (_, k) => {
               const nv = topo - k;
               return (
@@ -436,25 +531,6 @@ export function SkipListVisualizer() {
               );
             })}
 
-            {Array.from({ length: niveis }, (_, k) => {
-              const nv = topo - k;
-              const x = xDe(-1) + HEAD_W + 16;
-              const semNinguem = forwardDe(nos, -1, nv) === null;
-              return semNinguem ? (
-                <text
-                  key={`none${nv}`}
-                  x={x + 4}
-                  y={cyDe(nv)}
-                  fill="#4c5f79"
-                  fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-                  fontSize={10}
-                  dominantBaseline="central"
-                >
-                  None
-                </text>
-              ) : null;
-            })}
-
             {/* head: um nó só, com um ponteiro por nível. É o sentinela. */}
             <rect
               x={xDe(-1)}
@@ -462,14 +538,14 @@ export function SkipListVisualizer() {
               width={HEAD_W}
               height={topo * RH + H}
               rx={7}
-              fill={p.atual < 0 ? "rgba(59,130,246,0.22)" : "#111c2b"}
-              stroke={p.atual < 0 ? "#3b82f6" : "rgba(255,255,255,0.16)"}
+              fill={p && p.atual < 0 ? "rgba(59,130,246,0.22)" : "#111c2b"}
+              stroke={p && p.atual < 0 ? "#3b82f6" : "rgba(255,255,255,0.16)"}
               strokeWidth={1.6}
             />
             <text
               x={cxDe(-1)}
               y={cyDe(topo) + (topo * RH) / 2}
-              fill={p.atual < 0 ? "#fff" : "#7d8fa8"}
+              fill={p && p.atual < 0 ? "#fff" : "#7d8fa8"}
               fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
               fontSize={10.5}
               fontWeight={700}
@@ -524,6 +600,14 @@ export function SkipListVisualizer() {
           </svg>
         </div>
 
+        <p className="sl-ocupacao">
+          {ocupacao.map((q, nv) => (
+            <span key={nv}>
+              nível {nv}: <strong>{q}</strong> {q === 1 ? "nó" : "nós"}
+            </span>
+          ))}
+        </p>
+
         <p className="sl-legenda">
           <span>
             <i style={{ background: "#3b82f6" }} /> onde a busca está agora
@@ -539,14 +623,14 @@ export function SkipListVisualizer() {
           </span>
         </p>
 
-        <p className={notaCls}>{p.nota}</p>
+        <p className={notaCls}>{p ? p.nota : ""}</p>
 
         <div className="viz-split">
           <div className="viz-code">
             <div className="viz-code-head">skip_list.py</div>
             <div className="viz-code-body">
               {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
+                <div key={i} className={`viz-line${p && i === p.linha ? " on" : ""}`}>
                   <span className="ln">{i + 1}</span>
                   {txt}
                 </div>

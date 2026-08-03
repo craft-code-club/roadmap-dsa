@@ -28,7 +28,10 @@ import { createPortal } from "react-dom";
 
 type Estado = "espera" | "ativo" | "base" | "pronto";
 type Frame = { chamada: string; pend: string; estado: Estado };
-type Lado = { frames: Frame[]; linha: number; nota: string; fim: boolean; ok: boolean };
+// `somas` é o contador de operações: ele existe para mostrar que o número de
+// somas é o MESMO nos dois lados (uma por elemento). O que muda de forma é
+// quando elas acontecem, e é o espaço, não o tempo, que a de cauda economiza.
+type Lado = { frames: Frame[]; linha: number; nota: string; somas: number; fim: boolean; ok: boolean };
 
 // As linhas mapeiam 1:1 com os campos `linha` dos dois geradores, então a ordem
 // e a quantidade de linhas não podem mudar sem ajustar os geradores junto.
@@ -90,6 +93,7 @@ function gerarComum(nums: number[]): Lado[] {
     out.push({
       frames: pilha,
       linha: 3,
+      somas: 0,
       fim: false,
       ok: false,
       nota: `A lista não está vazia, então guardo "${nums[i]} +" pendente aqui e desço para soma(${lista(nums.slice(i + 1))}). ${frames(i + 1)} na pilha, ${i + 1 === 1 ? "parado" : "parados"}, esperando uma resposta que ainda não existe.`,
@@ -108,6 +112,7 @@ function gerarComum(nums: number[]): Lado[] {
   out.push({
     frames: base,
     linha: 2,
+    somas: 0,
     fim: n === 0,
     ok: n === 0,
     nota:
@@ -130,6 +135,7 @@ function gerarComum(nums: number[]): Lado[] {
     out.push({
       frames: pilha,
       linha: 3,
+      somas: n - k,
       fim: k === 0,
       ok: k === 0,
       nota: `Desempilho e agora sim faço a conta que estava presa aqui: ${nums[k]} + ${anterior} = ${valor}. ${
@@ -163,6 +169,7 @@ function gerarCauda(nums: number[], tco: boolean): Lado[] {
     out.push({
       frames: pilha,
       linha: 8,
+      somas: i + 1,
       fim: false,
       ok: false,
       nota: tco
@@ -180,6 +187,7 @@ function gerarCauda(nums: number[], tco: boolean): Lado[] {
   out.push({
     frames: base,
     linha: 7,
+    somas: n,
     fim: tco || n === 0,
     ok: tco || n === 0,
     nota: tco
@@ -196,6 +204,7 @@ function gerarCauda(nums: number[], tco: boolean): Lado[] {
       out.push({
         frames: pilha,
         linha: 8,
+        somas: n,
         fim: k === 0,
         ok: k === 0,
         nota: `Desempilho sem fazer conta nenhuma: só repasso o ${total} para baixo. ${
@@ -339,8 +348,10 @@ export function TailRecursionVisualizer() {
 
   const variaveis = [
     { nome: "acc (cauda)", valor: `${trilha[trilhaIdx]}`, best: true },
-    { nome: "frames comum", valor: `${a.frames.length}` },
-    { nome: "frames cauda", valor: `${b.frames.length}` },
+    { nome: "frames · comum", valor: `${a.frames.length}` },
+    { nome: "frames · cauda", valor: `${b.frames.length}` },
+    { nome: "somas · comum", valor: `${a.somas} de ${n}` },
+    { nome: "somas · cauda", valor: `${b.somas} de ${n}` },
     { nome: "soma(nums)", valor: a.ok ? `${totalSoma}` : "...", best: a.ok },
   ];
 
