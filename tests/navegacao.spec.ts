@@ -580,7 +580,16 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
   await viz.getByRole("button", { name: "onde entraria" }).click();
   await viz.getByRole("button", { name: /não existe: 7/ }).click();
   await expect(await resposta(/^onde o valor entraria/)).toContainText("5");
-  await expect(viz.locator(".bigo-stat").filter({ hasText: /^retorno do Java se falhar/ })).toContainText("-6");
+  // o retorno negativo é o do caso de FALHA: -(5) - 1
+  const retorno = viz.locator(".bigo-stat").filter({ hasText: /^retorno do Arrays/ });
+  await expect(retorno).toContainText("-6");
+
+  // Regressão: com o alvo PRESENTE o card mostrava o negativo do mesmo jeito,
+  // mas aí o Arrays.binarySearch devolve o índice. O 3 existe na posição 1.
+  await viz.getByRole("button", { name: /bloco de três iguais/ }).click();
+  await resposta(/^onde o valor entraria/);
+  await expect(retorno).toContainText("1");
+  await expect(retorno).not.toContainText("-");
 });
 
 // Regressão: cinco visualizadores foram parar num PR com o estado de animação

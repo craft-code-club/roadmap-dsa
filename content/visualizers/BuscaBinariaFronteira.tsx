@@ -164,11 +164,9 @@ function gerarPassos(nums: number[], alvo: number, modo: Modo): Passo[] {
     const existe = nums[esq] === alvo;
     out.push({
       esq, dir, meio: null, anotado, comparacoes, linha: 8, fim: true, ok: true,
-      nota: `O intervalo esvaziou e a esquerda parou em ${esq}. ${
-        existe
-          ? `Como nums[${esq}] é ${alvo}, essa é a posição da primeira ocorrência.`
-          : `${alvo} não está no array, e ${esq} é exatamente onde ele entraria mantendo tudo ordenado.`
-      } É por isso que o Arrays.binarySearch do Java devolve -(${esq}) - 1 = ${-esq - 1} quando falha: o sinal diz "não achei" e o número carrega o ponto de inserção de graça. Multiplicar por -1 não serviria, porque -0 é 0 e a posição 0 ficaria indistinguível de um acerto.`,
+      nota: existe
+        ? `O intervalo esvaziou e a esquerda parou em ${esq}. Como nums[${esq}] é ${alvo}, essa é a posição da PRIMEIRA ocorrência, e é um índice válido: o Arrays.binarySearch do Java devolveria um número não negativo aqui.`
+        : `O intervalo esvaziou e a esquerda parou em ${esq}. ${alvo} não está no array, e ${esq} é exatamente onde ele entraria mantendo tudo ordenado. É por isso que o Arrays.binarySearch do Java devolve -(${esq}) - 1 = ${-esq - 1} quando FALHA: o sinal diz "não achei" e o número carrega o ponto de inserção de graça. Multiplicar por -1 não serviria, porque -0 é 0 e a posição 0 ficaria indistinguível de um acerto.`,
     });
     return out;
   }
@@ -277,6 +275,10 @@ export function BuscaBinariaFronteira() {
 
   const nums = preset.nums;
   const resposta = modo === "entraria" ? (p.fim ? p.esq : null) : p.fim ? p.anotado : null;
+  // O retorno negativo do Arrays.binarySearch é o do caso de FALHA. Quando o
+  // valor existe, a posição onde a esquerda parou é uma ocorrência de verdade e
+  // a função devolveria um índice não negativo.
+  const existeNaParada = p.fim && nums[p.esq] === preset.alvo;
   const pctPasso = Math.round(((idx + 1) / total) * 100);
 
   const cells = nums.map((v, i) => {
@@ -401,8 +403,10 @@ export function BuscaBinariaFronteira() {
             <strong>{resposta === null ? "-" : resposta}</strong>
           </div>
           <div className="bigo-stat">
-            <span>retorno do Java se falhar</span>
-            <strong>{p.fim && modo === "entraria" ? -p.esq - 1 : "-"}</strong>
+            <span>retorno do Arrays.binarySearch</span>
+            <strong>
+              {p.fim && modo === "entraria" ? (existeNaParada ? `${p.esq}` : `${-p.esq - 1}`) : "-"}
+            </strong>
           </div>
         </div>
 
