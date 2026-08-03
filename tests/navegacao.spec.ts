@@ -524,11 +524,25 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
   const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
   await expect(stat(/^comparações até aqui\d/)).toContainText("3");
   await expect(stat(/^busca linear gastaria\d/)).toContainText("5");
+  // "descartadas sem ler" não conta a posição do meio, que foi lida. Com 8
+  // posições, 3 lidas e 5 descartadas fecham o array inteiro, e é essa
+  // invariante que mantém a estatística honesta.
+  await expect(stat(/^descartadas sem ler\d/)).toContainText("5");
 
   // dobrar o array de 8 para 16 acrescenta UMA comparação, não dobra o trabalho
   await viz.getByRole("button", { name: /16 posições/ }).click();
   await irAteOFim();
   await expect(stat(/^comparações até aqui\d/)).toContainText("4");
+
+  // num alvo ausente a busca varre o espaço inteiro, então lidas + descartadas
+  // tem que fechar exatamente em n
+  await viz.getByRole("button", { name: /não existe: 40/ }).click();
+  await irAteOFim();
+  const numero = async (rot: RegExp) =>
+    parseInt(((await stat(rot).textContent()) ?? "").replace(/\D+/g, "").slice(-2), 10);
+  const lidas = await numero(/^comparações até aqui\d/);
+  const cegas = await numero(/^descartadas sem ler\d/);
+  expect(lidas + cegas, "toda posição é lida ou descartada, exatamente uma vez").toBe(8);
 });
 
 test("busca binária: a fórmula ingênua do meio estoura o inteiro de 32 bits", async ({ page }) => {

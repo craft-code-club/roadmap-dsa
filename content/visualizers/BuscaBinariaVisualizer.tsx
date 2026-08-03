@@ -74,24 +74,26 @@ function gerarPassos(nums: number[], alvo: number): Passo[] {
     if (nums[meio] === alvo) {
       out.push({
         esq, dir, meio, comparacoes, descartadas, linha: 5, achou: true, fim: true,
-        nota: `${nums[meio]} é o alvo. Achei na posição ${meio} com ${comparacoes} comparaç${comparacoes === 1 ? "ão" : "ões"}, tendo descartado ${descartadas} posiç${descartadas === 1 ? "ão" : "ões"} sem nunca olhar para elas.`,
+        nota: `${nums[meio]} é o alvo. Achei na posição ${meio} lendo ${comparacoes} posiç${comparacoes === 1 ? "ão" : "ões"} e descartando ${descartadas} sem nunca olhar para ${descartadas === 1 ? "ela" : "elas"}.`,
       });
       return out;
     }
     if (nums[meio] < alvo) {
-      const jogadas = meio - esq + 1;
-      descartadas += jogadas;
+      // A posição do meio sai do intervalo junto, mas ela foi LIDA nesta
+      // iteração, então não entra na conta de "descartadas sem ler".
+      const cegas = meio - esq;
+      descartadas += cegas;
       out.push({
         esq, dir, meio, comparacoes, descartadas, linha: 7,
-        nota: `${nums[meio]} < ${alvo}: se o alvo existe, ele está à DIREITA. Descarto a posição ${meio} e tudo que vem antes dela, ${jogadas} posiç${jogadas === 1 ? "ão" : "ões"} de uma vez, sem ler nenhuma. A esquerda vai para ${meio + 1}.`,
+        nota: `${nums[meio]} < ${alvo}: se o alvo existe, ele está à DIREITA. Descarto a posição ${meio}, que acabei de ler, e ${cegas === 0 ? "não sobrou nenhuma antes dela" : `as ${cegas} que vêm antes dela sem ler nenhuma`}. A esquerda vai para ${meio + 1}.`,
       });
       esq = meio + 1;
     } else {
-      const jogadas = dir - meio + 1;
-      descartadas += jogadas;
+      const cegas = dir - meio;
+      descartadas += cegas;
       out.push({
         esq, dir, meio, comparacoes, descartadas, linha: 9,
-        nota: `${nums[meio]} > ${alvo}: se o alvo existe, ele está à ESQUERDA. Descarto a posição ${meio} e tudo depois dela, ${jogadas} posiç${jogadas === 1 ? "ão" : "ões"} de uma vez. A direita vai para ${meio - 1}.`,
+        nota: `${nums[meio]} > ${alvo}: se o alvo existe, ele está à ESQUERDA. Descarto a posição ${meio}, que acabei de ler, e ${cegas === 0 ? "não sobrou nenhuma depois dela" : `as ${cegas} que vêm depois dela sem ler nenhuma`}. A direita recua para ${meio - 1}.`,
       });
       dir = meio - 1;
     }
@@ -99,7 +101,7 @@ function gerarPassos(nums: number[], alvo: number): Passo[] {
 
   out.push({
     esq, dir, meio: null, comparacoes, descartadas, linha: 10, fim: true,
-    nota: `A esquerda (${esq}) passou da direita (${dir}): o espaço de busca ficou vazio, então ${alvo} não está no array. Bastaram ${comparacoes} comparações para ter certeza disso sobre ${n} elementos. E repare onde a esquerda parou: a posição ${esq} é exatamente onde ${alvo} entraria se fosse inserido.`,
+    nota: `A esquerda (${esq}) passou da direita (${dir}): o espaço de busca ficou vazio, então ${alvo} não está no array. Li ${comparacoes} posições e descartei ${descartadas} sem olhar, e ${comparacoes} + ${descartadas} = ${n}: cada posição foi lida ou descartada exatamente uma vez. E repare onde a esquerda parou: a posição ${esq} é exatamente onde ${alvo} entraria se fosse inserido.`,
   });
   return out;
 }
