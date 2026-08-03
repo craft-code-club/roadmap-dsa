@@ -261,6 +261,9 @@ html { scroll-behavior: smooth; }
 .level-guia { border-color: rgba(255, 255, 255, 0.16); color: #9fb4cf; }
 
 /* ------ topic page ------ */
+/* `align-items: start` é o que faz o índice colar: sem ele o <nav> estica até a
+   altura do artigo (stretch é o padrão do grid) e o `position: sticky` não tem
+   folga nenhuma para deslizar. */
 .topic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 40px; padding: 40px 48px 80px; max-width: 1180px; align-items: start; }
 .topic-layout > article { min-width: 0; }
 .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ccc-muted); }
@@ -364,6 +367,13 @@ html { scroll-behavior: smooth; }
 .prevnext .nm { display: block; margin-top: 3px; font-size: 15px; font-weight: 600; }
 .prevnext .next { text-align: right; }
 
+/* TOC — acompanha a rolagem do artigo (ver `align-items: start` em .topic-layout).
+   Índice mais alto que a tela rola sozinho, sem arrastar a página junto. */
+.toc {
+  position: sticky; top: 88px;
+  max-height: calc(100vh - 88px - 28px); overflow-y: auto; overscroll-behavior: contain;
+  padding-left: 18px; border-left: 1px solid var(--ccc-line);
+}
 .toc-title { font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ccc-muted); margin-bottom: 11px; }
 .toc-links { display: flex; flex-direction: column; gap: 9px; }
 .toc-links a { font-size: 13px; line-height: 1.4; color: var(--ccc-muted); }

@@ -191,6 +191,26 @@ test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) =>
   await expect(page.locator(href!)).toHaveCount(1);
 });
 
+test("índice 'Nesta página' fica grudado ao rolar o artigo", async ({ page }) => {
+  await page.goto("/topico/prefix-sum/");
+  const toc = page.locator(".toc");
+  const rolarPara = async (y: number) => {
+    await page.evaluate((alvo) => window.scrollTo({ top: alvo, behavior: "instant" }), y);
+    await page.waitForFunction((alvo) => Math.abs(window.scrollY - alvo) < 2, y);
+  };
+
+  await rolarPara(1500);
+  const antes = (await toc.boundingBox())!;
+  await rolarPara(3500);
+  const depois = (await toc.boundingBox())!;
+
+  // grudado: a posição na janela não muda por mais que o artigo role
+  expect(Math.round(depois.y)).toBe(Math.round(antes.y));
+  expect(Math.round(depois.y)).toBe(88);
+  // e o índice nunca é mais alto que a janela (senão o fim dele ficaria inalcançável)
+  expect(depois.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+});
+
 test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
   await page.goto("/topico/prefix-sum/");
   const bloco = page.locator(".code-block.com-lang").first();
