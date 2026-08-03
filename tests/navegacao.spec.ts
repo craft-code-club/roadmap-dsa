@@ -383,9 +383,14 @@ test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
 test("heap: inserir, remover e construir contam trabalho diferente sobre os mesmos dados", async ({ page }) => {
   await page.goto("/topico/binary-heap/");
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  // O laço sai calado se o limite estourar, e aí a asserção seguinte roda num
+  // passo do meio. Pior: `trocas` vale 0 no passo 0 de TODO preset, então
+  // `toBe(0)` passaria sem um único clique. Exigir o botão desabilitado no fim
+  // é o que transforma "andei até o fim" em fato verificado.
   const irAteOFim = async () => {
-    const proximo = viz.getByRole("button", { name: "Próximo ›" });
     for (let i = 0; i < 120 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
   // O texto do card é rótulo + valor concatenados ("trocas16"), então a regex
   // ancorada casa só o card certo e evita depender da ordem no DOM.
@@ -517,6 +522,7 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const irAteOFim = async () => {
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
 
   // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear
@@ -568,6 +574,7 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const resposta = async (rot: RegExp) => {
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     return viz.locator(".bigo-stat").filter({ hasText: rot });
   };
 
