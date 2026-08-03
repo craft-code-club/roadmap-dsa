@@ -279,6 +279,17 @@ const TOPICOS_PRONTOS = [
   { slug: "filas", h1: "Filas e Deques", vizMin: 3 },
   { slug: "recursao", h1: "Recursão: Fundamentos", vizMin: 2 },
   { slug: "recursao-funcional", h1: "Recursão: Programação Funcional", vizMin: 2 },
+  { slug: "tree-traversals", h1: "Percursos em Árvore (DFS/BFS)", vizMin: 1 },
+  { slug: "arvores-binarias", h1: "Árvores Binárias", vizMin: 1 },
+  { slug: "n-ary-trees", h1: "Árvores N-árias", vizMin: 1 },
+  { slug: "bst", h1: "Árvore de Busca Binária", vizMin: 1 },
+  { slug: "grafos-intro", h1: "Introdução a Grafos", vizMin: 1 },
+  { slug: "dfs-bfs", h1: "DFS e BFS em Grafos", vizMin: 1 },
+  { slug: "dijkstra", h1: "Dijkstra", vizMin: 1 },
+  { slug: "bellman-ford", h1: "Bellman-Ford", vizMin: 1 },
+  { slug: "a-star", h1: "A* (A Estrela)", vizMin: 1 },
+  { slug: "topological-sort", h1: "Ordenação Topológica", vizMin: 1 },
+  { slug: "mst", h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
 ];
 
 for (const t of TOPICOS_PRONTOS) {
@@ -306,6 +317,97 @@ for (const t of TOPICOS_PRONTOS) {
     await expect(page.locator(".problem-name").first()).toHaveAttribute("href", /^https?:\/\//);
   });
 }
+
+test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async ({ page }) => {
+  await page.goto("/topico/tree-traversals/");
+  const viz = page.locator("figure.viz").first();
+  const irAteOFim = async () => {
+    const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    return (await viz.locator(".tt-saida-item").allTextContents()).join(" ");
+  };
+
+  // as quatro sequências da árvore do encontro (raiz 1, esquerda 2 com 4 e 5, direita 3 com 6)
+  const esperado: Record<string, string> = {
+    "Pré-ordem": "1 2 4 5 3 6",
+    "Em ordem": "4 2 5 1 6 3",
+    "Pós-ordem": "4 5 2 6 3 1",
+    "Por nível (BFS)": "1 2 3 4 5 6",
+  };
+  for (const [ordem, saida] of Object.entries(esperado)) {
+    // exact: true porque o chip "Em ordem" colide com o preset "Uma BST: em ordem sai ordenado"
+    await viz.getByRole("button", { name: ordem, exact: true }).click();
+    expect(await irAteOFim(), `${ordem} deveria sair ${saida}`).toBe(saida);
+  }
+});
+
+test("BST: a mesma sequência inserida em ordem degenera a árvore", async ({ page }) => {
+  await page.goto("/topico/bst/");
+  const viz = page.locator("figure.viz").first();
+  // casa o card cujo rótulo é exatamente "altura": `hasText: "altura"` pegaria
+  // também o card "altura mínima", e depender do .first() por ordem de DOM
+  // deixaria o teste refém do layout
+  const altura = async () => {
+    const card = viz.locator(".bigo-stat").filter({ has: page.getByText("altura", { exact: true }) });
+    const txt = await card.textContent();
+    return parseInt((txt ?? "").replace(/\D+/g, ""), 10);
+  };
+  await viz.getByRole("button", { name: /Inserindo pelo meio/ }).click();
+  const balanceada = await altura();
+  await viz.getByRole("button", { name: /Inserindo ordenado/ }).click();
+  const degenerada = await altura();
+  // mesmos 7 valores: pelo meio dá altura 3, ordenado dá 7
+  expect(balanceada).toBe(3);
+  expect(degenerada).toBe(7);
+});
+
+test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
+  await page.goto("/topico/mst/");
+  const viz = page.locator("figure.viz").first();
+  const pesos = viz.locator(".viz-var", { hasText: /Kruskal|Prim/ });
+  const textos = await pesos.allTextContents();
+  const numeros = textos.map((t) => parseInt(t.replace(/\D+/g, ""), 10));
+  expect(numeros).toHaveLength(2);
+  expect(numeros[0]).toBe(numeros[1]);
+});
+
+// Regressão: cinco visualizadores foram parar num PR com o estado de animação
+// completo (passo, tocando, velocidade) e SEM os controles renderizados, então o
+// aluno ficava preso no passo 1 sem nenhum aviso. Os testes de contrato não
+// pegavam porque só contavam elementos. Este pega: todo visualizador que ANUNCIA
+// passos precisa deixar avançar de verdade.
+test("todo visualizador com passos tem controles que funcionam", async ({ page }) => {
+  const semControles: string[] = [];
+  const naoAvanca: string[] = [];
+
+  for (const t of TOPICOS_PRONTOS) {
+    await page.goto(`/topico/${t.slug}/`);
+    const vizes = page.locator("article figure.viz");
+    for (let i = 0; i < (await vizes.count()); i++) {
+      const viz = vizes.nth(i);
+      const rotulo = await viz.locator(".viz-step").first().textContent().catch(() => null);
+      if (!rotulo || !/passo \d+ de \d+/.test(rotulo)) continue; // não é animado
+
+      const proximo = viz.getByRole("button", { name: "Próximo ›" });
+      if ((await proximo.count()) === 0) {
+        semControles.push(`${t.slug}[${i}]`);
+        continue;
+      }
+      await proximo.click();
+      // O React re-renderiza de forma assíncrona, então ler o texto na hora
+      // pegaria o valor antigo mesmo quando avançou. A asserção web-first
+      // reconsulta até mudar (ou até o timeout), que é o que torna isto honesto.
+      try {
+        await expect(viz.locator(".viz-step").first()).not.toHaveText(rotulo, { timeout: 3000 });
+      } catch {
+        naoAvanca.push(`${t.slug}[${i}]: travou em "${rotulo}"`);
+      }
+    }
+  }
+
+  expect(semControles, "visualizadores que anunciam passos mas não têm controles").toEqual([]);
+  expect(naoAvanca, "visualizadores cujos controles não avançam o passo").toEqual([]);
+});
 
 test("nenhuma página de tópico rola na horizontal no celular", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
