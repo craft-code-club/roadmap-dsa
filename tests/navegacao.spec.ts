@@ -367,7 +367,12 @@ test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
   const viz = page.locator("figure.viz").first();
   const pesos = viz.locator(".viz-var", { hasText: /Kruskal|Prim/ });
   const textos = await pesos.allTextContents();
-  const numeros = textos.map((t) => parseInt(t.replace(/\D+/g, ""), 10));
+  // extrai o último inteiro COM sinal: tirar todos os não-dígitos perderia o
+  // menos de um peso negativo e concatenaria números se o card tivesse dois
+  const numeros = textos.map((t) => {
+    const achados = t.match(/-?\d+/g);
+    return achados ? parseInt(achados[achados.length - 1], 10) : NaN;
+  });
   expect(numeros).toHaveLength(2);
   expect(numeros[0]).toBe(numeros[1]);
 });
