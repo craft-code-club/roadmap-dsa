@@ -302,6 +302,21 @@ export function DijkstraVisualizer() {
           </div>
         </div>
 
+        <div className="viz-controls">
+          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
+          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
+          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
+            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
+          </button>
+          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
+          <div className="viz-speed">
+            <span>Velocidade</span>
+            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
+            <span className="val">{ROTULOS_VEL[velocidade]}</span>
+          </div>
+        </div>
+        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pct}%` }} /></div>
+
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           Acompanhe a coluna dos fechados: uma vez que um vértice entra ali, o valor dele é final.
           Essa é a diferença entre Dijkstra e Bellman-Ford, e é também a razão de o peso negativo

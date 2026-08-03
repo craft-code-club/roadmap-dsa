@@ -371,6 +371,38 @@ test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
   expect(numeros[0]).toBe(numeros[1]);
 });
 
+// Regressão: cinco visualizadores foram parar num PR com o estado de animação
+// completo (passo, tocando, velocidade) e SEM os controles renderizados, então o
+// aluno ficava preso no passo 1 sem nenhum aviso. Os testes de contrato não
+// pegavam porque só contavam elementos. Este pega: todo visualizador que ANUNCIA
+// passos precisa deixar avançar de verdade.
+test("todo visualizador com passos tem controles que funcionam", async ({ page }) => {
+  const semControles: string[] = [];
+  const naoAvanca: string[] = [];
+
+  for (const t of TOPICOS_PRONTOS) {
+    await page.goto(`/topico/${t.slug}/`);
+    const vizes = page.locator("article figure.viz");
+    for (let i = 0; i < (await vizes.count()); i++) {
+      const viz = vizes.nth(i);
+      const rotulo = await viz.locator(".viz-step").first().textContent().catch(() => null);
+      if (!rotulo || !/passo \d+ de \d+/.test(rotulo)) continue; // não é animado
+
+      const proximo = viz.getByRole("button", { name: "Próximo ›" });
+      if ((await proximo.count()) === 0) {
+        semControles.push(`${t.slug}[${i}]`);
+        continue;
+      }
+      await proximo.click();
+      const depois = await viz.locator(".viz-step").first().textContent();
+      if (depois === rotulo) naoAvanca.push(`${t.slug}[${i}]: travou em "${rotulo}"`);
+    }
+  }
+
+  expect(semControles, "visualizadores que anunciam passos mas não têm controles").toEqual([]);
+  expect(naoAvanca, "visualizadores cujos controles não avançam o passo").toEqual([]);
+});
+
 test("nenhuma página de tópico rola na horizontal no celular", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const t of TOPICOS_PRONTOS) {

@@ -332,6 +332,21 @@ export function GrafoDfsBfs() {
           <div className="bigo-stat"><span>complexidade</span><strong>O(V + E)</strong></div>
         </div>
 
+        <div className="viz-controls">
+          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
+          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
+          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
+            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
+          </button>
+          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
+          <div className="viz-speed">
+            <span>Velocidade</span>
+            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
+            <span className="val">{ROTULOS_VEL[velocidade]}</span>
+          </div>
+        </div>
+        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
+
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           Rode o BFS até o fim e anote as distâncias. Depois rode o DFS e compare a ordem: os mesmos
           vértices são visitados, e só o BFS chega em cada um pelo caminho mais curto. Trocar
