@@ -344,8 +344,12 @@ test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async
 test("BST: a mesma sequência inserida em ordem degenera a árvore", async ({ page }) => {
   await page.goto("/topico/bst/");
   const viz = page.locator("figure.viz").first();
+  // casa o card cujo rótulo é exatamente "altura": `hasText: "altura"` pegaria
+  // também o card "altura mínima", e depender do .first() por ordem de DOM
+  // deixaria o teste refém do layout
   const altura = async () => {
-    const txt = await viz.locator(".bigo-stat", { hasText: "altura" }).first().textContent();
+    const card = viz.locator(".bigo-stat").filter({ has: page.getByText("altura", { exact: true }) });
+    const txt = await card.textContent();
     return parseInt((txt ?? "").replace(/\D+/g, ""), 10);
   };
   await viz.getByRole("button", { name: /Inserindo pelo meio/ }).click();

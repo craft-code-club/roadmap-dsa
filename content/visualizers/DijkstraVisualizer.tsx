@@ -50,10 +50,15 @@ const PRESETS: Preset[] = [
     key: "negativo",
     rotulo: "Com peso negativo (quebra)",
     // Montado para FALHAR de verdade: B fecha valendo 1, e só depois o C
-    // (que fecha com 2) revela a aresta C→B de peso -2, que daria 0. Como o
-    // Dijkstra não reabre vértice fechado, o erro se propaga para D e F.
+    // (que fecha com 2) revela a aresta C→B de peso -2, que daria 0.
+    //
+    // O detalhe fino: dist[B] até é corrigido para 0, porque o relaxamento
+    // escreve na tabela mesmo com o vértice fechado. O que NÃO acontece é B ser
+    // reprocessado, então quem foi relaxado a partir dele (D, e por consequência
+    // F) fica com valor velho. Conferido contra Bellman-Ford: D sai 4 quando o
+    // correto é 3, e F sai 5 quando o correto é 4.
     arestas: [A(0, 1, 1), A(0, 2, 2), A(2, 1, -2), A(1, 3, 3), A(3, 5, 1), A(2, 4, 4), A(4, 5, 1)],
-    dica: "A aresta C→B vale -2. O B fecha valendo 1 antes de ninguém ver essa aresta, e o Dijkstra nunca reabre um fechado: a resposta final sai errada em B, D e F.",
+    dica: "A aresta C→B vale -2. O B fecha valendo 1 antes de ninguém ver essa aresta, e o Dijkstra nunca REPROCESSA um fechado: a tabela até corrige o B, mas D e F ficam com valor velho e a resposta final sai errada neles.",
     negativo: true,
   },
 ];

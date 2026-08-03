@@ -118,12 +118,19 @@ function gerarPassos(arestas: Aresta[]): Passo[] {
     if (!mudouNaRodada) break;
   }
 
-  // rodada extra: detecção de ciclo negativo
+  // Rodada extra: detecção de ciclo negativo.
+  //
+  // Os dois lados precisam ser numéricos antes de comparar. Com `null` no
+  // destino, o JavaScript coage para 0 e qualquer peso negativo viraria falso
+  // positivo. Hoje isso não acontece (se a origem da aresta é alcançável, o
+  // destino também foi relaxado nas rodadas anteriores), mas depender dessa
+  // sutileza para não reportar ciclo inexistente é frágil demais.
   let culpada: Aresta | null = null;
   for (const a of arestas) {
     const du = dist[a.de];
-    if (du === null) continue;
-    if (du + a.peso < (dist[a.para] as number)) { culpada = a; break; }
+    const dv = dist[a.para];
+    if (du === null || dv === null) continue; // só compara número com número
+    if (du + a.peso < dv) { culpada = a; break; }
   }
 
   if (culpada) {
