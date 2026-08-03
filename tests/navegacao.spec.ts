@@ -411,6 +411,35 @@ test("heap: inserir, remover e construir contam trabalho diferente sobre os mesm
   expect(await trocas()).toBe(0);
 });
 
+// Regressão: o salto para o primeiro passo com árvore de verdade rodava só na
+// inicialização do estado, então trocar de preset ou de modo e voltar caía no
+// passo do nó solto, que é justamente o estado vazio que o salto existe para
+// evitar. Agora toda troca de animação reabre no mesmo ponto, e o ↺ continua
+// sendo o único caminho para o passo zero.
+test("heap: trocar preset ou modo reabre com árvore, não com um nó solto", async ({ page }) => {
+  await page.goto("/topico/binary-heap/");
+  const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
+  const nos = viz.locator("svg g.tt-no");
+
+  await expect(nos).toHaveCount(4); // ao abrir
+
+  await viz.getByRole("button", { name: "remover o topo" }).click();
+  await expect(nos).toHaveCount(6); // remover já começa com o heap cheio
+
+  await viz.getByRole("button", { name: "inserir", exact: true }).click();
+  await expect(nos).toHaveCount(4); // e voltar para inserir não cai no nó solto
+
+  await viz.getByRole("button", { name: /Chegando ao contrário/ }).click();
+  await expect(nos).toHaveCount(4);
+
+  await viz.getByRole("button", { name: "max-heap" }).click();
+  await expect(nos).toHaveCount(4);
+
+  // ↺ é o único que volta ao começo de verdade, que é o heap vazio
+  await viz.getByRole("button", { name: "↺" }).click();
+  await expect(nos).toHaveCount(1);
+});
+
 test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ page }) => {
   await page.goto("/topico/binary-heap/");
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });

@@ -378,6 +378,22 @@ function altura(n: number) {
   return n === 0 ? 0 : profundidade(n - 1) + 1;
 }
 
+function passosDe(modo: Modo, preset: Preset, tipo: Tipo): Passo[] {
+  if (modo === "inserir") return passosInserir(preset.valores, tipo);
+  if (modo === "remover") return passosRemover(preset.valores, tipo);
+  return passosConstruir(preset.valores, tipo);
+}
+
+// O modo inserir começa com o heap vazio, então o passo 1 é um nó solto: nada
+// para olhar em quem acabou de chegar na página. O visualizador abre no primeiro
+// passo com árvore de verdade, e volta para esse mesmo ponto sempre que a
+// animação é trocada (preset, modo ou regra). Quem quiser ver a inserção desde o
+// heap vazio tem o botão ↺, que é justamente o que ele significa.
+function primeiroInteressante(passos: Passo[]): number {
+  const i = passos.findIndex((p) => p.n >= 4);
+  return i < 0 ? 0 : i;
+}
+
 const NO_R = 16;
 const NIVEL_Y = 60;
 const TOPO_Y = 20;
@@ -395,22 +411,11 @@ export function BinaryHeapVisualizer() {
   useEffect(() => setMounted(true), []);
 
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
-  const passos = useMemo(() => {
-    if (modo === "inserir") return passosInserir(preset.valores, tipo);
-    if (modo === "remover") return passosRemover(preset.valores, tipo);
-    return passosConstruir(preset.valores, tipo);
-  }, [modo, preset, tipo]);
+  const passos = useMemo(() => passosDe(modo, preset, tipo), [modo, preset, tipo]);
 
-  // O modo inserir começa com o heap vazio, então o passo 1 é um nó solto: nada
-  // interessante para quem chega na página. Abrir no primeiro passo com árvore de
-  // verdade mostra o algoritmo em movimento. O ↺ continua voltando para o zero,
-  // que é onde a inserção realmente começa.
   // `passos` não depende de `passo`, então calcular a lista antes deste useState
   // mantém a ordem dos hooks estável.
-  const [passo, setPasso] = useState(() => {
-    const i = passos.findIndex((p) => p.n >= 4);
-    return i < 0 ? 0 : i;
-  });
+  const [passo, setPasso] = useState(() => primeiroInteressante(passos));
 
   const total = passos.length;
   const idx = Math.min(passo, total - 1);
@@ -441,22 +446,33 @@ export function BinaryHeapVisualizer() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
+  // ↺ Reiniciar volta ao passo zero de verdade, que no modo inserir é o heap
+  // vazio: é para isso que o botão existe.
   const reiniciar = () => {
     parar();
     setTocando(false);
     setPasso(0);
   };
+  // Trocar preset, modo ou regra é montar outra animação, e ela abre no mesmo
+  // ponto em que o visualizador abriu a primeira vez. Os passos são recalculados
+  // aqui porque o estado novo só chega ao `useMemo` no render seguinte.
+  const abrir = (m: Modo, pr: Preset, t: Tipo) => {
+    parar();
+    setTocando(false);
+    setPasso(primeiroInteressante(passosDe(m, pr, t)));
+  };
   const trocarPreset = (k: string) => {
-    reiniciar();
+    const pr = PRESETS.find((x) => x.key === k) ?? PRESETS[0];
     setPresetKey(k);
+    abrir(modo, pr, tipo);
   };
   const trocarModo = (m: Modo) => {
-    reiniciar();
     setModo(m);
+    abrir(m, preset, tipo);
   };
   const trocarTipo = (t: Tipo) => {
-    reiniciar();
     setTipo(t);
+    abrir(modo, preset, t);
   };
 
   // Geometria: uma árvore completa se posiciona só pelo índice, sem layout algum.
