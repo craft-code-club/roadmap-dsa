@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 // Foge de propósito do padrão "gerador de passos" dos outros visualizadores:
 // aqui não há algoritmo rodando, o que se aprende é uma CLASSIFICAÇÃO. Você
 // monta um pedaço clicando nos elementos (a ORDEM DO CLIQUE conta) e o painel
-// responde as duas perguntas que separam os quatro termos: é contíguo? a ordem
+// responde às duas perguntas que separam os quatro termos: é contíguo? a ordem
 // do original foi mantida?
 //
 // O botão Array/String existe para provar que substring é subarray em uma
