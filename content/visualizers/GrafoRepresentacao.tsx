@@ -284,9 +284,10 @@ export function GrafoRepresentacao() {
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
-          A matriz custa V² sempre, ligada ou não a aresta. A lista custa V + 2E, então ela só perde
-          quando o grafo é quase completo. Com 6 vértices a diferença é pequena; com 1 milhão de
-          vértices, a matriz pediria 10¹² células e simplesmente não cabe.
+          A matriz custa V² sempre, ligada ou não a aresta. A lista custa{" "}
+          {dirigido ? "V + E (dirigido: cada aresta aparece uma vez só)" : "V + 2E (não dirigido: cada aresta aparece nos dois vizinhos)"},
+          então ela só perde quando o grafo é quase completo. Com 6 vértices a diferença é pequena;
+          com 1 milhão de vértices, a matriz pediria 10¹² células e simplesmente não cabe.
         </p>
       </div>
     </figure>

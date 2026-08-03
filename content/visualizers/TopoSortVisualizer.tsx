@@ -52,10 +52,15 @@ const PRESETS: Preset[] = [
   },
 ];
 
+// Snippet autocontido de propósito: a lista de adjacência é construída aqui
+// dentro, no mesmo laço que conta o grau. Sem isso, o `adj[u]` lá embaixo
+// apareceria do nada e o exemplo não rodaria se alguém copiasse.
 const CODIGO = [
   "def kahn(vertices, arestas):",
+  "    adj = {v: [] for v in vertices}",
   "    grau = {v: 0 for v in vertices}",
   "    for u, v in arestas:",
+  "        adj[u].append(v)",
   "        grau[v] += 1                 # quantos pré-requisitos faltam",
   "",
   "    fila = deque(v for v in vertices if grau[v] == 0)",
@@ -96,33 +101,33 @@ function gerarPassos(arestas: [number, number][]): Passo[] {
     ({ no, aresta, grau: [...grau], fila: [...fila], ordem: [...ordem], linha, nota, ...extra });
 
   for (let i = 0; i < V; i++) if (grau[i] === 0) fila.push(i);
-  out.push(snap(-1, 5, `Conto quantas arestas CHEGAM em cada vértice: é o grau de entrada, ou seja, quantos pré-requisitos ainda faltam. Quem já está em zero (${fila.map((i) => ROT[i]).join(", ") || "ninguém"}) pode começar agora.`));
+  out.push(snap(-1, 7, `Conto quantas arestas CHEGAM em cada vértice: é o grau de entrada, ou seja, quantos pré-requisitos ainda faltam. Quem já está em zero (${fila.map((i) => ROT[i]).join(", ") || "ninguém"}) pode começar agora.`));
 
   let guarda = 0;
   while (fila.length && guarda++ < 300) {
     const u = fila.shift() as number;
     ordem.push(u);
-    // linha 8 = `u = fila.popleft()`, que é a ação que a nota descreve primeiro.
-    out.push(snap(u, 8, `Tiro ${ROT[u]} da fila: o grau de entrada dele é zero, então nenhum pré-requisito está pendente. Ele entra na ordem final na posição ${ordem.length}.`));
+    // linha 10 = `u = fila.popleft()`, que é a ação que a nota descreve primeiro.
+    out.push(snap(u, 10, `Tiro ${ROT[u]} da fila: o grau de entrada dele é zero, então nenhum pré-requisito está pendente. Ele entra na ordem final na posição ${ordem.length}.`));
 
     for (const v of adj[u]) {
       grau[v]--;
       if (grau[v] === 0) {
         fila.push(v);
-        out.push(snap(v, 13, `Como ${ROT[u]} saiu, o grau de ${ROT[v]} cai para 0: o último pré-requisito dele foi cumprido. Entra na fila.`, [u, v]));
+        out.push(snap(v, 15, `Como ${ROT[u]} saiu, o grau de ${ROT[v]} cai para 0: o último pré-requisito dele foi cumprido. Entra na fila.`, [u, v]));
       } else {
-        out.push(snap(v, 11, `Grau de ${ROT[v]} cai para ${grau[v]}: ainda faltam ${grau[v]} ${grau[v] === 1 ? "pré-requisito" : "pré-requisitos"}, então ele continua esperando.`, [u, v]));
+        out.push(snap(v, 13, `Grau de ${ROT[v]} cai para ${grau[v]}: ainda faltam ${grau[v]} ${grau[v] === 1 ? "pré-requisito" : "pré-requisitos"}, então ele continua esperando.`, [u, v]));
       }
     }
   }
 
   if (ordem.length < V) {
     const presos = ROT.map((_, i) => i).filter((i) => !ordem.includes(i));
-    out.push(snap(-1, 15,
+    out.push(snap(-1, 17,
       `A fila esvaziou com só ${ordem.length} de ${V} vértices na ordem. Os que sobraram (${presos.map((i) => ROT[i]).join(", ")}) têm grau de entrada maior que zero e ninguém mais para zerá-lo: eles dependem uns dos outros em ciclo. Não existe ordem válida, e o que sobrou É o ciclo.`,
       null, { alerta: true }));
   } else {
-    out.push(snap(-1, 14, `Ordem topológica completa: ${ordem.map((i) => ROT[i]).join(" → ")}. Toda aresta do grafo aponta da esquerda para a direita nessa lista, que é exatamente a definição.`, null, { ok: true }));
+    out.push(snap(-1, 16, `Ordem topológica completa: ${ordem.map((i) => ROT[i]).join(" → ")}. Toda aresta do grafo aponta da esquerda para a direita nessa lista, que é exatamente a definição.`, null, { ok: true }));
   }
   return out;
 }

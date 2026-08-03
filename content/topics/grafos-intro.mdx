@@ -51,7 +51,9 @@ lista = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
 
 Comece no preset **esparso** e olhe a matriz: quase tudo é zero. Cada zero é memória reservada para uma aresta que não existe. Agora clique nas células para ligar arestas e veja o desenho e a lista acompanharem, e o contador de "células em zero" cair.
 
-Depois troque para **completo** e compare os dois custos: com o grafo cheio, a matriz para de desperdiçar. E ligue o modo **dirigido**: repare que a simetria da matriz some, o que revela uma coisa boa de saber, que num grafo não dirigido metade da matriz é cópia da outra metade.
+Depois troque para **completo** e compare os dois custos: com o grafo cheio, a matriz para de desperdiçar.
+
+Por fim, ligue o modo **dirigido** e clique numa célula: agora só ela acende, enquanto no modo não dirigido a célula espelhada acompanhava. É a prova de uma coisa boa de saber: num grafo não dirigido, metade da matriz é cópia da outra metade, e a lista guarda cada aresta duas vezes justamente por isso.
 
 ## Qual escolher, e por quê
 
