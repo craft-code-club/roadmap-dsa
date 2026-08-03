@@ -1,0 +1,142 @@
+<Callout>
+**Subarray, substring, subsequence e subset.** Quatro palavras parecidas, quatro algoritmos diferentes. Ler "subsequence" e resolver como se fosse "subarray" é o tipo de erro que derruba a questão inteira antes da primeira linha de código. A boa notícia: você não precisa decorar quatro definições, **duas perguntas** separam todas.
+</Callout>
+
+## As duas perguntas
+
+Sempre que um enunciado fala de "um pedaço" de um array ou de uma string, ele está dizendo quais liberdades você tem para montar esse pedaço. São só duas:
+
+1. **Os elementos precisam ser contíguos?** Colados, sem pular nada.
+2. **A ordem importa?** O pedaço continua sendo uma sequência, ou virou um saco de elementos?
+
+Cruzando as duas respostas, cada termo cai em um canto:
+
+<Colunas>
+<Cartao titulo="Contíguo · ordem importa">
+**Subarray** (em array) e **substring** (em string). Uma fatia: você escolhe início e fim e leva tudo que está no meio.
+</Cartao>
+
+<Cartao titulo="Não contíguo · ordem importa">
+**Subsequence**. Apaga zero ou mais elementos, mas nunca reordena os que sobraram.
+</Cartao>
+
+<Cartao titulo="Não contíguo · ordem não importa">
+**Subset**. É conjunto, não sequência: `{1, 3}` e `{3, 1}` são exatamente a mesma coisa.
+</Cartao>
+
+<Cartao titulo="Contíguo · ordem não importa">
+Esse canto é vazio, e isso não é acidente: se os elementos são colados no original, a posição deles já define a ordem. Contiguidade implica ordem.
+</Cartao>
+</Colunas>
+
+Antes de ler as definições formais, brinque com elas. No visualizador abaixo você monta um pedaço clicando nos elementos, e **a ordem em que você clica conta**. Clique `1` e depois `2` e veja três "é". Clique na ordem invertida e veja duas viradas para "não é". Use o botão **String** para conferir que substring é a mesma coisa que subarray, só que em texto.
+
+<SubTypesVisualizer />
+
+## Subarray e substring: a fatia
+
+Um **subarray** é um pedaço contíguo de um array. Na prática você escolhe dois índices, `i` e `j`, e leva tudo de `i` até `j`. Em `[1, 2, 3, 4]`, `[2, 3]` é subarray; `[2, 4]` não é, porque pulou o `3`.
+
+**Substring** é exatamente a mesma ideia aplicada a uma string: caracteres contíguos. Em `"code"`, `"od"` é substring e `"ce"` não é. Os dois termos são gêmeos, muda só o tipo do que está embaixo.
+
+Quantos existem? Escolher uma fatia é escolher um par (início, fim) com início ≤ fim, o que dá:
+
+```
+n(n+1)/2 fatias não-vazias
+```
+
+Para `n = 4`, são 10. Esse número triangular é o teto de qualquer solução que testa todas as fatias, e é exatamente por isso que os padrões de janela deslizante existem: eles trocam esse `O(n²)` por uma passada só.
+
+O problema âncora aqui é o **Maximum Subarray** (LeetCode 53), resolvido pelo algoritmo de Kadane. Repare que a contiguidade é o que faz o truque funcionar: como o pedaço não pode ter buraco, dá para decidir localmente entre "estender a soma atual" e "recomeçar daqui", sem nunca olhar para trás.
+
+## Subsequence: apaga, mas não reordena
+
+Uma **subsequence** sai do original apagando zero ou mais elementos e mantendo a ordem relativa dos que sobraram. Não precisa ser contígua, mas a ordem é sagrada.
+
+Em `[1, 2, 3, 4]`:
+
+- `[1, 3]` é subsequence: pulou o `2`, mas o `1` continua antes do `3`.
+- `[3, 1]` não é: no original o `3` vem depois do `1`.
+
+Quantos existem? Cada elemento tem duas opções, entra ou não entra:
+
+```
+2ⁿ subsequências (2ⁿ − 1 se você descartar a vazia)
+```
+
+Esse salto de `n(n+1)/2` para `2ⁿ` é a razão de subsequence quase sempre pedir programação dinâmica: enumerar tudo é exponencial, então a solução precisa reaproveitar respostas de prefixos. Os clássicos são **Longest Increasing Subsequence** (LeetCode 300) e **Longest Common Subsequence** (LeetCode 1143).
+
+## Subset: o saco de elementos
+
+Um **subset** é qualquer combinação de elementos do conjunto original, e aqui a ordem simplesmente não existe. `{1, 3}` e `{3, 1}` são o mesmo subconjunto, escrito de dois jeitos.
+
+A contagem é a mesma da subsequence, e pela mesma razão: cada elemento entra ou não entra, `2ⁿ`. O jeito mais direto de enxergar isso é o truque de bits do **Power Set** (problema 8.4 do *Cracking the Coding Interview*, equivalente ao LeetCode 78): conte de `0` até `2ⁿ − 1` e leia cada número em binário. Cada bit ligado é um elemento dentro do subconjunto.
+
+```
+n = 3, elementos {a, b, c}
+
+000 -> {}        100 -> {c}
+001 -> {a}       101 -> {a, c}
+010 -> {b}       110 -> {b, c}
+011 -> {a, b}    111 -> {a, b, c}
+```
+
+Oito linhas, `2³`. O conjunto vazio e o conjunto inteiro contam como subconjuntos; quando um enunciado quer excluir o próprio conjunto, ele fala em *proper subset*.
+
+## A pegadinha: subsequence x subset
+
+Aqui mora a confusão que mais custa caro, porque os dois **contam a mesma coisa**, `2ⁿ`. A quantidade é igual, o significado não. A diferença é a ordem, e ela só aparece quando o array não está ordenado.
+
+Pegue `[3, 1, 2]`:
+
+- Como **subconjunto**, `{1, 3}` existe. É o mesmo que `{3, 1}`, e os dois são válidos.
+- Como **subsequência**, só `[3, 1]` vale. `[1, 3]` não existe aqui, porque no original o `3` vem antes do `1`.
+
+<Callout tipo="aviso">
+Quando o array já está ordenado, subsequence e subset parecem a mesma coisa, e é aí que a confusão se instala sem ninguém perceber. Teste seu raciocínio sempre em um array desordenado: é o único cenário em que os dois se separam.
+</Callout>
+
+## O mesmo grid resolve substring e subsequence
+
+O melhor argumento de que esses termos não são sinônimos está no capítulo 9 do *Grokking Algorithms*: **Longest Common Substring** e **Longest Common Subsequence** usam o mesmo grid de programação dinâmica, a mesma recorrência no caso de match, e diferem em **uma única linha**.
+
+<Colunas>
+<Cartao titulo="Substring (contíguo)">
+Quebrou a sequência, zera. É a contiguidade sendo cobrada.
+
+```python
+if a[i] == b[j]:
+    dp[i][j] = dp[i-1][j-1] + 1
+else:
+    dp[i][j] = 0
+```
+</Cartao>
+
+<Cartao titulo="Subsequence (pode pular)">
+Não bateu, herda o melhor vizinho e segue. O buraco é permitido.
+
+```python
+if a[i] == b[j]:
+    dp[i][j] = dp[i-1][j-1] + 1
+else:
+    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+```
+</Cartao>
+</Colunas>
+
+A diferença inteira entre os dois conceitos está no `else`. Em substring, uma falha destrói o progresso acumulado, então a resposta é a maior célula do grid. Em subsequence, a falha só não acrescenta nada, o progresso continua atravessando a tabela, e a resposta é o canto final.
+
+## Lendo o enunciado em 5 segundos
+
+Na hora da prova, você não vai reconstruir a teoria: vai caçar palavra-chave. Vale memorizar este mapa:
+
+| Se o enunciado diz | Você está em | Padrão que costuma resolver |
+| --- | --- | --- |
+| *contiguous*, *consecutive*, *subarray*, *substring* | fatia contígua | janela deslizante, dois ponteiros, prefix sum |
+| *maintaining the relative order*, *by deleting some elements* | subsequence | programação dinâmica em grid |
+| *any combination*, *order does not matter*, *subsets* | subset | backtracking, bitmask, DP de mochila |
+
+E o resumo que cabe em duas perguntas:
+
+1. **É contíguo?** Sim, é subarray (ou substring, se for texto).
+2. Não? Então: **a ordem importa?** Sim, é subsequence. Não, é subset.

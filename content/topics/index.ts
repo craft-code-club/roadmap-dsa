@@ -3,6 +3,7 @@ import BigO from "./big-o.mdx";
 import TwoPointers from "./two-pointers.mdx";
 import SlidingWindowFixed from "./sliding-window-fixed.mdx";
 import SlidingWindowDynamic from "./sliding-window-dynamic.mdx";
+import SubTypes from "./subarray-substring-subsequence-subset.mdx";
 
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
@@ -22,6 +23,18 @@ export const ARTICLES: Record<string, Article> = {
       "Contando operações no mesmo array",
       "Melhor caso, caso médio e pior caso",
       "As armadilhas que pegam todo mundo",
+    ],
+  },
+  "subarray-substring-subsequence-subset": {
+    Body: SubTypes,
+    summary: [
+      "As duas perguntas",
+      "Subarray e substring: a fatia",
+      "Subsequence: apaga, mas não reordena",
+      "Subset: o saco de elementos",
+      "A pegadinha: subsequence x subset",
+      "O mesmo grid resolve substring e subsequence",
+      "Lendo o enunciado em 5 segundos",
     ],
   },
   "two-pointers": {

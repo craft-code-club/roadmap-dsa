@@ -1,6 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import type { ReactNode } from "react";
 import { SlidingWindowVisualizer } from "@content/visualizers/SlidingWindowVisualizer";
+import { SubTypesVisualizer } from "@content/visualizers/SubTypesVisualizer";
 import { TwoPointersVisualizer } from "@content/visualizers/TwoPointersVisualizer";
 import { BigOChartVisualizer } from "@content/visualizers/BigOChartVisualizer";
 import { BigOCounterVisualizer } from "@content/visualizers/BigOCounterVisualizer";
@@ -61,6 +62,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Colunas,
     Cartao,
     SlidingWindowVisualizer,
+    SubTypesVisualizer,
     TwoPointersVisualizer,
     BigOChartVisualizer,
     BigOCounterVisualizer,

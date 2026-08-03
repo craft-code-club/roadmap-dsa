@@ -426,6 +426,38 @@ html { scroll-behavior: smooth; }
 .viz-progress-fill { height: 100%; background: var(--ccc-accent); transition: width 0.2s; }
 .viz-caption { margin: 0 0 34px; font-size: 12.5px; color: var(--ccc-muted); }
 
+/* --- classificador subarray / substring / subsequence / subset ----------- */
+.sub-modo { display: flex; border: 1px solid var(--ccc-line); border-radius: 8px; overflow: hidden; }
+.sub-modo-btn { padding: 8px 15px; border: none; background: transparent; color: #a9bcd4; font: inherit; font-size: 13px; cursor: pointer; }
+.sub-modo-btn:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+.sub-modo-btn.on { background: var(--ccc-accent-soft); color: #dbeafe; font-weight: 600; }
+.sub-cell { padding: 0; cursor: pointer; }
+/* :not(.in) para o hover não apagar a borda azul de quem já está selecionado. */
+.sub-cell:not(.in):hover { border-color: rgba(255, 255, 255, 0.32); color: #fff; }
+.sub-montado { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 14px 0 20px; padding: 12px 15px; border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); }
+.sub-montado-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); }
+.sub-montado-val { font-family: var(--mono); font-size: 15px; font-weight: 600; color: #fff; }
+.sub-vazio { font-size: 13.5px; color: var(--ccc-muted); }
+.sub-vereditos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sub-veredito { min-width: 0; padding: 14px 15px; border: 1px solid var(--ccc-line); border-left-width: 3px; border-radius: 10px; background: #0e1725; }
+.sub-veredito.c-arr { border-left-color: var(--ccc-accent); }
+.sub-veredito.c-seq { border-left-color: var(--ccc-purple); }
+.sub-veredito.c-set { border-left-color: var(--ccc-coffee); }
+.sub-veredito.off { opacity: 0.6; }
+.sub-veredito-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sub-veredito-nome { font-size: 14px; font-weight: 600; }
+.sub-veredito-selo { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ccc-muted); white-space: nowrap; }
+.sub-veredito.ok .sub-veredito-selo { color: var(--ccc-green); }
+.sub-veredito.no .sub-veredito-selo { color: #fca5a5; }
+.sub-veredito-sub { display: block; margin-top: 2px; font-size: 11.5px; color: #61748c; }
+.sub-veredito-txt { margin: 9px 0 0; font-size: 13px; line-height: 1.55; color: #9db1c9; }
+.sub-contagem { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.sub-conta { min-width: 0; padding: 12px 15px; border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-surface-2); }
+.sub-conta-val { display: block; font-family: var(--mono); font-size: 21px; font-weight: 700; color: #fff; }
+.sub-conta-lbl { font-size: 11.5px; line-height: 1.45; color: var(--ccc-muted); }
+.sub-nota-contagem { margin: 10px 0 0; font-size: 11.5px; color: #61748c; }
+.sub-exemplos-label { font-size: 12px; color: var(--ccc-muted); }
+
 /* expanded / overlay ("meio a meio") */
 .viz-overlay { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(4, 8, 14, 0.78); backdrop-filter: blur(4px); }
 .viz-overlay .viz { width: min(1200px, 100%); max-height: calc(100vh - 48px); overflow: auto; margin: 0; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8); }
@@ -546,6 +578,8 @@ html { scroll-behavior: smooth; }
      (as células + variáveis já contam a história) e volta ao Expandir. */
   .viz-code { display: none; }
   .viz-overlay .viz-code { display: block; }
+  /* classificador dos "sub": três colunas não cabem, viram lista. */
+  .sub-vereditos, .sub-contagem { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
   .brand-name { display: none; } /* no celular, só o logo */

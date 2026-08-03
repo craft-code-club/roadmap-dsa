@@ -88,6 +88,11 @@ código sincronizado, painel de variáveis, controles e o botão **Expandir**). 
 2. Exponha-o em `mdx-components.tsx`.
 3. Use no `.mdx` do tópico: `<MeuVisualizador />`.
 
+Nem todo tópico tem algoritmo rodando. Quando o que se aprende é uma **classificação** (e não
+uma execução passo a passo), o visualizador troca a linha do tempo por manipulação direta:
+veja `SubTypesVisualizer.tsx`, onde o leitor monta um pedaço clicando nos elementos e o painel
+responde o que aquele pedaço é. A casca (cabeçalho, **Expandir**, células) continua a mesma.
+
 ## Progresso do usuário
 
 `ProgressProvider` guarda dois mapas no `localStorage`: `ccc-dsa-progresso` (tópicos concluídos)
