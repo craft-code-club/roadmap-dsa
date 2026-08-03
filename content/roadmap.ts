@@ -107,7 +107,7 @@ export const GROUPS: Group[] = [
       { slug: "strings", name: "Strings", group: "Arrays e Strings", level: "Fácil", status: "soon", youtube: yt("B9CCEwjoXBk"), description: "Manipulação e processamento de texto e caracteres.", extraVideos: [{ title: "LeetCode 1704: Determine if String Halves Are Alike", youtube: "qtPcJclLlmI" }] },
       {
         slug: "subarray-substring-subsequence-subset",
-        name: 'Os 4 "sub"',
+        name: "Os 4 \"sub\"",
         group: "Arrays e Strings",
         level: "Fácil",
         status: "ready",

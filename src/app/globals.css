@@ -432,7 +432,8 @@ html { scroll-behavior: smooth; }
 .sub-modo-btn:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
 .sub-modo-btn.on { background: var(--ccc-accent-soft); color: #dbeafe; font-weight: 600; }
 .sub-cell { padding: 0; cursor: pointer; }
-.sub-cell:hover { border-color: rgba(255, 255, 255, 0.32); color: #fff; }
+/* :not(.in) para o hover não apagar a borda azul de quem já está selecionado. */
+.sub-cell:not(.in):hover { border-color: rgba(255, 255, 255, 0.32); color: #fff; }
 .sub-montado { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 14px 0 20px; padding: 12px 15px; border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); }
 .sub-montado-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); }
 .sub-montado-val { font-family: var(--mono); font-size: 15px; font-weight: 600; color: #fff; }
