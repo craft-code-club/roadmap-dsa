@@ -1,5 +1,5 @@
 import type { MDXComponents } from "mdx/types";
-import type { ReactNode } from "react";
+import { isValidElement, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { SlidingWindowVisualizer } from "@content/visualizers/SlidingWindowVisualizer";
 import { SubTypesVisualizer } from "@content/visualizers/SubTypesVisualizer";
 import { TwoPointersVisualizer } from "@content/visualizers/TwoPointersVisualizer";
@@ -65,6 +65,56 @@ function Callout({ children, tipo = "info" }: { children: ReactNode; tipo?: "inf
   return <div className={`callout callout-${tipo}`}>{children}</div>;
 }
 
+const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
+
+// Nome bonito da linguagem para o selo do bloco de código. Quem não está no mapa
+// (inclusive `text` e bloco sem linguagem, que aqui são diagramas em ASCII e não
+// código) não ganha selo: o selo serve para dizer "isto aqui é Python", não para
+// rotular tudo.
+const LINGUAGENS: Record<string, string> = {
+  python: "Python",
+  elixir: "Elixir",
+  javascript: "JavaScript",
+  typescript: "TypeScript",
+  go: "Go",
+  java: "Java",
+  c: "C",
+  cpp: "C++",
+  rust: "Rust",
+  bash: "Bash",
+  json: "JSON",
+  sql: "SQL",
+};
+
+// A linguagem chega no `class="language-python"` do <code>, posto pelo Shiki
+// (option `addLanguageClass`) a partir da cerca ```python do MDX.
+function linguagemDoBloco(children: ReactNode): string | undefined {
+  if (!isValidElement<{ className?: string }>(children)) return undefined;
+  const classe = children.props.className?.split(/\s+/).find((c) => c.startsWith("language-"));
+  return classe?.slice("language-".length);
+}
+
+/**
+ * Bloco de código. O Shiki já entrega o HTML colorido do build; aqui só juntamos
+ * a casca do site: a classe `.prose-pre`, o selo discreto da linguagem e a
+ * remoção do fundo do tema (o bloco segue o painel do site, não abre um segundo
+ * tom de escuro). O selo vive FORA do <pre> de propósito, senão ele rolaria
+ * junto com o código quando a linha é larga.
+ */
+function Pre({ children, className, style, ...props }: ComponentPropsWithoutRef<"pre">) {
+  const lang = linguagemDoBloco(children);
+  const rotulo = lang ? LINGUAGENS[lang] : undefined;
+  const semFundo = style ? { ...style, background: undefined, backgroundColor: undefined } : style;
+  return (
+    <div className={cx("code-block", rotulo && "com-lang")}>
+      {rotulo && <span className="code-lang">{rotulo}</span>}
+      <pre className={cx("prose-pre", className)} style={semFundo} {...props}>
+        {children}
+      </pre>
+    </div>
+  );
+}
+
 function Colunas({ children }: { children: ReactNode }) {
   return <div className="mdx-colunas">{children}</div>;
 }
@@ -91,8 +141,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ol: (props) => <ol className="prose-ol" {...props} />,
     li: (props) => <li className="prose-li" {...props} />,
     a: (props) => <a className="prose-a" {...props} />,
-    code: (props) => <code className="prose-code" {...props} />,
-    pre: (props) => <pre className="prose-pre" {...props} />,
+    code: ({ className, ...props }) => <code className={cx("prose-code", className)} {...props} />,
+    pre: Pre,
     strong: (props) => <strong className="prose-strong" {...props} />,
     em: (props) => <em {...props} />,
     hr: () => <hr className="prose-hr" />,

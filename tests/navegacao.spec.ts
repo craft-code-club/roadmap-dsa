@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ALL_TOPICS } from "../content/roadmap";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
@@ -189,6 +190,67 @@ test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) =>
   // a âncora precisa existir na página (id no título correspondente)
   const href = await toc.getAttribute("href");
   await expect(page.locator(href!)).toHaveCount(1);
+});
+
+test("índice 'Nesta página' fica grudado ao rolar o artigo", async ({ page }) => {
+  await page.goto("/topico/prefix-sum/");
+  const toc = page.locator(".toc");
+  const rolarPara = async (y: number) => {
+    await page.evaluate((alvo) => window.scrollTo({ top: alvo, behavior: "instant" }), y);
+    await page.waitForFunction((alvo) => Math.abs(window.scrollY - alvo) < 2, y);
+  };
+
+  await rolarPara(1500);
+  const antes = (await toc.boundingBox())!;
+  await rolarPara(3500);
+  const depois = (await toc.boundingBox())!;
+
+  // grudado: a posição na janela não muda por mais que o artigo role
+  expect(Math.round(depois.y)).toBe(Math.round(antes.y));
+  // e para no offset que o próprio CSS declara (sem número mágico aqui)
+  const topoDoSticky = await toc.evaluate((n) => parseFloat(getComputedStyle(n).top));
+  expect(Math.round(depois.y)).toBe(Math.round(topoDoSticky));
+  // e o índice nunca é mais alto que a janela (senão o fim dele ficaria inalcançável)
+  expect(depois.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+});
+
+test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
+  await page.goto("/topico/prefix-sum/");
+  // pega o bloco Python pelo conteúdo, não pela ordem: um bloco de outra
+  // linguagem pode entrar antes dele no artigo sem quebrar o teste
+  const bloco = page
+    .locator(".code-block.com-lang")
+    .filter({ has: page.locator("code.language-python") })
+    .first();
+  await expect(bloco.locator(".code-lang")).toHaveText("Python");
+  // Shiki roda no build: o HTML já chega tokenizado (nada de highlight no cliente)
+  await expect(bloco.locator("pre.shiki code.language-python")).toHaveCount(1);
+  const cores = await bloco
+    .locator("pre span[style*='color']")
+    .evaluateAll((spans) => [...new Set(spans.map((s) => getComputedStyle(s).color))]);
+  expect(cores.length).toBeGreaterThan(3);
+
+  // diagrama em ASCII (cerca sem linguagem) continua sem selo e sem cor
+  const semSelo = page.locator(".code-block:not(.com-lang)");
+  expect(await semSelo.count()).toBeGreaterThan(0);
+  await expect(semSelo.locator(".code-lang")).toHaveCount(0);
+});
+
+test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({ page }) => {
+  const marcados = ALL_TOPICS.filter((t) => t.isNew);
+  await page.goto("/topico/big-o/");
+
+  // abre todo grupo ainda fechado, para que os selos de todos os tópicos contem
+  const grupos = page.locator(".side-group");
+  for (let i = 0; i < (await grupos.count()); i++) {
+    const g = grupos.nth(i);
+    if ((await g.locator(".side-caret.open").count()) === 0) await g.locator(".side-group-btn").click();
+  }
+
+  await expect(page.locator(".side-item .badge-novo")).toHaveCount(marcados.length);
+  for (const t of marcados) {
+    await expect(page.locator(`.side-item[href="/topico/${t.slug}/"] .badge-novo`)).toBeVisible();
+  }
 });
 
 test("página de introdução explica o guia e leva ao primeiro tópico", async ({ page }) => {

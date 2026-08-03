@@ -53,6 +53,15 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
   `youtube`, `article`, `viz` nem `extraVideos`. Só esses levam o selo "em breve" no menu lateral e
   o `noindex`; quem já tem qualquer material aparece normal. Tópico que nunca vai ter visualizador
   recebe `noViz: true` e deixa de mostrar o aviso de "visualização em construção".
+- **"NOVO" é tag manual, não data.** O selo do menu lateral vem de `isNew: true` no tópico. Quem
+  publica um tópico põe a tag no mesmo PR **e tira a dos anteriores** — sem data, nada envelhece
+  sozinho. Não derive o selo de outro campo (já foi `viz`, e virava "novo" permanente).
+- **Código no MDX: sempre com linguagem na cerca** (` ```python `). O Shiki roda no build (plugin
+  rehype em `next.config.ts`) e o HTML já sai colorido: zero JS de highlight no cliente, SSG
+  intacto. A cerca também alimenta o selo discreto de linguagem no canto do bloco, montado em
+  `mdx-components.tsx` (mapa `LINGUAGENS`). Cerca **sem** linguagem fica sem cor e sem selo, o que
+  é o certo para diagrama em ASCII e pseudo-fórmula. Linguagem nova precisa entrar em duas listas:
+  `langs` (`next.config.ts`) e `LINGUAGENS` (`mdx-components.tsx`).
 - Visualizadores ficam em `content/visualizers/` (ex.: `SlidingWindowVisualizer`,
   `TwoPointersVisualizer`), expostos em `mdx-components.tsx`. A lista de apoiadores fica em
   `src/app/apoie/apoiadores.ts` (página fixa, não é conteúdo de DSA).

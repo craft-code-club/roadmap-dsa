@@ -261,7 +261,10 @@ html { scroll-behavior: smooth; }
 .level-guia { border-color: rgba(255, 255, 255, 0.16); color: #9fb4cf; }
 
 /* ------ topic page ------ */
-.topic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 40px; padding: 40px 48px 80px; max-width: 1180px; }
+/* `align-items: start` é o que faz o índice colar: sem ele o <nav> estica até a
+   altura do artigo (stretch é o padrão do grid) e o `position: sticky` não tem
+   folga nenhuma para deslizar. */
+.topic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 40px; padding: 40px 48px 80px; max-width: 1180px; align-items: start; }
 .topic-layout > article { min-width: 0; }
 .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ccc-muted); }
 .breadcrumb .cur { color: #c9d6e6; }
@@ -294,6 +297,20 @@ html { scroll-behavior: smooth; }
 .prose-code { padding: 2px 6px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); font-family: var(--mono); font-size: 14px; color: #93bbfd; }
 .prose-pre { min-width: 0; padding: 14px 16px; border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: #cbd5e6; }
 .prose-pre .prose-code { background: none; padding: 0; color: inherit; }
+/* Bloco de código: casca do <pre> + selo discreto da linguagem no canto.
+   O selo fica FORA do <pre> para não rolar junto quando a linha estoura, e o
+   bloco com selo abre um vão no topo para ele morar — sem o vão, a primeira
+   linha passa por baixo do selo em tela estreita. */
+.code-block { position: relative; margin: 0 0 20px; }
+.code-block > .prose-pre { margin: 0; }
+.code-block.com-lang > .prose-pre { padding-top: 32px; }
+.code-lang {
+  position: absolute; top: 10px; right: 15px; z-index: 1;
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
+  color: #5b6d85; user-select: none; pointer-events: none;
+}
+/* O <pre> do Shiki é focável (tabindex=0) por ser área rolável: o anel de foco
+   global já cobre isso. O fundo do tema é removido no mdx-components. */
 .prose-hr { border: none; border-top: 1px solid var(--ccc-line); margin: 32px 0; }
 .prose-table-wrap { max-width: 100%; min-width: 0; margin: 0 0 20px; overflow-x: auto; }
 .prose-table { width: 100%; min-width: 380px; border-collapse: collapse; font-size: 14.5px; }
@@ -350,8 +367,13 @@ html { scroll-behavior: smooth; }
 .prevnext .nm { display: block; margin-top: 3px; font-size: 15px; font-weight: 600; }
 .prevnext .next { text-align: right; }
 
-/* TOC */
-.toc { position: sticky; top: 88px; padding-left: 18px; border-left: 1px solid var(--ccc-line); }
+/* TOC — acompanha a rolagem do artigo (ver `align-items: start` em .topic-layout).
+   Índice mais alto que a tela rola sozinho, sem arrastar a página junto. */
+.toc {
+  position: sticky; top: 88px;
+  max-height: calc(100vh - 88px - 28px); overflow-y: auto; overscroll-behavior: contain;
+  padding-left: 18px; border-left: 1px solid var(--ccc-line);
+}
 .toc-title { font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ccc-muted); margin-bottom: 11px; }
 .toc-links { display: flex; flex-direction: column; gap: 9px; }
 .toc-links a { font-size: 13px; line-height: 1.4; color: var(--ccc-muted); }

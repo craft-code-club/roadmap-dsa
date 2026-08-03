@@ -175,7 +175,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                             {feito ? "✓" : ""}
                           </span>
                           <span className="side-item-name">{t.name}</span>
-                          {t.viz && <span className="badge-novo">NOVO</span>}
+                          {t.isNew && <span className="badge-novo">NOVO</span>}
                           {vazio && <span className="badge-soon">em breve</span>}
                         </Link>
                       );

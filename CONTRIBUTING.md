@@ -61,9 +61,18 @@ exibidos ficam em português.
      description: "Maior soma contígua, o clássico." }
    ```
 
+   O selo **"NOVO"** do menu lateral é uma tag manual: `isNew: true`. Como não
+   tem data, ele não sai sozinho — marque o tópico que você está publicando e
+   **tire a marca dos anteriores** no mesmo PR.
+
 2. **Artigo** — para virar `status: "ready"`, crie `content/topics/<slug>.mdx`.
    Dentro do MDX já dá para usar, sem importar: `<Callout>`, `<Colunas>`,
    `<Cartao>` e os visualizadores (ver `mdx-components.tsx`).
+
+   **Sempre declare a linguagem na cerca do bloco de código** (` ```python `). O
+   destaque de sintaxe é gerado no build (Shiki), não no navegador, e é a cerca
+   que também põe o selo discreto de linguagem no canto do bloco. Cerca sem
+   linguagem fica sem cor e sem selo: é o certo para diagrama em ASCII.
 
 3. **Ligue o artigo** — registre em `content/topics/index.ts` e mude o `status`
    para `"ready"` em `content/roadmap.ts`. No registro vão o componente e o

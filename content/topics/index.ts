@@ -192,7 +192,7 @@ export const ARTICLES: Record<string, Article> = {
   "arrays": {
     Body: Arrays,
     summary: [
-      "O array é um endereço e uma conta",
+      "Espaço contíguo na memória",
       "Por que o processador gosta de memória contígua",
       "O preço de mexer no meio",
       "A tabela de custos, operação por operação",
