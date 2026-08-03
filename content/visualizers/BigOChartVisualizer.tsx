@@ -275,6 +275,8 @@ export function BigOChartVisualizer() {
     ctx.strokeRect(padE + 0.5, padT + 0.5, gw - 1, gh - 1);
   }, [visiveis, nMax, nMarcador, logaritmica, largura, altura]);
 
+  // Só move com o ponteiro pressionado (o texto embaixo do gráfico pede para
+  // arrastar). Seguir o hover redesenharia o canvas a cada mousemove.
   const moverMarcador = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const cv = canvasRef.current;
     if (!cv) return;
@@ -283,6 +285,16 @@ export function BigOChartVisualizer() {
     const gw = r.width - padE - padD;
     const pct = (e.clientX - r.left - padE) / Math.max(1, gw);
     setMarcadorPct(Math.min(1, Math.max(0.001, pct)));
+  };
+
+  // Capturar o ponteiro mantém o arrasto vivo mesmo com o cursor saindo do
+  // canvas. É um extra: se o navegador recusar o id, o arrasto normal segue
+  // funcionando, então a falha é engolida de propósito.
+  const capturar = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* segue sem captura */ }
+  };
+  const soltar = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* nada a soltar */ }
   };
 
   const leitura = visiveis.map((f) => ({
@@ -332,8 +344,9 @@ export function BigOChartVisualizer() {
             ref={canvasRef}
             className="bigo-canvas"
             style={{ height: altura }}
-            onPointerDown={moverMarcador}
-            onPointerMove={(e) => { if (e.buttons === 1 || e.pointerType === "mouse") moverMarcador(e); }}
+            onPointerDown={(e) => { moverMarcador(e); capturar(e); }}
+            onPointerMove={(e) => { if (e.buttons === 1) moverMarcador(e); }}
+            onPointerUp={soltar}
           />
         </div>
 

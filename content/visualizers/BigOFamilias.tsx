@@ -2,9 +2,12 @@
 // BigOFamilias, a tabela de referência das famílias de complexidade.
 //
 // Componente estático (sem "use client"): é HTML puro no build, serve de
-// consulta rápida e continua legível sem JavaScript. A barra de cada linha é
-// proporcional ao log do número de operações com n = 1.000, para caber na
-// mesma escala visual desde O(1) até O(n!).
+// consulta rápida e continua legível sem JavaScript.
+//
+// O `peso` de cada linha (a largura da barra) é uma rampa escolhida à mão, não
+// um valor calculado: serve só para ordenar as famílias visualmente. Derivar a
+// barra do número real de operações não funcionaria nem em escala log, porque
+// log10(1000!) ≈ 2568 contra log10(1000²) = 6, e tudo abaixo de O(2ⁿ) sumiria.
 // ---------------------------------------------------------------------------
 
 type Linha = {
@@ -15,7 +18,7 @@ type Linha = {
   n100: string;
   n1000: string;
   veredito: "otimo" | "bom" | "atencao" | "ruim";
-  peso: number; // 0 a 1, largura da barra
+  peso: number; // 0 a 1, largura da barra (rampa visual, ver o comentário acima)
 };
 
 const LINHAS: Linha[] = [
