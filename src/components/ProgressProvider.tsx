@@ -8,6 +8,30 @@ const KEY_PROBLEMAS = "ccc-dsa-problemas";
 
 type Mapa = Record<string, 1>;
 
+// Tópicos que mudaram de slug. O progresso fica salvo por slug, então sem isto
+// quem já tinha concluído o tópico antigo veria o novo como não concluído.
+// Quando dois tópicos viram um só, ter concluído qualquer um dos dois basta:
+// é um marcador de progresso, e perder um ✓ que o leitor já conquistou é pior
+// do que herdar um que ele pode desmarcar.
+const SLUGS_RENOMEADOS: Record<string, string> = {
+  "sliding-window-fixed": "sliding-window",
+  "sliding-window-dynamic": "sliding-window",
+};
+
+// Reescreve as chaves antigas para as novas e diz se algo mudou (para regravar
+// só quando precisa). Some com a chave antiga: ela não serve mais para nada.
+function migrarSlugs(mapa: Mapa): { mapa: Mapa; mudou: boolean } {
+  let mudou = false;
+  const out: Mapa = { ...mapa };
+  for (const [antigo, novo] of Object.entries(SLUGS_RENOMEADOS)) {
+    if (!out[antigo]) continue;
+    delete out[antigo];
+    out[novo] = 1;
+    mudou = true;
+  }
+  return { mapa: out, mudou };
+}
+
 type Ctx = {
   hydrated: boolean;
   topicosFeitos: Mapa;
@@ -44,7 +68,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const [problemasFeitos, setProblemas] = useState<Mapa>({});
 
   useEffect(() => {
-    setTopicos(ler(KEY_TOPICOS));
+    const { mapa, mudou } = migrarSlugs(ler(KEY_TOPICOS));
+    if (mudou) gravar(KEY_TOPICOS, mapa);
+    setTopicos(mapa);
     setProblemas(ler(KEY_PROBLEMAS));
     setHydrated(true);
   }, []);

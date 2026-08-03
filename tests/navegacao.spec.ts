@@ -76,6 +76,18 @@ test("Sliding Window reúne janela fixa e variável na mesma página", async ({ 
   await expect(page.getByRole("link", { name: /Minimum Size Subarray Sum/ }).first()).toBeVisible();
 });
 
+test("progresso dos slugs antigos de Sliding Window migra para o unificado", async ({ page }) => {
+  // Quem concluiu a página antiga (fixa ou variável) tem que continuar concluído.
+  await page.addInitScript(() => {
+    localStorage.setItem("ccc-dsa-progresso", JSON.stringify({ "sliding-window-fixed": 1 }));
+  });
+  await page.goto("/topico/sliding-window/");
+  await expect(page.getByRole("button", { name: "✓ Concluído" }).first()).toBeVisible();
+  // e a chave antiga sai do storage, em vez de virar lixo permanente
+  const salvo = await page.evaluate(() => localStorage.getItem("ccc-dsa-progresso"));
+  expect(JSON.parse(salvo!)).toEqual({ "sliding-window": 1 });
+});
+
 test("Big O traz o gráfico de crescimento, o contador de operações e a tabela de famílias", async ({ page }) => {
   await page.goto("/topico/big-o/");
   // gráfico: o canvas existe e o marcador reage ao chip de uma família
