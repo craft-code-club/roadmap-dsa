@@ -56,6 +56,15 @@ import { BellmanFordVisualizer } from "@content/visualizers/BellmanFordVisualize
 import { AStarVisualizer } from "@content/visualizers/AStarVisualizer";
 import { TopoSortVisualizer } from "@content/visualizers/TopoSortVisualizer";
 import { MstVisualizer } from "@content/visualizers/MstVisualizer";
+import { BinaryHeapVisualizer } from "@content/visualizers/BinaryHeapVisualizer";
+import { HeapIndicesVisualizer } from "@content/visualizers/HeapIndicesVisualizer";
+import { HeapEstruturas } from "@content/visualizers/HeapEstruturas";
+import { HeapSortVisualizer } from "@content/visualizers/HeapSortVisualizer";
+import { HeapSortEstabilidade } from "@content/visualizers/HeapSortEstabilidade";
+import { HeapSortComparativo } from "@content/visualizers/HeapSortComparativo";
+import { BuscaBinariaVisualizer } from "@content/visualizers/BuscaBinariaVisualizer";
+import { BuscaBinariaOverflow } from "@content/visualizers/BuscaBinariaOverflow";
+import { BuscaBinariaFronteira } from "@content/visualizers/BuscaBinariaFronteira";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -222,6 +231,15 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     AStarVisualizer,
     TopoSortVisualizer,
     MstVisualizer,
+    BinaryHeapVisualizer,
+    HeapIndicesVisualizer,
+    HeapEstruturas,
+    HeapSortVisualizer,
+    HeapSortEstabilidade,
+    HeapSortComparativo,
+    BuscaBinariaVisualizer,
+    BuscaBinariaOverflow,
+    BuscaBinariaFronteira,
     ...components,
   };
 }
