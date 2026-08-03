@@ -1,0 +1,336 @@
+<Callout>
+Array parece o tópico que dá para pular: você usa desde o primeiro dia de programação. Só que quase toda estrutura de dados deste roadmap tem um array escondido embaixo. Uma string é um array de caracteres. Uma heap é uma árvore que mora dentro de um array. Uma tabela hash guarda os buckets num array. E a `list` que você usa todo dia é um array com um gerente em cima. Entender o custo real de cada operação aqui é entender por que todas as outras estruturas existem.
+</Callout>
+
+## O array é um endereço e uma conta
+
+A definição de dicionário diz que um array é "uma coleção de elementos do mesmo tipo". Está correta e não explica nada. O que faz o array ser o que é não é a coleção, é **onde ela mora**: em posições contíguas de memória.
+
+Quando você declara um array de 5 inteiros, o programa não pede 5 espaços quaisquer. Ele pede ao sistema operacional **um bloco de 20 bytes seguidos**, porque um `int` costuma ocupar 32 bits, ou seja, 4 bytes. Ou existe esse bloco colado em algum lugar, ou a alocação falha. Se você tentar criar um array de 1 bilhão de inteiros e não houver 4 GB contíguos disponíveis, você não recebe um array pela metade: você recebe um erro de memória.
+
+Essa exigência chata paga um prêmio enorme. Se todos os elementos têm o **mesmo tamanho** e estão **colados**, o endereço de qualquer um deles vira uma conta:
+
+```python
+endereco(nums[i]) = endereco_base + i * tamanho_do_elemento
+```
+
+Uma multiplicação e uma soma. E aqui está o ponto que resolve o tópico inteiro: **essas duas operações são exatamente as mesmas para i = 0 e para i = 999.999**. Não existe percorrer, não existe procurar. Por isso `nums[i]` é O(1), e por isso o array é a única estrutura em que "pegar o milionésimo elemento" custa igual a "pegar o primeiro".
+
+<ArraysVisualizer />
+
+Clique em qualquer célula e olhe a linha de endereço embaixo dela: com `int`, ela anda exatamente 4 bytes por índice. Agora troque o tamanho do elemento para **8 bytes** e repare que o passo dobra, mas a fórmula não muda, continua sendo a mesma multiplicação e a mesma soma. Por último, compare os dois primeiros números do painel: "saltos até nums[i]" é sempre **1**, enquanto "numa lista encadeada" cresce junto com o índice, porque lá o único jeito de chegar no quarto nó é passar pelo primeiro, pelo segundo e pelo terceiro.
+
+<Callout tipo="aviso">
+O endereço base pode ser qualquer coisa, o que importa é o passo. Digite `0x7F00` no campo de endereço base: todos os endereços mudam, a conta continua idêntica, e o custo de acesso segue sendo o mesmo. O array não sabe onde ele está, ele só sabe o tamanho de cada elemento.
+</Callout>
+
+## Por que o processador gosta de memória contígua
+
+A memória contígua não paga só a fórmula do endereço. Ela ganha um segundo prêmio, este de graça, e que quase não aparece na teoria de complexidade.
+
+O processador não busca 1 valor na RAM quando você pede 1 valor. Ele busca uma **linha de cache** inteira, tipicamente 64 bytes, e guarda no L1. Com inteiros de 4 bytes, isso quer dizer que ler `nums[3]` já deixa `nums[0]` até `nums[15]` prontos dentro do processador. As 15 leituras seguintes não tocam na RAM.
+
+No visualizador acima, clique em **20 inteiros**, que já liga o modo **Linha de cache**. Aparece um mapa embaixo das células: o array de 20 posições ocupa **duas** linhas de cache, os índices 0 a 15 numa e os índices 16 a 19 na outra, e a que está destacada é a que a leitura atual trouxe para o L1. Percorrer o array inteiro na ordem custa duas idas à memória, não vinte.
+
+Clique na célula 3 e depois na célula 17 e repare no mapa trocando de linha. As duas leituras custam a mesma conta de endereço e as duas são O(1), mas quem varre de 0 a 15 acha tudo dentro do processador e só volta à memória ao chegar no índice 16. É a diferença entre complexidade e custo real, e ela não aparece em lugar nenhum do Big O.
+
+Isso explica uma frase que aparece muito e costuma passar batido: **as outras estruturas usam array por baixo dos panos justamente para herdar esse comportamento**. A heap binária é conceitualmente uma árvore, mas na memória é um array com uma fórmula de índices. Um dicionário guarda seus buckets num array. E a `list` do Python, segundo a própria documentação do CPython, é um array contíguo de referências, não uma lista ligada.
+
+<Callout>
+Detalhe que muda o jogo em Python: a `list` é um array de **referências**, não de valores. Cada posição guarda um ponteiro de 8 bytes para um objeto que mora em outro lugar da memória. O acesso por índice continua O(1), mas o prêmio do cache some, porque seguir o ponteiro é um pulo. É exatamente por isso que bibliotecas numéricas guardam os números crus num buffer contíguo em vez de usar `list`.
+</Callout>
+
+## O preço de mexer no meio
+
+Se o array é uma sequência colada, ele tem uma consequência inevitável: **array não tem buraco**. A posição 3 é vizinha da 2 e da 4, e isso é o que sustenta a fórmula do endereço. Tirar um elemento do meio e deixar um vazio ali quebraria o acesso O(1) de todo mundo depois dele.
+
+Então, para inserir na posição `k`, alguém tem que abrir espaço: cada elemento de `k` até o fim anda um passo para a direita. Para remover a posição `k`, o processo é o inverso: cada elemento depois de `k` anda um passo para a esquerda, fechando o buraco.
+
+<ArraysOperacoes />
+
+Rode a operação padrão, **inserir na posição 2** do array de 6 itens, e acompanhe o contador de deslocamentos: são 4, exatamente `n - k` = 6 - 2. Agora clique nos atalhos de baixo e compare, sempre no mesmo array:
+
+- **inserir no começo** (k = 0): 6 deslocamentos, o pior caso possível
+- **inserir no meio** (k = 3): 3 deslocamentos
+- **inserir no fim**: 0 deslocamentos, uma escrita e acabou
+- **remover o primeiro** (k = 0): 5 deslocamentos
+
+A mesma estrutura, a mesma quantidade de dados, e o custo indo de 1 operação a `n` operações só por causa de **onde** você mexeu. Nas duas pontas do array não existe cascata; em qualquer outro lugar, ela existe inteira.
+
+A linha de baixo, **Casos de borda**, tem os três cenários em que a intuição erra por excesso de cuidado: com um elemento só, remover a posição 0 custa zero; inserir em `k = n` custa zero; remover a última posição custa zero. Em todos, o laço simplesmente não roda nenhuma vez. Vale rodar os três e ler o passo 2, que é onde o visualizador mostra os limites do laço com os números daquela entrada. O botão **Sortear** troca o array inteiro se você quiser conferir a fórmula `n - k` com outros tamanhos.
+
+Repare também na direção dos laços no painel de código, porque essa é a parte que erra quem implementa na mão:
+
+```python
+# inserir: do FIM para o meio, senão você sobrescreve o vizinho
+for i in range(n - 1, k - 1, -1):
+    nums[i + 1] = nums[i]
+nums[k] = valor
+
+# remover: do meio para o FIM, puxando cada um para trás
+for i in range(k, n - 1):
+    nums[i] = nums[i + 1]
+```
+
+Se você inserir varrendo do começo para o fim, o primeiro `nums[i + 1] = nums[i]` já destrói o valor que você ainda precisava copiar, e o array vira uma fileira do mesmo número repetido.
+
+### O antídoto: o ponteiro de escrita
+
+Remover um elemento custa `n - 1 - k` deslocamentos. Remover **vários** dentro de um laço custa isso a cada remoção, e é assim que um problema de uma passada vira O(n²) sem ninguém perceber. O jeito certo é não remover nada: percorrer uma vez só, com **dois índices caminhando no mesmo array**, um que lê tudo e outro que só anda quando encontra algo que fica.
+
+```python
+def remover_duplicatas(nums):        # LeetCode 26, array já ordenado
+    if not nums:
+        return 0
+    escrita = 1                      # nums[0] sempre fica
+    for leitura in range(1, len(nums)):
+        if nums[leitura] != nums[escrita - 1]:
+            nums[escrita] = nums[leitura]
+            escrita += 1
+    return escrita                   # o novo tamanho lógico
+```
+
+Rode com `[1, 1, 2, 2, 3]`: `leitura` passa pelas 5 posições, `escrita` para em 3, e o array vira `[1, 2, 3, 2, 3]`. As duas últimas posições continuam com lixo, exatamente como no `remover` do visualizador acima, e é o valor retornado que diz até onde vale a pena olhar. Uma passada, O(n) de tempo, O(1) de espaço extra, zero deslocamento em cascata.
+
+O mesmo esqueleto resolve **Remove Element** (a condição vira `nums[leitura] != val`) e **Move Zeroes** (copia os não zeros e depois preenche o resto com zero). Sempre que o enunciado disser "modifique o array no lugar e devolva o novo tamanho", é este padrão que ele está pedindo.
+
+### Quando o certo é preencher de trás para frente
+
+A direção do laço não é detalhe de implementação, é a diferença entre funcionar e corromper o array. **Merge Sorted Array** é o caso canônico: `nums1` tem `m` valores e mais `n` vagas no fim, e você precisa fundir `nums2` dentro dele sem array auxiliar.
+
+Começando da esquerda, cada valor de `nums2` que entra sobrescreve um valor de `nums1` que ainda não foi comparado. Começando da direita, você escreve sempre numa posição que já estava livre:
+
+```python
+def merge(nums1, m, nums2, n):       # LeetCode 88
+    i, j, escrita = m - 1, n - 1, m + n - 1
+    while j >= 0:                    # basta esgotar nums2
+        if i >= 0 and nums1[i] > nums2[j]:
+            nums1[escrita] = nums1[i]
+            i -= 1
+        else:
+            nums1[escrita] = nums2[j]
+            j -= 1
+        escrita -= 1
+```
+
+É o mesmo raciocínio do laço de inserção da seção anterior, com um detalhe a mais: o `while` só precisa esvaziar `nums2`. Quando `j` chega a `-1`, o que sobrou de `nums1` já está no lugar certo, porque nunca saiu de lá.
+
+### Girar o array sem pagar n × k
+
+**Rotate Array** é o deslocamento em cascata virando enunciado. A solução ingênua move o array inteiro uma casa e repete `k` vezes: O(n × k), que com n = 100.000 e k = 100.000 dá 10 bilhões de operações e estoura o limite de tempo com folga.
+
+A saída não é mexer no meio, é **inverter pedaços**. Girar `k` posições à direita é o mesmo que inverter tudo e depois desinverter as duas partes:
+
+```python
+def rotate(nums, k):                 # LeetCode 189
+    n = len(nums)
+    k %= n                           # k pode ser maior que n
+    inverter(nums, 0, n - 1)
+    inverter(nums, 0, k - 1)
+    inverter(nums, k, n - 1)
+
+def inverter(nums, i, j):
+    while i < j:
+        nums[i], nums[j] = nums[j], nums[i]
+        i += 1
+        j -= 1
+```
+
+Com `[1, 2, 3, 4, 5, 6, 7]` e k = 3: inverter tudo dá `[7, 6, 5, 4, 3, 2, 1]`, inverter os 3 primeiros dá `[5, 6, 7, 4, 3, 2, 1]`, inverter o resto dá `[5, 6, 7, 1, 2, 3, 4]`. Três passadas, O(n) de tempo, O(1) de espaço extra.
+
+O `k %= n` da segunda linha não é frescura. Com k = 10 e n = 7 a rotação efetiva é 3, e sem o módulo o segundo `inverter` já começa lendo `nums[9]`, que não existe: índice fora dos limites antes de qualquer resultado errado. Esse é o caso de borda **k > n**, e é ele que reprova a submissão.
+
+## A tabela de custos, operação por operação
+
+Esta é a tabela que vale colar na parede. A coluna do meio é o array cru de tamanho fixo; a da direita é o array dinâmico (a `list` do Python, `List<T>` do C#, `ArrayList` do Java, `vector` do C++), que a próxima seção explica.
+
+| Operação | Array de tamanho fixo | Array dinâmico |
+| --- | --- | --- |
+| ler ou escrever `nums[i]` | O(1) | O(1) |
+| acrescentar no fim | O(n) | O(1) amortizado |
+| remover do fim | O(n) | O(1) |
+| inserir na posição k | O(n) | O(n) |
+| remover a posição k | O(n) | O(n) |
+| procurar um valor | O(n) | O(n) |
+
+Duas leituras que valem mais que a tabela em si.
+
+**A busca é O(n) e isso é uma escolha de estrutura, não um detalhe.** Perguntar "esse valor existe aqui?" para um array significa olhar posição por posição. Um `set` ou um dicionário respondem a mesma pergunta em O(1) médio, porque a hash calcula onde o valor estaria. O erro clássico de produção é um `if x in lista` dentro de um laço que também percorre a lista: são dois O(n) multiplicados, um O(n²) escondido em duas linhas inocentes. Jogar a lista num `set` antes do laço resolve.
+
+| Estrutura | "esse valor existe?" | inserir no meio |
+| --- | --- | --- |
+| array / list | O(n) | O(n), com deslocamento |
+| set / dicionário (hash) | O(1) médio | não existe "meio" |
+| lista encadeada | O(n) | O(n) para achar, O(1) para ligar |
+
+**Complexidade igual não é performance igual.** Inserir no meio é O(n) tanto num array quanto numa [lista encadeada](/topico/listas-ligadas), mas o O(n) da lista encadeada é só a caminhada até o ponto certo: chegando lá, ligar o novo nó são duas atribuições de ponteiro. No array, além de chegar lá, você ainda move fisicamente todo o resto. Mesma família de crescimento, custo real bem diferente. Se isso soou estranho, vale revisitar [Big O](/topico/big-o): a notação classifica o formato da curva, não mede o relógio.
+
+### Quando o próprio array é a tabela hash
+
+A tabela acima diz que "esse valor existe?" custa O(n) num array e O(1) médio numa hash, e isso vale **quando as chaves podem ser qualquer coisa**. Só que boa parte dos problemas garante o contrário no enunciado: só letras minúsculas de `a` a `z`, só dígitos, só valores entre 1 e n. Nesse caso não precisa de hash nenhuma, porque a chave **já é um índice**.
+
+```python
+def frequencias(s):                  # só 'a' a 'z'
+    contagem = [0] * 26
+    for c in s:
+        contagem[ord(c) - ord("a")] += 1
+    return contagem
+```
+
+Um array de 26 posições responde "quantas vezes apareceu?" em O(1) verdadeiro: sem calcular hash, sem tratar colisão, sem alocar nó, e com os 26 contadores inteiros cabendo em duas linhas de cache. Para esse recorte é a estrutura mais rápida que existe, e ela é literalmente um array cru.
+
+A regra de decisão é curta: **se o universo de chaves é pequeno, conhecido e denso, o array ganha da hash**. Se as chaves são esparsas (IDs de usuário, strings arbitrárias, números até 1 bilhão), o array vira desperdício de memória e a [tabela hash](/topico/hash-table) volta a ser a resposta. É o mesmo raciocínio que vale para [Prefix Sum](/topico/prefix-sum): trocar busca por indexação sempre que o índice puder ser calculado.
+
+## Array dinâmico: a lista que cresce sozinha
+
+O array cru tem um problema óbvio: o tamanho é decidido no nascimento. Não existe "só mais um item". Para crescer, você aloca um bloco maior, copia tudo e joga o antigo fora, o que custa O(n) por item acrescentado.
+
+O array dinâmico é a estrutura que faz isso por você, com uma sacada: em vez de crescer de 1 em 1, ele cresce **em saltos grandes**. Ele mantém dois números, o **tamanho** (quantos itens existem) e a **capacidade** (quantas vagas foram alocadas), e só reage quando o tamanho encosta na capacidade.
+
+<ArraysCrescimento />
+
+Rode a configuração padrão, **dobrar (×2)** com 20 appends e capacidade inicial 4. Assista às realocações: elas acontecem nos appends 5, 9 e 17, e só. No fim são **3 realocações, 28 cópias, 48 operações no total**, o que dá uma média de **2,4 operações por append**.
+
+Agora troque para **uma vaga por vez (+1)**, o jeito ingênuo, que é o que sai quando alguém implementa isso na mão sem pensar. Mesmos 20 appends: **16 realocações, 184 cópias, 204 operações**, média de **10,2 por append**. E o número feio piora rápido com a escala: com 1.000 appends, dobrar custa 1.020 cópias no total, enquanto o "+1" custa **499.494**.
+
+Esse é o argumento inteiro do **custo amortizado**. As realocações não somem, elas ficam cada vez mais raras, porque cada uma dobra a distância até a próxima. O total de cópias para `n` appends fica sempre abaixo de `2n`, então a média por append não cresce com `n`:
+
+| Appends | Cópias (dobrando) | Média por append |
+| --- | --- | --- |
+| 20 | 28 | 2,4 |
+| 1.000 | 1.020 | 2,02 |
+| 1.000.000 | 1.048.572 | 2,05 |
+
+É por isso que se diz que o append é **O(1) amortizado**, com asterisco: um append específico pode custar O(n), mas uma sequência de `n` appends custa O(n) no total. O asterisco não é enfeite, é a diferença entre "sempre barato" e "barato na média".
+
+<Callout>
+Ligue o botão **uma vez e meia (×1,5)** e compare com o dobro nos mesmos 20 appends: são 51 cópias contra 28, mas a capacidade final é 28 contra 32. Mais trabalho de cópia, menos memória parada. Não existe estratégia certa, existe troca, e cada linguagem escolheu a sua: `List<T>` do C# e `vector` do C++ dobram, o `ArrayList` do Java cresce 50%, e a `list` do Python aloca uma folga proporcional bem menor. Os quatro cartões do rodapé mostram as quatro estratégias lado a lado, sempre com o mesmo número de appends, e dizem qual linguagem usa cada uma.
+
+Arraste o controle **Quantos appends** e observe o número que interessa: o custo médio da estratégia "dobrar" fica preso perto de 2 enquanto o do "+1" sobe junto com n. É a diferença entre O(1) amortizado e O(n) por operação, medida na tela.
+</Callout>
+
+Vale saber também que a cópia, apesar de ser O(n), não é um laço `for` comum. As bibliotecas usam rotinas de baixo nível de cópia de bloco de memória (`System.arraycopy` na JVM, `memmove` no mundo C), que movem muitos bytes por instrução. Continua O(n), continua sendo trabalho, mas é bem mais rápido do que a mesma cópia escrita na mão.
+
+## Capacidade não é tamanho
+
+Os dois números do array dinâmico confundem porque só um deles aparece no dia a dia. Vale separar bem, porque quase todo comportamento estranho de lista vem daqui.
+
+<Colunas>
+<Cartao titulo="Tamanho (Count, len)">
+Quantos itens **existem**. É o que o `len()` devolve, o que o `for` percorre e o que define até onde você pode indexar. Sobe e desce conforme você adiciona e remove.
+</Cartao>
+<Cartao titulo="Capacidade">
+Quantas vagas foram **alocadas** no array interno. Quase sempre é maior que o tamanho, você raramente vê esse número, e ele existe só para adiar a próxima realocação.
+</Cartao>
+</Colunas>
+
+Três consequências práticas que quase ninguém conta:
+
+**Remover do fim não apaga nada.** Quando você tira o último item, a lista só recua o tamanho em 1. O valor continua gravado exatamente onde estava, virou lixo inacessível, e vai ser sobrescrito no próximo append. É por isso que remover do fim é O(1): não tem cópia, tem uma subtração.
+
+**A capacidade não encolhe sozinha.** Se a sua lista chegou a 1 milhão de itens e depois voltou a 10, a capacidade continua em 1 milhão. A biblioteca assume que, se você precisou daquele espaço uma vez, é provável que precise de novo, e prefere segurar a memória a pagar realocação outra vez. Quem quiser devolver esse espaço precisa pedir explicitamente, ou construir uma lista nova.
+
+**Reservar a capacidade certa é a otimização mais barata que existe.** Se você já sabe que vai receber 3.000 itens, criar a lista informando isso elimina todas as realocações de uma vez. No visualizador, o preset **capacidade reservada** mostra o extremo: 20 appends, 0 cópias, média de 1 operação por append. É uma linha de código, e é a diferença entre um trabalho amortizado e nenhum trabalho.
+
+<Callout tipo="aviso">
+Uma lista com capacidade 10 e tamanho 0 **estoura** se você tentar ler o índice 0: quem manda no acesso é o tamanho, não a capacidade. Já um array de 10 posições aceita `arr[7]` mesmo que você nunca tenha "adicionado" nada, porque array não tem tamanho lógico, ele nasce com as 10 posições valendo o valor padrão do tipo (zero para número, `false` para booleano, `null` para referência, em qualquer linguagem gerenciada; em C, o que estiver na memória). São duas ideias de "vazio" diferentes, e trocá-las é fonte garantida de índice fora dos limites.
+</Callout>
+
+## Matriz ou array de arrays
+
+Quando o dado tem duas dimensões, aparecem duas estruturas que se parecem e não são a mesma coisa. Compare as duas colunas abaixo olhando para uma coisa só: **a forma das linhas**. À esquerda, as três linhas têm quatro colunas e não têm como não ter. À direita, os comprimentos são 4, 2, 5 e a quarta linha simplesmente não existe ainda.
+
+<ArraysMatrizes />
+
+A regra de bolso é curta: **se o seu dado é um retângulo, diga isso ao compilador**. Tabuleiro de jogo, imagem, grid de células, tabela de valores, tudo isso tem linhas do mesmo tamanho, e o array multidimensional garante essa forma de graça, numa única alocação contígua. Se as linhas têm tamanhos diferentes, ou se você nem sabe quantas colunas cada uma vai ter, o jagged é a estrutura honesta: lista de adjacência de grafo, agrupamentos, coleções de coleções.
+
+Na prática, boa parte do código de matriz que você lê por aí é jagged, inclusive nas soluções de problema de entrevista, porque em Java e em Python as duas coisas se escrevem quase igual e ninguém precisa escolher. A escolha só aparece de verdade em linguagens que separam as duas sintaxes, como C#, e a diferença que importa é esta: o multidimensional é **uma** alocação com forma travada, o jagged é **1 + n** alocações com forma livre e com o risco de uma linha continuar nula.
+
+### O que custa percorrer duas dimensões
+
+Uma matriz não é "um array maior", e a conta de complexidade muda junto. Dois laços aninhados sobre uma grade de `n` linhas por `m` colunas fazem `n × m` visitas, e a resposta certa é **O(n × m)**, não O(n²).
+
+```python
+def existe(grid, alvo):
+    for i in range(len(grid)):          # n linhas
+        for j in range(len(grid[i])):   # m colunas de ESTA linha
+            if grid[i][j] == alvo:
+                return True             # melhor caso: acha na primeira célula
+    return False                        # pior caso: visita as n × m células
+```
+
+Só escreva O(n²) quando a matriz for **quadrada** e você disser isso em voz alta. Quando as duas dimensões são independentes, cada uma ganha a sua letra, exatamente como duas entradas separadas em [Big O](/topico/big-o). Uma grade de 3 por 10.000 e uma de 10.000 por 3 custam a mesma coisa, e nenhuma das duas é "n² com n = 10.000".
+
+Repare também no `len(grid[i])` do laço de dentro: ele é relido a cada linha de propósito. Num jagged as linhas têm comprimentos diferentes, e guardar `len(grid[0])` numa variável antes do laço é a forma mais comum de sair dos limites.
+
+Quando a matriz tem estrutura, dá para fazer melhor que varrer tudo:
+
+| Estrutura da matriz | Estratégia | Custo |
+| --- | --- | --- |
+| nenhuma | dois laços aninhados | O(n × m) |
+| cada linha ordenada | busca binária por linha | O(n × log m) |
+| tudo ordenado como um array esticado | busca binária única | O(log(n × m)) |
+
+A última linha é **Search a 2D Matrix**, e ela só funciona por causa do primeiro parágrafo deste artigo: se as `n × m` células estão em sequência, um índice linear de 0 a `n × m - 1` vira linha e coluna com duas contas.
+
+```python
+linha, coluna = idx // m, idx % m       # idx de 0 a n * m - 1
+```
+
+Essa é exatamente a conta que um array multidimensional de verdade faz por baixo: o `[i, j]` vira `i * m + j` antes de entrar na fórmula do endereço da primeira seção, e o acesso continua sendo uma multiplicação e uma soma. O jagged não tem essa conta, ele tem um ponteiro por linha, e é por isso que as `n × m` células do multidimensional formam uma fila só, enquanto as do jagged são `n` blocos espalhados pela memória.
+
+<Callout tipo="aviso">
+Cuidado com o pulo do gato aqui: "uma alocação contígua" **não** garante que a varredura seja mais rápida. Em .NET, o jagged costuma ganhar de fato nos benchmarks de percorrer matriz, porque o runtime otimiza melhor a checagem de limites de um array de uma dimensão do que a de um `[,]`. Layout de memória é um argumento, geração de código é outro, e só a medição decide. Vale para tudo neste artigo: a complexidade você deduz, a performance você mede.
+</Callout>
+
+## As armadilhas que pegam todo mundo
+
+**Sair dos limites.** É o bug número um de array, e a matriz irregular é o campo minado favorito dele: cada linha tem um comprimento diferente, então checar só `i` não basta.
+
+```python
+def dentro(grid, i, j):
+    return 0 <= i < len(grid) and 0 <= j < len(grid[i])
+```
+
+Sempre que você faz busca em grid, recursão em matriz ou vizinhança de célula, essa checagem vem antes de qualquer acesso, não depois.
+
+**Remover enquanto percorre.** Essa é filha direta do deslocamento. Quando você remove o índice `i`, todo mundo depois dele anda uma casa para trás, então o elemento que era `i + 1` passa a ser `i`, e o `for` que já incrementou o índice **pula esse elemento**. Percorra de trás para frente, ou construa uma lista nova com o que fica.
+
+**Usar `contains` dentro de um laço.** Já apareceu na tabela de custos e vale repetir, porque é o O(n²) mais comum de código de produção. Se a pergunta é "existe?", a estrutura é hash, não array.
+
+**Usar lista para tudo, no automático.** A lista é o canivete suíço: adiciona, remove, busca, ordena, tudo com uma linha. O preço é não olhar quais operações o seu código realmente faz. Se são milhões de checagens de existência, era um `set`. Se são 10 posições fixas acessadas por índice, era um array cru. Se a inserção é sempre no meio, talvez fosse outra estrutura inteira.
+
+**Achar que complexidade igual significa custo igual.** Dois O(n) podem ter constantes muito diferentes, e o array é o exemplo perfeito: mover 1 milhão de bytes contíguos com uma instrução de bloco não é o mesmo trabalho que seguir 1 milhão de ponteiros espalhados, mesmo que os dois sejam O(n).
+
+<Callout tipo="aviso">
+Nada disso quer dizer "reescreva tudo na mão". O oposto também custa caro: implementar um array dinâmico por conta própria porque você não sabia que a linguagem já tinha um é código a mais para revisar, testar e manter, com o mesmo desempenho no fim. Conheça a estrutura da sua biblioteca padrão antes de reconstruir uma.
+</Callout>
+
+## Como praticar
+
+Antes de sair para os problemas, volte nos visualizadores e **preveja o número antes de rodar**. Se o seu palpite bater, o modelo mental está certo:
+
+- No visualizador de operações, clique em **n = 1, remover o único**. Quantos deslocamentos? (Zero: não existe ninguém depois dele, e o laço não roda nenhuma vez.)
+- Ainda nele, clique em **k = n, inserir logo após o último**. Quantos deslocamentos? (Zero também: inserir na primeira vaga livre é inserir no fim.)
+- Agora **Sortear** e prever antes de rodar: com o array que apareceu, quantos deslocamentos custa inserir na posição 1? (`n - 1`, um a menos que o pior caso.)
+- No visualizador de crescimento, coloque capacidade inicial **1** e estratégia **dobrar** com 20 appends. Quantas realocações? (Cinco: 1, 2, 4, 8, 16, e a capacidade termina em 32.)
+- No visualizador de memória, clique em **20 inteiros** e depois troque o elemento para **8 bytes**. Quantas linhas de cache o array passa a ocupar? (Três, contra duas: com 8 bytes cabem 8 elementos por linha em vez de 16.)
+
+### Os casos de borda que derrubam a submissão
+
+Quase todo "Wrong Answer" de problema de array cai em uma destas seis entradas, e nenhuma delas aparece no exemplo do enunciado. Rode as seis na cabeça antes de submeter:
+
+| Caso de borda | O que costuma quebrar |
+| --- | --- |
+| array vazio (`n = 0`) | `nums[0]` e `nums[-1]` estouram, e `k % n` divide por zero |
+| um elemento só (`n = 1`) | laços que assumem um vizinho (`i + 1`, `n - 2`) saem dos limites |
+| todos os elementos iguais | em `[2, 2, 2]` a resposta de Remove Duplicates é 1, e quem começa o ponteiro de escrita em 0 devolve 0 |
+| `k` maior que `n` | rotação e janela precisam de `k % n` antes de indexar |
+| `k = 0` ou `k = n` | inserir na ponta é caso legítimo, não erro: são zero deslocamentos |
+| matriz com linha vazia | `grid[i][0]` estoura mesmo com `i` válido; cheque `grid`, `grid[i]` e só então `j` |
+
+Os problemas da lista abaixo foram escolhidos nessa ordem de propósito, e os três primeiros já estão resolvidos no meio do artigo: **Remove Duplicates from Sorted Array** é o ponteiro de escrita, **Merge Sorted Array** é o preenchimento de trás para frente, e **Rotate Array** é o giro por inversão com `k %= n`. Não copie os trechos, feche a página e escreva de novo, porque o que fixa é reconstruir a direção do laço sozinho.
+
+Os dois últimos abrem portas novas. **Product of Array Except Self** é a entrada para [Prefix Sum](/topico/prefix-sum): a mesma ideia de pré-processar o array numa passada para responder muitas perguntas depois, só que com produto no lugar de soma, e com o truque de usar o próprio array de saída como acumulador para ficar em O(1) de espaço extra. E **Spiral Matrix** é a checagem de limites levada a sério: quatro fronteiras (topo, base, esquerda, direita) que encolhem a cada volta, com o cuidado extra de não repetir a linha ou a coluna do meio quando a matriz não é quadrada.
+
+Daqui, os caminhos naturais são as técnicas que vivem em cima de array: [Two Pointers](/topico/two-pointers) para varrer das duas pontas, [Sliding Window](/topico/sliding-window) para janelas que andam sem recalcular tudo, e [Busca Binária](/topico/busca-binaria) para quando o array está ordenado. Se você quer o contraste que fecha o assunto, o próximo é [Listas Encadeadas](/topico/listas-ligadas): a mesma sequência de dados guardada do jeito exatamente oposto, e todos os custos deste artigo invertidos.

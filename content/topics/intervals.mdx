@@ -1,0 +1,445 @@
+<Callout>
+Um intervalo é só um par `[inicio, fim]`, e ele está em toda parte: horário de reunião, reserva de sala, faixa de IP, trecho de log, janela de manutenção, intervalo de versões. A boa notícia é que quase toda pergunta sobre intervalos se resolve com o **mesmo gesto**: ordenar e varrer a lista uma vez só. O que muda de problema para problema é por qual campo você ordena e o que você guarda enquanto varre. São umas quatro variações no total, e elas cobrem praticamente tudo que cai em entrevista.
+</Callout>
+
+## O problema: uma agenda cheia de conflitos
+
+Você tem seis compromissos marcados no dia, anotados na ordem em que foram aparecendo:
+
+```python
+agenda = [[13, 16], [1, 4], [8, 10], [2, 6], [9, 12], [17, 18]]
+```
+
+Quatro perguntas naturais saem daí, e cada uma é um problema clássico:
+
+<Colunas>
+<Cartao titulo="Quais faixas estão ocupadas?">
+Juntar tudo que se encavala num bloco só. É o **Merge Intervals** (LeetCode 56).
+</Cartao>
+<Cartao titulo="Cabe mais um compromisso?">
+Encaixar `[7, 13]` numa agenda já limpa. É o **Insert Interval** (LeetCode 57).
+</Cartao>
+</Colunas>
+
+<Colunas>
+<Cartao titulo="Quantas salas eu reservo?">
+Quantos compromissos acontecem ao mesmo tempo no pior instante do dia. É o problema das **salas de reunião**.
+</Cartao>
+<Cartao titulo="A quantos eu consigo ir?">
+O máximo de compromissos que não se atropelam. É o **interval scheduling** (LeetCode 435 e 452).
+</Cartao>
+</Colunas>
+
+A tentação, na primeira pergunta, é comparar todo mundo com todo mundo: `n²/2` pares, marcar quem se toca, fundir. Além de custar caro, **isso simplesmente não funciona**. Olhe esta lista de três:
+
+```python
+[[1, 4], [3, 7], [6, 10]]
+```
+
+Compare os pares: `[1, 4]` e `[6, 10]` não se tocam, porque 6 é maior que 4. Só que se você fundir `[1, 4]` com `[3, 7]`, o resultado é `[1, 7]`, e agora ele invade `[6, 10]`. **Fundir cria sobreposições que não existiam antes.** Uma passada sobre os pares não fecha o problema: você precisaria repetir até nada mais mudar, e cada repetição custa outros `n²/2` pares.
+
+A varredura ordenada resolve isso de um jeito quase decepcionante de simples. Mas antes dela, é preciso acertar o átomo de tudo: decidir se **dois** intervalos se tocam.
+
+## Quando dois intervalos se sobrepõem
+
+Dois intervalos se sobrepõem quando existe pelo menos um instante que pertence aos dois. A escrita direta dessa ideia é:
+
+```python
+A.inicio <= B.fim and B.inicio <= A.fim
+```
+
+Funciona, mas é fácil trocar um sinal e não perceber. O jeito de nunca errar é pensar **pela negação**: existem só duas maneiras de dois intervalos não se tocarem. Ou B termina antes de A começar, ou B começa depois de A terminar. Qualquer outra configuração é sobreposição.
+
+```python
+def sobrepoe(a, b):
+    if b[0] > a[1]:
+        return False       # b comeca depois de a acabar
+    if a[0] > b[1]:
+        return False       # a comeca depois de b acabar
+    return True            # sobra pelo menos um ponto em comum
+```
+
+Existe ainda uma terceira forma, equivalente e muito mais útil na prática, porque ela devolve o **pedaço em comum** em vez de um simples sim ou não. A interseção de dois intervalos é sempre `[maior dos inícios, menor dos fins]`, e ela existe exatamente quando esse par faz sentido:
+
+```python
+def intersecao(a, b):
+    inicio = max(a[0], b[0])
+    fim = min(a[1], b[1])
+    return [inicio, fim] if inicio <= fim else None
+```
+
+Com `A = [6, 12]` e `B = [4, 8]`: `max(6, 4) = 6` e `min(12, 8) = 8`, então a interseção é `[6, 8]`. Com `A = [6, 12]` e `B = [0, 4]`: `max(6, 0) = 6` e `min(12, 4) = 4`, e como 6 é maior que 4 a interseção é vazia. É a mesma decisão do `sobrepoe`, escrita como conta em vez de como par de `if`.
+
+No visualizador abaixo, **A fica parado e B desliza por cima dele**, um instante por passo. Aperte ▶ Rodar e acompanhe as três coisas ao mesmo tempo: a linha do tempo, os dois testes com os números daquele passo e a linha de código que decidiu. Use os cenários para pular direto para as posições que interessam. Repare no cenário "Encostando no início": B termina exatamente onde A começa, o veredito é sobreposição e a interseção tem duração zero.
+
+<IntervalsSobreposicaoVisualizer />
+
+Agora o experimento que mais paga: clique em **Bordas** e troque para `[início, fim)`. Os dois cenários de encostar viram "não se sobrepõem", e os dois `>` do código viram `>=`. Nada mais mudou.
+
+<Callout tipo="aviso">
+**Encostar conta como sobrepor?** Depende do enunciado, e é aqui que mora a maior parte dos erros de borda. Uma reunião das 9 às 10 e outra das 10 às 11 **não** conflitam na vida real: a sala vaga às 10. Já no Merge Intervals do LeetCode, `[1, 4]` e `[4, 5]` **fundem** em `[1, 5]`, porque lá o intervalo é fechado dos dois lados. Leia o enunciado, decida se a borda é fechada ou aberta, e só então escolha entre `<=` e `<`. Trocar um pelo outro é a diferença entre passar e falhar num caso de teste.
+</Callout>
+
+## A regra de ouro: ordene pelo início
+
+Aqui está a virada do tópico inteiro. Se a lista está **ordenada por início**, então para quaisquer dois intervalos, o que vem antes na lista começa antes ou junto com o que vem depois. Isso já derruba metade do teste de sobreposição:
+
+- `A.inicio <= B.fim` fica **sempre verdadeiro**, porque `A.inicio <= B.inicio` pela ordenação e `B.inicio <= B.fim` porque o intervalo é válido.
+- Sobra só `B.inicio <= A.fim`.
+
+O teste de dois lados vira um lado só, e ele é aquela condição que você vai ver em toda solução de intervalos:
+
+```python
+if inicio_atual <= fim_anterior:
+    # eles se sobrepõem
+```
+
+Mas a ordenação dá algo ainda mais forte, e é isso que transforma um problema quadrático em linear. Suponha que você esteja carregando um bloco que termina em `fim_bloco`, e chega um intervalo que começa em `inicio_atual > fim_bloco`. Como a lista está ordenada, **todo mundo que ainda falta começa em `inicio_atual` ou mais tarde**. Logo, ninguém mais consegue alcançar aquele bloco. Ele pode ser fechado para sempre, sem medo, e você nunca mais volta nele.
+
+É essa garantia que permite uma passada só. Sem ordenação, fechar um bloco seria uma aposta, porque um intervalo lá no fim da lista poderia reabri-lo.
+
+O molde geral, que serve para as três varreduras deste artigo, é este:
+
+```python
+def varrer(intervalos):
+    intervalos.sort(key=lambda x: x[0])      # O(n log n), o custo dominante
+    fronteira = float('-inf')                # o unico estado que voce carrega
+    for inicio, fim in intervalos:           # O(n), uma passada
+        if inicio <= fronteira:
+            ...                              # sobrepoe: estenda o que voce carrega
+        else:
+            ...                              # nao sobrepoe: feche e comece outro
+```
+
+O que muda de problema para problema é só **o que é a fronteira** e **o que você faz em cada ramo**. Ordenar custa O(n log n), a varredura custa O(n), e como `n log n + n` continua sendo O(n log n), a ordenação é quem manda na conta (se essa soma não estiver óbvia, vale revisitar o [Big O](/topico/big-o)). Vale muito a pena: para n = 100.000, a ordenação custa cerca de 1,66 milhão de operações, contra os quase 5 bilhões de `n(n-1)/2` que comparar todos os pares cobraria.
+
+## Merge Intervals: fundir o que se toca
+
+O primeiro uso do molde. Ordene por início, carregue um bloco em construção e vá esticando o fim dele enquanto o próximo intervalo encostar.
+
+```python
+def merge(intervalos):
+    if not intervalos:
+        return []
+    intervalos.sort(key=lambda x: x[0])
+    saida = [list(intervalos[0])]
+    for inicio, fim in intervalos[1:]:
+        if inicio <= saida[-1][1]:
+            saida[-1][1] = max(saida[-1][1], fim)
+        else:
+            saida.append([inicio, fim])
+    return saida
+```
+
+Rodando na agenda do começo, depois de ordenada por início ela vira `[1, 4] [2, 6] [8, 10] [9, 12] [13, 16] [17, 18]`, e a varredura faz isto:
+
+| Atual | Bloco carregado | `inicio <= fim do bloco`? | O que acontece |
+| --- | --- | --- | --- |
+| `[1, 4]` | abre | | bloco = `[1, 4]` |
+| `[2, 6]` | `[1, 4]` | `2 <= 4`, sim | bloco = `[1, 6]` |
+| `[8, 10]` | `[1, 6]` | `8 <= 6`, não | fecha `[1, 6]`, bloco = `[8, 10]` |
+| `[9, 12]` | `[8, 10]` | `9 <= 10`, sim | bloco = `[8, 12]` |
+| `[13, 16]` | `[8, 12]` | `13 <= 12`, não | fecha `[8, 12]`, bloco = `[13, 16]` |
+| `[17, 18]` | `[13, 16]` | `17 <= 16`, não | fecha `[13, 16]`, bloco = `[17, 18]` |
+| fim da lista | `[17, 18]` | | fecha `[17, 18]` |
+
+Seis intervalos viram quatro: `[1, 6] [8, 12] [13, 16] [17, 18]`. E foram **5 testes de sobreposição**, um por intervalo depois do primeiro, contra as **15 comparações** que olhar todos os pares custaria. Confira os dois números no painel do visualizador enquanto roda.
+
+<IntervalsVisualizer />
+
+Coisas para fazer nele, nesta ordem:
+
+1. Rode o **Caso base** até o fim e acompanhe a tracejada verde: ela é sempre o fim do bloco carregado, ou seja, a fronteira do teste.
+2. Troque para o cenário **Um dentro do outro** (`[1,10] [2,3] [4,5] [11,12]`). Antes de rodar, responda: o que acontece com o bloco `[1, 10]` quando chega `[2, 3]`? A nota do passo vai avisar quando o `max` salvar a sua pele.
+3. Depois **Só encostam** (`[1,3] [3,5] [5,7]`). Como o LeetCode usa borda fechada, `3 <= 3` é verdadeiro e os três viram `[1, 7]`.
+4. Por fim, **Lista vazia** e **Um intervalo só**, os dois casos de borda que mais derrubam submissão.
+
+<Callout tipo="aviso">
+O `max` na linha `saida[-1][1] = max(saida[-1][1], fim)` não é decoração. Com `[[1, 10], [2, 3]]`, o intervalo `[2, 3]` está **inteiro dentro** do bloco. Se você escrever `saida[-1][1] = fim`, o bloco encolhe de `[1, 10]` para `[1, 3]` e você acabou de perder sete unidades de tempo. Ordenar por início garante que o próximo começa depois, **não** que ele termina depois.
+</Callout>
+
+### O complemento: os buracos entre os blocos
+
+Depois de fundir, a agenda vira uma sequência de blocos ocupados, e **o que sobra entre eles é o tempo livre**. Muito problema pede exatamente isso em vez da ocupação: "quais horários estão vagos", "onde cabe uma reunião de meia hora", "quais faixas de IP ninguém reservou", "qual o maior intervalo sem cobertura". Vale guardar que a resposta é sempre uma segunda passada, agora sobre a saída do merge:
+
+```python
+def livres(intervalos, inicio_dia, fim_dia):
+    ocupado = merge(intervalos)          # blocos disjuntos e ordenados
+    saida, cursor = [], inicio_dia
+    for inicio, fim in ocupado:
+        if inicio > cursor:              # sobrou um buraco antes deste bloco
+            saida.append([cursor, inicio])
+        cursor = fim
+    if cursor < fim_dia:                 # e o rabo do dia, depois do ultimo bloco
+        saida.append([cursor, fim_dia])
+    return saida
+```
+
+Na agenda do começo, com o dia indo de 0 a 24, os blocos `[1, 6] [8, 12] [13, 16] [17, 18]` deixam livres `[0, 1] [6, 8] [12, 13] [16, 17] [18, 24]`. Repare nas duas bordas: o pedaço **antes** do primeiro bloco e o pedaço **depois** do último são os que todo mundo esquece, e são justamente os dois que os casos de teste cobram. E note que aqui `cursor = fim` basta, sem `max`, porque a saída do merge já vem sem sobreposição. Se você tentar procurar buracos direto na lista crua, o `max` volta a ser obrigatório.
+
+## Insert Interval: três fases e nenhuma ordenação
+
+Agora a segunda pergunta. A agenda já está limpa (ordenada e sem sobreposição), e você quer encaixar `[7, 13]` nela. A solução preguiçosa é dar `append` e chamar o `merge`, o que custa O(n log n). Só que a lista **já chega ordenada**, e jogar fora essa informação é caro. Dá para resolver em O(n), numa passada, em três fases:
+
+1. **Antes**: tudo que termina antes do novo começar sai copiado, sem alteração nenhuma.
+2. **Junto**: tudo que encosta no novo é absorvido por ele. O novo cresce com `inicio = min(...)` e `fim = max(...)`, e só ele entra na saída.
+3. **Depois**: o resto da lista entra inteiro, sem nem precisar de comparação.
+
+```python
+def inserir(intervalos, novo):
+    inicio, fim = novo
+    saida, i, n = [], 0, len(intervalos)
+
+    while i < n and intervalos[i][1] < inicio:   # fase 1: acabam antes
+        saida.append(intervalos[i])
+        i += 1
+
+    while i < n and intervalos[i][0] <= fim:     # fase 2: encostam
+        inicio = min(inicio, intervalos[i][0])
+        fim = max(fim, intervalos[i][1])
+        i += 1
+    saida.append([inicio, fim])
+
+    while i < n:                                 # fase 3: comecam depois
+        saida.append(intervalos[i])
+        i += 1
+    return saida
+```
+
+Com `[[1, 3], [6, 9], [12, 16]]` e o novo `[7, 13]`, o `[1, 3]` sai na fase 1, e a fase 2 engole **dois** intervalos: primeiro `[6, 9]`, que puxa o início para `min(7, 6) = 6`, depois `[12, 16]`, que empurra o fim para `max(13, 16) = 16`. O resultado é `[[1, 3], [6, 16]]`. Repare que o novo intervalo mudou **dos dois lados**: por isso a fase 2 precisa de `min` no início e `max` no fim.
+
+Dois detalhes do código que decidem casos de teste inteiros:
+
+- A fase 1 testa `intervalos[i][1] < inicio` com **`<` estrito**, e isso é proposital. Um intervalo que termina exatamente onde o novo começa, como `[1, 7]` contra o novo `[7, 13]`, **não** sai copiado: ele reprova na fase 1, cai na fase 2 e é fundido, que é o que o LeetCode 57 espera. Trocar aquele `<` por `<=` devolveria `[[1, 7], [7, 13]]` em vez de `[[1, 13]]`.
+- O `min` do início só muda alguma coisa na **primeira** absorção. Como a lista chega ordenada e sem sobreposição, do segundo engolido em diante todo mundo começa depois do que o novo já cobre, e o `min` devolve o valor que já estava lá. O `max` do fim, ao contrário, pode mudar em qualquer uma das absorções, e foi o que aconteceu com `[12, 16]`. Mantenha os dois no laço mesmo assim: o `min` não custa nada e é ele que salva o caso em que a fase 2 abre com um intervalo que nasceu antes do novo.
+
+<IntervalsVisualizer modo="insert" />
+
+Troque entre os cenários e observe o painel: a estatística **ordenações** fica em zero o tempo todo, e o total de comparações nunca passa de `n + 1` (só o intervalo que reprova na fase 1 é testado duas vezes). É a diferença entre O(n) e O(n log n) aparecendo na tela. Vale rodar mais dois cenários: **Não toca ninguém** (`[4, 5]`, o único que exercita as três fases de verdade) e **Engole tudo** (`[0, 20]`, que absorve a lista inteira e devolve um intervalo só).
+
+## Quantas salas eu preciso: contagem por eventos
+
+Aqui está a pergunta que o merge **não** responde, e é bom entender por quê. Pegue estas seis reuniões:
+
+```python
+reunioes = [[9, 12], [10, 13], [11, 14], [12, 15], [16, 18], [17, 19]]
+```
+
+O merge devolve `[[9, 15], [16, 19]]`: dois blocos. Isso diz **quando** você está ocupado, mas não diz **quantas coisas** estão acontecendo ao mesmo tempo. Um bloco de duas reuniões e um bloco de dez reuniões têm exatamente a mesma cara depois de fundidos.
+
+A técnica certa é a **sweep line**, ou contagem por eventos, e ela é linda de simples: esqueça os intervalos e olhe só para as bordas. Cada intervalo vira dois eventos, um `+1` no início e um `-1` no fim. Ordene os eventos por tempo, percorra somando, e o maior valor que o contador alcançar é a resposta.
+
+```python
+def salas_necessarias(reunioes):
+    eventos = []
+    for inicio, fim in reunioes:
+        eventos.append((inicio, +1))
+        eventos.append((fim, -1))
+    eventos.sort()
+    atual = maximo = 0
+    for tempo, delta in eventos:
+        atual += delta
+        maximo = max(maximo, atual)
+    return maximo
+```
+
+As seis reuniões viram 12 eventos e o contador desenha o perfil `1, 2, 3, 2, 3, 2, 1, 0, 1, 2, 1, 0`. O pico é **3**, então três salas bastam.
+
+Repare no detalhe escondido no `eventos.sort()`. Em Python, ordenar tuplas compara o primeiro elemento e, no empate, o segundo. Como `-1 < +1`, **a saída vem naturalmente antes da entrada quando os tempos empatam**. Isso não é acaso, é exatamente a semântica de sala de reunião: quem desocupa às 12 entrega a chave para quem chega às 12.
+
+<IntervalsSweepVisualizer />
+
+Rode o cenário padrão até o fim e depois faça o teste que vale por toda a seção: clique no botão de **Empate** para trocar a regra para entrada primeiro. A mesma entrada passa a exigir **4 salas** em vez de 3, porque agora, às 12 horas, a reunião que está saindo ainda conta como ocupada quando a que chega é contabilizada. Nenhum dos dois resultados está errado: eles respondem a perguntas diferentes.
+
+<Callout>
+Essa escolha aparece em problemas reais com nomes diferentes. Salas de reunião: quem sai às 12 libera a sala, então **saída primeiro** e a resposta é 3. Plataformas de estação: se um trem parte às 12 e outro chega às 12, os dois precisam de plataforma naquele instante, então **entrada primeiro** e a resposta é 4. Experimente também o cenário **Uma sala basta** (`[9,10] [10,11] [11,12] [12,13]`), onde a regra muda a resposta de 1 para 2.
+</Callout>
+
+Duas variações valem conhecer, porque aparecem disfarçadas:
+
+**Quando o domínio do tempo é pequeno e fixo**, você nem precisa ordenar. Basta um array de deltas indexado pelo tempo e uma soma acumulada por cima, o que é a mesma ideia de [Prefix Sum](/topico/prefix-sum) e derruba o custo para O(n + D), com D sendo o tamanho do domínio. É assim que se resolve o Car Pooling do LeetCode, onde o enunciado garante que os pontos vão de 0 a 1000:
+
+```python
+def car_pooling(trips, capacity):
+    delta = [0] * 1001
+    for passageiros, inicio, fim in trips:
+        delta[inicio] += passageiros
+        delta[fim] -= passageiros
+    a_bordo = 0
+    for d in delta:
+        a_bordo += d
+        if a_bordo > capacity:
+            return False
+    return True
+```
+
+**Quando você precisa saber qual sala**, e não só quantas, troque o contador por um [Binary Heap](/topico/binary-heap) com os horários de término das salas em uso. Se a sala que vaga primeiro já vagou, reaproveite; senão, abra outra. No fim, o tamanho do heap é a resposta, e ela bate com os mesmos 3 da contagem por eventos:
+
+```python
+import heapq
+
+def salas_com_heap(reunioes):
+    reunioes.sort(key=lambda x: x[0])
+    livres = []                        # fins das salas em uso, o menor no topo
+    for inicio, fim in reunioes:
+        if livres and livres[0] <= inicio:
+            heapq.heappop(livres)      # a sala que vaga primeiro ja vagou
+        heapq.heappush(livres, fim)
+    return len(livres)
+```
+
+Repare que o heap nunca encolhe de tamanho: cada reunião faz no máximo um `pop` e sempre um `push`, então `len(livres)` termina valendo o pico de ocupação. O custo é O(n log n) de novo, agora vindo do heap além da ordenação, e o ganho é ter em mãos **qual** sala vaga primeiro, e não só quantas existem. Quando o enunciado pede a sala pelo número (é o caso do LeetCode 2402), o padrão cresce para **dois heaps**: um de salas livres ordenado pelo número da sala, e outro de salas ocupadas ordenado pelo horário de liberação. A cada reunião você devolve para o primeiro heap tudo que já vagou no segundo, e só então atende.
+
+## Quantas reuniões cabem: ordene pelo fim
+
+A última pergunta é a mais contraintuitiva das quatro, e é onde quase todo mundo escorrega na primeira tentativa. Você quer ir ao **máximo possível** de compromissos sem que dois se atropelem. Qual deles escolher primeiro?
+
+A resposta errada natural é "o que começa mais cedo". Veja por que ela falha:
+
+```python
+[[1, 10], [2, 3], [4, 5], [6, 7]]
+```
+
+Começando pelo que começa mais cedo, você pega `[1, 10]` e acabou: ele bloqueia todos os outros três, e a resposta seria 1. Ordenando pelo **fim**, você pega `[2, 3]`, depois `[4, 5]`, depois `[6, 7]`, e a resposta é 3.
+
+A intuição é curta e vale memorizar: **quem termina mais cedo libera o recurso mais cedo**, então deixa mais espaço para todo o resto. Trocar o compromisso que você escolheu por qualquer outro candidato nunca melhora a conta, porque o escolhido termina antes ou junto com ele. Esse é o argumento de troca que prova que o guloso está certo aqui, e é o exemplo canônico de [Greedy Algorithms](/topico/greedy).
+
+```python
+def maximo_sem_conflito(intervalos):
+    intervalos.sort(key=lambda x: x[1])       # pelo FIM, nao pelo inicio
+    escolhidos = []
+    fim_anterior = float('-inf')
+    for inicio, fim in intervalos:
+        if inicio >= fim_anterior:
+            escolhidos.append([inicio, fim])
+            fim_anterior = fim
+    return escolhidos
+```
+
+Na agenda do começo, esse guloso fica com `[1, 4] [8, 10] [13, 16] [17, 18]`, ou seja, **4 dos 6 compromissos**, e descarta 2. E esse número 2 é exatamente a resposta do LeetCode 435, que pergunta quantos intervalos remover para não sobrar sobreposição: é sempre `n` menos o máximo que cabe.
+
+<IntervalsVisualizer modo="greedy" />
+
+Compare os cenários **Caso base** e **Pelo início falharia** lado a lado. No segundo, a lista já está desenhada de propósito para punir quem ordena pelo início. E rode também o **Cadeia perfeita** (`[1,3] [3,5] [5,7] [7,9]`): os quatro cabem, porque `inicio >= fim_anterior` aceita encostar. Se o seu problema disser que encostar já é conflito, o `>=` vira `>` e a resposta cai. O cenário **Todos em cima** (`[1,5] [2,6] [3,7] [4,8]`) é o extremo oposto: como todo mundo se atropela, sobra 1 escolhido e 3 descartados, e o painel mostra os dois números.
+
+### As duas roupas do mesmo guloso: 435 e 452
+
+O LeetCode 435 pergunta **quantos intervalos remover** e o 452 pergunta **quantas flechas**, e parecem problemas diferentes. São o mesmo laço acima, com uma única diferença: o sinal da comparação, que vem do enunciado e não do algoritmo.
+
+```python
+def remover_minimo(intervalos):        # LeetCode 435
+    intervalos.sort(key=lambda x: x[1])
+    fim_anterior = float('-inf')
+    fica = 0
+    for inicio, fim in intervalos:
+        if inicio >= fim_anterior:     # encostar NAO e conflito
+            fica += 1
+            fim_anterior = fim
+    return len(intervalos) - fica
+
+def flechas(baloes):                   # LeetCode 452
+    baloes.sort(key=lambda x: x[1])
+    fim_anterior = float('-inf')
+    tiros = 0
+    for inicio, fim in baloes:
+        if inicio > fim_anterior:      # encostar CONTA como sobrepor
+            tiros += 1
+            fim_anterior = fim
+    return tiros
+```
+
+No 452, `fim_anterior` deixa de ser "onde parou o último escolhido" e passa a ser **onde a última flecha foi disparada**: no fim do primeiro balão do grupo, que é o ponto mais à esquerda capaz de furar todos os que vêm depois dele naquele grupo. Confira nos dois com `[[1, 2], [2, 3]]`: o 435 devolve 0 remoções e o 452 devolve 1 flecha. Mesma entrada, mesmo laço, respostas diferentes por causa de um `=`.
+
+## Complexidade: onde o tempo vai
+
+Em todas as varreduras deste artigo, a passada em si é O(n) e trivial. Quem domina a conta é a ordenação, e o padrão da tabela é sempre o mesmo:
+
+| Padrão | Ordena por | Tempo | Espaço extra |
+| --- | --- | --- | --- |
+| Merge Intervals | início | O(n log n) | O(n) da saída |
+| Insert Interval | nada, já vem pronto | O(n) | O(n) da saída |
+| Contagem por eventos | tempo dos 2n eventos | O(n log n) | O(n) dos eventos |
+| Máximo sem conflito | fim | O(n log n) | O(1) contando |
+
+Três consequências práticas:
+
+- **Se a entrada já vem ordenada, não ordene de novo.** É exatamente o que separa o Insert Interval O(n) do Merge O(n log n). Muito problema regala essa informação no enunciado e a maioria das pessoas ignora.
+- **Se o domínio do tempo é pequeno e inteiro**, a contagem por eventos vira O(n + D) com um array de deltas, sem ordenação nenhuma. Vale quando D é comparável a n, não quando o tempo é um timestamp Unix.
+- **O piso é a ordenação por comparação.** Enquanto os tempos forem valores arbitrários, ordenar custa O(n log n) e ponto final (é o mesmo argumento do [Merge Sort](/topico/merge-sort)). Não existe truque de varredura que fuja disso, só a saída pelo domínio pequeno do item acima.
+
+Uma linha sobre o espaço, que quase ninguém menciona em entrevista e vale ponto: quando você diz "espaço O(1)", está falando do que **você** aloca, e a ordenação continua cobrando o dela por baixo. O `sort` do Python (Timsort) usa até O(n) de memória auxiliar no pior caso, e o `sort` do C++ (introsort) fica em O(log n) de pilha. Se o entrevistador pedir espaço constante de verdade, a pergunta seguinte é se a entrada já pode chegar ordenada.
+
+E o resumo de bolso, para escolher a varredura lendo o enunciado:
+
+| A pergunta é... | Ordene por | A varredura carrega |
+| --- | --- | --- |
+| "junte o que se sobrepõe" | início | o bloco atual |
+| "cabe este novo aqui?" | nada, já vem ordenado | o novo crescendo |
+| "quantos ao mesmo tempo?" | tempo dos eventos | um contador |
+| "quantos cabem sem conflito?" | fim | o fim do último escolhido |
+
+## As armadilhas que derrubam a submissão
+
+**Esquecer o `max` ao estender o bloco.** Já apareceu acima, e é a número um. Ordenar por início garante que o próximo começa depois, não que ele termina depois. Com `[[1, 10], [2, 3]]`, sem o `max` o bloco encolhe para `[1, 3]`.
+
+**Ordenar pelo campo errado.** Merge quer início, guloso quer fim. Os dois códigos são quase idênticos e trocar a chave de ordenação dá uma resposta plausível mas errada, do tipo que passa nos exemplos do enunciado e quebra no caso 47.
+
+**Confundir `<=` com `<` na borda.** Decida antes de escrever se o intervalo é fechado `[a, b]` ou meio aberto `[a, b)`. No visualizador da segunda seção dá para ver os dois modelos discordando no mesmo cenário.
+
+**Mutar a lista de entrada sem querer.** Este é um clássico de Python, e é sutil:
+
+```python
+saida = [intervalos[0]]          # ERRADO: guarda a MESMA lista
+saida[-1][1] = 99                # e acabou de alterar intervalos[0]
+
+saida = [list(intervalos[0])]    # certo: uma copia
+```
+
+O `intervalos.sort()` também reordena a lista de quem chamou a função. Nos juízes online isso costuma ser inofensivo, mas em código de produção é o tipo de efeito colateral que ninguém espera.
+
+**Não tratar a lista vazia e a de um elemento só.** `intervalos[0]` em lista vazia estoura na hora. E com um elemento só, a resposta é ele mesmo: nenhum loop chega a rodar.
+
+**Comparar horários como texto.** Se o intervalo chega como `"09:30"`, converta para minutos desde a meia-noite (`9 * 60 + 30 = 570`) antes de qualquer comparação. Ordenar strings de horário funciona por acidente quando o formato tem zero à esquerda e quebra silenciosamente quando não tem.
+
+**Achar que o merge responde "quantos ao mesmo tempo".** Ele responde "quando", não "quantos". Para a contagem, são eventos ou heap, sem atalho.
+
+Antes de rodar o visualizador de novo, tente **prever** o que vai acontecer nestes casos de borda. É o melhor teste de que o modelo mental colou:
+
+- lista vazia e lista com um intervalo só;
+- todos os intervalos iguais, como `[[2,5], [2,5], [2,5]]`;
+- todos aninhados dentro do primeiro, como `[[1,20], [2,3], [4,5]]`;
+- intervalos que só encostam, como `[[1,3], [3,5]]`;
+- um intervalo de duração zero, como `[7, 7]`.
+
+## Como praticar
+
+A ordem abaixo vai do padrão puro para as versões disfarçadas. Faça na sequência: cada um reaproveita o anterior.
+
+1. **Merge Intervals (56)** é o molde inteiro. Se você sabe escrever este de cabeça, sabe metade do tópico.
+2. **Insert Interval (57)** é o mesmo problema sem o direito de ordenar. Force-se a resolver em O(n), com as três fases, em vez de concatenar e chamar o merge.
+3. **Non-overlapping Intervals (435)** é o guloso pelo fim. A resposta é `n` menos o máximo que cabe.
+4. **Minimum Number of Arrows to Burst Balloons (452)** é o 435 com outra roupa: cada flecha é um ponto que fura todos os balões que contêm aquele ponto, e o número de flechas é o número de grupos que não se sobrepõem. A pegadinha é que aqui encostar **conta** como sobrepor, exatamente ao contrário do 435: `[[1,2], [2,3]]` precisa de 1 flecha no 452 e de 0 remoções no 435.
+5. **Car Pooling (1094)** é a contagem por eventos com domínio fixo, ou seja, o array de deltas.
+6. **Meeting Rooms III (2402)** junta intervalos com heap e simulação. É difícil de propósito, e é o teste final de que a técnica virou ferramenta.
+
+Se depois desses seis você quiser o sétimo, é o **Interval List Intersections (986)**: duas listas já ordenadas, e a pergunta é a interseção entre elas. Ele fecha o círculo do tópico porque é a fórmula `[max(inícios), min(fins)]` da segunda seção aplicada com [Two Pointers](/topico/two-pointers), sem ordenar nada:
+
+```python
+def interseccoes(a, b):                 # LeetCode 986
+    i = j = 0
+    saida = []
+    while i < len(a) and j < len(b):
+        inicio = max(a[i][0], b[j][0])  # a formula da segunda secao
+        fim = min(a[i][1], b[j][1])
+        if inicio <= fim:
+            saida.append([inicio, fim])
+        if a[i][1] < b[j][1]:           # quem termina antes sai da disputa
+            i += 1
+        else:
+            j += 1
+    return saida
+```
+
+A decisão de qual ponteiro avançar é a mesma intuição do guloso: **quem termina primeiro já não pode alcançar mais ninguém**, então é ele que sai. Custo O(n + m), sem ordenação, porque as duas listas já chegam prontas.
+
+Duas outras conexões valem seguir depois. Quando o intervalo é uma **janela que anda** sobre um array em vez de um par solto de números, o tópico é [Sliding Window](/topico/sliding-window). E se em algum momento você precisar responder "qual intervalo cobre o instante t?" numa lista grande e estática, a resposta é [Busca Binária](/topico/busca-binaria) sobre os inícios, não uma varredura.

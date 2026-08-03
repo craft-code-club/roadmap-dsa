@@ -1,0 +1,386 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+// ---------------------------------------------------------------------------
+// LinkedListReversao, a inversão de uma lista encadeada com três ponteiros.
+//
+// É o algoritmo em que todo mundo trava na primeira vez, e o motivo é sempre o
+// mesmo: são quatro atribuições que só funcionam nesta ordem. Por isso cada
+// passo aqui é UMA linha do laço, e o desenho mostra a única coisa que muda no
+// mundo: a seta do nó atual, que deixa de apontar para a frente e passa a
+// apontar para trás. Os nós não saem do lugar, porque na memória eles nunca
+// saem do lugar.
+//
+// Os valores são letras (a, b, c, d) de propósito: é o mesmo exemplo que a
+// galera desenhou no encontro.
+// ---------------------------------------------------------------------------
+
+type Passo = {
+  linha: number;
+  anterior: number | null; // índice do nó, null = None
+  atual: number | null;
+  proximo: number | null;
+  temProximo: boolean; // a variável `proximo` já foi atribuída nesta volta
+  invertidas: number; // quantas setas já viraram (nós 0..invertidas-1)
+  iteracao: number;
+  nota: string;
+  ok?: boolean;
+  fim?: boolean;
+};
+
+// As linhas mapeiam 1:1 com o campo `linha` de cada passo.
+const CODIGO = [
+  "def reverter(cabeca):",
+  "    anterior = None",
+  "    atual = cabeca",
+  "    while atual is not None:",
+  "        proximo = atual.prox   # guardo o resto",
+  "        atual.prox = anterior  # viro a seta",
+  "        anterior = atual       # anterior anda",
+  "        atual = proximo        # atual anda",
+  "    return anterior",
+];
+
+const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
+const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+
+function gerarPassos(nos: string[]): Passo[] {
+  const n = nos.length;
+  const out: Passo[] = [];
+  let anterior: number | null = null;
+  let atual: number | null = n > 0 ? 0 : null;
+  let proximo: number | null = null;
+  let temProximo = false;
+  let invertidas = 0;
+  let iteracao = 0;
+
+  const push = (linha: number, nota: string, extra: Partial<Passo> = {}) => {
+    out.push({ linha, nota, anterior, atual, proximo, temProximo, invertidas, iteracao, ...extra });
+  };
+  const nome = (i: number | null) => (i === null ? "None" : `nó ${nos[i]}`);
+
+  anterior = null;
+  atual = null;
+  push(1, `anterior começa em None. Ele é o segredo do algoritmo: numa lista simplesmente encadeada eu não consigo olhar para trás, então preciso carregar o "trás" comigo.`);
+  atual = n > 0 ? 0 : null;
+  push(2, n > 0
+    ? `atual começa na cabeça, ${nome(0)}. É ele que vai caminhar até o fim.`
+    : `atual começa na cabeça, que é None: a lista está vazia.`);
+
+  let guarda = 0;
+  while (atual !== null && guarda++ < 60) {
+    iteracao++;
+    const a = atual;
+    proximo = a + 1 < n ? a + 1 : null;
+    temProximo = true;
+    push(4, proximo === null
+      ? `Volta ${iteracao}. Guardo o resto da lista em proximo, que aqui já é None: ${nome(a)} é o último nó.`
+      : `Volta ${iteracao}. Primeiro guardo o resto da lista em proximo (${nome(proximo)}). A próxima linha vai apagar o único endereço que leva até ele, e sem essa cópia eu perderia ${nome(proximo)} e todo mundo depois dele.`);
+    invertidas = a + 1;
+    push(5, `Viro a seta: ${nome(a)} agora aponta para ${nome(anterior)}. A lista está partida em duas neste instante, e é por isso que a ordem das quatro linhas não é opinião.`);
+    anterior = a;
+    push(6, `anterior passa a ser ${nome(a)}: quando eu andar, ele vira o "trás" do próximo nó.`);
+    atual = proximo;
+    temProximo = false;
+    push(7, `atual passa a ser ${nome(atual)}.${atual === null ? " Chegamos ao fim da lista original." : ""}`);
+  }
+
+  push(3, n === 0
+    ? `atual já nasceu None, então o while não roda nenhuma vez: numa lista vazia não existe seta para virar.`
+    : `atual é None: não sobrou nó para virar. Foram ${iteracao} ${iteracao === 1 ? "volta" : "voltas"}, uma por nó, e cada volta escreveu exatamente 3 variáveis.`);
+  push(8, n > 0
+    ? `Devolvo anterior, que parou em ${nome(n - 1)}: o antigo último virou a nova cabeça. ${n} ${n === 1 ? "seta" : "setas"} viradas, nenhuma cópia de nó e nenhuma lista nova.`
+    : `Devolvo anterior, que é None: reverter uma lista vazia devolve uma lista vazia.`,
+    { ok: true, fim: true });
+  return out;
+}
+
+// --- geometria --------------------------------------------------------------
+const BOX_W = 62;
+const BOX_H = 42;
+const STEP = 92;
+const PAD_X = 14;
+const CY = 104; // linha dos nós
+const X0 = -62; // sobra à esquerda: cabe o None do começo
+const VB_TOPO = 18;
+const VB_ALTURA = 140;
+
+type Preset = { key: string; rotulo: string; nos: string[] };
+const PRESETS: Preset[] = [
+  { key: "encontro", rotulo: "Do encontro: a b c d", nos: ["a", "b", "c", "d"] },
+  { key: "cinco", rotulo: "Cinco nós: 1 a 5", nos: ["1", "2", "3", "4", "5"] },
+  { key: "dois", rotulo: "Só dois nós", nos: ["a", "b"] },
+  { key: "um", rotulo: "Um nó só", nos: ["a"] },
+  { key: "vazia", rotulo: "Lista vazia", nos: [] },
+];
+
+export function LinkedListReversao() {
+  const [nos, setNos] = useState<string[]>(PRESETS[0].nos);
+  const [entrada, setEntrada] = useState(PRESETS[0].nos.join(", "));
+  const [preset, setPreset] = useState("encontro");
+  const [passo, setPasso] = useState(0);
+  const [tocando, setTocando] = useState(false);
+  const [velocidade, setVelocidade] = useState(3);
+  const [expanded, setExpanded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  const passos = useMemo(() => gerarPassos(nos), [nos]);
+  const total = passos.length;
+  const idx = Math.min(passo, total - 1);
+  const p = passos[idx];
+
+  const parar = useCallback(() => {
+    if (timer.current) { clearInterval(timer.current); timer.current = null; }
+  }, []);
+  useEffect(() => () => parar(), [parar]);
+
+  useEffect(() => {
+    parar();
+    if (!tocando) return;
+    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
+    return parar;
+  }, [tocando, velocidade, total, parar]);
+
+  useEffect(() => {
+    if (tocando && idx >= total - 1) setTocando(false);
+  }, [tocando, idx, total]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
+  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
+  const aoMudarEntrada = (v: string) => {
+    const arr = v.split(",").map((x) => x.trim()).filter((x) => x.length > 0).map((x) => x.slice(0, 3)).slice(0, 7);
+    reiniciar(); setPreset("");
+    setEntrada(v); setNos(arr);
+  };
+  const aplicarPreset = (pr: Preset) => {
+    reiniciar(); setPreset(pr.key);
+    setNos(pr.nos); setEntrada(pr.nos.join(", "));
+  };
+
+  const n = nos.length;
+  const xNo = (i: number) => PAD_X + i * STEP;
+  // Piso na largura: com um nó só o viewBox ficaria estreito e o desenho seria
+  // esticado até virar caricatura dentro do container.
+  const larguraVB = Math.max(520, PAD_X + Math.max(1, n) * STEP + 52 - X0);
+
+  const variaveis = [
+    { nome: "anterior", valor: p.anterior === null ? "None" : `nó ${nos[p.anterior]}` },
+    { nome: "atual", valor: p.atual === null ? "None" : `nó ${nos[p.atual]}` },
+    { nome: "proximo", valor: !p.temProximo ? "-" : p.proximo === null ? "None" : `nó ${nos[p.proximo]}` },
+    { nome: "setas viradas", valor: `${p.invertidas} de ${n}`, best: p.invertidas === n && n > 0 },
+  ];
+
+  const estatisticas = [
+    { k: "n", rot: "nós na lista", val: `${n}` },
+    { k: "it", rot: "voltas do while", val: `${p.iteracao}` },
+    { k: "op", rot: "ponteiros escritos", val: `${p.invertidas}` },
+    { k: "mem", rot: "memória extra", val: "O(1)" },
+  ];
+
+  const notaCls = "viz-note" + (p.ok ? " ok" : p.fim ? " invalid" : "");
+  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const descricao = `Lista com ${n} nós: ${nos.join(", ") || "vazia"}. ${p.invertidas} setas já apontam para trás. ${p.nota}`;
+
+  const corNo = (i: number) => {
+    if (p.atual === i) return { fill: "rgba(59,130,246,0.2)", stroke: "#3b82f6", txt: "#ffffff" };
+    if (p.anterior === i) return { fill: "rgba(245,158,11,0.16)", stroke: "#f59e0b", txt: "#ffffff" };
+    if (p.temProximo && p.proximo === i) return { fill: "rgba(167,139,250,0.16)", stroke: "#a78bfa", txt: "#ffffff" };
+    return { fill: "#0f1826", stroke: "rgba(255,255,255,0.14)", txt: "#b9c9dd" };
+  };
+  const marcaNo = (i: number): string | null => {
+    const marcas: string[] = [];
+    if (p.anterior === i) marcas.push("anterior");
+    if (p.atual === i) marcas.push("atual");
+    if (p.temProximo && p.proximo === i) marcas.push("proximo");
+    return marcas.length ? marcas.join(" / ") : null;
+  };
+
+  const viz = (
+    <figure className="viz" style={{ margin: 0 }}>
+      <div className="viz-head">
+        <div className="viz-head-title">
+          <span className="dot" />
+          <span>Visualizador · inverter a lista com três ponteiros</span>
+        </div>
+        <div className="viz-head-right">
+          <span className="viz-step">passo {idx + 1} de {total}</span>
+          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
+            {expanded ? "✕ Fechar" : "⤢ Expandir"}
+          </button>
+        </div>
+      </div>
+
+      <div className="viz-body">
+        <div className="ll-grupo">
+          <span className="ll-grupo-rot">Casos</span>
+          <div className="bigo-chips">
+            {PRESETS.map((pr) => (
+              <button
+                key={pr.key}
+                className={`bigo-chip${preset === pr.key ? " on" : ""}`}
+                onClick={() => aplicarPreset(pr)}
+                aria-pressed={preset === pr.key}
+              >
+                {pr.rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="viz-inputs">
+          <label className="viz-field grow">
+            <span>Valores dos nós (até 7)</span>
+            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="ll-svg-wrap">
+          <svg className="ll-svg" viewBox={`${X0} ${VB_TOPO} ${larguraVB} ${VB_ALTURA}`} role="img" aria-label={descricao}>
+            <defs>
+              <marker id="llrev-seta" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 z" fill="#4c5f79" />
+              </marker>
+              <marker id="llrev-seta-ok" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 z" fill="#34d399" />
+              </marker>
+            </defs>
+
+            {/* None da esquerda: é para lá que a primeira seta virada aponta.
+                Com a lista vazia ele sumiria de sentido, então some. */}
+            {n > 0 ? (
+              <text x={-52} y={CY} fill="#61748c" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={12} textAnchor="start" dominantBaseline="central">
+                None
+              </text>
+            ) : null}
+            <text x={xNo(n) - 2} y={CY} fill="#61748c" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={12} textAnchor="start" dominantBaseline="central">
+              None
+            </text>
+
+            {/* setas: as já viradas viram arco por cima, apontando para trás */}
+            {Array.from({ length: n }, (_, i) => {
+              const virada = i < p.invertidas;
+              if (!virada) {
+                return (
+                  <line
+                    key={`f${i}`}
+                    x1={xNo(i) + 52} y1={CY} x2={xNo(i + 1) - 7} y2={CY}
+                    stroke="#3a4a60" strokeWidth={1.6} markerEnd="url(#llrev-seta)"
+                  />
+                );
+              }
+              const destino = i === 0 ? -18 : xNo(i - 1) + BOX_W / 2 + 4;
+              const origem = xNo(i) + 52;
+              return (
+                <path
+                  key={`v${i}`}
+                  d={`M ${origem},${CY - 16} Q ${(origem + destino) / 2},${CY - 70} ${destino},${CY - 15}`}
+                  fill="none" stroke="#34d399" strokeWidth={1.8} markerEnd="url(#llrev-seta-ok)"
+                />
+              );
+            })}
+
+            {/* os nós */}
+            {Array.from({ length: n }, (_, i) => {
+              const x = xNo(i);
+              const c = corNo(i);
+              const marca = marcaNo(i);
+              return (
+                <g key={`n${i}`}>
+                  <rect x={x} y={CY - BOX_H / 2} width={BOX_W} height={BOX_H} rx={9} fill={c.fill} stroke={c.stroke} strokeWidth={1.8} />
+                  <line x1={x + 42} y1={CY - BOX_H / 2} x2={x + 42} y2={CY + BOX_H / 2} stroke="rgba(255,255,255,0.12)" strokeWidth={1.2} />
+                  <text x={x + 21} y={CY} fill={c.txt} fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={15} fontWeight={600} textAnchor="middle" dominantBaseline="central">
+                    {nos[i]}
+                  </text>
+                  <circle cx={x + 52} cy={CY} r={3.2} fill={i < p.invertidas ? "#34d399" : "#4c5f79"} />
+                  {marca ? (
+                    <text x={x + 31} y={CY + BOX_H / 2 + 14} fill="#93bbfd" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={10.5} fontWeight={700} textAnchor="middle" dominantBaseline="central">
+                      {marca}
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        <p className="ll-legenda">
+          <span><i style={{ background: "#3a4a60" }} /> seta ainda apontando para a frente</span>
+          <span><i style={{ background: "#34d399" }} /> seta já virada para trás</span>
+          <span><i style={{ background: "#3b82f6" }} /> atual</span>
+          <span><i style={{ background: "#f59e0b" }} /> anterior</span>
+          <span><i style={{ background: "#a78bfa" }} /> proximo</span>
+        </p>
+
+        <p className={notaCls}>{p.nota}</p>
+
+        <div className="viz-split">
+          <div className="viz-code">
+            <div className="viz-code-head">reverter.py</div>
+            <div className="viz-code-body">
+              {CODIGO.map((txt, i) => (
+                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
+                  <span className="ln">{i + 1}</span>
+                  {txt}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="viz-vars">
+            <div className="viz-vars-head">Variáveis</div>
+            {variaveis.map((v) => (
+              <div className="viz-var" key={v.nome}>
+                <span className="viz-var-name">{v.nome}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bigo-stats">
+          {estatisticas.map((s) => (
+            <div className="bigo-stat" key={s.k}>
+              <span>{s.rot}</span>
+              <strong>{s.val}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="viz-controls">
+          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
+          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
+          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
+            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
+          </button>
+          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
+          <div className="viz-speed">
+            <span>Velocidade</span>
+            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
+            <span className="val">{ROTULOS_VEL[velocidade]}</span>
+          </div>
+        </div>
+        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
+      </div>
+    </figure>
+  );
+
+  if (expanded && mounted) {
+    return createPortal(
+      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+        {viz}
+      </div>,
+      document.body
+    );
+  }
+  return viz;
+}
