@@ -100,8 +100,12 @@ function gerarPassos(arestas: [number, number][]): Passo[] {
   const snap = (no: number, linha: number, nota: string, aresta: [number, number] | null = null, extra: Partial<Passo> = {}): Passo =>
     ({ no, aresta, grau: [...grau], fila: [...fila], ordem: [...ordem], linha, nota, ...extra });
 
+  // Dois passos em vez de um: a preparação faz duas coisas distintas (contar os
+  // graus e montar a fila inicial), e juntá-las obrigava a nota a descrever uma
+  // linha enquanto o destaque acendia a outra.
+  out.push(snap(-1, 5, `Conto quantas arestas CHEGAM em cada vértice: é o grau de entrada, ou seja, quantos pré-requisitos ainda faltam para ele poder acontecer.`));
   for (let i = 0; i < V; i++) if (grau[i] === 0) fila.push(i);
-  out.push(snap(-1, 7, `Conto quantas arestas CHEGAM em cada vértice: é o grau de entrada, ou seja, quantos pré-requisitos ainda faltam. Quem já está em zero (${fila.map((i) => ROT[i]).join(", ") || "ninguém"}) pode começar agora.`));
+  out.push(snap(-1, 7, `Agora monto a fila inicial com quem já está em zero: ${fila.map((i) => ROT[i]).join(", ") || "ninguém"}. Esses não dependem de nada e podem começar imediatamente.`));
 
   let guarda = 0;
   while (fila.length && guarda++ < 300) {
