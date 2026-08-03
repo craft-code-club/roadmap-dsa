@@ -58,15 +58,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <Link href="/" className="brand" style={{ textDecoration: "none", color: "inherit" }}>
-            <Image
-              className="brand-mark"
-              src="/logo.png"
-              alt="Craft &amp; Code Club"
-              width={34}
-              height={34}
-              priority
-            />
+          {/* No mobile o nome ao lado some (.brand-name), então o nome acessível do link
+              mora no aria-label e o logo entra como decorativo (alt vazio). */}
+          <Link
+            href="/"
+            className="brand"
+            aria-label="Roadmap DSA, página inicial"
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            {/* Sem `priority` nem `loading="eager"`: os dois fazem o Next injetar um
+                <link rel="preload"> em toda rota, e o logo tem 34px, não é o LCP.
+                No carregamento padrão o navegador já busca de imediato o que está
+                dentro da viewport inicial. */}
+            <Image className="brand-mark" src="/logo.png" alt="" width={34} height={34} />
             <span>
               <span className="brand-name">Roadmap DSA</span>
               <span className="brand-sub">por Craft &amp; Code Club</span>
