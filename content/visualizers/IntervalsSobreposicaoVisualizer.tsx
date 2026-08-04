@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { LinhaDoTempo, eixoDe, fmtIv } from "./IntervalsLinhaDoTempo";
-import type { Intervalo, LinhaTL } from "./IntervalsLinhaDoTempo";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
+import { LinhaDoTempo, axisFor, fmtIv } from "./IntervalsLinhaDoTempo";
+import type { Interval, TimelineRow } from "./IntervalsLinhaDoTempo";
 
 // ---------------------------------------------------------------------------
 // IntervalsSobreposicaoVisualizer, o laboratório da condição de sobreposição.
@@ -17,26 +19,30 @@ import type { Intervalo, LinhaTL } from "./IntervalsLinhaDoTempo";
 // O botão de bordas troca o modelo de intervalo entre fechado [inicio, fim] e
 // meio aberto [inicio, fim), que é onde mora quase todo erro de borda: em
 // [1, 3] e [3, 5], fechado diz que se tocam e meio aberto diz que não.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Vars = { nome: string; valor: string; best?: boolean }[];
+type Vars = { name: string; value: string; best?: boolean }[];
 
-type Teste = { titulo: string; corpo: string; ok: boolean };
+type Check = { title: string; body: string; ok: boolean };
 
-type Passo = {
-  linha: number;
-  b: Intervalo;
-  sobrepoe: boolean;
-  relacao: string;
-  interseccao: Intervalo | null;
-  uniao: Intervalo | null;
-  nota: string;
-  testes: Teste[];
+type Step = {
+  line: number;
+  b: Interval;
+  overlaps: boolean;
+  relation: string;
+  intersection: Interval | null;
+  union: Interval | null;
+  note: string;
+  checks: Check[];
   vars: Vars;
 };
 
-function codigoDe(fechado: boolean): string[] {
-  return fechado
+function codeFor(closed: boolean): string[] {
+  return closed
     ? [
         "def sobrepoe(a, b):",
         "    if b[0] > a[1]:",
@@ -55,249 +61,240 @@ function codigoDe(fechado: boolean): string[] {
       ];
 }
 
-function relacaoEntre(a: Intervalo, b: Intervalo, fechado: boolean): string {
-  const [aI, aF] = a;
-  const [bI, bF] = b;
-  const encosta = (t: number, onde: string) =>
-    fechado
-      ? `B encosta no ${onde} de A: o instante ${t} é o único ponto em comum`
-      : `B encosta no ${onde} de A, e com bordas [início, fim) encostar não é sobrepor`;
-  if (bI === aI && bF === aF) return "A e B são exatamente o mesmo intervalo";
-  if (bF < aI) return "B termina antes de A começar";
-  if (bF === aI) return encosta(aI, "início");
-  if (bI > aF) return "B começa depois de A terminar";
-  if (bI === aF) return encosta(aF, "fim");
-  if (bI <= aI && bF >= aF) return "B contém A inteiro";
-  if (bI >= aI && bF <= aF) return "A contém B inteiro";
-  if (bI < aI) return "B invade A pela esquerda";
+function relationBetween(a: Interval, b: Interval, closed: boolean): string {
+  const [aStart, aEnd] = a;
+  const [bStart, bEnd] = b;
+  const touches = (t: number, where: string) =>
+    closed
+      ? `B encosta no ${where} de A: o instante ${t} é o único ponto em comum`
+      : `B encosta no ${where} de A, e com bordas [início, fim) encostar não é sobrepor`;
+  if (bStart === aStart && bEnd === aEnd) return "A e B são exatamente o mesmo intervalo";
+  if (bEnd < aStart) return "B termina antes de A começar";
+  if (bEnd === aStart) return touches(aStart, "início");
+  if (bStart > aEnd) return "B começa depois de A terminar";
+  if (bStart === aEnd) return touches(aEnd, "fim");
+  if (bStart <= aStart && bEnd >= aEnd) return "B contém A inteiro";
+  if (bStart >= aStart && bEnd <= aEnd) return "A contém B inteiro";
+  if (bStart < aStart) return "B invade A pela esquerda";
   return "B invade A pela direita";
 }
 
-function gerarPassos(a: Intervalo, compB: number, fechado: boolean, bMax: number): Passo[] {
-  const [aI, aF] = a;
-  const op = fechado ? ">" : ">=";
-  const out: Passo[] = [];
+function generateSteps(a: Interval, lenB: number, closed: boolean, bMax: number): Step[] {
+  const [aStart, aEnd] = a;
+  const op = closed ? ">" : ">=";
+  const out: Step[] = [];
 
   for (let t = 0; t <= bMax; t++) {
-    const b: Intervalo = [t, t + compB];
-    const [bI, bF] = b;
-    const depois = fechado ? bI > aF : bI >= aF;
-    const antes = fechado ? aI > bF : aI >= bF;
-    const sobrepoe = !depois && !antes;
+    const b: Interval = [t, t + lenB];
+    const [bStart, bEnd] = b;
+    const after = closed ? bStart > aEnd : bStart >= aEnd;
+    const before = closed ? aStart > bEnd : aStart >= bEnd;
+    const overlaps = !after && !before;
 
-    const maiorInicio = Math.max(aI, bI);
-    const menorFim = Math.min(aF, bF);
-    const interseccao: Intervalo | null = sobrepoe ? [maiorInicio, menorFim] : null;
-    const uniao: Intervalo | null = sobrepoe ? [Math.min(aI, bI), Math.max(aF, bF)] : null;
-    const relacao = relacaoEntre(a, b, fechado);
+    const maxStart = Math.max(aStart, bStart);
+    const minEnd = Math.min(aEnd, bEnd);
+    const intersection: Interval | null = overlaps ? [maxStart, minEnd] : null;
+    const union: Interval | null = overlaps ? [Math.min(aStart, bStart), Math.max(aEnd, bEnd)] : null;
+    const relation = relationBetween(a, b, closed);
 
-    const testes: Teste[] = [
+    const checks: Check[] = [
       {
-        titulo: `b[0] ${op} a[1]`,
-        corpo: `${bI} ${op} ${aF} é ${depois ? "verdadeiro" : "falso"}: B ${depois ? "começa depois de A acabar" : "não começa depois de A acabar"}.`,
-        ok: !depois,
+        title: `b[0] ${op} a[1]`,
+        body: `${bStart} ${op} ${aEnd} é ${after ? "verdadeiro" : "falso"}: B ${after ? "começa depois de A acabar" : "não começa depois de A acabar"}.`,
+        ok: !after,
       },
       {
-        titulo: `a[0] ${op} b[1]`,
-        corpo: `${aI} ${op} ${bF} é ${antes ? "verdadeiro" : "falso"}: A ${antes ? "começa depois de B acabar" : "não começa depois de B acabar"}.`,
-        ok: !antes,
+        title: `a[0] ${op} b[1]`,
+        body: `${aStart} ${op} ${bEnd} é ${before ? "verdadeiro" : "falso"}: A ${before ? "começa depois de B acabar" : "não começa depois de B acabar"}.`,
+        ok: !before,
       },
       {
-        titulo: "[max(inícios), min(fins)]",
-        corpo: sobrepoe
-          ? `[${maiorInicio}, ${menorFim}] é a interseção, com ${menorFim - maiorInicio} de duração.`
-          : `[${maiorInicio}, ${menorFim}] tem início maior que fim, então a interseção é vazia.`,
-        ok: sobrepoe,
+        title: "[max(inícios), min(fins)]",
+        body: overlaps
+          ? `[${maxStart}, ${minEnd}] é a interseção, com ${minEnd - maxStart} de duração.`
+          : `[${maxStart}, ${minEnd}] tem início maior que fim, então a interseção é vazia.`,
+        ok: overlaps,
       },
     ];
 
-    let nota: string;
-    if (depois) {
-      nota = `B começa em ${bI} e A termina em ${aF}. Como ${bI} ${op} ${aF}, saio no primeiro teste com False: nem preciso olhar o resto.`;
-    } else if (antes) {
-      nota = `A começa em ${aI} e B termina em ${bF}. Como ${aI} ${op} ${bF}, B já tinha acabado quando A nasceu. False.`;
-    } else if (interseccao && interseccao[0] === interseccao[1]) {
-      nota = `Passei nos dois testes por um fio: A e B dividem só o instante ${interseccao[0]}, uma interseção de duração zero. Fundidos, eles viram ${fmtIv(uniao)}.`;
+    let note: string;
+    if (after) {
+      note = `B começa em ${bStart} e A termina em ${aEnd}. Como ${bStart} ${op} ${aEnd}, saio no primeiro teste com False: nem preciso olhar o resto.`;
+    } else if (before) {
+      note = `A começa em ${aStart} e B termina em ${bEnd}. Como ${aStart} ${op} ${bEnd}, B já tinha acabado quando A nasceu. False.`;
+    } else if (intersection && intersection[0] === intersection[1]) {
+      note = `Passei nos dois testes por um fio: A e B dividem só o instante ${intersection[0]}, uma interseção de duração zero. Fundidos, eles viram ${fmtIv(union)}.`;
     } else {
-      nota = `Passei nos dois testes: A e B dividem ${fmtIv(interseccao)}. Se eu fosse fundir os dois, o resultado seria ${fmtIv(uniao)}, que é [min dos inícios, max dos fins].`;
+      note = `Passei nos dois testes: A e B dividem ${fmtIv(intersection)}. Se eu fosse fundir os dois, o resultado seria ${fmtIv(union)}, que é [min dos inícios, max dos fins].`;
     }
 
     out.push({
-      linha: depois ? 2 : antes ? 4 : 5,
+      line: after ? 2 : before ? 4 : 5,
       b,
-      sobrepoe,
-      relacao,
-      interseccao,
-      uniao,
-      nota,
-      testes,
+      overlaps,
+      relation,
+      intersection,
+      union,
+      note,
+      checks,
       vars: [
-        { nome: "a", valor: fmtIv(a) },
-        { nome: "b", valor: fmtIv(b) },
-        { nome: "max(inicios)", valor: `${maiorInicio}` },
-        { nome: "min(fins)", valor: `${menorFim}` },
-        { nome: "sobrepoe", valor: sobrepoe ? "True" : "False", best: sobrepoe },
+        { name: "a", value: fmtIv(a) },
+        { name: "b", value: fmtIv(b) },
+        { name: "max(inicios)", value: `${maxStart}` },
+        { name: "min(fins)", value: `${minEnd}` },
+        { name: "sobrepoe", value: overlaps ? "True" : "False", best: overlaps },
       ],
     });
   }
   return out;
 }
 
-const VELOCIDADES = [0, 900, 620, 420, 280, 160];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+// Ritmo próprio: B desliza um instante por passo, e um instante pede menos
+// tempo de leitura que uma varredura inteira de intervalos.
+const SPEEDS = [0, 900, 620, 420, 280, 160];
 
-const A_PADRAO: Intervalo = [6, 12];
-const COMP_PADRAO = 4;
-const PASSO_INICIAL = 4;
+const DEFAULT_A: Interval = [6, 12];
+const DEFAULT_LEN_B = 4;
+// A peça abre com B já invadindo A: em t = 0 os dois nem se tocam, e abrir num
+// caso sem sobreposição num visualizador sobre sobreposição ensina ao contrário.
+const INITIAL_STEP = 4;
 
 export function IntervalsSobreposicaoVisualizer() {
-  const [a0, setA0] = useState(A_PADRAO[0]);
-  const [a1, setA1] = useState(A_PADRAO[1]);
-  const [compB, setCompB] = useState(COMP_PADRAO);
-  const [fechado, setFechado] = useState(true);
-  const [passo, setPasso] = useState(PASSO_INICIAL);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [aStart, setAStart] = useState(DEFAULT_A[0]);
+  const [aEnd, setAEnd] = useState(DEFAULT_A[1]);
+  const [lenB, setLenB] = useState(DEFAULT_LEN_B);
+  const [closed, setClosed] = useState(true);
 
-  useEffect(() => setMounted(true), []);
-
-  const a = useMemo<Intervalo>(() => [Math.min(a0, a1), Math.max(a0, a1)], [a0, a1]);
+  const a = useMemo<Interval>(() => [Math.min(aStart, aEnd), Math.max(aStart, aEnd)], [aStart, aEnd]);
   // Teto de passos: sem ele, um "A termina" digitado com muitos zeros geraria
   // dezenas de milhares de passos e travaria a aba.
-  const bMax = useMemo(() => Math.min(60, Math.max(a[1] + 3, a[0] + compB + 3)), [a, compB]);
-  const passos = useMemo(() => gerarPassos(a, compB, fechado, bMax), [a, compB, fechado, bMax]);
-  const codigo = useMemo(() => codigoDe(fechado), [fechado]);
+  const bMax = useMemo(() => Math.min(60, Math.max(a[1] + 3, a[0] + lenB + 3)), [a, lenB]);
+  const steps = useMemo(() => generateSteps(a, lenB, closed, bMax), [a, lenB, closed, bMax]);
+  const code = useMemo(() => codeFor(closed), [closed]);
 
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const viz = useVisualizer({
+    title: "Visualizador · quando dois intervalos se sobrepõem",
+    total: steps.length,
+    speeds: SPEEDS,
+    // O que mexe na altura: o modelo de borda (troca o cabeçalho do código e o
+    // texto do veredito) e os três números da entrada, que mudam quantos passos
+    // existem e quanto texto o veredito e a nota ocupam.
+    measureOn: [closed, aStart, aEnd, lenB],
+  });
 
-  const eixo = useMemo(() => eixoDe([0, a[1] + 1, bMax + compB]), [a, bMax, compB]);
+  // Ajuste na fase de render, e não num efeito: assim ele acontece antes da
+  // pintura E dentro do build estático, e o HTML pré-renderizado já sai no
+  // passo certo em vez de piscar o passo 1 na hidratação.
+  const [placed, setPlaced] = useState(false);
+  if (!placed) {
+    setPlaced(true);
+    viz.setStep(INITIAL_STEP);
+  }
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const irPara = (t: number) => {
-    parar();
-    setTocando(false);
-    setPasso(Math.min(total - 1, Math.max(0, t)));
+  // Mexer na entrada ou escolher um cenário PAUSA a animação, como antes: se
+  // ela seguisse rodando, o instante escolhido sumiria no quadro seguinte.
+  // `stepBy(0)` é o "pausa e fica onde está", já com o passo limitado ao novo
+  // total quando a entrada encurtou a linha do tempo.
+  const pause = () => viz.stepBy(0);
+  const goTo = (t: number) => {
+    pause();
+    viz.setStep(Math.min(steps.length - 1, Math.max(0, t)));
   };
 
-  const cenarios: { nome: string; t: number }[] = [
-    { nome: "B bem antes", t: 0 },
-    { nome: "Encostando no início", t: a[0] - compB },
-    { nome: "Invadindo pela esquerda", t: a[0] - Math.ceil(compB / 2) },
-    { nome: "Dentro de A", t: Math.round((a[0] + a[1]) / 2 - compB / 2) },
-    { nome: "Encostando no fim", t: a[1] },
-    { nome: "B bem depois", t: bMax },
+  const backToDefaults = () => {
+    setAStart(DEFAULT_A[0]);
+    setAEnd(DEFAULT_A[1]);
+    setLenB(DEFAULT_LEN_B);
+    setClosed(true);
+    viz.reset();
+    viz.setStep(INITIAL_STEP);
+  };
+
+  const axis = useMemo(() => axisFor([0, a[1] + 1, bMax + lenB]), [a, bMax, lenB]);
+
+  const scenarios: { name: string; t: number }[] = [
+    { name: "B bem antes", t: 0 },
+    { name: "Encostando no início", t: a[0] - lenB },
+    { name: "Invadindo pela esquerda", t: a[0] - Math.ceil(lenB / 2) },
+    { name: "Dentro de A", t: Math.round((a[0] + a[1]) / 2 - lenB / 2) },
+    { name: "Encostando no fim", t: a[1] },
+    { name: "B bem depois", t: bMax },
   ];
 
-  const linhasTL: LinhaTL[] = [
+  const rows: TimelineRow[] = [
     {
-      chave: "a",
-      rotulo: `A = ${fmtIv(a)}`,
-      barras: [{ chave: "ba", inicio: a[0], fim: a[1], classe: "atual", texto: `${a[0]},${a[1]}` }],
+      id: "a",
+      label: `A = ${fmtIv(a)}`,
+      bars: [{ id: "ba", start: a[0], end: a[1], state: "atual", label: `${a[0]},${a[1]}` }],
     },
     {
-      chave: "b",
-      rotulo: `B = ${fmtIv(p.b)}`,
-      barras: [{ chave: "bb", inicio: p.b[0], fim: p.b[1], classe: "novo", texto: `${p.b[0]},${p.b[1]}` }],
+      id: "b",
+      label: `B = ${fmtIv(p.b)}`,
+      bars: [{ id: "bb", start: p.b[0], end: p.b[1], state: "novo", label: `${p.b[0]},${p.b[1]}` }],
     },
     {
-      chave: "inter",
-      rotulo: "interseção",
-      barras: p.interseccao
-        ? [{ chave: "bi", inicio: p.interseccao[0], fim: p.interseccao[1], classe: "bloco", texto: `${p.interseccao[0]},${p.interseccao[1]}` }]
+      id: "inter",
+      label: "interseção",
+      bars: p.intersection
+        ? [{ id: "bi", start: p.intersection[0], end: p.intersection[1], state: "bloco", label: `${p.intersection[0]},${p.intersection[1]}` }]
         : [],
     },
     {
-      chave: "uniao",
-      rotulo: "fundidos",
-      barras: p.uniao
-        ? [{ chave: "bu", inicio: p.uniao[0], fim: p.uniao[1], classe: "pronto", texto: `${p.uniao[0]},${p.uniao[1]}` }]
+      id: "uniao",
+      label: "fundidos",
+      bars: p.union
+        ? [{ id: "bu", start: p.union[0], end: p.union[1], state: "pronto", label: `${p.union[0]},${p.union[1]}` }]
         : [],
     },
   ];
 
-  const notaCls = "viz-note" + (p.sobrepoe ? " ok" : " invalid");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const noteClass = "viz-note" + (p.overlaps ? " ok" : " invalid");
+  const color = p.overlaps ? "#34d399" : "#f87171";
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" style={{ background: p.sobrepoe ? "#34d399" : "#f87171" }} />
-          <span>Visualizador · quando dois intervalos se sobrepõem</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} color={color} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="viz-inputs">
           <label className="viz-field">
             <span>A começa</span>
-            <input className="viz-input k" type="number" min={0} max={40} value={a0}
-              onChange={(e) => { irPara(idx); setA0(Math.min(40, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
+            <input className="viz-input k" type="number" min={0} max={40} value={aStart}
+              onChange={(e) => { pause(); setAStart(Math.min(40, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
           </label>
           <label className="viz-field">
             <span>A termina</span>
-            <input className="viz-input k" type="number" min={0} max={40} value={a1}
-              onChange={(e) => { irPara(idx); setA1(Math.min(40, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
+            <input className="viz-input k" type="number" min={0} max={40} value={aEnd}
+              onChange={(e) => { pause(); setAEnd(Math.min(40, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
           </label>
           <label className="viz-field">
             <span>duração de B</span>
-            <input className="viz-input k" type="number" min={0} max={20} value={compB}
-              onChange={(e) => { irPara(idx); setCompB(Math.min(20, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
+            <input className="viz-input k" type="number" min={0} max={20} value={lenB}
+              onChange={(e) => { pause(); setLenB(Math.min(20, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
           </label>
-          <button className="viz-btn" onClick={() => { irPara(idx); setFechado((v) => !v); }} aria-pressed={fechado}>
-            Bordas: {fechado ? "[início, fim]" : "[início, fim)"}
+          <button className="viz-btn" onClick={() => { pause(); setClosed((v) => !v); }} aria-pressed={closed}>
+            Bordas: {closed ? "[início, fim]" : "[início, fim)"}
           </button>
         </div>
 
         <div className="iv-presets">
           <span className="iv-presets-lbl">Cenários</span>
-          {cenarios.map((c) => (
-            <button key={c.nome} className={`iv-preset${idx === Math.min(total - 1, Math.max(0, c.t)) ? " on" : ""}`} onClick={() => irPara(c.t)}>
-              {c.nome}
+          {scenarios.map((c) => (
+            <button key={c.name} className={`iv-preset${viz.step === Math.min(steps.length - 1, Math.max(0, c.t)) ? " on" : ""}`} onClick={() => goTo(c.t)}>
+              {c.name}
             </button>
           ))}
         </div>
 
         <LinhaDoTempo
-          linhas={linhasTL}
-          min={eixo.min}
-          max={eixo.max}
-          marcas={eixo.marcas}
-          guia={a[1]}
-          guiaVerde
+          rows={rows}
+          min={axis.min}
+          max={axis.max}
+          ticks={axis.ticks}
+          guide={a[1]}
+          guideGreen
         />
 
         <div className="viz-field grow" style={{ marginTop: 14 }}>
@@ -305,83 +302,75 @@ export function IntervalsSobreposicaoVisualizer() {
           <input
             type="range"
             min={0}
-            max={total - 1}
+            max={steps.length - 1}
             step={1}
-            value={idx}
-            onChange={(e) => irPara(parseInt(e.target.value, 10))}
+            value={viz.step}
+            onChange={(e) => goTo(parseInt(e.target.value, 10))}
             aria-label="Instante em que B começa"
             style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
           />
         </div>
 
         <div className="iv-veredito">
-          <span className={`iv-selo ${p.sobrepoe ? "ok" : "no"}`}>
-            {p.sobrepoe ? "sobrepõem" : "não se sobrepõem"}
+          <span className={`iv-selo ${p.overlaps ? "ok" : "no"}`}>
+            {p.overlaps ? "sobrepõem" : "não se sobrepõem"}
           </span>
-          <span className="iv-veredito-txt">{p.relacao}</span>
+          <span className="iv-veredito-txt">{p.relation}</span>
         </div>
 
         <div className="iv-testes">
-          {p.testes.map((t) => (
-            <div className={`iv-teste ${t.ok ? "ok" : "no"}`} key={t.titulo}>
-              <b>{t.titulo}</b>
-              {t.corpo}
+          {p.checks.map((t) => (
+            <div className={`iv-teste ${t.ok ? "ok" : "no"}`} key={t.title}>
+              <b>{t.title}</b>
+              {t.body}
             </div>
           ))}
         </div>
 
-        <p className={notaCls}>{p.nota}</p>
+        <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">
-              sobreposicao.py · {fechado ? "encostar conta como sobrepor" : "encostar não conta"}
-            </div>
-            <div className="viz-code-body">
-              {codigo.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra é pela ALTURA: zerar a trilha da coluna só tira a
+              largura, e a linha do grid continua com a altura inteira do bloco.
+              O código fica no DOM mesmo recolhido — é isso que permite medir o
+              pior caso —, e `inert` o tira do teclado e dos leitores de tela. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">
+                sobreposicao.py · {closed ? "encostar conta como sobrepor" : "encostar não conta"}
+              </div>
+              <div className="viz-code-body">
+                {code.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {p.vars.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={() => { setA0(A_PADRAO[0]); setA1(A_PADRAO[1]); setCompB(COMP_PADRAO); setFechado(true); parar(); setTocando(false); setPasso(PASSO_INICIAL); }}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => irPara(idx - 1)}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => irPara(idx + 1)}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%`, background: p.sobrepoe ? "#34d399" : "#f87171" }} /></div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola.
+          O `↺` do rodapé compartilhado é `viz.reset()`, isto é, volta ao passo
+          1 e nada mais. Quem devolve A, a duração de B e o modelo de borda ao
+          padrão é o botão ao lado — o rodapé não promete o que não faz. */}
+      <VizFooter viz={viz} color={color}>
+        <button className="viz-btn" onClick={backToDefaults}>Voltar ao padrão</button>
+      </VizFooter>
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }

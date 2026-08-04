@@ -1,23 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
 import {
   LinhaDoTempo,
-  eixoDe,
-  escreverIntervalos,
+  axisFor,
   fmtIv,
-  fmtLista,
-  lerIntervalos,
+  fmtList,
+  parseIntervals,
+  writeIntervals,
 } from "./IntervalsLinhaDoTempo";
-import type { Intervalo, LinhaTL } from "./IntervalsLinhaDoTempo";
+import type { Interval, TimelineRow } from "./IntervalsLinhaDoTempo";
 
 // ---------------------------------------------------------------------------
 // IntervalsVisualizer, os três varreduras de intervalos numa linha do tempo.
 //
 // Mesmo padrão dos outros visualizadores do repo (gerador PURO de passos +
 // a casca compartilhada), no formato do BigOCounterVisualizer: vários modos,
-// cada um com o seu `codigo` e o seu `gerar`. Os três compartilham a mesma
+// cada um com o seu `code` e o seu `generate`. Os três compartilham a mesma
 // tela porque a lição é justamente que são a MESMA varredura com uma regra
 // diferente na hora de decidir:
 //
@@ -27,25 +29,29 @@ import type { Intervalo, LinhaTL } from "./IntervalsLinhaDoTempo";
 //
 // A linha tracejada na trilha é sempre a fronteira do teste (`fim` do bloco,
 // `fim` do novo intervalo, `fim_anterior`), que é a única coisa que muda.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Contrato
+// em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Vars = { nome: string; valor: string; best?: boolean }[];
+type Vars = { name: string; value: string; best?: boolean }[];
 
-type Passo = {
-  linha: number;
-  ordem: number[];
-  estados: Record<number, string>;
-  saida: Intervalo[];
-  bloco: Intervalo | null;
-  guia: number | null;
-  testes: number;
-  cortados: number;
-  nota: string;
+type Step = {
+  line: number;
+  order: number[];
+  states: Record<number, string>;
+  output: Interval[];
+  block: Interval | null;
+  guide: number | null;
+  tests: number;
+  dropped: number;
+  note: string;
   vars: Vars;
   ok?: boolean;
 };
 
-const CODIGO_MERGE = [
+const CODE_MERGE = [
   "def merge(intervalos):",
   "    if not intervalos:",
   "        return []",
@@ -59,7 +65,7 @@ const CODIGO_MERGE = [
   "    return saida",
 ];
 
-const CODIGO_INSERT = [
+const CODE_INSERT = [
   "def inserir(intervalos, novo):",
   "    inicio, fim = novo",
   "    saida, i, n = [], 0, len(intervalos)",
@@ -77,7 +83,7 @@ const CODIGO_INSERT = [
   "    return saida",
 ];
 
-const CODIGO_GREEDY = [
+const CODE_GREEDY = [
   "def maximo_sem_conflito(intervalos):",
   "    intervalos.sort(key=lambda x: x[1])",
   "    escolhidos = []",
@@ -89,364 +95,361 @@ const CODIGO_GREEDY = [
   "    return escolhidos",
 ];
 
-function pl(n: number, um: string, muitos: string): string {
-  return n === 1 ? um : muitos;
+function pl(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }
 
-function copiar(ivs: Intervalo[]): Intervalo[] {
-  return ivs.map((iv) => [iv[0], iv[1]] as Intervalo);
+function copyIvs(ivs: Interval[]): Interval[] {
+  return ivs.map((iv) => [iv[0], iv[1]] as Interval);
 }
 
 // --------------------------------- merge -----------------------------------
 
-function gerarMerge(ivs: Intervalo[]): Passo[] {
-  const out: Passo[] = [];
+function generateMerge(ivs: Interval[]): Step[] {
+  const steps: Step[] = [];
   const n = ivs.length;
   const idx = ivs.map((_, i) => i);
-  const todos = (c: string): Record<number, string> => {
+  const allStates = (c: string): Record<number, string> => {
     const e: Record<number, string> = {};
     for (const i of idx) e[i] = c;
     return e;
   };
 
   if (n === 0) {
-    out.push({
-      linha: 2, ordem: [], estados: {}, saida: [], bloco: null, guia: null, testes: 0, cortados: 0,
-      nota: "Lista vazia: devolvo [] antes de qualquer coisa. É o caso de borda que mais derruba submissão, porque intervalos[0] em lista vazia estoura.",
-      vars: [{ nome: "intervalos", valor: "[]" }, { nome: "saida", valor: "[]" }],
+    steps.push({
+      line: 2, order: [], states: {}, output: [], block: null, guide: null, tests: 0, dropped: 0,
+      note: "Lista vazia: devolvo [] antes de qualquer coisa. É o caso de borda que mais derruba submissão, porque intervalos[0] em lista vazia estoura.",
+      vars: [{ name: "intervalos", value: "[]" }, { name: "saida", value: "[]" }],
     });
-    return out;
+    return steps;
   }
 
-  const ord = [...idx].sort((a, b) => ivs[a][0] - ivs[b][0] || ivs[a][1] - ivs[b][1]);
+  const order = [...idx].sort((a, b) => ivs[a][0] - ivs[b][0] || ivs[a][1] - ivs[b][1]);
 
-  out.push({
-    linha: 0, ordem: idx, estados: todos("espera"), saida: [], bloco: null, guia: null, testes: 0, cortados: 0,
-    nota: n === 1
+  steps.push({
+    line: 0, order: idx, states: allStates("espera"), output: [], block: null, guide: null, tests: 0, dropped: 0,
+    note: n === 1
       ? "Entrada com um intervalo só: não existe par para comparar, então a resposta já é ele mesmo. Vale rodar mesmo assim para ver que nenhum teste chega a acontecer."
       : `Entrada como veio: ${n} intervalos, fora de ordem. Assim, qualquer um pode encostar em qualquer outro, e eu teria que comparar todos os pares.`,
-    vars: [{ nome: "n", valor: `${n}` }, { nome: "saida[-1]", valor: "-" }, { nome: "len(saida)", valor: "0" }, { nome: "testes", valor: "0", best: true }],
+    vars: [{ name: "n", value: `${n}` }, { name: "saida[-1]", value: "-" }, { name: "len(saida)", value: "0" }, { name: "testes", value: "0", best: true }],
   });
 
-  out.push({
-    linha: 3, ordem: ord, estados: todos("espera"), saida: [], bloco: null, guia: null, testes: 0, cortados: 0,
-    nota: `Ordenei por início: ${fmtLista(ord.map((i) => ivs[i]))}. Com a lista assim, cada intervalo só pode encostar no bloco imediatamente anterior.`,
-    vars: [{ nome: "n", valor: `${n}` }, { nome: "saida[-1]", valor: "-" }, { nome: "len(saida)", valor: "0" }, { nome: "testes", valor: "0", best: true }],
+  steps.push({
+    line: 3, order, states: allStates("espera"), output: [], block: null, guide: null, tests: 0, dropped: 0,
+    note: `Ordenei por início: ${fmtList(order.map((i) => ivs[i]))}. Com a lista assim, cada intervalo só pode encostar no bloco imediatamente anterior.`,
+    vars: [{ name: "n", value: `${n}` }, { name: "saida[-1]", value: "-" }, { name: "len(saida)", value: "0" }, { name: "testes", value: "0", best: true }],
   });
 
-  const estados = todos("espera");
-  const saida: Intervalo[] = [];
-  let bloco: Intervalo = [ivs[ord[0]][0], ivs[ord[0]][1]];
-  let testes = 0;
+  const states = allStates("espera");
+  const output: Interval[] = [];
+  let block: Interval = [ivs[order[0]][0], ivs[order[0]][1]];
+  let tests = 0;
 
-  const vars = (atual: Intervalo | null): Vars => [
-    { nome: "atual", valor: fmtIv(atual) },
-    { nome: "saida[-1]", valor: fmtIv(bloco) },
-    { nome: "len(saida)", valor: `${saida.length + 1}` },
-    { nome: "testes", valor: `${testes}`, best: true },
+  const vars = (current: Interval | null): Vars => [
+    { name: "atual", value: fmtIv(current) },
+    { name: "saida[-1]", value: fmtIv(block) },
+    { name: "len(saida)", value: `${output.length + 1}` },
+    { name: "testes", value: `${tests}`, best: true },
   ];
 
-  estados[ord[0]] = "usado";
-  out.push({
-    linha: 4, ordem: ord, estados: { ...estados }, saida: [], bloco: [bloco[0], bloco[1]], guia: bloco[1], testes, cortados: 0,
-    nota: `Abro o primeiro bloco em ${fmtIv(bloco)}. A linha tracejada marca o fim dele: é contra ela que todo mundo vai ser testado.`,
-    vars: vars(ivs[ord[0]]),
+  states[order[0]] = "usado";
+  steps.push({
+    line: 4, order, states: { ...states }, output: [], block: [block[0], block[1]], guide: block[1], tests, dropped: 0,
+    note: `Abro o primeiro bloco em ${fmtIv(block)}. A linha tracejada marca o fim dele: é contra ela que todo mundo vai ser testado.`,
+    vars: vars(ivs[order[0]]),
   });
 
   for (let k = 1; k < n; k++) {
-    const i = ord[k];
-    const ini = ivs[i][0];
-    const fim = ivs[i][1];
-    testes++;
-    const encosta = ini <= bloco[1];
+    const i = order[k];
+    const start = ivs[i][0];
+    const end = ivs[i][1];
+    tests++;
+    const touches = start <= block[1];
 
-    out.push({
-      linha: 6, ordem: ord, estados: { ...estados, [i]: "atual" }, saida: copiar(saida), bloco: [bloco[0], bloco[1]], guia: bloco[1], testes, cortados: 0,
-      nota: `Teste ${testes}: o bloco termina em ${bloco[1]} e ${fmtIv(ivs[i])} começa em ${ini}. ${ini} <= ${bloco[1]}? ${encosta ? "Sim, os dois se sobrepõem." : "Não, este começa depois do bloco acabar."}`,
+    steps.push({
+      line: 6, order, states: { ...states, [i]: "atual" }, output: copyIvs(output), block: [block[0], block[1]], guide: block[1], tests, dropped: 0,
+      note: `Teste ${tests}: o bloco termina em ${block[1]} e ${fmtIv(ivs[i])} começa em ${start}. ${start} <= ${block[1]}? ${touches ? "Sim, os dois se sobrepõem." : "Não, este começa depois do bloco acabar."}`,
       vars: vars(ivs[i]),
     });
 
-    estados[i] = "usado";
-    if (encosta) {
-      const antes = bloco[1];
-      bloco = [bloco[0], Math.max(antes, fim)];
-      out.push({
-        linha: 7, ordem: ord, estados: { ...estados }, saida: copiar(saida), bloco: [bloco[0], bloco[1]], guia: bloco[1], testes, cortados: 0,
-        nota: `Estico o bloco: fim = max(${antes}, ${fim}) = ${bloco[1]}, então o bloco virou ${fmtIv(bloco)}.${fim < antes ? " Repare no que o max acabou de salvar: este intervalo estava inteiro dentro do bloco, e sem o max eu teria encolhido o fim." : ""}`,
+    states[i] = "usado";
+    if (touches) {
+      const before = block[1];
+      block = [block[0], Math.max(before, end)];
+      steps.push({
+        line: 7, order, states: { ...states }, output: copyIvs(output), block: [block[0], block[1]], guide: block[1], tests, dropped: 0,
+        note: `Estico o bloco: fim = max(${before}, ${end}) = ${block[1]}, então o bloco virou ${fmtIv(block)}.${end < before ? " Repare no que o max acabou de salvar: este intervalo estava inteiro dentro do bloco, e sem o max eu teria encolhido o fim." : ""}`,
         vars: vars(ivs[i]),
       });
     } else {
-      saida.push([bloco[0], bloco[1]]);
-      const fechado = saida[saida.length - 1];
-      bloco = [ini, fim];
-      out.push({
-        linha: 9, ordem: ord, estados: { ...estados }, saida: copiar(saida), bloco: [bloco[0], bloco[1]], guia: bloco[1], testes, cortados: 0,
-        nota: `Fecho ${fmtIv(fechado)} para sempre: todo mundo que ainda falta começa em ${ini} ou mais tarde, então ninguém alcança mais esse bloco. Abro ${fmtIv(bloco)}.`,
+      output.push([block[0], block[1]]);
+      const sealed = output[output.length - 1];
+      block = [start, end];
+      steps.push({
+        line: 9, order, states: { ...states }, output: copyIvs(output), block: [block[0], block[1]], guide: block[1], tests, dropped: 0,
+        note: `Fecho ${fmtIv(sealed)} para sempre: todo mundo que ainda falta começa em ${start} ou mais tarde, então ninguém alcança mais esse bloco. Abro ${fmtIv(block)}.`,
         vars: vars(ivs[i]),
       });
     }
   }
 
-  saida.push([bloco[0], bloco[1]]);
-  const pares = (n * (n - 1)) / 2;
-  out.push({
-    linha: 10, ordem: ord, estados: todos("usado"), saida: copiar(saida), bloco: null, guia: null, testes, cortados: 0, ok: true,
-    nota: `Fim: ${n} ${pl(n, "intervalo virou", "intervalos viraram")} ${saida.length}. ${testes === 0 ? "Nenhum teste de sobreposição aconteceu: com um intervalo só, o laço nem chega a rodar." : `Foram ${testes} ${pl(testes, "teste", "testes")} de sobreposição, contra ${pares} ${pl(pares, "comparação", "comparações")} se eu tivesse olhado todos os pares.`}`,
+  output.push([block[0], block[1]]);
+  const pairs = (n * (n - 1)) / 2;
+  steps.push({
+    line: 10, order, states: allStates("usado"), output: copyIvs(output), block: null, guide: null, tests, dropped: 0, ok: true,
+    note: `Fim: ${n} ${pl(n, "intervalo virou", "intervalos viraram")} ${output.length}. ${tests === 0 ? "Nenhum teste de sobreposição aconteceu: com um intervalo só, o laço nem chega a rodar." : `Foram ${tests} ${pl(tests, "teste", "testes")} de sobreposição, contra ${pairs} ${pl(pairs, "comparação", "comparações")} se eu tivesse olhado todos os pares.`}`,
     vars: [
-      { nome: "atual", valor: "-" },
-      { nome: "saida[-1]", valor: fmtIv(saida[saida.length - 1]) },
-      { nome: "len(saida)", valor: `${saida.length}` },
-      { nome: "testes", valor: `${testes}`, best: true },
+      { name: "atual", value: "-" },
+      { name: "saida[-1]", value: fmtIv(output[output.length - 1]) },
+      { name: "len(saida)", value: `${output.length}` },
+      { name: "testes", value: `${tests}`, best: true },
     ],
   });
-  return out;
+  return steps;
 }
 
 // --------------------------------- insert ----------------------------------
 
-function gerarInsert(ivs: Intervalo[], novo: Intervalo): Passo[] {
-  const out: Passo[] = [];
+function generateInsert(ivs: Interval[], incoming: Interval): Step[] {
+  const steps: Step[] = [];
   const n = ivs.length;
   const idx = ivs.map((_, i) => i);
-  const estados: Record<number, string> = {};
-  for (const i of idx) estados[i] = "espera";
+  const states: Record<number, string> = {};
+  for (const i of idx) states[i] = "espera";
 
-  const saida: Intervalo[] = [];
-  let ini = novo[0];
-  let fim = novo[1];
-  let testes = 0;
+  const output: Interval[] = [];
+  let start = incoming[0];
+  let end = incoming[1];
+  let tests = 0;
   let i = 0;
 
   const vars = (): Vars => [
-    { nome: "i", valor: `${i}` },
-    { nome: "novo", valor: fmtIv([ini, fim]) },
-    { nome: "len(saida)", valor: `${saida.length}` },
-    { nome: "comparações", valor: `${testes}`, best: true },
+    { name: "i", value: `${i}` },
+    { name: "novo", value: fmtIv([start, end]) },
+    { name: "len(saida)", value: `${output.length}` },
+    { name: "comparações", value: `${tests}`, best: true },
   ];
 
-  const passo = (linha: number, nota: string, est: Record<number, string>, comBloco = true): Passo => ({
-    linha, ordem: idx, estados: est, saida: copiar(saida), bloco: comBloco ? [ini, fim] : null,
-    guia: comBloco ? fim : null, testes, cortados: 0, nota, vars: vars(),
+  const mkStep = (line: number, note: string, st: Record<number, string>, withBlock = true): Step => ({
+    line, order: idx, states: st, output: copyIvs(output), block: withBlock ? [start, end] : null,
+    guide: withBlock ? end : null, tests, dropped: 0, note, vars: vars(),
   });
 
-  out.push(passo(1, `Quero encaixar ${fmtIv([ini, fim])} numa lista que já chega ordenada e sem sobreposição. Como a ordem veio pronta, não pago O(n log n) nenhum: uma passada resolve.`, { ...estados }));
+  steps.push(mkStep(1, `Quero encaixar ${fmtIv([start, end])} numa lista que já chega ordenada e sem sobreposição. Como a ordem veio pronta, não pago O(n log n) nenhum: uma passada resolve.`, { ...states }));
 
   // Fase 1: tudo que termina antes do novo começar sai copiado.
   while (i < n) {
-    testes++;
-    const antes = ivs[i][1] < ini;
-    out.push(passo(3, `Fase 1, comparação ${testes}: ${fmtIv(ivs[i])} termina em ${ivs[i][1]} e o novo começa em ${ini}. ${ivs[i][1]} < ${ini}? ${antes ? "Sim, acaba antes de o novo nascer." : "Não, este já alcança o novo. A fase 1 termina aqui."}`, { ...estados, [i]: "atual" }));
-    if (!antes) break;
-    saida.push([ivs[i][0], ivs[i][1]]);
-    estados[i] = "usado";
-    const copiado = ivs[i];
+    tests++;
+    const before = ivs[i][1] < start;
+    steps.push(mkStep(3, `Fase 1, comparação ${tests}: ${fmtIv(ivs[i])} termina em ${ivs[i][1]} e o novo começa em ${start}. ${ivs[i][1]} < ${start}? ${before ? "Sim, acaba antes de o novo nascer." : "Não, este já alcança o novo. A fase 1 termina aqui."}`, { ...states, [i]: "atual" }));
+    if (!before) break;
+    output.push([ivs[i][0], ivs[i][1]]);
+    states[i] = "usado";
+    const copied = ivs[i];
     i++;
-    out.push(passo(4, `Copio ${fmtIv(copiado)} para a saída sem tocar nele. Ele não briga com ninguém.`, { ...estados }));
+    steps.push(mkStep(4, `Copio ${fmtIv(copied)} para a saída sem tocar nele. Ele não briga com ninguém.`, { ...states }));
   }
 
   // Fase 2: tudo que encosta é absorvido pelo novo intervalo.
   while (i < n) {
-    testes++;
-    const toca = ivs[i][0] <= fim;
-    out.push(passo(6, `Fase 2, comparação ${testes}: ${fmtIv(ivs[i])} começa em ${ivs[i][0]} e o novo termina em ${fim}. ${ivs[i][0]} <= ${fim}? ${toca ? "Sim, sobrepõe: vou engolir este." : "Não, este começa depois. A fase 2 termina aqui."}`, { ...estados, [i]: "atual" }));
-    if (!toca) break;
-    const iniAntes = ini;
-    const fimAntes = fim;
-    const comido = ivs[i];
-    ini = Math.min(ini, comido[0]);
-    fim = Math.max(fim, comido[1]);
-    estados[i] = "comido";
+    tests++;
+    const touches = ivs[i][0] <= end;
+    steps.push(mkStep(6, `Fase 2, comparação ${tests}: ${fmtIv(ivs[i])} começa em ${ivs[i][0]} e o novo termina em ${end}. ${ivs[i][0]} <= ${end}? ${touches ? "Sim, sobrepõe: vou engolir este." : "Não, este começa depois. A fase 2 termina aqui."}`, { ...states, [i]: "atual" }));
+    if (!touches) break;
+    const startBefore = start;
+    const endBefore = end;
+    const eaten = ivs[i];
+    start = Math.min(start, eaten[0]);
+    end = Math.max(end, eaten[1]);
+    states[i] = "comido";
     i++;
-    out.push(passo(8, `Engulo ${fmtIv(comido)}: inicio = min(${iniAntes}, ${comido[0]}) = ${ini} e fim = max(${fimAntes}, ${comido[1]}) = ${fim}. O novo cresceu para ${fmtIv([ini, fim])}.`, { ...estados }));
+    steps.push(mkStep(8, `Engulo ${fmtIv(eaten)}: inicio = min(${startBefore}, ${eaten[0]}) = ${start} e fim = max(${endBefore}, ${eaten[1]}) = ${end}. O novo cresceu para ${fmtIv([start, end])}.`, { ...states }));
   }
 
-  saida.push([ini, fim]);
-  out.push(passo(10, `Empurro ${fmtIv([ini, fim])} para a saída. Ele já absorveu tudo que encostava nele, então nunca mais vai mudar.`, { ...estados }, false));
+  output.push([start, end]);
+  steps.push(mkStep(10, `Empurro ${fmtIv([start, end])} para a saída. Ele já absorveu tudo que encostava nele, então nunca mais vai mudar.`, { ...states }, false));
 
   // Fase 3: o rabo da lista entra inteiro, sem comparação nenhuma.
-  const sobrou = n - i;
+  const leftOver = n - i;
   while (i < n) {
-    const resto = ivs[i];
-    saida.push([resto[0], resto[1]]);
-    estados[i] = "usado";
+    const rest = ivs[i];
+    output.push([rest[0], rest[1]]);
+    states[i] = "usado";
     i++;
-    out.push(passo(12, `Fase 3: ${fmtIv(resto)} começa depois do novo terminar. Copio direto, sem comparar: a lista está ordenada, então daqui para frente é tudo mais tarde ainda.`, { ...estados }, false));
+    steps.push(mkStep(12, `Fase 3: ${fmtIv(rest)} começa depois do novo terminar. Copio direto, sem comparar: a lista está ordenada, então daqui para frente é tudo mais tarde ainda.`, { ...states }, false));
   }
 
-  const fin = passo(14, `Fim: a lista de ${n} ${pl(n, "intervalo", "intervalos")} virou ${saida.length}. Foram ${testes} ${pl(testes, "comparação", "comparações")} e zero ordenações${sobrou > 0 ? `, e as últimas ${sobrou} ${pl(sobrou, "cópia foi feita", "cópias foram feitas")} sem teste nenhum` : ""}.`, { ...estados }, false);
-  fin.ok = true;
-  out.push(fin);
-  return out;
+  const last = mkStep(14, `Fim: a lista de ${n} ${pl(n, "intervalo", "intervalos")} virou ${output.length}. Foram ${tests} ${pl(tests, "comparação", "comparações")} e zero ordenações${leftOver > 0 ? `, e as últimas ${leftOver} ${pl(leftOver, "cópia foi feita", "cópias foram feitas")} sem teste nenhum` : ""}.`, { ...states }, false);
+  last.ok = true;
+  steps.push(last);
+  return steps;
 }
 
 // --------------------------------- greedy ----------------------------------
 
-function gerarGreedy(ivs: Intervalo[]): Passo[] {
-  const out: Passo[] = [];
+function generateGreedy(ivs: Interval[]): Step[] {
+  const steps: Step[] = [];
   const n = ivs.length;
   const idx = ivs.map((_, i) => i);
-  const todos = (c: string): Record<number, string> => {
+  const allStates = (c: string): Record<number, string> => {
     const e: Record<number, string> = {};
     for (const i of idx) e[i] = c;
     return e;
   };
 
   if (n === 0) {
-    out.push({
-      linha: 8, ordem: [], estados: {}, saida: [], bloco: null, guia: null, testes: 0, cortados: 0,
-      nota: "Lista vazia: dá para encaixar zero intervalos. Devolvo [].",
-      vars: [{ nome: "escolhidos", valor: "0" }],
+    steps.push({
+      line: 8, order: [], states: {}, output: [], block: null, guide: null, tests: 0, dropped: 0,
+      note: "Lista vazia: dá para encaixar zero intervalos. Devolvo [].",
+      vars: [{ name: "escolhidos", value: "0" }],
     });
-    return out;
+    return steps;
   }
 
-  const ord = [...idx].sort((a, b) => ivs[a][1] - ivs[b][1] || ivs[a][0] - ivs[b][0]);
+  const order = [...idx].sort((a, b) => ivs[a][1] - ivs[b][1] || ivs[a][0] - ivs[b][0]);
 
-  out.push({
-    linha: 0, ordem: idx, estados: todos("espera"), saida: [], bloco: null, guia: null, testes: 0, cortados: 0,
-    nota: `${n} intervalos concorrendo pelo mesmo recurso. Quero ficar com o máximo possível deles sem que dois se sobreponham.`,
-    vars: [{ nome: "fim_anterior", valor: "-inf" }, { nome: "escolhidos", valor: "0" }, { nome: "descartados", valor: "0" }, { nome: "testes", valor: "0", best: true }],
+  steps.push({
+    line: 0, order: idx, states: allStates("espera"), output: [], block: null, guide: null, tests: 0, dropped: 0,
+    note: `${n} intervalos concorrendo pelo mesmo recurso. Quero ficar com o máximo possível deles sem que dois se sobreponham.`,
+    vars: [{ name: "fim_anterior", value: "-inf" }, { name: "escolhidos", value: "0" }, { name: "descartados", value: "0" }, { name: "testes", value: "0", best: true }],
   });
 
-  out.push({
-    linha: 1, ordem: ord, estados: todos("espera"), saida: [], bloco: null, guia: null, testes: 0, cortados: 0,
-    nota: `Ordenei pelo FIM, não pelo início: ${fmtLista(ord.map((i) => ivs[i]))}. Quem termina mais cedo é quem deixa mais espaço livre para os próximos.`,
-    vars: [{ nome: "fim_anterior", valor: "-inf" }, { nome: "escolhidos", valor: "0" }, { nome: "descartados", valor: "0" }, { nome: "testes", valor: "0", best: true }],
+  steps.push({
+    line: 1, order, states: allStates("espera"), output: [], block: null, guide: null, tests: 0, dropped: 0,
+    note: `Ordenei pelo FIM, não pelo início: ${fmtList(order.map((i) => ivs[i]))}. Quem termina mais cedo é quem deixa mais espaço livre para os próximos.`,
+    vars: [{ name: "fim_anterior", value: "-inf" }, { name: "escolhidos", value: "0" }, { name: "descartados", value: "0" }, { name: "testes", value: "0", best: true }],
   });
 
-  const estados = todos("espera");
-  const saida: Intervalo[] = [];
-  let fimAnterior: number | null = null;
-  let testes = 0;
-  let cortados = 0;
+  const states = allStates("espera");
+  const output: Interval[] = [];
+  let prevEnd: number | null = null;
+  let tests = 0;
+  let dropped = 0;
 
   const vars = (): Vars => [
-    { nome: "fim_anterior", valor: fimAnterior == null ? "-inf" : `${fimAnterior}` },
-    { nome: "escolhidos", valor: `${saida.length}` },
-    { nome: "descartados", valor: `${cortados}` },
-    { nome: "testes", valor: `${testes}`, best: true },
+    { name: "fim_anterior", value: prevEnd == null ? "-inf" : `${prevEnd}` },
+    { name: "escolhidos", value: `${output.length}` },
+    { name: "descartados", value: `${dropped}` },
+    { name: "testes", value: `${tests}`, best: true },
   ];
 
   for (let k = 0; k < n; k++) {
-    const i = ord[k];
-    const ini = ivs[i][0];
-    const fim = ivs[i][1];
-    testes++;
-    const cabe = fimAnterior == null || ini >= fimAnterior;
+    const i = order[k];
+    const start = ivs[i][0];
+    const end = ivs[i][1];
+    tests++;
+    const fits = prevEnd == null || start >= prevEnd;
 
-    out.push({
-      linha: 5, ordem: ord, estados: { ...estados, [i]: "atual" }, saida: copiar(saida), bloco: null, guia: fimAnterior, testes, cortados,
-      nota: `Teste ${testes}: ${fmtIv(ivs[i])} começa em ${ini} e o último escolhido terminou em ${fimAnterior == null ? "menos infinito (ainda não escolhi nada)" : fimAnterior}. ${ini} >= ${fimAnterior == null ? "-inf" : fimAnterior}? ${cabe ? "Sim, cabe sem conflito." : "Não, ele invade o anterior."}`,
+    steps.push({
+      line: 5, order, states: { ...states, [i]: "atual" }, output: copyIvs(output), block: null, guide: prevEnd, tests, dropped,
+      note: `Teste ${tests}: ${fmtIv(ivs[i])} começa em ${start} e o último escolhido terminou em ${prevEnd == null ? "menos infinito (ainda não escolhi nada)" : prevEnd}. ${start} >= ${prevEnd == null ? "-inf" : prevEnd}? ${fits ? "Sim, cabe sem conflito." : "Não, ele invade o anterior."}`,
       vars: vars(),
     });
 
-    if (cabe) {
-      saida.push([ini, fim]);
-      fimAnterior = fim;
-      estados[i] = "usado";
-      out.push({
-        linha: 6, ordem: ord, estados: { ...estados }, saida: copiar(saida), bloco: null, guia: fimAnterior, testes, cortados,
-        nota: `Pego ${fmtIv(ivs[i])}. Agora fim_anterior = ${fim}, e a tracejada anda junto: é a nova fronteira.`,
+    if (fits) {
+      output.push([start, end]);
+      prevEnd = end;
+      states[i] = "usado";
+      steps.push({
+        line: 6, order, states: { ...states }, output: copyIvs(output), block: null, guide: prevEnd, tests, dropped,
+        note: `Pego ${fmtIv(ivs[i])}. Agora fim_anterior = ${end}, e a tracejada anda junto: é a nova fronteira.`,
         vars: vars(),
       });
     } else {
-      cortados++;
-      estados[i] = "corta";
-      out.push({
-        linha: 4, ordem: ord, estados: { ...estados }, saida: copiar(saida), bloco: null, guia: fimAnterior, testes, cortados,
-        nota: `Descarto ${fmtIv(ivs[i])}. Trocá-lo pelo que já escolhi nunca melhora a conta: o que escolhi termina antes ou junto, então deixa pelo menos tanto espaço quanto ele.`,
+      dropped++;
+      states[i] = "corta";
+      steps.push({
+        line: 4, order, states: { ...states }, output: copyIvs(output), block: null, guide: prevEnd, tests, dropped,
+        note: `Descarto ${fmtIv(ivs[i])}. Trocá-lo pelo que já escolhi nunca melhora a conta: o que escolhi termina antes ou junto, então deixa pelo menos tanto espaço quanto ele.`,
         vars: vars(),
       });
     }
   }
 
-  out.push({
-    linha: 8, ordem: ord, estados: { ...estados }, saida: copiar(saida), bloco: null, guia: fimAnterior, testes, cortados, ok: true,
-    nota: `Fim: ${saida.length} de ${n} ${pl(n, "intervalo cabe", "intervalos cabem")} sem conflito, ${cortados} ${pl(cortados, "sobra de fora", "sobram de fora")}. Para o LeetCode 435, a resposta é justamente esse ${cortados}.`,
+  steps.push({
+    line: 8, order, states: { ...states }, output: copyIvs(output), block: null, guide: prevEnd, tests, dropped, ok: true,
+    note: `Fim: ${output.length} de ${n} ${pl(n, "intervalo cabe", "intervalos cabem")} sem conflito, ${dropped} ${pl(dropped, "sobra de fora", "sobram de fora")}. Para o LeetCode 435, a resposta é justamente esse ${dropped}.`,
     vars: vars(),
   });
-  return out;
+  return steps;
 }
 
 // --------------------------------- modos -----------------------------------
 
-type Preset = { nome: string; ivs: string; novo?: string };
+type Preset = { name: string; ivs: string; incoming?: string };
 
-type Modo = {
+type Mode = {
   key: "merge" | "insert" | "greedy";
-  nome: string;
-  familia: string;
-  cor: string;
-  arquivo: string;
-  rodape: string;
-  codigo: string[];
-  usaNovo: boolean;
-  rotuloSaida: string;
+  name: string;
+  family: string;
+  color: string;
+  file: string;
+  caption: string;
+  code: string[];
+  usesIncoming: boolean;
+  outputLabel: string;
   presets: Preset[];
 };
 
-const MODOS: Modo[] = [
+const MODES: Mode[] = [
   {
     key: "merge",
-    nome: "funde quem encosta",
-    familia: "Merge",
-    cor: "#3b82f6",
-    arquivo: "merge_intervals.py",
-    rodape: "ordena por início · O(n log n)",
-    codigo: CODIGO_MERGE,
-    usaNovo: false,
-    rotuloSaida: "saída",
+    name: "funde quem encosta",
+    family: "Merge",
+    color: "#3b82f6",
+    file: "merge_intervals.py",
+    caption: "ordena por início · O(n log n)",
+    code: CODE_MERGE,
+    usesIncoming: false,
+    outputLabel: "saída",
     presets: [
-      { nome: "Caso base", ivs: "[13,16], [1,4], [8,10], [2,6], [9,12], [17,18]" },
-      { nome: "Tudo vira um", ivs: "[1,4], [3,7], [6,10], [9,12]" },
-      { nome: "Nada funde", ivs: "[1,2], [3,4], [5,6], [7,8]" },
-      { nome: "Só encostam", ivs: "[1,3], [3,5], [5,7]" },
-      { nome: "Um dentro do outro", ivs: "[1,10], [2,3], [4,5], [11,12]" },
-      { nome: "Um intervalo só", ivs: "[5,9]" },
-      { nome: "Lista vazia", ivs: "" },
+      { name: "Caso base", ivs: "[13,16], [1,4], [8,10], [2,6], [9,12], [17,18]" },
+      { name: "Tudo vira um", ivs: "[1,4], [3,7], [6,10], [9,12]" },
+      { name: "Nada funde", ivs: "[1,2], [3,4], [5,6], [7,8]" },
+      { name: "Só encostam", ivs: "[1,3], [3,5], [5,7]" },
+      { name: "Um dentro do outro", ivs: "[1,10], [2,3], [4,5], [11,12]" },
+      { name: "Um intervalo só", ivs: "[5,9]" },
+      { name: "Lista vazia", ivs: "" },
     ],
   },
   {
     key: "insert",
-    nome: "encaixa um novo",
-    familia: "Insert",
-    cor: "#f59e0b",
-    arquivo: "insert_interval.py",
-    rodape: "não ordena nada · O(n)",
-    codigo: CODIGO_INSERT,
-    usaNovo: true,
-    rotuloSaida: "saída",
+    name: "encaixa um novo",
+    family: "Insert",
+    color: "#f59e0b",
+    file: "insert_interval.py",
+    caption: "não ordena nada · O(n)",
+    code: CODE_INSERT,
+    usesIncoming: true,
+    outputLabel: "saída",
     presets: [
-      { nome: "Engole dois", ivs: "[1,3], [6,9], [12,16]", novo: "[7,13]" },
-      { nome: "Não toca ninguém", ivs: "[1,3], [6,9], [12,16]", novo: "[4,5]" },
-      { nome: "Vai para o fim", ivs: "[1,3], [6,9], [12,16]", novo: "[20,25]" },
-      { nome: "Engole tudo", ivs: "[1,3], [6,9], [12,16]", novo: "[0,20]" },
-      { nome: "Lista vazia", ivs: "", novo: "[4,8]" },
+      { name: "Engole dois", ivs: "[1,3], [6,9], [12,16]", incoming: "[7,13]" },
+      { name: "Não toca ninguém", ivs: "[1,3], [6,9], [12,16]", incoming: "[4,5]" },
+      { name: "Vai para o fim", ivs: "[1,3], [6,9], [12,16]", incoming: "[20,25]" },
+      { name: "Engole tudo", ivs: "[1,3], [6,9], [12,16]", incoming: "[0,20]" },
+      { name: "Lista vazia", ivs: "", incoming: "[4,8]" },
     ],
   },
   {
     key: "greedy",
-    nome: "máximo sem conflito",
-    familia: "Greedy",
-    cor: "#34d399",
-    arquivo: "interval_scheduling.py",
-    rodape: "ordena pelo fim · O(n log n)",
-    codigo: CODIGO_GREEDY,
-    usaNovo: false,
-    rotuloSaida: "escolhidos",
+    name: "máximo sem conflito",
+    family: "Greedy",
+    color: "#34d399",
+    file: "interval_scheduling.py",
+    caption: "ordena pelo fim · O(n log n)",
+    code: CODE_GREEDY,
+    usesIncoming: false,
+    outputLabel: "escolhidos",
     presets: [
-      { nome: "Caso base", ivs: "[13,16], [1,4], [8,10], [2,6], [9,12], [17,18]" },
-      { nome: "Pelo início falharia", ivs: "[1,10], [2,3], [4,5], [6,7]" },
-      { nome: "Todos em cima", ivs: "[1,5], [2,6], [3,7], [4,8]" },
-      { nome: "Cadeia perfeita", ivs: "[1,3], [3,5], [5,7], [7,9]" },
+      { name: "Caso base", ivs: "[13,16], [1,4], [8,10], [2,6], [9,12], [17,18]" },
+      { name: "Pelo início falharia", ivs: "[1,10], [2,3], [4,5], [6,7]" },
+      { name: "Todos em cima", ivs: "[1,5], [2,6], [3,7], [4,8]" },
+      { name: "Cadeia perfeita", ivs: "[1,3], [3,5], [5,7], [7,9]" },
     ],
   },
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
-
-function temSobreposicao(ivs: Intervalo[]): boolean {
+function hasOverlap(ivs: Interval[]): boolean {
   for (let i = 1; i < ivs.length; i++) {
     if (ivs[i][0] <= ivs[i - 1][1]) return true;
   }
@@ -454,207 +457,171 @@ function temSobreposicao(ivs: Intervalo[]): boolean {
 }
 
 /**
- * `modo` só escolhe com qual varredura o visualizador ABRE. O artigo usa o
+ * `mode` só escolhe com qual varredura o visualizador ABRE. O artigo usa o
  * mesmo componente três vezes, cada vez na seção que ensina aquele modo, e o
  * aluno continua podendo trocar pelos chips.
  */
-export function IntervalsVisualizer({ modo: modoInicial = "merge" }: { modo?: Modo["key"] } = {}) {
-  const iInicial = Math.max(0, MODOS.findIndex((m) => m.key === modoInicial));
-  const [iModo, setIModo] = useState(iInicial);
-  const [entrada, setEntrada] = useState(MODOS[iInicial].presets[0].ivs);
-  const [entradaNovo, setEntradaNovo] = useState(
-    MODOS.find((m) => m.key === "insert")?.presets[0].novo ?? "[7,13]"
+export function IntervalsVisualizer({ mode: initialMode = "merge" }: { mode?: Mode["key"] } = {}) {
+  const initialIndex = Math.max(0, MODES.findIndex((m) => m.key === initialMode));
+  const [modeIndex, setModeIndex] = useState(initialIndex);
+  const [input, setInput] = useState(MODES[initialIndex].presets[0].ivs);
+  const [incomingInput, setIncomingInput] = useState(
+    MODES.find((m) => m.key === "insert")?.presets[0].incoming ?? "[7,13]"
   );
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => setMounted(true), []);
-
-  const modo = MODOS[iModo];
+  const mode = MODES[modeIndex];
 
   // O Insert pressupõe a lista já ordenada, então aqui ela chega ordenada por
   // início: é o contrato do problema, não uma etapa do algoritmo.
   const ivs = useMemo(() => {
-    const lidos = lerIntervalos(entrada);
-    return modo.key === "insert" ? [...lidos].sort((a, b) => a[0] - b[0] || a[1] - b[1]) : lidos;
-  }, [entrada, modo.key]);
+    const read = parseIntervals(input);
+    return mode.key === "insert" ? [...read].sort((a, b) => a[0] - b[0] || a[1] - b[1]) : read;
+  }, [input, mode.key]);
 
-  const novo = useMemo<Intervalo>(() => {
-    const lido = lerIntervalos(entradaNovo, 1);
-    return lido.length ? lido[0] : [0, 0];
-  }, [entradaNovo]);
+  const incoming = useMemo<Interval>(() => {
+    const read = parseIntervals(incomingInput, 1);
+    return read.length ? read[0] : [0, 0];
+  }, [incomingInput]);
 
-  const passos = useMemo(() => {
-    if (modo.key === "merge") return gerarMerge(ivs);
-    if (modo.key === "greedy") return gerarGreedy(ivs);
-    return gerarInsert(ivs, novo);
-  }, [modo.key, ivs, novo]);
+  const steps = useMemo(() => {
+    if (mode.key === "merge") return generateMerge(ivs);
+    if (mode.key === "greedy") return generateGreedy(ivs);
+    return generateInsert(ivs, incoming);
+  }, [mode.key, ivs, incoming]);
 
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
   const n = ivs.length;
 
-  const eixo = useMemo(() => {
-    const vals: number[] = [];
-    for (const iv of ivs) { vals.push(iv[0], iv[1]); }
-    if (modo.usaNovo) vals.push(novo[0], novo[1]);
-    if (!vals.length) vals.push(0, 10);
-    return eixoDe(vals);
-  }, [ivs, novo, modo.usaNovo]);
+  const viz = useVisualizer({
+    title: "Visualizador · varrendo intervalos na linha do tempo",
+    total: steps.length,
+    // O que MAIS muda a altura: o modo (o código vai de 9 a 15 linhas e a fila
+    // de cenários muda de tamanho) e quantos intervalos a entrada tem, porque
+    // cada um é uma faixa a mais na linha do tempo. `steps.length` entra porque
+    // ele atravessa 1 — e em `total: 1` o rodapé inteiro some, o que é altura.
+    measureOn: [modeIndex, n, steps.length],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
+  const axis = useMemo(() => {
+    const values: number[] = [];
+    for (const iv of ivs) { values.push(iv[0], iv[1]); }
+    if (mode.usesIncoming) values.push(incoming[0], incoming[1]);
+    if (!values.length) values.push(0, 10);
+    return axisFor(values);
+  }, [ivs, incoming, mode.usesIncoming]);
 
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = useCallback(() => { parar(); setTocando(false); setPasso(0); }, [parar]);
-
-  const trocarModo = (i: number) => {
-    reiniciar();
-    setIModo(i);
-    const pr = MODOS[i].presets[0];
-    setEntrada(pr.ivs);
-    if (pr.novo) setEntradaNovo(pr.novo);
+  const pickMode = (i: number) => {
+    viz.reset();
+    setModeIndex(i);
+    const pr = MODES[i].presets[0];
+    setInput(pr.ivs);
+    if (pr.incoming) setIncomingInput(pr.incoming);
   };
 
-  const aplicarPreset = (pr: Preset) => {
-    reiniciar();
-    setEntrada(pr.ivs);
-    if (pr.novo) setEntradaNovo(pr.novo);
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
+    setInput(pr.ivs);
+    if (pr.incoming) setIncomingInput(pr.incoming);
   };
 
   // Math.random só no handler, nunca no render: o HTML do build e o do cliente
   // precisam bater na hidratação.
-  const sortear = () => {
-    const qtd = 4 + Math.floor(Math.random() * 3);
-    const gerados: Intervalo[] = [];
-    for (let i = 0; i < qtd; i++) {
-      const ini = Math.floor(Math.random() * 16);
-      gerados.push([ini, ini + 1 + Math.floor(Math.random() * 5)]);
+  const randomize = () => {
+    const count = 4 + Math.floor(Math.random() * 3);
+    const drawn: Interval[] = [];
+    for (let i = 0; i < count; i++) {
+      const start = Math.floor(Math.random() * 16);
+      drawn.push([start, start + 1 + Math.floor(Math.random() * 5)]);
     }
-    reiniciar();
-    if (modo.key === "insert") {
-      const ordenados = [...gerados].sort((a, b) => a[0] - b[0]);
-      const limpos: Intervalo[] = [];
-      for (const iv of ordenados) {
-        if (!limpos.length || iv[0] > limpos[limpos.length - 1][1]) limpos.push(iv);
+    viz.reset();
+    if (mode.key === "insert") {
+      const sorted = [...drawn].sort((a, b) => a[0] - b[0]);
+      const clean: Interval[] = [];
+      for (const iv of sorted) {
+        if (!clean.length || iv[0] > clean[clean.length - 1][1]) clean.push(iv);
       }
-      setEntrada(escreverIntervalos(limpos));
-      const ini = Math.floor(Math.random() * 14);
-      setEntradaNovo(`[${ini},${ini + 2 + Math.floor(Math.random() * 6)}]`);
+      setInput(writeIntervals(clean));
+      const start = Math.floor(Math.random() * 14);
+      setIncomingInput(`[${start},${start + 2 + Math.floor(Math.random() * 6)}]`);
       return;
     }
-    setEntrada(escreverIntervalos(gerados));
+    setInput(writeIntervals(drawn));
   };
 
-  const linhasTL: LinhaTL[] = [
-    ...p.ordem.map((i) => ({
-      chave: `iv${i}`,
-      rotulo: fmtIv(ivs[i]),
-      barras: [{ chave: `b${i}`, inicio: ivs[i][0], fim: ivs[i][1], classe: p.estados[i] ?? "espera", texto: `${ivs[i][0]},${ivs[i][1]}` }],
+  const rows: TimelineRow[] = [
+    ...p.order.map((i) => ({
+      id: `iv${i}`,
+      label: fmtIv(ivs[i]),
+      bars: [{ id: `b${i}`, start: ivs[i][0], end: ivs[i][1], state: p.states[i] ?? "espera", label: `${ivs[i][0]},${ivs[i][1]}` }],
     })),
-    ...(modo.usaNovo
+    ...(mode.usesIncoming
       ? [{
-          chave: "novo",
-          rotulo: "novo",
-          barras: p.bloco ? [{ chave: "nv", inicio: p.bloco[0], fim: p.bloco[1], classe: "novo", texto: `${p.bloco[0]},${p.bloco[1]}` }] : [],
+          id: "novo",
+          label: "novo",
+          bars: p.block ? [{ id: "nv", start: p.block[0], end: p.block[1], state: "novo", label: `${p.block[0]},${p.block[1]}` }] : [],
         }]
       : []),
     {
-      chave: "saida",
-      rotulo: modo.rotuloSaida,
-      barras: [
-        ...p.saida.map((s, k) => ({ chave: `s${k}`, inicio: s[0], fim: s[1], classe: "pronto", texto: `${s[0]},${s[1]}` })),
-        ...(modo.key === "merge" && p.bloco
-          ? [{ chave: "bloco", inicio: p.bloco[0], fim: p.bloco[1], classe: "bloco", texto: `${p.bloco[0]},${p.bloco[1]}` }]
+      id: "saida",
+      label: mode.outputLabel,
+      bars: [
+        ...p.output.map((s, k) => ({ id: `s${k}`, start: s[0], end: s[1], state: "pronto", label: `${s[0]},${s[1]}` })),
+        ...(mode.key === "merge" && p.block
+          ? [{ id: "bloco", start: p.block[0], end: p.block[1], state: "bloco", label: `${p.block[0]},${p.block[1]}` }]
           : []),
       ],
     },
   ];
 
   const stats =
-    modo.key === "merge"
+    mode.key === "merge"
       ? [
-          { rot: "intervalos na entrada", val: `${n}` },
-          { rot: "blocos na saída", val: `${p.saida.length + (p.bloco ? 1 : 0)}` },
-          { rot: "testes de sobreposição", val: `${p.testes}` },
-          { rot: "todos os pares seriam", val: `${(n * (n - 1)) / 2}` },
+          { label: "intervalos na entrada", value: `${n}` },
+          { label: "blocos na saída", value: `${p.output.length + (p.block ? 1 : 0)}` },
+          { label: "testes de sobreposição", value: `${p.tests}` },
+          { label: "todos os pares seriam", value: `${(n * (n - 1)) / 2}` },
         ]
-      : modo.key === "insert"
+      : mode.key === "insert"
         ? [
-            { rot: "intervalos na lista", val: `${n}` },
-            { rot: "intervalos na saída", val: `${p.saida.length}` },
-            { rot: "comparações", val: `${p.testes}` },
-            { rot: "ordenações", val: "0" },
+            { label: "intervalos na lista", value: `${n}` },
+            { label: "intervalos na saída", value: `${p.output.length}` },
+            { label: "comparações", value: `${p.tests}` },
+            { label: "ordenações", value: "0" },
           ]
         : [
-            { rot: "intervalos na entrada", val: `${n}` },
-            { rot: "escolhidos", val: `${p.saida.length}` },
-            { rot: "descartados", val: `${p.cortados}` },
-            { rot: "testes", val: `${p.testes}` },
+            { label: "intervalos na entrada", value: `${n}` },
+            { label: "escolhidos", value: `${p.output.length}` },
+            { label: "descartados", value: `${p.dropped}` },
+            { label: "testes", value: `${p.tests}` },
           ];
 
-  const avisoInsert = modo.key === "insert" && temSobreposicao(ivs);
-  const notaCls = "viz-note" + (p.ok ? " ok" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
-  const resultado = p.saida.length
-    ? fmtLista(p.saida) + (modo.key === "merge" && p.bloco ? ` ${fmtIv(p.bloco)}` : "")
-    : modo.key === "merge" && p.bloco
-      ? fmtIv(p.bloco)
+  const insertWarning = mode.key === "insert" && hasOverlap(ivs);
+  const noteClass = "viz-note" + (p.ok ? " ok" : "");
+  const result = p.output.length
+    ? fmtList(p.output) + (mode.key === "merge" && p.block ? ` ${fmtIv(p.block)}` : "")
+    : mode.key === "merge" && p.block
+      ? fmtIv(p.block)
       : "ainda vazia";
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" style={{ background: modo.cor }} />
-          <span>Visualizador · varrendo intervalos na linha do tempo</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} color={mode.color} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {MODOS.map((m, i) => {
-            const on = i === iModo;
+          {MODES.map((m, i) => {
+            const on = i === modeIndex;
             return (
               <button
                 key={m.key}
                 className={`bigo-chip${on ? " on" : ""}`}
-                style={on ? { borderColor: m.cor, color: m.cor } : undefined}
-                onClick={() => trocarModo(i)}
+                style={on ? { borderColor: m.color, color: m.color } : undefined}
+                onClick={() => pickMode(i)}
                 aria-pressed={on}
               >
-                <span className="sw" style={{ background: on ? m.cor : "#3a4a60" }} />
-                {m.familia} · {m.nome}
+                <span className="sw" style={{ background: on ? m.color : "#3a4a60" }} />
+                {m.family} · {m.name}
               </button>
             );
           })}
@@ -665,39 +632,39 @@ export function IntervalsVisualizer({ modo: modoInicial = "merge" }: { modo?: Mo
             <span>Intervalos</span>
             <input
               className="viz-input"
-              value={entrada}
-              onChange={(e) => { reiniciar(); setEntrada(e.target.value); }}
+              value={input}
+              onChange={(e) => { viz.reset(); setInput(e.target.value); }}
               placeholder="[1,4], [2,6], [8,10]"
             />
           </label>
-          {modo.usaNovo && (
+          {mode.usesIncoming && (
             <label className="viz-field">
               <span>novo</span>
               <input
                 className="viz-input"
                 style={{ width: 96 }}
-                value={entradaNovo}
-                onChange={(e) => { reiniciar(); setEntradaNovo(e.target.value); }}
+                value={incomingInput}
+                onChange={(e) => { viz.reset(); setIncomingInput(e.target.value); }}
               />
             </label>
           )}
-          <button className="viz-btn" onClick={sortear}>Sortear</button>
+          <button className="viz-btn" onClick={randomize}>Sortear</button>
         </div>
 
         <div className="iv-presets">
           <span className="iv-presets-lbl">Cenários</span>
-          {modo.presets.map((pr) => (
+          {mode.presets.map((pr) => (
             <button
-              key={pr.nome}
-              className={`iv-preset${entrada === pr.ivs && (!pr.novo || entradaNovo === pr.novo) ? " on" : ""}`}
-              onClick={() => aplicarPreset(pr)}
+              key={pr.name}
+              className={`iv-preset${input === pr.ivs && (!pr.incoming || incomingInput === pr.incoming) ? " on" : ""}`}
+              onClick={() => applyPreset(pr)}
             >
-              {pr.nome}
+              {pr.name}
             </button>
           ))}
         </div>
 
-        {avisoInsert && (
+        {insertWarning && (
           <p className="viz-note invalid">
             Esta lista tem sobreposição entre os próprios intervalos. O Insert Interval pressupõe que ela chegue limpa,
             então rode o modo Merge antes para ver o que aconteceria de verdade.
@@ -705,78 +672,65 @@ export function IntervalsVisualizer({ modo: modoInicial = "merge" }: { modo?: Mo
         )}
 
         <LinhaDoTempo
-          linhas={linhasTL}
-          min={eixo.min}
-          max={eixo.max}
-          marcas={eixo.marcas}
-          guia={p.guia}
-          guiaVerde={modo.key !== "insert"}
+          rows={rows}
+          min={axis.min}
+          max={axis.max}
+          ticks={axis.ticks}
+          guide={p.guide}
+          guideGreen={mode.key !== "insert"}
         />
 
         <div className="iv-saida">
-          <span className="iv-saida-lbl">{modo.rotuloSaida}</span>
-          <span className="iv-saida-val">{resultado}</span>
+          <span className="iv-saida-lbl">{mode.outputLabel}</span>
+          <span className="iv-saida-val">{result}</span>
         </div>
 
         <div className="bigo-stats">
           {stats.map((s) => (
-            <div className="bigo-stat" key={s.rot}>
-              <span>{s.rot}</span>
-              <strong style={{ color: modo.cor }}>{s.val}</strong>
+            <div className="bigo-stat" key={s.label}>
+              <span>{s.label}</span>
+              <strong style={{ color: mode.color }}>{s.value}</strong>
             </div>
           ))}
         </div>
 
-        <p className={notaCls}>{p.nota}</p>
+        <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">{modo.arquivo} · {modo.rodape}</div>
-            <div className="viz-code-body">
-              {modo.codigo.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra é pela ALTURA: zerar a trilha da coluna só tira a
+              largura, e a linha do grid continua com a altura inteira do bloco.
+              O código fica no DOM mesmo recolhido — é isso que permite medir o
+              pior caso —, e `inert` o tira do teclado e dos leitores de tela. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">{mode.file} · {mode.caption}</div>
+              <div className="viz-code-body">
+                {mode.code.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {p.vars.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%`, background: modo.cor }} /></div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} color={mode.color} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
