@@ -369,9 +369,18 @@ test("Big O: a escolha do aluno vence a medição até ele fechar o painel", asy
   await expect
     .poll(async () => await alturaCodigo(page), { message: "a escolha do aluno foi atropelada pela medição" })
     .toBeGreaterThan(100);
-  // e continua aberto depois que qualquer transição teria terminado
-  await page.waitForTimeout(500);
-  expect(await alturaCodigo(page), "o código recolheu sozinho depois do clique").toBeGreaterThan(100);
+
+  // Estar aberto num instante não é a promessa: a promessa é CONTINUAR aberto,
+  // e a medição que poderia desfazer a escolha chega em quadro posterior. Uma
+  // espera fixa seguida de uma leitura só olharia o instante depois dela;
+  // amostrar exige que nenhum dos instantes tenha recolhido, e a série entra na
+  // mensagem quando falha.
+  const alturas: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    alturas.push(await alturaCodigo(page));
+    await page.waitForTimeout(80);
+  }
+  expect(Math.min(...alturas), `o código recolheu sozinho: ${alturas.join(", ")}`).toBeGreaterThan(100);
 });
 
 test("no celular, o botão do código funciona no contador do Big O", async ({ page }) => {
