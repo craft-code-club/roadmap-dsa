@@ -69,9 +69,13 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
   Leia [`content/visualizers/README.md`](content/visualizers/README.md) antes.** Ele é o
   contrato da casca adaptativa (`.viz-fit`): as três camadas (comprimir antes de esconder),
   a decisão por medição em vez de breakpoint, a API de CSS, o contrato de teclado e foco do
-  painel expandido, e as armadilhas já medidas. Referência viva:
-  `BigOCounterVisualizer.tsx`. **Não edite o bloco `viz-fit` do `globals.css` para acomodar
-  um visualizador específico** — ele é compartilhado por todos.
+  painel expandido, e as armadilhas já medidas.
+  A mecânica é um hook, **`src/lib/visualizador.tsx`** (`useVisualizador` + `VizCabecalho` e
+  `VizRodape`): chame, espalhe as props e use os componentes prontos — não reescreva.
+  Ele cobre o que TODO visualizador tem (caber na tela, painel, bloco que mostra e
+  oculta, controles de reprodução) e nada do que cada um mostra. Uso de referência: `BigOCounterVisualizer.tsx`.
+  **Não edite o bloco `viz-fit` do `globals.css` para acomodar um visualizador
+  específico** — ele é compartilhado por todos.
 - Alias: `@/*` → `src/*`, `@content/*` → `content/*`.
 - **Adicionar tópico/visualizador:** ver README (seções "Como adicionar"). O padrão de
   visualizador é gerador puro de passos + casca compartilhada + botão Expandir.

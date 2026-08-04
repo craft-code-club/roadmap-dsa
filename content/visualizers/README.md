@@ -5,8 +5,18 @@ comporta. Ele não descreve o algoritmo que cada um ensina — isso é assunto d
 componente — e sim a moldura em volta: o que aparece, o que rola, o que o
 teclado faz e o que precisa caber na tela do aluno.
 
-Referência viva: **`BigOCounterVisualizer.tsx`**. Quando este texto e o código
-divergirem, o código ganha e o texto está desatualizado — abra um PR corrigindo.
+A mecânica toda vive num hook: **`src/lib/visualizador.tsx`**. Você não
+reescreve nada disso — chama `useVisualizador`, espalha as props que ele devolve
+e usa os dois componentes prontos (`VizCabecalho` e `VizRodape`). Referência de
+uso: **`BigOCounterVisualizer.tsx`**.
+
+O corte é rígido: o hook cobre **o que todo visualizador tem** (caber na tela,
+painel, bloco que mostra e oculta, controles de reprodução) e **nada** do que
+cada um mostra. O miolo — células, SVG, canvas, tabela — é 100% seu; o hook
+nunca renderiza conteúdo.
+
+Quando este texto e o código divergirem, o código ganha e o texto está
+desatualizado — abra um PR corrigindo.
 
 > Para *criar* um visualizador do zero (gerador puro de passos, registro no
 > `mdx-components.tsx`), veja o [README](../../README.md) e o
@@ -46,7 +56,9 @@ para recolher só para ter a camada 3.
 
 ## 3. Quem decide é a medição, não um breakpoint
 
-O componente mede se a peça cabe e decide. Nada de `if (largura < 768)`.
+O hook mede se a peça cabe e decide. Nada de `if (largura < 768)`. Você não
+implementa nada disto — está aqui porque explica o comportamento que o aluno vê
+e porque é o que quebra se alguém reescrever a mecânica à mão.
 
 - **Expandido:** o miolo é a única área rolável, então "não coube" é
   `corpo.scrollHeight > corpo.clientHeight + FOLGA`.
@@ -70,12 +82,15 @@ Três regras que só apareceram medindo:
 Tudo em `src/app/globals.css`, e tudo **opt-in**: um visualizador sem `viz-fit`
 continua exatamente como era.
 
+Quase tudo aqui chega pelas props do hook — a tabela existe para você reconhecer
+o que está vendo no DOM e no CSS, não para digitar à mão.
+
 | classe / atributo | onde | o que faz |
 |---|---|---|
-| `.viz-fit` | no `<figure>` | liga a casca adaptativa |
+| `.viz-fit` | no `<figure>` | liga a casca adaptativa (vem em `propsFigura`) |
 | `data-codigo="on\|off"` | no `<figure>` | estado do bloco recolhível |
 | `data-anim="on\|off"` | no `<figure>` | liga as transições. `off` durante a medição e antes da primeira decisão |
-| `.viz-overlay-fit` | na `<div>` do overlay | flex column, miolo rolável, cabeçalho e rodapé parados |
+| `.viz-overlay-fit` | na `<div>` do overlay | flex column, miolo rolável, cabeçalho e rodapé parados (vem do `emPainel`) |
 | `.viz-foot` | irmão do `.viz-body` | os controles fora do miolo, para ficarem parados |
 | `.viz-code-slot` | envolve o `.viz-code` | recolhe a **altura** (grid `1fr → 0fr`) |
 | `.viz-vars.linha` | no painel de variáveis | vira fileira de fichas quando o código sai |
@@ -108,39 +123,76 @@ isso deixa o array impossível de editar, o que é pior que não ter atalho.
 Os comandos de passo usam a **forma funcional do `setState`**: a tecla repete
 muito mais rápido que o clique, e ler `idx` do closure engole repetições.
 
-## 6. Checklist de aplicação
+## 6. Como aplicar: o hook
 
-Copie de `BigOCounterVisualizer.tsx` — ele é a referência, e o que estiver lá
-está testado.
+Tudo o que está descrito acima — medição, congelamento da animação, espera das
+fontes, escolha manual, trava de rolagem, foco, `Tab` circulando, atalhos,
+passo, rodar/pausar, velocidade, progresso — vem de **`useVisualizador`**. Não
+reescreva: são armadilhas já resolvidas que voltam sozinhas quando alguém faz de
+novo do zero.
 
-**JSX**
+```tsx
+import { useVisualizador, VizCabecalho, VizRodape } from "@/lib/visualizador";
 
-- [ ] `<figure className="viz viz-fit" data-codigo data-anim ref tabIndex={-1}>`
-- [ ] botão `Mostrar código` / `Ocultar código` no `.viz-head-right`, com
-      `aria-expanded` e `aria-controls`
-- [ ] `ref` no `.viz-body`
-- [ ] controles e barra de progresso movidos para um `<div className="viz-foot">`,
-      **irmão** do `.viz-body`
-- [ ] `.viz-code` envolvido por `.viz-code-slot`, com `id`, `inert` e
-      `aria-hidden` quando recolhido
-- [ ] `.viz-vars` ganha `linha` quando o código está recolhido
-- [ ] overlay com `viz-overlay viz-overlay-fit`, `role`, `aria-modal`, `aria-label`
-- [ ] dica `.viz-atalhos` no rodapé, e `aria-keyshortcuts` nos três botões
+const passos = useMemo(() => gerarPassos(entrada), [entrada]);
 
-**Efeitos**
+const viz = useVisualizador({
+  titulo: "Visualizador · o que este aqui mostra",
+  total: passos.length,
+  velocidades: VELOCIDADES,   // opcional: o ritmo é seu
+  // o que MAIS muda a altura da peça (modo, tamanho da entrada, preset).
+  // Expandir e redimensionar já entram sozinhos. Use valores primitivos.
+  medirQuando: [modo, entrada.length],
+});
 
-- [ ] `fontesProntas` (espera `document.fonts.ready`)
-- [ ] pedido de medição em `[expanded, iAlg, n, fontesProntas]` + `resize`
-- [ ] decisão em duas passadas, com `medindo` congelando a animação
-- [ ] `escolhaManual` zerada só quando `expanded` muda
-- [ ] trava de rolagem da página
-- [ ] foco entra e volta
-- [ ] teclado: `Esc`, `Tab` circulando, setas, espaço — com a guarda de campo
-- [ ] `irPasso` / `alternarPlay` compartilhados entre botões e teclado
+const p = passos[viz.passo];
+```
 
-**Rótulos**
+E o JSX vira só o seu miolo:
 
-- [ ] o texto do botão diz o que o clique vai fazer, e muda junto com o estado
+```tsx
+return viz.emPainel(
+  <figure {...viz.propsFigura} style={{ margin: 0 }}>
+    <VizCabecalho viz={viz} cor={cor} />
+
+    <div {...viz.propsCorpo}>
+      …o que ESTE visualizador mostra…
+      <div className="viz-split">
+        <div className="viz-code-slot">
+          <div className="viz-code" {...viz.propsBloco}>…</div>
+        </div>
+        <div {...viz.propsVars}>…</div>
+      </div>
+    </div>
+
+    <VizRodape viz={viz} cor={cor} />
+  </figure>
+);
+```
+
+`VizCabecalho` monta a bolinha, o título, o contador de passo e os dois botões.
+`VizRodape` monta os controles, a dica de atalhos e a barra de progresso — fora
+do `.viz-body`, que é o que os deixa parados no pé do painel. Os dois aceitam
+`children` para o que for específico do seu (botão de preset, seletor de modo).
+
+Reprodução, quando você precisa mexer nela de fora: `viz.passo` (já limitado a
+`[0, total-1]`), `viz.reiniciar()` — chame quando a **entrada** mudar —,
+`viz.irPasso(±1)`, `viz.setPasso`, `viz.tocando`, `viz.pct`.
+
+### Os casos fora do padrão
+
+| situação | o que passar |
+|---|---|
+| sem bloco dispensável (SVG de árvore, canvas) | `recolhivel: false` — ganha o painel parado e nada mais. Não invente um bloco só para ter o botão |
+| o recolhível não é código | `bloco: "tabela"` — o rótulo passa a dizer o que some, porque **rótulo que mente ensina errado** |
+| sem linha do tempo (classificador, tabela) | `total: 1` — some o contador de passo, o rodapé e os atalhos |
+| ritmo próprio | `velocidades: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
+| só passo a passo, sem animação contínua | `<VizRodape semVelocidade />` |
+| botões extras nos controles | `<VizRodape>{seus botões}</VizRodape>` |
+
+O que continua por sua conta: envolver o bloco recolhível no `.viz-code-slot`
+(zerar a coluna tira a largura, não a altura — §7) e escolher um `titulo` que
+seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
 
 ## 7. Armadilhas medidas
 
