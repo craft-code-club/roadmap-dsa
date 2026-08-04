@@ -243,10 +243,16 @@ for (const v of [
 test("two-pointers · o desenho do rho tem teto no artigo e não tem no expandido", async ({ page }) => {
   await abrir(page, BAIXA);
   const fig = noArtigo(page, 2);
-  const svgNoArtigo = await altura(fig.locator(".tp-svg"));
-  expect(svgNoArtigo).toBeLessThanOrEqual(264);
 
-  // O desenho continua inteiro: nenhum nó foi cortado pelo teto.
+  // A régua não é o valor do `max-height` (isso só repetiria o CSS aqui e
+  // quebraria o teste a cada ajuste fino): é a altura SEM teto, medida em
+  // 1512x900 antes deste conserto, que era 402px. O desenho tem que ter
+  // encolhido de verdade em relação a ela.
+  const SEM_TETO = 402;
+  const svgNoArtigo = await altura(fig.locator(".tp-svg"));
+  expect(svgNoArtigo).toBeLessThan(SEM_TETO * 0.8);
+
+  // E o desenho continua inteiro: nenhum nó foi cortado pelo teto.
   const cabeInteiro = await fig.locator(".tp-svg").evaluate((svg) => {
     const caixa = svg.getBoundingClientRect();
     return [...svg.querySelectorAll("circle")].every((c) => {
@@ -256,8 +262,11 @@ test("two-pointers · o desenho do rho tem teto no artigo e não tem no expandid
   });
   expect(cabeInteiro).toBe(true);
 
+  // No painel o teto sai: lá o miolo rola e o desenho pode crescer. A régua é
+  // o próprio desenho do artigo, não um número solto.
   const painel = await expandir(page, 2);
-  await expect.poll(() => altura(painel.locator(".tp-svg"))).toBeGreaterThan(264);
+  await expect.poll(() => altura(painel.locator(".tp-svg"))).toBeGreaterThan(svgNoArtigo);
+  expect(await painel.locator(".tp-svg").evaluate((el) => getComputedStyle(el).maxHeight)).toBe("none");
 });
 
 // ---------------------------------------------------------------------------
