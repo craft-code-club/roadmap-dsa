@@ -242,6 +242,14 @@ O que continua por sua conta: envolver o bloco recolhível no `.viz-code-slot`
 (zerar a coluna tira a largura, não a altura — §7) e escolher um `titulo` que
 seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
 
+**`measureOn` tem que cobrir o que liga ou desliga um pedaço da casca, não só o
+que muda o miolo.** Quando o `total` é derivado da entrada, ele pode atravessar
+1 durante o uso: o gerador da comparação da sliding window devolve **um passo
+só** no caso de borda `k > n`, e aí o contador, o rodapé e os atalhos somem
+inteiros — cerca de 90px a menos de peça — sem que o tamanho da entrada tenha
+mudado. Um `measureOn: [n]` não pediria medição nova nessa travessia. O que
+resolveu foi `measureOn: [n, steps.length]`.
+
 ## 7. Armadilhas medidas
 
 - **Zerar a trilha da coluna (`0fr`) tira a largura e NÃO a altura.** A linha do
