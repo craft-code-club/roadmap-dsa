@@ -319,10 +319,16 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
 
   const onInputChange = (v: string) => {
     const arr = v.split(",").map((x) => parseInt(x.trim(), 10)).filter((x) => !isNaN(x)).slice(0, 14);
+    const novo = arr.length ? arr : [1];
     viz.reset();
     setPresetKey("");
     setInput(v);
-    setNums(arr.length ? arr : [1]);
+    setNums(novo);
+    // Na janela fixa k é o TAMANHO da janela: encurtar o array tem que encurtar
+    // o k junto. Sem isso o campo continuava mostrando o k antigo enquanto o
+    // algoritmo já rodava com `min(k, n)` — o aluno lia 8 e via janelas de 3.
+    // Forma funcional porque este handler dispara a cada tecla digitada.
+    if (mode === "fixed") setK((atual) => Math.min(atual, novo.length));
   };
   const onKChange = (v: string) => {
     const raw = parseInt(v, 10) || 1;

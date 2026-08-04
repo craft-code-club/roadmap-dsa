@@ -239,6 +239,35 @@ test.describe("sliding-window · casca adaptativa", () => {
     );
   });
 
+  test("janela fixa: encurtar o array encurta o k, e o campo não passa a mentir", async ({ page }) => {
+    await page.setViewportSize({ width: 1512, height: 900 });
+    await page.goto(URL);
+    const figura = page.locator("article figure.viz").nth(JANELA_FIXA);
+    const campoK = figura.locator("input.viz-input.k");
+    const campoArray = figura.locator("input.viz-input").first();
+
+    // Preset que deixa a janela do tamanho do array.
+    await figura.getByRole("button", { name: "k = n: uma janela só" }).click();
+    await expect(campoK).toHaveValue("8");
+
+    // Agora o array encolhe para três elementos. O k de 8 não cabe mais.
+    await campoArray.fill("4, 9, 2");
+    await expect(figura.locator(".viz-cell-wrap")).toHaveCount(3);
+
+    // O campo tem que dizer o k que está VALENDO. Antes ele seguia em 8
+    // enquanto o algoritmo já usava 3, e o aluno lia um e via o outro.
+    await expect(campoK).toHaveValue("3");
+    await expect(estatistica(figura, "tamanho (n)")).toHaveText("3");
+    await expect(estatistica(figura, "leituras da força bruta")).toHaveText("3");
+
+    // E a aula fecha com o mesmo número do campo: 4 + 9 + 2 = 15.
+    const proximo = figura.getByRole("button", { name: "Próximo ›" });
+    for (let i = 0; i < 20 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(figura.locator(".viz-note")).toHaveText(
+      /a maior soma de 3 elementos seguidos é 15/
+    );
+  });
+
   test("janela fixa: as leituras batem com o rótulo do card e com a nota final", async ({ page }) => {
     await page.setViewportSize({ width: 1512, height: 900 });
     await page.goto(URL);
