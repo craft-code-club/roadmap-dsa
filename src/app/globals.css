@@ -627,7 +627,16 @@ html { scroll-behavior: smooth; }
 .str-byte-cell { display: inline-grid; place-items: center; min-width: 34px; height: 30px; padding: 0 5px; border-radius: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; color: #071019; }
 .str-byte-cell.ini { box-shadow: inset 0 0 0 2px rgba(7, 16, 25, 0.55); }
 
-/* tabela caractere → code point → bytes */
+/* tabela caractere → code point → bytes.
+   O `overflow-x: auto` daqui não é só a barra horizontal da tabela larga: ele é
+   o que deixa esta tabela servir de bloco recolhível da casca adaptativa sem uma
+   linha de CSS a mais. Um item de grid só ganha o tamanho mínimo automático
+   quando o overflow dele é `visible`; com o eixo X em `auto`, o Y sai de
+   `visible` junto, o mínimo automático vira 0 e a trilha do `.viz-code-slot`
+   consegue fechar de `1fr` para `0fr`. É por isso que o `.viz-code`, que é
+   `overflow: hidden`, também dispensa `min-height` — e por isso o par de regras
+   que eu tinha escrito aqui para "ajudar" não fazia nada (o teste passava
+   inteiro com elas removidas). */
 .str-scroll { overflow-x: auto; margin-bottom: 4px; }
 .str-tab { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13.5px; }
 .str-tab th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); border-bottom: 1px solid var(--ccc-line); }

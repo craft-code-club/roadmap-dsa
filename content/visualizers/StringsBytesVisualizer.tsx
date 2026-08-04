@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // StringsBytesVisualizer, "caractere" não é "byte".
@@ -15,6 +16,12 @@ import { createPortal } from "react-dom";
 // produção: grafemas (o que a pessoa vê), code points (o len do Python),
 // unidades UTF-16 (o Length do C# e do Java) e bytes (o que vai para o disco,
 // para o banco e para a rede).
+//
+// Da casca (`content/visualizers/README.md`) ele usa `total: 1`, porque não há
+// linha do tempo para percorrer, e o bloco recolhível é a TABELA, não código:
+// medido em 1512x900, ir de 3 para 20 code points sobe a peça de 730px para
+// 1.410px, e os 680px de diferença são todos linha de tabela. Os quatro
+// contadores e a fita de bytes, que é o que o artigo manda olhar, cabem sempre.
 // ---------------------------------------------------------------------------
 
 type EncKey = "ascii" | "utf8" | "utf16" | "utf32";
@@ -137,19 +144,6 @@ function countGraphemes(cps: number[]): number {
 export function StringsBytesVisualizer() {
   const [text, setText] = useState(DEFAULT_TEXT);
   const [enc, setEnc] = useState<EncKey>("utf8");
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
 
   const cps = useMemo(
     () => Array.from(text).slice(0, MAX_CP).map((c) => c.codePointAt(0) ?? 0),
@@ -180,24 +174,29 @@ export function StringsBytesVisualizer() {
     l.bytes.map((b, j) => ({ key: `${l.i}-${j}`, b, color: l.color, first: j === 0 }))
   );
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · caractere, code point e byte</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {num(totals[enc])} bytes em {currentEnc.name}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const viz = useVisualizer({
+    title: "Visualizador · caractere, code point e byte",
+    // Não há linha do tempo: some o contador de passo, o rodapé e os atalhos.
+    total: 1,
+    // O rótulo do botão tem que dizer o que some, e aqui o que some é a tabela.
+    blockName: "tabela",
+    // O que muda a altura: quantos code points (uma linha de tabela cada), qual
+    // encoding (o número de chips de byte por linha) e o total de bytes (a fita
+    // quebra linha a cada ~30 quadradinhos).
+    measureOn: [cps.length, enc, totals[enc]],
+  });
 
-      <div className="viz-body">
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* O contador de bytes ocupa o lugar do "passo N de M", que não existe
+          aqui: é o número que resume o estado desta peça. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {num(totals[enc])} bytes em {currentEnc.name}
+        </span>
+      </VizHeader>
+
+      <div {...viz.bodyProps}>
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Texto (até {MAX_CP} code points)</span>
@@ -286,7 +285,12 @@ export function StringsBytesVisualizer() {
           )}
         </div>
 
-        <div className="str-scroll">
+        {/* O slot recolhe a ALTURA da tabela (`grid-template-rows: 1fr → 0fr`).
+            A tabela fica no DOM mesmo recolhida, e é isso que permite medir o
+            pior caso de altura; `inert` tira ela do teclado e dos leitores de
+            tela enquanto está fora de vista. */}
+        <div className="viz-code-slot">
+        <div className="str-scroll" {...viz.blockProps}>
           <table className="str-tab">
             <thead>
               <tr>
@@ -326,6 +330,7 @@ export function StringsBytesVisualizer() {
             </tbody>
           </table>
         </div>
+        </div>
 
         <p className="viz-note">
           {graphemes === cps.length && cps.length === utf16Units
@@ -336,18 +341,5 @@ export function StringsBytesVisualizer() {
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }

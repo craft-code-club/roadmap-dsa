@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // StringsRotateVisualizer, o LeetCode 796 (Rotate String) nos dois caminhos.
 //
-// Gerador puro de passos + a casca compartilhada, igual ao TwoPointersVisualizer.
+// Gerador puro de passos + a casca adaptativa do `useVisualizer` (contrato em
+// `content/visualizers/README.md`).
 // A diferença é que aqui existem DUAS fitas de células alinhadas: a string de
 // trabalho em cima e o goal embaixo. O alinhamento sai de graça porque as duas
 // fitas têm o mesmo número de células do mesmo tamanho (as posições fora da
@@ -71,7 +73,6 @@ const WORDS = ["abcde", "craft", "codigo", "rotate", "banana"];
 
 const MAX = 10;
 const SPEEDS = [0, 1400, 950, 650, 420, 250];
-const SPEED_LABELS = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 
 function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -287,58 +288,25 @@ export function StringsRotateVisualizer() {
   const [mode, setMode] = useState<Mode>("loop");
   const [s, setS] = useState(PRESETS[0].s);
   const [goal, setGoal] = useState(PRESETS[0].goal);
-  const [step, setStep] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   const steps = useMemo(() => generateSteps(s, goal, mode), [s, goal, mode]);
-  const total = steps.length;
-  const idx = Math.min(step, total - 1);
-  const p = steps[idx];
   const cfg = MODES.find((m) => m.key === mode) ?? MODES[0];
   const n = Math.min(Array.from(s).length, MAX);
 
-  const stop = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => stop(), [stop]);
+  const viz = useVisualizer({
+    title: "Visualizador · Rotate String, força bruta contra o truque",
+    total: steps.length,
+    speeds: SPEEDS,
+    // O que muda a altura da peça: o modo (no truque a fita passa de n para 2n
+    // células e quebra linha antes), o tamanho de s e o de goal — quando os dois
+    // diferem o gerador para em dois passos e a peça encolhe.
+    measureOn: [mode, n, Array.from(goal).length],
+  });
 
-  useEffect(() => {
-    stop();
-    if (!playing) return;
-    timer.current = setInterval(() => setStep((v) => (v >= total - 1 ? v : v + 1)), SPEEDS[speed]);
-    return stop;
-  }, [playing, speed, total, stop]);
-
-  useEffect(() => {
-    if (playing && idx >= total - 1) setPlaying(false);
-  }, [playing, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reset = () => {
-    stop();
-    setPlaying(false);
-    setStep(0);
-  };
+  const p = steps[viz.step];
 
   const apply = (nextS: string, nextGoal: string) => {
-    reset();
+    viz.reset();
     setS(Array.from(nextS).slice(0, MAX).join(""));
     setGoal(Array.from(nextGoal).slice(0, MAX).join(""));
   };
@@ -360,7 +328,6 @@ export function StringsRotateVisualizer() {
 
   const worstLoop = n * (2 * n - 1);
   const noteClass = "viz-note" + (p.ok ? " ok" : p.done ? " invalid" : "");
-  const stepPct = Math.round(((idx + 1) / total) * 100);
   const code = mode === "loop" ? LOOP_CODE : TRICK_CODE;
 
   const vars = [
@@ -370,24 +337,11 @@ export function StringsRotateVisualizer() {
     { name: "comparações", value: num(p.comparisons), best: true },
   ];
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" style={{ background: cfg.color }} />
-          <span>Visualizador · Rotate String, força bruta contra o truque</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} color={cfg.color} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {MODES.map((m) => {
             const on = m.key === mode;
@@ -397,7 +351,7 @@ export function StringsRotateVisualizer() {
                 className={`bigo-chip${on ? " on" : ""}`}
                 style={on ? { borderColor: m.color, color: m.color } : undefined}
                 onClick={() => {
-                  reset();
+                  viz.reset();
                   setMode(m.key);
                 }}
                 aria-pressed={on}
@@ -484,20 +438,24 @@ export function StringsRotateVisualizer() {
         <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">
-              {cfg.file} · {cfg.family}
-            </div>
-            <div className="viz-code-body">
-              {code.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* O slot recolhe a ALTURA do código: zerar só a trilha da coluna
+              tiraria a largura e deixaria a linha do grid do mesmo tamanho. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">
+                {cfg.file} · {cfg.family}
+              </div>
+              <div className="viz-code-body">
+                {code.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {vars.map((v) => (
               <div className="viz-var" key={v.name}>
@@ -507,78 +465,13 @@ export function StringsRotateVisualizer() {
             ))}
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reset}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              stop();
-              setPlaying(false);
-              setStep(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (playing) {
-                setPlaying(false);
-                return;
-              }
-              setStep(idx >= total - 1 ? 0 : idx);
-              setPlaying(true);
-            }}
-          >
-            {playing ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              stop();
-              setPlaying(false);
-              setStep(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={speed}
-              onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{SPEED_LABELS[speed]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${stepPct}%`, background: cfg.color }} />
-        </div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} color={cfg.color} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
