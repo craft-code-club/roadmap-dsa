@@ -515,7 +515,11 @@ export function VizFooter({
   // (SubTypesVisualizer e PrefixSumTradeoff, nesta mesma rodada). Sem `children`
   // não há o que desenhar, e aí o rodapé some inteiro.
   if (viz.total <= 1) {
-    if (!children) return null;
+    // Ausência, não falsidade: `0` e `""` são conteúdo legítimo e um `!children`
+    // os engoliria — o mesmo tipo de sumiço silencioso que este conserto veio
+    // resolver. `== null` cobre `null` e `undefined`; `false` entra junto porque
+    // é o que sobra de um `{cond && <button/>}` com a condição falsa.
+    if (children == null || children === false) return null;
     return (
       <div className="viz-foot">
         <div className="viz-controls">{children}</div>
