@@ -1,0 +1,131 @@
+<Callout>
+O shell sort é o que acontece quando alguém olha para o [insertion sort](/topico/ordenacao-basica), identifica exatamente qual detalhe o torna lento, e troca **uma constante por uma variável**. O resultado é um algoritmo que cabe em dez linhas, não aloca um byte, não usa recursão, e ainda assim escapa do quadrático. Ele também é o único algoritmo clássico cuja complexidade de caso médio continua sem fórmula fechada conhecida.
+</Callout>
+
+## O insertion sort com a constante 1 virando variável
+
+O insertion sort é excelente numa coisa e péssimo em outra. Excelente: quando um elemento está perto do lugar dele, achar esse lugar custa quase nada. Péssimo: quando um elemento está **longe** do lugar dele, ele precisa andar uma posição por vez.
+
+Esse "uma posição por vez" é a origem do problema inteiro. Num array como `2 3 4 5 6 7 8 1`, trazer o `1` da última posição para a primeira custa 7 deslocamentos, um para cada vizinho, mesmo o array estando quase pronto.
+
+Donald Shell publicou em 1959 a ideia que ataca exatamente isso: **e se a comparação não fosse com o vizinho, mas com quem está a `gap` posições de distância?** Assim um elemento pode viajar longe pagando pouco. Depois, basta ir diminuindo o `gap` até chegar a 1, e a última rodada é o insertion sort de sempre, só que sobre um array quase arrumado.
+
+Compare os dois códigos lado a lado. A única diferença é o `1` ter virado `gap`:
+
+```python
+def insertion_sort(a):
+    for i in range(1, len(a)):
+        atual = a[i]
+        j = i
+        while j >= 1 and a[j - 1] > atual:
+            a[j] = a[j - 1]
+            j -= 1
+        a[j] = atual
+```
+
+```python
+def shell_sort(a):
+    n = len(a)
+    gap = n // 2                     # sequência original de Shell
+    while gap > 0:
+        for i in range(gap, n):
+            atual = a[i]
+            j = i
+            while j >= gap and a[j - gap] > atual:
+                a[j] = a[j - gap]    # empurra pelo gap
+                j -= gap
+            a[j] = atual
+        gap //= 2                    # e no fim gap = 1: insertion sort
+```
+
+Não há estrutura nova, recursão, pilha, buffer, nem caso especial. Há um laço externo a mais e a constante trocada.
+
+<ShellSortVisualizer />
+
+## Uma rodada de gap h são h insertion sorts entrelaçados
+
+A pergunta que fica depois do código é: o que uma rodada de gap 4 **significa**? Comparar posições distantes parece arbitrário.
+
+Não é. Com gap `h`, a posição `i` só é comparada com `i - h`, `i - 2h`, `i - 3h` e assim por diante. Ou seja, o array se parte em `h` **subsequências entrelaçadas**, uma para cada resto da divisão do índice por `h`, e cada uma é ordenada por inserção como se fosse um array independente. Elas dividem a mesma fita de memória e não se enxergam.
+
+<ShellSortSubsequencias />
+
+Isso muda a leitura do algoritmo. Uma rodada de gap 4 num array de 8 posições não é uma passada esquisita: são **4 insertion sorts de 2 elementos cada**, e um insertion sort de 2 elementos é uma comparação. Barato por construção.
+
+## Por que as rodadas anteriores não são desperdício
+
+Aqui está a pergunta que decide se o algoritmo funciona: **ordenar com gap 2 não desmancha o que a rodada de gap 4 tinha arrumado?**
+
+Chame um array de **h-ordenado** quando todo elemento é menor ou igual ao que está `h` casas à frente. A rodada de gap `h` deixa o array h-ordenado, por construção. E existe um resultado que sustenta o shell sort inteiro:
+
+**Um array h-ordenado continua h-ordenado depois de ser ordenado com qualquer outro gap.**
+
+Dá para acompanhar isso nos selos do visualizador acima: uma vez que o `4-ordenado` acende, ele não apaga mais, nem depois da rodada de gap 2, nem depois da de gap 1. As garantias se **acumulam** em vez de se substituírem.
+
+E é daí que vem a economia. Quando a última rodada começa, o array já é 4-ordenado e 2-ordenado ao mesmo tempo, o que quer dizer que todo elemento está a pouquíssimas casas do lugar definitivo. A rodada de gap 1 é o insertion sort puro, o pior algoritmo do trio básico, rodando exatamente na única situação em que ele é o melhor do mundo: entrada quase ordenada.
+
+<Callout>
+O shell sort não substitui o insertion sort, ele **prepara o terreno** para ele. É por isso que a última rodada tem que ser gap 1: sem ela não há garantia nenhuma de que o array esteja ordenado, porque ser 2-ordenado não implica ser 1-ordenado.
+</Callout>
+
+## A sequência de gaps, e o que ela muda
+
+A proposta original de Shell é a mais simples possível: comece em `n/2` e divida por 2 a cada rodada. Ela funciona, e tem um defeito conhecido que vale entender porque é puramente aritmético.
+
+Todos os gaps de `n/2, n/4, n/8, ...` são **potências de dois**. Isso significa que, até a última rodada, uma posição par só é comparada com posições pares e uma ímpar só com ímpares. Se a entrada colocar todos os valores pequenos nas posições pares, as rodadas anteriores praticamente não ajudam, e a rodada final recebe um array quase tão bagunçado quanto o original.
+
+O visualizador tem uma entrada montada exatamente para isso, e o resultado é dramático: com 128 elementos, a sequência original gasta **4.609 comparações** enquanto a de Hibbard (gaps sempre ímpares) gasta **1.038**.
+
+<ShellSortGaps />
+
+Foi esse defeito que gerou uma linhagem de propostas, cada uma mexendo só na lista de gaps e deixando o algoritmo intacto:
+
+| Sequência | Gaps | Pior caso conhecido |
+| --- | --- | --- |
+| Shell (1959) | n/2, n/4, n/8, ... | Θ(n²) |
+| Hibbard (1963) | 1, 3, 7, 15, 31, ... (2ᵏ - 1) | Θ(n^1,5) |
+| Knuth (1973) | 1, 4, 13, 40, 121, ... (3k + 1) | O(n^1,5) |
+| Sedgewick (1986) | 1, 5, 19, 41, 109, ... | O(n^4/3) |
+| Ciura (2001) | 1, 4, 10, 23, 57, 132, 301, 701 | sem prova, melhor medida |
+
+A última linha é a mais curiosa da tabela. A sequência de Ciura não foi deduzida de nenhuma fórmula: ela foi **encontrada por busca empírica**, testando combinações e medindo. Não existe termo geral publicado para continuá-la, e mesmo assim é ela que costuma medir melhor. Isso é raro em computação, e é sintoma de um fato maior: **o caso médio do shell sort segue em aberto**. Não há fórmula fechada conhecida para a maioria das sequências.
+
+Uma ressalva contra o exagero: numa entrada típica, sem estrutura adversária, as quatro sequências ficam na mesma faixa entre si. A decisão que muda a ordem de grandeza é usar gap maior que 1; qual fórmula gera os gaps é ajuste fino, exceto quando a entrada conspira contra os fatores em comum.
+
+## Onde ele ganha e onde ele perde
+
+O shell sort tem um custo fixo que o insertion sort não tem: ele varre o array inteiro uma vez por gap. Com poucos elementos, esse custo domina.
+
+Com 8 elementos, o shell sort quase sempre **perde**. Com 32, ele já ganha com folga numa entrada embaralhada (138 comparações contra 313). Com 128, a diferença é de quatro vezes (993 contra 4.396). O ponto de virada fica por volta de uma dúzia de elementos, e não é um número mágico: é onde `n` cresce o bastante para o termo quadrático do insertion sort superar o custo das rodadas extras.
+
+Existe um caso, porém, em que aumentar `n` **não** vira a conta: entrada **quase ordenada**. Se o array tem poucas inversões, o insertion sort é praticamente linear, e nenhuma sequência de gaps consegue vencer isso, porque o shell sort varre o array inteiro uma vez por gap aconteça o que acontecer. Com 128 elementos e 16 inversões, o insertion sort faz 142 comparações e a melhor sequência de gaps faz 476.
+
+Essa é uma limitação real e vale nomeá-la: **o shell sort não é adaptativo**. Ele não fica mais barato quando a entrada já está quase pronta, e é justamente essa capacidade que o Timsort persegue quando procura trechos já ordenados antes de qualquer outra coisa (vale ver como isso é usado em [merge sort](/topico/merge-sort)).
+
+## In-place e instável
+
+<Colunas>
+<Cartao titulo="In-place">
+Todas as escritas acontecem dentro do array original. A memória extra é O(1): uma variável para o valor na mão e outra para o índice. Não há recursão, então também não há pilha.
+</Cartao>
+<Cartao titulo="Instável">
+Um elemento salta `gap` posições de uma vez e passa por cima de tudo que está no meio, inclusive de valores com a mesma chave.
+</Cartao>
+</Colunas>
+
+A instabilidade merece atenção porque ela é a **consequência direta** da única mudança feita no insertion sort. O insertion sort é estável porque só compara vizinhos e só desloca quem for **estritamente maior**: um empate para o laço, e a ordem original se preserva. O shell sort compara elementos distantes, e o valor que fica entre eles nunca é consultado. Se esse valor do meio tem a mesma chave, ele é ultrapassado sem que ninguém perceba.
+
+O padrão é o mesmo do selection sort e do [quick sort](/topico/quick-sort): **movimento longo custa estabilidade**. Os algoritmos estáveis do grupo, insertion e [merge sort](/topico/merge-sort), são exatamente os que nunca movem um elemento por cima de outro sem compará-los.
+
+## Onde o shell sort ainda vive
+
+Com merge sort, quick sort e heap sort disponíveis, faz sentido perguntar quem ainda usa um algoritmo cuja complexidade ninguém sabe calcular direito. A resposta é um nicho pequeno e real, e ele se define pelo que o shell sort **não** precisa:
+
+- **Não precisa de memória extra**, ao contrário do merge sort.
+- **Não precisa de pilha de recursão**, ao contrário do quick sort. Isso importa em firmware, bootloader e interrupção, onde a pilha é medida em kilobytes.
+- **Não precisa de código grande.** São dez linhas sem casos especiais, e binário pequeno é requisito em sistema embarcado.
+- **Não tem pior caso catastrófico** como o do quick sort, ainda que a garantia seja mais fraca que a do heap sort.
+
+Isso explica onde ele aparece de verdade. A `uClibc`, biblioteca C usada em sistemas embarcados, implementa o `qsort` dela como shell sort. O `bzip2` usa um shell sort com os incrementos de Knuth para ordenar trechos pequenos dentro do algoritmo de compressão. Nos dois casos o critério é o mesmo: simplicidade e ausência de recursão valem mais do que os últimos por cento de velocidade.
+
+E há o motivo pedagógico, que é o melhor de todos: o shell sort é a demonstração mais barata que existe de que **melhorar um algoritmo nem sempre significa trocá-lo**. A ideia toda foi olhar para o gargalo do insertion sort (o movimento de uma casa por vez), perguntar o que aconteceria se ele fosse maior, e descobrir que a resposta muda a classe de complexidade. Vale carregar essa pergunta para os próximos tópicos, e o caminho natural daqui é [Ordenação Básica](/topico/ordenacao-basica) para revisitar de onde ele saiu, ou [quick sort](/topico/quick-sort) e [merge sort](/topico/merge-sort) para ver o que se ganha aceitando recursão e memória extra.
