@@ -49,10 +49,15 @@ def na_tela(caminho: str) -> Counter:
     s = open(caminho, encoding="utf-8").read()
     s = re.sub(r"//[^\n]*|/\*.*?\*/", "", s, flags=re.S)     # comentário não é tela
     achados = []
-    for padrao in (ASPAS_DUPLAS, ASPAS_SIMPLES, CRASE, JSX_TEXTO):
+    # O teto de tamanho é do nó JSX, e só dele; a flag diz isso explicitamente
+    # em vez de perguntar `padrao is JSX_TEXTO`, que compara IDENTIDADE de
+    # objeto — funcionaria por acidente aqui e calaria se alguém montasse o
+    # padrão numa variável nova.
+    for padrao, e_jsx in ((ASPAS_DUPLAS, False), (ASPAS_SIMPLES, False),
+                          (CRASE, False), (JSX_TEXTO, True)):
         for m in re.finditer(padrao, s, flags=re.S):
             t = m.group(1)
-            if padrao is JSX_TEXTO and len(t) > MAX_JSX:
+            if e_jsx and len(t) > MAX_JSX:
                 continue
             t = re.sub(r"\$\{[^{}]*\}", "§", t)              # interpolação é código
             t = " ".join(t.split())                          # a indentação não é tela
