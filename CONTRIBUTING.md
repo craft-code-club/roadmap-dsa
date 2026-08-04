@@ -206,6 +206,10 @@ npx --yes --package @commitlint/cli --package @commitlint/config-conventional \
 - ✅ **FAÇA** `npm test` passar (navegação, links e âncoras).
 - ✅ **CONSIDERE** adicionar um teste quando o PR resolve um bug ou adiciona algo
   navegável (nav, links, âncoras do índice).
+- ℹ️ A suíte sobe um servidor estático servindo o `./out`, na porta **3000 por
+  padrão** (`PORT` muda). Se a porta estiver ocupada (um `npm run dev`
+  esquecido, outra suíte rodando), o Playwright **falha dizendo isso** em vez de
+  testar o que está lá — rode com outra: `PORT=3101 npm test`.
 
 
 ## <a name="ci-forks"></a> CI e Pull Requests de forks
