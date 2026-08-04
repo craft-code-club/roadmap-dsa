@@ -411,8 +411,12 @@ export function BacktrackingVisualizer() {
               {p.pilha.length === 0 ? (
                 <span className="bb-array-nota">vazia</span>
               ) : (
-                [...p.pilha].reverse().map((t, k) => (
-                  <span key={k} className={`bt-quadro${k === 0 ? " topo" : ""}`}>
+                // A inversão é só do CSS (column-reverse): o primeiro quadro do
+                // array é a chamada mais antiga e aparece embaixo, o último é o
+                // topo da pilha e aparece em cima. Inverter também aqui era
+                // desfazer o efeito e deixar o destaque no quadro errado.
+                p.pilha.map((t, k) => (
+                  <span key={k} className={`bt-quadro${k === p.pilha.length - 1 ? " topo" : ""}`}>
                     backtrack([{t}])
                   </span>
                 ))

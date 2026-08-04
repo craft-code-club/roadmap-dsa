@@ -232,15 +232,19 @@ export function gerarPassos(preset: Preset): Passo[] {
     return false;
   };
 
-  const ok = resolver();
+  const resolveu = resolver();
+  const ok = resolveu && !estourou;
   prof = 0;
   out.push(
     base({
+      // O verde do card é uma afirmação: só vale quando o tabuleiro foi mesmo
+      // resolvido. Interrupção por limite e tabuleiro sem solução são os dois
+      // casos em que ele mentiria.
+      ok,
       linha: 2,
-      ok: true,
       nota: estourou
         ? `Parei em ${LIMITE_PASSOS} passos para não travar o navegador. Isso já é a lição: este tabuleiro exige mais passos do que uma animação consegue mostrar.`
-        : ok
+        : resolveu
           ? `Resolvido. Foram ${tentativas} tentativas de dígito para ${vazias.length} lacunas, com ${retrocessos} retrocessos. A razão entre esses dois primeiros números é o preço da força bruta: cada célula custou em média ${(tentativas / vazias.length).toFixed(1)} tentativas.`
           : `Este tabuleiro não tem solução, e o backtracking provou isso do único jeito que ele sabe: tentando tudo.`,
     })
