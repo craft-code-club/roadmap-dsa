@@ -595,6 +595,19 @@ html { scroll-behavior: smooth; }
 .tp-canvas-wrap { border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); overflow-x: auto; }
 .tp-svg { display: block; width: 100%; min-width: 440px; height: auto; }
 
+/* Camada 2 da casca adaptativa, para ESTE desenho: com `width: 100%` o rho é
+   esticado até a largura do corpo, e o que cresce junto é o vazio entre os nós.
+   Medido em 1512x900, no fluxo do artigo: viewBox de 406x204 renderizando a
+   800x402px, ou seja 402 dos 939px da peça, contra um orçamento de 816.
+   O teto devolve 138px sem esconder nada — o `preserveAspectRatio` padrão
+   encolhe e centraliza o desenho, que continua inteiro na tela.
+   No expandido o teto sai: lá o miolo rola, e o painel existe justamente para
+   ver o desenho maior. Vence por especificidade, não por ordem de arquivo. */
+@media (max-height: 950px) {
+  .tp-svg { max-height: 264px; }
+  .viz-overlay-fit .tp-svg { max-height: none; }
+}
+
 /* ------ Strings: heap de alocações, fita de bytes e as duas fitas do rotate ---
    Prefixo .str-* para não colidir com os próximos temas. Usado por
    StringsVisualizer, StringsBytesVisualizer e StringsRotateVisualizer. */
