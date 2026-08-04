@@ -838,6 +838,16 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .arr-addr { height: 13px; font-family: var(--mono); font-size: 10px; line-height: 13px; letter-spacing: -0.02em; color: #4c5f79; }
 .arr-addr.on { color: var(--ccc-accent-2); font-weight: 700; }
 
+/* Mapa das linhas de cache: um cartão por bloco de 64 B, com o intervalo de
+   índices que mora nele. Estava em `style={{...}}` no componente; virou classe
+   aqui para o bloco temático dos arrays ser o único lugar onde a aparência
+   desta peça se decide. */
+.arr-cache-mapa { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 14px; }
+.arr-cache-linha { flex: 1 1 160px; min-width: 0; padding: 8px 10px; border: 1px solid var(--ccc-line); border-radius: 9px; background: var(--ccc-panel); }
+.arr-cache-linha.on { border-color: var(--ccc-accent); background: var(--ccc-accent-soft); }
+.arr-cache-rot { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ccc-muted); }
+.arr-cache-faixa { margin-top: 2px; font-family: var(--mono); font-size: 13px; }
+
 /* A conta do endereço, em destaque: base + i * tamanho. */
 .arr-formula { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 16px 0 2px; padding: 13px 15px; border: 1px solid var(--ccc-line); border-left: 3px solid var(--ccc-accent); border-radius: 10px; background: var(--ccc-panel); font-family: var(--mono); font-size: 14px; color: #cbd9ea; overflow-x: auto; }
 .arr-formula b { color: #fff; font-weight: 700; }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // ArraysVisualizer, memória contígua e o cálculo do endereço.
@@ -17,6 +18,10 @@ import { createPortal } from "react-dom";
 //
 // Nada de Intl/Date/Math.random no render: a formatação hexadecimal e a de
 // milhar são determinísticas para o HTML do build bater com o do cliente.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
 type Tipo = { key: string; rotulo: string; bytes: number; exemplo: string };
@@ -32,9 +37,6 @@ const LINHA_CACHE = 64;
 const BASE_PADRAO = 0x1000;
 const MAX_ITENS = 20;
 const DEFAULT_NUMS = [12, 7, 45, 3, 20, 8, 31, 16];
-
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 
 function milhar(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -66,89 +68,58 @@ export function ArraysVisualizer() {
   const [nums, setNums] = useState<number[]>(DEFAULT_NUMS);
   const [tipoKey, setTipoKey] = useState("b4");
   const [baseTexto, setBaseTexto] = useState("0x1000");
-  const [i, setI] = useState(3);
   const [cache, setCache] = useState(false);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   const tipo = useMemo(() => TIPOS.find((t) => t.key === tipoKey) ?? TIPOS[2], [tipoKey]);
   const base = useMemo(() => lerBase(baseTexto), [baseTexto]);
   const n = nums.length;
-  const idx = Math.min(Math.max(i, 0), n - 1);
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  // O passo AQUI é o índice lido: andar na linha do tempo é andar no array.
+  const viz = useVisualizer({
+    title: "Visualizador · memória contígua e o endereço de nums[i]",
+    total: n,
+    // O que muda a altura da peça: quantas células (elas quebram linha), o mapa
+    // de linhas de cache aparecendo, e o tamanho do elemento — que muda quantas
+    // linhas de cache o array ocupa, e portanto quantos cartões o mapa tem.
+    measureOn: [n, cache, tipoKey],
+  });
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setI((v) => (v >= n - 1 ? v : v + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, n, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= n - 1) setTocando(false);
-  }, [tocando, idx, n]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  const idx = viz.step;
 
   const aoMudarEntrada = (v: string) => {
-    parar();
-    setTocando(false);
-    const arr = lerNums(v);
+    viz.reset();
     setEntrada(v);
-    setNums(arr);
-    setI((p) => Math.min(p, arr.length - 1));
+    setNums(lerNums(v));
   };
 
   const sortear = () => {
     const qtd = 7 + Math.floor(Math.random() * 4);
     const arr = Array.from({ length: qtd }, () => 1 + Math.floor(Math.random() * 60));
-    parar();
-    setTocando(false);
+    viz.reset();
     setNums(arr);
     setEntrada(arr.join(", "));
-    setI(Math.floor(qtd / 2));
+    viz.setStep(Math.floor(qtd / 2));
   };
 
   const preset20 = () => {
     const arr = Array.from({ length: 20 }, (_, k) => (k + 1) * 3);
-    parar();
-    setTocando(false);
+    viz.reset();
     setNums(arr);
     setEntrada(arr.join(", "));
     setTipoKey("b4");
     setBaseTexto("0x1000");
     setCache(true);
-    setI(16);
+    viz.setStep(16);
   };
 
-  const reiniciar = () => {
-    parar();
-    setTocando(false);
+  const restaurar = () => {
+    viz.reset();
     setNums(DEFAULT_NUMS);
     setEntrada(DEFAULT_NUMS.join(", "));
     setTipoKey("b4");
     setBaseTexto("0x1000");
     setCache(false);
-    setI(3);
+    viz.setStep(3);
   };
 
   const tam = tipo.bytes;
@@ -198,26 +169,11 @@ export function ArraysVisualizer() {
     { nome: "endereço", valor: hex(endereco), best: true },
   ];
 
-  const pct = Math.round(((idx + 1) / n) * 100);
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · memória contígua e o endereço de nums[i]</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            índice {idx} de {n - 1}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
-
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Array</span>
@@ -232,8 +188,17 @@ export function ArraysVisualizer() {
               aria-label="Endereço base em hexadecimal"
             />
           </label>
+          {/* Os presets ficam AQUI, e não na linha de controles, porque com um
+              array de 1 elemento não há linha do tempo e o rodapé some inteiro —
+              levar o "20 inteiros" junto deixaria o aluno sem volta. */}
           <button className="viz-btn" onClick={sortear}>
             Sortear
+          </button>
+          <button className="viz-btn" onClick={preset20}>
+            20 inteiros
+          </button>
+          <button className="viz-btn" onClick={restaurar}>
+            Voltar ao padrão
           </button>
         </div>
 
@@ -272,11 +237,7 @@ export function ArraysVisualizer() {
                 className={c.cls}
                 aria-pressed={c.k === idx}
                 aria-label={`Índice ${c.k}, valor ${c.v}, endereço ${hex(c.addr)}`}
-                onClick={() => {
-                  parar();
-                  setTocando(false);
-                  setI(c.k);
-                }}
+                onClick={() => viz.stepBy(c.k - idx)}
               >
                 {c.v}
               </button>
@@ -286,33 +247,14 @@ export function ArraysVisualizer() {
         </div>
 
         {cache ? (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              marginTop: 14,
-              alignItems: "stretch",
-            }}
-            aria-label="Mapa das linhas de cache"
-          >
+          <div className="arr-cache-mapa" aria-label="Mapa das linhas de cache">
             {linhasCache.map((l) => (
-              <div
-                key={l.bloco}
-                style={{
-                  flex: "1 1 160px",
-                  minWidth: 0,
-                  padding: "8px 10px",
-                  borderRadius: 9,
-                  border: `1px solid ${l.atual ? "var(--ccc-accent)" : "var(--ccc-line)"}`,
-                  background: l.atual ? "var(--ccc-accent-soft)" : "var(--ccc-panel)",
-                }}
-              >
-                <div style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--ccc-muted)" }}>
+              <div key={l.bloco} className={`arr-cache-linha${l.atual ? " on" : ""}`}>
+                <div className="arr-cache-rot">
                   Linha de cache {hex(l.bloco * LINHA_CACHE)}
                   {l.atual ? " · a que foi lida" : ""}
                 </div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 13, marginTop: 2 }}>
+                <div className="arr-cache-faixa">
                   {l.de === l.ate ? `índice ${l.de}` : `índices ${l.de} a ${l.ate}`} ·{" "}
                   {l.ate - l.de + 1} de {n}
                 </div>
@@ -331,28 +273,34 @@ export function ArraysVisualizer() {
         <p className="viz-note">{nota}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">acesso.py</div>
-            <div className="viz-code-body">
-              <div className="viz-line">
-                <span className="ln">1</span>
-                {"def endereco(base, i, tamanho):"}
-              </div>
-              <div className="viz-line on">
-                <span className="ln">2</span>
-                {"    return base + i * tamanho   # uma multiplicação e uma soma"}
-              </div>
-              <div className="viz-line">
-                <span className="ln">3</span>
-                {""}
-              </div>
-              <div className="viz-line">
-                <span className="ln">4</span>
-                {"# vale para i = 0 e para i = 999_999: o custo não muda -> O(1)"}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura do
+              código. O `.viz-code-slot` é o truque de grid 1fr→0fr, a única
+              forma de animar altura automática em CSS puro. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">acesso.py</div>
+              <div className="viz-code-body">
+                <div className="viz-line">
+                  <span className="ln">1</span>
+                  {"def endereco(base, i, tamanho):"}
+                </div>
+                <div className="viz-line on">
+                  <span className="ln">2</span>
+                  {"    return base + i * tamanho   # uma multiplicação e uma soma"}
+                </div>
+                <div className="viz-line">
+                  <span className="ln">3</span>
+                  {""}
+                </div>
+                <div className="viz-line">
+                  <span className="ln">4</span>
+                  {"# vale para i = 0 e para i = 999_999: o custo não muda -> O(1)"}
+                </div>
               </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {variaveis.map((v) => (
               <div className="viz-var" key={v.nome}>
@@ -381,81 +329,13 @@ export function ArraysVisualizer() {
             <strong>{milhar(linhasCache.length)}</strong>
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setI(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setI(idx >= n - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === n - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setI(Math.min(idx + 1, n - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <button className="viz-btn" onClick={preset20}>
-            20 inteiros
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pct}%` }} />
-        </div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
