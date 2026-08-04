@@ -176,6 +176,292 @@ test("Big O traz o gráfico de crescimento, o contador de operações e a tabela
   await expect(page.getByRole("link", { name: /Big O Notation/ })).toHaveAttribute("href", /geeksforgeeks/);
 });
 
+// ---------------------------------------------------------------------------
+// Casca adaptativa (.viz-fit), estreando no contador de operações do Big O.
+//
+// O que motivou: numa janela de notebook a peça pede mais altura do que existe,
+// e o expandido rolava INTEIRO — o título e os botões de reprodução saíam da
+// tela junto com o conteúdo, então o aluno perdia de vista justamente o
+// "Próximo ›" que faz o algoritmo andar.
+//
+// Estes testes medem COMPORTAMENTO e leem RÓTULO: contar elemento não separa um
+// código recolhido de um código que nunca renderizou, e um bloco que aparece
+// com o botão ainda escrito "Mostrar código" ensina errado do mesmo jeito.
+// ---------------------------------------------------------------------------
+
+const CONTADOR = "figure.viz-fit";
+
+/** Caixas do quadro, do cabeçalho e do rodapé + o estado da rolagem do miolo. */
+function medirCasca(page: import("@playwright/test").Page) {
+  return page.locator(CONTADOR).evaluate((fig) => {
+    const cx = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { topo: Math.round(r.top), base: Math.round(r.bottom) };
+    };
+    const corpo = fig.querySelector(".viz-body") as HTMLElement;
+    return {
+      quadro: cx(fig),
+      cabeca: cx(fig.querySelector(".viz-head")!),
+      rodape: cx(fig.querySelector(".viz-foot")!),
+      sobra: corpo.scrollHeight - corpo.clientHeight,
+      rolagem: Math.round(corpo.scrollTop),
+    };
+  });
+}
+
+/** Altura visível do bloco de código (recolhido ele fica com os 2px da borda). */
+function alturaCodigo(page: import("@playwright/test").Page) {
+  return page
+    .locator(`${CONTADOR} .viz-code`)
+    .evaluate((el) => Math.round(el.getBoundingClientRect().height));
+}
+
+test("Big O expandido: cabeçalho e controles ficam parados, só o miolo rola", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 620 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(viz.getByRole("button", { name: /Fechar/ })).toBeVisible();
+
+  // Abro o código na mão para garantir conteúdo maior que a janela: o teste é
+  // sobre o que acontece QUANDO sobra conteúdo, não sobre a decisão automática.
+  const alternar = viz.locator(".viz-toggle-codigo");
+  if ((await alternar.textContent())?.includes("Mostrar")) await alternar.click();
+  await expect(alternar).toHaveText("Ocultar código");
+
+  // A altura do código anima em 0,32s: espero ela assentar antes de medir a
+  // casca, senão eu mediria um layout a caminho do lugar.
+  await expect.poll(async () => await alturaCodigo(page)).toBeGreaterThan(150);
+
+  const antes = await medirCasca(page);
+  expect(antes.sobra, "o miolo precisa ter mais conteúdo do que altura para o teste valer").toBeGreaterThan(20);
+  // 1px de tolerância: a borda do quadro fica por fora do cabeçalho.
+  expect(antes.cabeca.topo - antes.quadro.topo, "cabeçalho colado no topo do quadro").toBeLessThanOrEqual(2);
+  expect(antes.quadro.base - antes.rodape.base, "rodapé colado na base do quadro").toBeLessThanOrEqual(2);
+
+  // Rolar o miolo até o fim não pode levar a casca junto.
+  await viz.locator(".viz-body").evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  const depois = await medirCasca(page);
+  expect(depois.rolagem, "o miolo rolou de verdade").toBeGreaterThan(20);
+  expect(depois.cabeca, "o cabeçalho se mexeu ao rolar").toEqual(antes.cabeca);
+  expect(depois.rodape, "o rodapé se mexeu ao rolar").toEqual(antes.rodape);
+
+  // E o que importa: os controles continuam à mão, com o rótulo certo.
+  await expect(viz.getByRole("button", { name: /Rodar/ })).toBeInViewport();
+  await expect(viz.locator(".viz-head-title")).toBeInViewport();
+
+  // O artigo atrás fica travado: quem rola é o painel, não a página.
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
+
+  // Fechar devolve a rolagem da página.
+  await viz.getByRole("button", { name: /Fechar/ }).click();
+  await expect(page.locator(".viz-overlay")).toHaveCount(0);
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
+});
+
+test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 620 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(viz.getByRole("button", { name: /Fechar/ })).toBeVisible();
+  await expect(page.locator(".viz-overlay")).toHaveAttribute("aria-modal", "true");
+
+  // Voltas suficientes para dar duas passadas na lista de focáveis: se o foco
+  // escapasse uma única vez, o artigo por baixo receberia o Tab.
+  const fugas: string[] = [];
+  for (let i = 0; i < 24; i++) {
+    await page.keyboard.press("Tab");
+    const onde = await page.evaluate(() => {
+      const a = document.activeElement;
+      const fig = document.querySelector("figure.viz-fit");
+      return { dentro: !!(fig && a && fig.contains(a)), quem: a?.className || a?.tagName || "?" };
+    });
+    if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
+  }
+  expect(fugas, "o foco vazou do painel").toEqual([]);
+
+  // E para trás também, que é o lado que costuma ficar de fora do laço.
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await page.evaluate(() => {
+      const fig = document.querySelector("figure.viz-fit");
+      return !!(fig && document.activeElement && fig.contains(document.activeElement));
+    })
+  ).toBe(true);
+
+  // O código recolhido some para leitor de tela, não só para o teclado.
+  const alternar = viz.locator(".viz-toggle-codigo");
+  if ((await alternar.textContent())?.includes("Ocultar")) await alternar.click();
+  await expect(alternar).toHaveText("Mostrar código");
+  await expect(viz.locator(".viz-code")).toHaveAttribute("aria-hidden", "true");
+  await alternar.click();
+  await expect(viz.locator(".viz-code")).not.toHaveAttribute("aria-hidden", "true");
+});
+
+test("Big O expandido: setas andam o passo e espaço roda, sem atrapalhar quem digita", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(viz.getByRole("button", { name: /Fechar/ })).toBeVisible();
+  const passo = viz.locator(".viz-step");
+  await expect(passo).toHaveText("passo 1 de 7");
+
+  // seta direita anda, seta esquerda volta
+  await page.keyboard.press("ArrowRight");
+  await expect(passo).toHaveText("passo 2 de 7");
+  await page.keyboard.press("ArrowRight");
+  await expect(passo).toHaveText("passo 3 de 7");
+  await page.keyboard.press("ArrowLeft");
+  await expect(passo).toHaveText("passo 2 de 7");
+
+  // e não passa das pontas
+  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowLeft");
+  await expect(passo).toHaveText("passo 1 de 7");
+
+  // espaço roda e pausa, lido pelo rótulo do botão (que é o que promete o estado)
+  const play = viz.locator(".viz-play");
+  await expect(play).toHaveText(/Rodar/);
+  await page.keyboard.press("Space");
+  await expect(play).toHaveText(/Pausar/);
+  await page.keyboard.press("Space");
+  await expect(play).toHaveText(/Rodar/);
+
+  // A parte que importa: com o cursor num campo, seta é cursor e espaço é
+  // espaço. Sequestrar isso deixaria o array impossível de editar.
+  const entrada = viz.locator(".viz-input").first();
+  await entrada.click();
+  const antes = await passo.textContent();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await expect(passo, "a seta foi sequestrada com o cursor no campo").toHaveText(antes!);
+
+  // O espaço tem que chegar ao campo. Não asserto o passo aqui de propósito:
+  // editar o array reinicia a animação por regra própria do componente, e
+  // confundir uma coisa com a outra esconderia o sequestro em vez de pegá-lo.
+  // Comparo o valor com ele mesmo em vez de olhar o fim da string: no macOS a
+  // tecla End não leva o cursor ao fim do campo, então o espaço cai onde o
+  // clique deixou o cursor. O que precisa ser verdade é que ele CHEGOU.
+  const valorAntes = await entrada.inputValue();
+  await page.keyboard.press("Space");
+  await expect
+    .poll(async () => (await entrada.inputValue()).length, { message: "o espaço não chegou ao campo" })
+    .toBe(valorAntes.length + 1);
+  await expect(play, "o espaço rodou a animação em vez de digitar").toHaveText(/Rodar/);
+
+  // Mesma regra no controle de velocidade, onde a seta é do próprio slider.
+  const veloc = viz.locator(".viz-speed input[type=range]");
+  await veloc.focus();
+  const vAntes = await veloc.inputValue();
+  const pAntes = await passo.textContent();
+  await page.keyboard.press("ArrowLeft");
+  await expect(veloc, "a seta não chegou ao controle de velocidade").not.toHaveValue(vAntes);
+  await expect(passo).toHaveText(pAntes!);
+});
+
+test("Big O: em tela baixa o código já abre recolhido, com as variáveis em uma linha", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  const alternar = viz.locator(".viz-toggle-codigo");
+  // O rótulo é a asserção: ele é a única coisa que promete ao aluno o que o
+  // clique vai fazer.
+  await expect(alternar).toHaveText("Mostrar código");
+  await expect(alternar).toHaveAttribute("aria-expanded", "false");
+  expect(await alturaCodigo(page), "o código deveria estar recolhido").toBeLessThan(8);
+
+  // As variáveis viram fichas na mesma linha (é isso que a largura liberada
+  // compra); e continuam legíveis, com nome e valor.
+  const fichas = await viz.locator(".viz-var").evaluateAll((els) =>
+    els.map((e) => ({
+      topo: Math.round(e.getBoundingClientRect().top),
+      texto: (e.textContent ?? "").trim(),
+    }))
+  );
+  expect(fichas.length).toBeGreaterThanOrEqual(2);
+  expect(new Set(fichas.map((f) => f.topo)).size, "as variáveis não ficaram na mesma linha").toBe(1);
+  expect(fichas.map((f) => f.texto)).toContain("operações0");
+
+  // E recolher tem que valer a pena: o bloco que saiu responde por altura de
+  // verdade, não por 20px de nada.
+  const recolhido = await viz.evaluate((f) => Math.round(f.getBoundingClientRect().height));
+  await alternar.click();
+  await expect(alternar).toHaveText("Ocultar código");
+  await expect(alternar).toHaveAttribute("aria-expanded", "true");
+  await expect
+    .poll(async () => await alturaCodigo(page), { message: "o código não abriu ao clique" })
+    .toBeGreaterThan(150);
+  const aberto = await viz.evaluate((f) => Math.round(f.getBoundingClientRect().height));
+  expect(aberto - recolhido, "esconder o código precisa devolver altura de verdade").toBeGreaterThan(150);
+});
+
+test("Big O: em tela alta o código já vem aberto, sem precisar de clique", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 1400 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  await expect(viz.locator(".viz-toggle-codigo")).toHaveText("Ocultar código");
+  expect(await alturaCodigo(page), "com folga de altura o código não deveria sumir").toBeGreaterThan(200);
+  // as 11 linhas da busca binária, não um bloco vazio com a borda certa
+  await expect(viz.locator(".viz-line")).toHaveCount(11);
+  await expect(viz.locator(".viz-code-head")).toContainText("busca_binaria.py");
+});
+
+test("Big O: a escolha do aluno vence a medição até ele fechar o painel", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  const alternar = viz.locator(".viz-toggle-codigo");
+  await expect(alternar).toHaveText("Mostrar código"); // a medição decidiu recolher
+  await alternar.click();
+  await expect(alternar).toHaveText("Ocultar código");
+
+  // Trocar de algoritmo troca o código (2 a 11 linhas) e pediria uma medição
+  // nova. Como o aluno já escolheu, a escolha dele manda.
+  await viz.getByRole("button", { name: /Todos os pares/ }).click();
+  await expect(viz.locator(".viz-code-head")).toContainText("tem_repetido.py");
+  await expect(alternar).toHaveText("Ocultar código");
+  await expect
+    .poll(async () => await alturaCodigo(page), { message: "a escolha do aluno foi atropelada pela medição" })
+    .toBeGreaterThan(100);
+
+  // Estar aberto num instante não é a promessa: a promessa é CONTINUAR aberto,
+  // e a medição que poderia desfazer a escolha chega em quadro posterior. Uma
+  // espera fixa seguida de uma leitura só olharia o instante depois dela;
+  // amostrar exige que nenhum dos instantes tenha recolhido, e a série entra na
+  // mensagem quando falha.
+  const alturas: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    alturas.push(await alturaCodigo(page));
+    await page.waitForTimeout(80);
+  }
+  expect(Math.min(...alturas), `o código recolheu sozinho: ${alturas.join(", ")}`).toBeGreaterThan(100);
+});
+
+test("no celular, o botão do código funciona no contador do Big O", async ({ page }) => {
+  // Regressão: a regra `@media (max-width: 760px) { .viz-code { display: none } }`
+  // apagava o bloco por CSS. Com o botão na tela, clicar nele não fazia nada —
+  // o aluno de celular clicava e continuava sem código.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  const alternar = viz.locator(".viz-toggle-codigo");
+  await expect(alternar).toHaveText("Mostrar código");
+  await alternar.click();
+  await expect
+    .poll(async () => await alturaCodigo(page), { message: "o código não apareceu no celular" })
+    .toBeGreaterThan(150);
+  expect(await page.evaluate(() => document.body.scrollWidth > window.innerWidth)).toBe(false);
+});
+
 test("marcar um tópico como concluído persiste na sessão", async ({ page }) => {
   await page.goto("/topico/sliding-window/");
   // Há dois botões de concluir (topo e fim da página); ambos alternam juntos.

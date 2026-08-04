@@ -484,7 +484,10 @@ html { scroll-behavior: smooth; }
 /* expanded / overlay ("meio a meio") */
 .viz-overlay { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(4, 8, 14, 0.78); backdrop-filter: blur(4px); }
 .viz-overlay .viz { width: min(1200px, 100%); max-height: calc(100vh - 48px); overflow: auto; margin: 0; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8); }
-.viz-overlay .viz-split { grid-template-columns: 1fr 1fr; }
+/* `:not(.viz-fit)` porque a casca adaptativa manda no próprio grid (ela precisa
+   de trilhas todas em `fr` para animar). Sem isto a regra valeria por ordem de
+   cascata, que é o tipo de acoplamento que já colapsou painel neste arquivo. */
+.viz-overlay .viz:not(.viz-fit) .viz-split { grid-template-columns: 1fr 1fr; }
 .viz-overlay .viz-code-body { max-height: none; }
 .viz-overlay .viz-line { font-size: 14px; line-height: 1.9; }
 .viz-overlay .viz-cell { width: 58px; height: 58px; font-size: 19px; }
@@ -1613,6 +1616,89 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .bn-passeio { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
 .bn-passeio-txt { font-size: 11.5px; color: var(--ccc-muted); }
 
+/* --- casca adaptativa (.viz-fit): o que faz a peça caber na altura da tela ---
+   Problema medido no contador de operações do Big O: num notebook de 16" a
+   janela útil tem ~900px e a peça pede ~1.150px. Como `.viz-overlay .viz` rola
+   INTEIRO, o título e os botões de reprodução iam embora junto com o conteúdo,
+   e o aluno ficava rolando para achar o "Próximo ›".
+   A casca resolve em três camadas, e cada uma vale sozinha:
+     · no expandido, `.viz-head` e `.viz-foot` são flex-none e só `.viz-body`
+       rola (`min-height: 0` é o que permite o item de flex encolher);
+     · o bloco de código recolhe, e as variáveis viram uma fileira, que é o
+       formato que aproveita a largura liberada;
+     · a decisão de recolher vem de medição no componente, não daqui — este
+       arquivo só descreve os dois estados e a transição entre eles. */
+/* O respiro do pé do miolo mora no `.viz-body`, não na margem dos controles:
+   dentro de uma área rolável ele também serve de folga contra a borda, então o
+   último bloco nunca encosta na linha do rodapé fixo quando a rolagem chega ao
+   fim. Os 14 + 14 dão os 28px de gap, contra os 18 de antes. */
+.viz-fit .viz-body { padding-bottom: 14px; }
+.viz-fit .viz-controls { margin-top: 14px; }
+.viz-fit .viz-foot { padding: 0 20px 18px; }
+
+/* Duas trilhas em `fr` no lugar de `1fr 300px`: lista de trilhas só interpola
+   quando todas são da mesma natureza, e é isso que faz o código ENCOLHER junto
+   com a coluna em vez de sumir de um quadro para o outro. 2fr/1fr reproduz a
+   proporção antiga (~66% para o código num corpo de 1.000px). */
+.viz-fit .viz-split { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.viz-fit[data-codigo="off"] .viz-split { grid-template-columns: minmax(0, 0fr) minmax(0, 1fr); gap: 0; }
+/* A transição só liga DEPOIS da primeira decisão (`data-anim`), senão o aluno
+   vê o código aparecer e sumir sozinho quando as fontes chegam. */
+.viz-fit[data-anim="on"] .viz-split { transition: grid-template-columns 0.32s cubic-bezier(0.4, 0, 0.2, 1), gap 0.32s cubic-bezier(0.4, 0, 0.2, 1); }
+.viz-fit[data-anim="on"] .viz-code-slot { transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1); }
+.viz-fit[data-anim="on"] .viz-code-slot > .viz-code { transition: opacity 0.18s ease; }
+
+/* Zerar a trilha da coluna resolve a LARGURA e só ela: a linha do grid continua
+   com a altura do bloco (medido: 374px com o código recolhido, a peça inteira
+   em 941px onde cabiam 808). O slot é o truque de `grid-template-rows: 1fr →
+   0fr`, a única forma em CSS puro de animar altura automática. */
+.viz-fit .viz-code-slot { display: grid; grid-template-rows: 1fr; min-height: 0; }
+.viz-fit .viz-code-slot > .viz-code { min-height: 0; }
+.viz-fit[data-codigo="off"] .viz-code-slot { grid-template-rows: 0fr; }
+/* Com a trilha em 0 sobram os 2px de borda; a opacidade cobre esse resto. */
+.viz-fit[data-codigo="off"] .viz-code { opacity: 0; }
+
+/* Variáveis em fileira: o rótulo vira a primeira ficha da linha. */
+.viz-fit .viz-vars.linha { flex-flow: row wrap; align-items: center; gap: 8px; }
+.viz-fit .viz-vars.linha .viz-vars-head { margin: 0; }
+.viz-fit .viz-vars.linha .viz-var { flex: 0 1 auto; gap: 12px; padding: 8px 13px; animation: vizFichaEntra 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes vizFichaEntra { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.viz-toggle-codigo[aria-expanded="true"] { border-color: rgba(59, 130, 246, 0.45); color: #cfe0f6; }
+
+/* Dica dos atalhos: só no expandido (é onde as teclas valem) e só onde há
+   teclado — no celular ela seria uma instrução impossível de seguir. */
+.viz-atalhos { display: none; }
+.viz-overlay-fit .viz-fit .viz-atalhos { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 0 14px; font-size: 11.5px; color: #64768f; }
+.viz-atalhos kbd { min-width: 20px; padding: 2px 5px; border: 1px solid var(--ccc-line); border-bottom-width: 2px; border-radius: 5px; background: #0e1725; color: #8ba0bb; font-family: var(--mono); font-size: 10.5px; line-height: 1.4; text-align: center; }
+.viz-atalhos span { color: #3c4c63; }
+@media (max-width: 760px), (pointer: coarse) {
+  .viz-overlay-fit .viz-fit .viz-atalhos { display: none; }
+}
+
+/* --- o expandido: cabeçalho e controles parados, miolo rolando ----------- */
+.viz-overlay-fit { --viz-pad: clamp(10px, 2.4vh, 24px); padding: var(--viz-pad); }
+.viz-overlay-fit .viz.viz-fit {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 2 * var(--viz-pad));
+  max-height: calc(100dvh - 2 * var(--viz-pad));
+}
+.viz-overlay-fit .viz-fit .viz-head, .viz-overlay-fit .viz-fit .viz-foot { flex: none; }
+.viz-overlay-fit .viz-fit .viz-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* Sombra rasa nas duas bordas: diz que o conteúdo passa POR BAIXO delas.
+   A de baixo é mais fraca de propósito, e não por simetria de números: o
+   cabeçalho tem fundo próprio (#0f1826) e a sombra dele se dilui nesse degrau,
+   enquanto o rodapé divide o fundo com o miolo e soma com o `border-top` dos
+   controles. Com os mesmos valores nos dois, a de baixo lia como o dobro. */
+.viz-overlay-fit .viz-fit .viz-head { box-shadow: 0 10px 18px -14px rgba(0, 0, 0, 0.9); }
+.viz-overlay-fit .viz-fit .viz-foot { box-shadow: 0 -9px 16px -15px rgba(0, 0, 0, 0.45); }
+/* O cabeçalho ganhou um terceiro botão: em tela estreita ele quebra a linha em
+   vez de espremer o título. */
+.viz-fit .viz-head { flex-wrap: wrap; }
+.viz-fit .viz-head-right { flex-wrap: wrap; justify-content: flex-end; }
+
 /* ------------------------------ responsive ------------------------------ */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
@@ -1631,6 +1717,12 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .mdx-colunas { grid-template-columns: 1fr; }
   .toc { display: none; }
   .viz-split { grid-template-columns: 1fr; }
+  /* A casca adaptativa também empilha aqui: abaixo de 1000px não há largura
+     para código e variáveis lado a lado. A animação não se perde — quem
+     recolhe a altura é o `.viz-code-slot`, que independe do número de
+     colunas; só o encolher horizontal deixa de existir. */
+  .viz-fit .viz-split { grid-template-columns: minmax(0, 1fr); }
+  .viz-fit[data-codigo="off"] .viz-split { grid-template-columns: minmax(0, 1fr); }
   .site-foot { padding: 24px 20px; }
 }
 @media (max-width: 760px) {
@@ -1652,6 +1744,9 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
      (as células + variáveis já contam a história) e volta ao Expandir. */
   .viz-code { display: none; }
   .viz-overlay .viz-code { display: block; }
+  /* Na casca adaptativa quem decide isso é o botão "Mostrar código": sem esta
+     linha o aluno de celular clicaria no botão e nada apareceria. */
+  .viz-fit .viz-code { display: block; }
   /* classificador dos "sub": três colunas não cabem, viram lista. */
   .sub-vereditos, .sub-contagem { grid-template-columns: minmax(0, 1fr); }
   /* pilha e saída empilham no celular, senão os dois ficam estreitos demais */
@@ -1693,4 +1788,21 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .ms-niveis .ms-seg { font-size: 0; }
   .prevnext { flex-direction: column; }
   .topic-done { flex-direction: column; align-items: flex-start; }
+}
+/* Consulta por ALTURA, que é a dimensão que estoura no notebook: a largura
+   está sobrando e a vertical não. Aperta o que é respiro, nunca conteúdo, e só
+   dentro do expandido da casca adaptativa.
+   A ordem importa: comprimir primeiro, esconder depois. Recolher o código é a
+   última carta, e o limiar de 950px cobre a faixa dos notebooks (13" e 16" em
+   tela cheia, 1080p com barras) — medido, é o que faz o expandido do contador
+   de operações caber com o código à mostra numa janela de 900px, em vez de
+   passar 48px e ter de esconder um bloco que o aluno veio ler. */
+@media (max-height: 950px) {
+  .viz-overlay-fit .viz-fit .viz-body { padding-top: 14px; }
+  .viz-overlay-fit .viz-fit .bigo-chips { margin-bottom: 10px; }
+  .viz-overlay-fit .viz-fit .viz-inputs { margin-bottom: 14px; }
+  .viz-overlay-fit .viz-fit .viz-note { margin: 10px 0 12px; }
+  .viz-overlay-fit .viz-fit .viz-cell { width: 46px; height: 46px; font-size: 16px; }
+  .viz-overlay-fit .viz-fit .viz-controls { margin-top: 12px; padding-top: 12px; }
+  .viz-overlay-fit .viz-fit .viz-line { line-height: 1.62; }
 }

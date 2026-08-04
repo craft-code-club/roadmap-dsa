@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // ---------------------------------------------------------------------------
@@ -10,7 +10,36 @@ import { createPortal } from "react-dom";
 // compartilhada), com um detalhe a mais: cada passo carrega o contador de
 // operações. A ideia é o aluno ver o contador parar em 1, em log n, em n e em
 // n² sobre o MESMO array, e conferir a conta do pior caso ao lado.
+//
+// É também o primeiro a usar a casca ADAPTATIVA (`viz-fit`), que resolve um
+// problema medido: numa tela de notebook a peça não cabe nem expandida, e como
+// o quadro inteiro rolava, o título e os botões de reprodução saíam de vista
+// junto com o conteúdo. Três mudanças, nesta ordem de importância:
+//
+//   1. no expandido, cabeçalho e controles ficam PARADOS e só o miolo rola;
+//   2. o bloco de código (o mais alto e o mais dispensável para acompanhar o
+//      passo a passo) recolhe, e as variáveis viram uma fileira;
+//   3. quem decide isso é uma MEDIÇÃO — a peça cabe na altura disponível? —,
+//      não um breakpoint chutado. Tela grande com peça leve abre tudo; tela
+//      baixa, ou array grande, ou código de 11 linhas, já abre recolhido.
+//
+// Escolha explícita do aluno vence a medição até ele sair do modo expandido.
 // ---------------------------------------------------------------------------
+
+// `useLayoutEffect` não existe no servidor, e o build estático pré-renderiza
+// este componente. O alias evita o aviso do React sem abrir mão de medir ANTES
+// da pintura no navegador — é isso que faz o código já nascer recolhido, em vez
+// de aparecer e sumir na cara do aluno.
+const useEfeitoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+// Folga de arredondamento de layout: abaixo disso "estourar" é ruído de
+// subpixel, não conteúdo sem espaço.
+const FOLGA = 8;
+
+// Quanto do topo da janela já está ocupado quando a peça está no fluxo do
+// artigo: o cabeçalho fixo do site, mais um respiro para não colar na borda.
+const HEADER_H = 60;
+const RESPIRO_INLINE = 24;
 
 type Passo = {
   linha: number;
@@ -222,7 +251,37 @@ export function BigOCounterVisualizer() {
   const [mounted, setMounted] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // --- casca adaptativa: o código cabe ou não cabe? ------------------------
+  const idCodigo = useId();
+  const figRef = useRef<HTMLElement>(null);
+  const corpoRef = useRef<HTMLDivElement>(null);
+  const [codigoAberto, setCodigoAberto] = useState(true);
+  // `null` = ninguém escolheu na mão, a medição manda. Depois que o aluno
+  // clica, a escolha dele vale até ele entrar ou sair do modo expandido.
+  const escolhaManual = useRef<boolean | null>(null);
+  // Contador de rodadas de medição: cada bump pede uma decisão nova.
+  const [aferir, setAferir] = useState(0);
+  const rodadaMedida = useRef(-1);
+  // As fontes chegam com `display: swap`, então a primeira medição pegaria a
+  // altura da fonte de fallback. Espero elas antes de decidir.
+  const [fontesProntas, setFontesProntas] = useState(false);
+  // Decisão automática não anima; clique do aluno anima. Duas razões: a
+  // primeira decisão chega depois da pintura (as fontes são assíncronas) e ele
+  // veria o código aparecer e sumir sozinho; e medir com uma transição a
+  // caminho lê a altura do meio do percurso — foi exatamente esse o erro que
+  // deixou a peça passar 64px da janela dizendo que cabia.
+  const [animar, setAnimar] = useState(false);
+  const [medindo, setMedindo] = useState(false);
+
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    let vivo = true;
+    const ok = () => { if (vivo) setFontesProntas(true); };
+    if (typeof document !== "undefined" && document.fonts) document.fonts.ready.then(ok, ok);
+    else ok();
+    return () => { vivo = false; };
+  }, []);
 
   const alg = ALGORITMOS[iAlg];
   const passos = useMemo(() => alg.gerar(nums.length ? nums : [1], alvo), [alg, nums, alvo]);
@@ -236,6 +295,28 @@ export function BigOCounterVisualizer() {
   }, []);
   useEffect(() => () => parar(), [parar]);
 
+  // --- comandos, compartilhados pelos botões e pelo teclado ----------------
+  // `total` e `tocando` vêm de ref porque a tecla REPETE muito mais rápido que
+  // o clique: ler o valor do closure engoliria repetições, que é o mesmo bug de
+  // clique perdido que já apareceu neste repo, só que mais fácil de disparar.
+  const totalRef = useRef(total);
+  const tocandoRef = useRef(false);
+  useEffect(() => { totalRef.current = total; }, [total]);
+  useEffect(() => { tocandoRef.current = tocando; }, [tocando]);
+
+  const irPasso = useCallback((delta: number) => {
+    parar();
+    setTocando(false);
+    setPasso((s) => Math.max(0, Math.min(s + delta, totalRef.current - 1)));
+  }, [parar]);
+
+  const alternarPlay = useCallback(() => {
+    if (tocandoRef.current) { parar(); setTocando(false); return; }
+    // no fim da animação, rodar de novo rebobina em vez de não fazer nada
+    setPasso((s) => (s >= totalRef.current - 1 ? 0 : s));
+    setTocando(true);
+  }, [parar]);
+
   useEffect(() => {
     parar();
     if (!tocando) return;
@@ -247,12 +328,139 @@ export function BigOCounterVisualizer() {
     if (tocando && idx >= total - 1) setTocando(false);
   }, [tocando, idx, total]);
 
+  // Teclado do painel: Esc fecha, o Tab circula DENTRO dele, e as setas e o
+  // espaço dirigem a animação. Sem a trava do Tab o `aria-modal="true"` seria
+  // uma promessa falsa — o foco escapava para o artigo por baixo, que é
+  // justamente o que "modal" diz que não acontece.
+  //
+  // As setas e o espaço só valem no expandido, e **só quando o cursor não está
+  // num campo**: com o array em edição, seta é mover o cursor e espaço é digitar
+  // um espaço. Mesma coisa no controle de velocidade, onde a seta é do próprio
+  // slider. E espaço com um botão em foco é o botão, não o atalho.
   useEffect(() => {
     if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const emCampo = (alvo: EventTarget | null) =>
+      !!(alvo as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']");
+    const focaveis = () => {
+      const painel = figRef.current;
+      if (!painel) return [] as HTMLElement[];
+      const seletor = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      return [...painel.querySelectorAll<HTMLElement>(seletor)].filter(
+        (el) => !el.hasAttribute("disabled") && !el.closest("[inert]") && el.offsetParent !== null
+      );
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setExpanded(false); return; }
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        if (emCampo(e.target)) return;
+        e.preventDefault(); // senão a seta rola o miolo junto
+        irPasso(e.key === "ArrowRight" ? 1 : -1);
+        return;
+      }
+      if (e.key === " " || e.key === "Spacebar") {
+        if (emCampo(e.target) || (e.target as HTMLElement | null)?.closest?.("button")) return;
+        e.preventDefault(); // espaço rolaria a área rolável
+        alternarPlay();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const painel = figRef.current;
+      const itens = focaveis();
+      if (!painel || !itens.length) return;
+      const primeiro = itens[0], ultimo = itens[itens.length - 1];
+      const ativo = document.activeElement;
+      if (!painel.contains(ativo)) {
+        // O foco já estava fora (barra do navegador, por exemplo): traz de volta.
+        e.preventDefault();
+        (e.shiftKey ? ultimo : primeiro).focus();
+      } else if (e.shiftKey && (ativo === primeiro || ativo === painel)) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && ativo === ultimo) {
+        e.preventDefault();
+        primeiro.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [expanded, irPasso, alternarPlay]);
+
+  // Enquanto o painel está aberto ele é a única coisa que rola: sem isso a
+  // roda do mouse atravessa o overlay e leva o artigo embora por baixo.
+  useEffect(() => {
+    if (!expanded) return;
+    const corpo = document.body;
+    const overflowAntes = corpo.style.overflow;
+    const padAntes = corpo.style.paddingRight;
+    const barra = window.innerWidth - document.documentElement.clientWidth;
+    corpo.style.overflow = "hidden";
+    if (barra > 0) corpo.style.paddingRight = `${barra}px`;
+    return () => { corpo.style.overflow = overflowAntes; corpo.style.paddingRight = padAntes; };
   }, [expanded]);
+
+  // Diálogo de verdade: o foco entra no painel ao abrir e volta para onde
+  // estava ao fechar, senão o teclado continua navegando o artigo escondido.
+  useEffect(() => {
+    if (!expanded) return;
+    const anterior = document.activeElement as HTMLElement | null;
+    figRef.current?.focus();
+    return () => anterior?.focus?.();
+  }, [expanded]);
+
+  // (1) trocar de contexto zera a escolha manual: abrir o painel grande é um
+  // pedido novo de "mostre isso do melhor jeito nesta tela".
+  useEfeitoLayout(() => { escolhaManual.current = null; }, [expanded]);
+
+  // (2) o que pede uma decisão nova: entrar/sair do expandido, trocar de
+  // algoritmo (o código vai de 2 a 11 linhas), mudar o tamanho do array e a
+  // chegada das fontes.
+  useEfeitoLayout(() => { setAferir((a) => a + 1); }, [expanded, iAlg, n, fontesProntas]);
+
+  // (3) a decisão, em duas passadas dentro do MESMO quadro (efeito de layout
+  // roda antes da pintura, então nada disso aparece na tela):
+  //   passada 1 — congela a animação e abre o código, que é o pior caso de
+  //               altura. Sem congelar, o passo seguinte mediria um bloco
+  //               ainda a caminho da altura final e concluiria "cabe";
+  //   passada 2 — mede o layout já estável e decide.
+  useEfeitoLayout(() => {
+    if (!fontesProntas || escolhaManual.current !== null) return;
+    if (rodadaMedida.current === aferir) return;
+    if (!medindo || !codigoAberto) { setMedindo(true); setCodigoAberto(true); return; }
+    const fig = figRef.current, corpo = corpoRef.current;
+    if (!fig || !corpo) return;
+    rodadaMedida.current = aferir;
+    const estoura = expanded
+      // Expandido: o miolo é a única área rolável, então "não coube" é ele
+      // precisar de mais altura do que a janela deixou para ele.
+      ? corpo.scrollHeight > corpo.clientHeight + FOLGA
+      // No fluxo do artigo a régua é a janela: se a peça inteira não cabe numa
+      // tela, o aluno olha o array sem enxergar os botões que o fazem andar.
+      : fig.getBoundingClientRect().height > window.innerHeight - HEADER_H - RESPIRO_INLINE - FOLGA;
+    if (estoura) setCodigoAberto(false);
+    // Só no quadro seguinte, para o recolhimento desta decisão não animar.
+    requestAnimationFrame(() => { setMedindo(false); setAnimar(true); });
+  }, [aferir, codigoAberto, expanded, fontesProntas, medindo]);
+
+  // Redimensionar a janela é a mudança de altura mais óbvia que existe.
+  useEffect(() => {
+    let quadro = 0;
+    const aoRedimensionar = () => {
+      cancelAnimationFrame(quadro);
+      quadro = requestAnimationFrame(() => setAferir((a) => a + 1));
+    };
+    window.addEventListener("resize", aoRedimensionar);
+    return () => { cancelAnimationFrame(quadro); window.removeEventListener("resize", aoRedimensionar); };
+  }, []);
+
+  const alternarCodigo = useCallback(() => {
+    setCodigoAberto((c) => {
+      // Anotar dentro do updater mantém a leitura e a escrita no mesmo valor
+      // mesmo em clique rápido; em StrictMode roda duas vezes com o mesmo
+      // resultado, então é idempotente.
+      escolhaManual.current = !c;
+      return !c;
+    });
+  }, []);
 
   const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
 
@@ -278,7 +486,14 @@ export function BigOCounterVisualizer() {
   const pctPasso = Math.round(((idx + 1) / total) * 100);
 
   const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
+    <figure
+      className="viz viz-fit"
+      data-codigo={codigoAberto ? "on" : "off"}
+      data-anim={animar && !medindo ? "on" : "off"}
+      style={{ margin: 0 }}
+      ref={figRef}
+      tabIndex={-1}
+    >
       <div className="viz-head">
         <div className="viz-head-title">
           <span className="dot" style={{ background: alg.cor }} />
@@ -286,13 +501,21 @@ export function BigOCounterVisualizer() {
         </div>
         <div className="viz-head-right">
           <span className="viz-step">passo {idx + 1} de {total}</span>
+          <button
+            className="viz-expand viz-toggle-codigo"
+            aria-expanded={codigoAberto}
+            aria-controls={idCodigo}
+            onClick={alternarCodigo}
+          >
+            {codigoAberto ? "Ocultar código" : "Mostrar código"}
+          </button>
           <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
             {expanded ? "✕ Fechar" : "⤢ Expandir"}
           </button>
         </div>
       </div>
 
-      <div className="viz-body">
+      <div className="viz-body" ref={corpoRef}>
         <div className="bigo-chips">
           {ALGORITMOS.map((a, i) => {
             const on = i === iAlg;
@@ -361,18 +584,33 @@ export function BigOCounterVisualizer() {
         <p className={notaCls}>{p.nota}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">{alg.arquivo} · {alg.formula}</div>
-            <div className="viz-code-body">
-              {alg.codigo.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuava com os 374px do
+              código (medido). O `.viz-code-slot` é o truque de grid 1fr→0fr,
+              a única forma de animar altura automática em CSS puro.
+              O código fica no DOM mesmo recolhido, e é isso que permite medir
+              o pior caso de altura; `inert` tira ele do teclado e dos leitores
+              de tela enquanto está fora de vista, com `aria-hidden` de reserva
+              para navegador ou leitor que ainda não honre `inert`. */}
+          <div className="viz-code-slot">
+            <div
+              className="viz-code"
+              id={idCodigo}
+              inert={!codigoAberto}
+              aria-hidden={!codigoAberto || undefined}
+            >
+              <div className="viz-code-head">{alg.arquivo} · {alg.formula}</div>
+              <div className="viz-code-body">
+                {alg.codigo.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div className={`viz-vars${codigoAberto ? "" : " linha"}`}>
             <div className="viz-vars-head">Variáveis</div>
             {p.vars.map((v) => (
               <div className="viz-var" key={v.nome}>
@@ -382,14 +620,23 @@ export function BigOCounterVisualizer() {
             ))}
           </div>
         </div>
+      </div>
 
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <div className="viz-foot">
         <div className="viz-controls">
           <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
+          <button className="viz-btn" disabled={idx === 0} aria-keyshortcuts="ArrowLeft" onClick={() => irPasso(-1)}>‹ Anterior</button>
+          <button className="viz-play" aria-keyshortcuts="Space" onClick={alternarPlay}>
             {tocando ? "❚❚ Pausar" : "▶ Rodar"}
           </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
+          <button className="viz-btn" disabled={idx === total - 1} aria-keyshortcuts="ArrowRight" onClick={() => irPasso(1)}>Próximo ›</button>
+          {/* Atalho que ninguém descobre é atalho que não existe. Só aparece no
+              expandido, que é onde ele vale, e some em tela sem teclado. */}
+          <p className="viz-atalhos">
+            <kbd>←</kbd><kbd>→</kbd> passo <span>·</span> <kbd>espaço</kbd> roda
+          </p>
           <div className="viz-speed">
             <span>Velocidade</span>
             <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
@@ -403,7 +650,13 @@ export function BigOCounterVisualizer() {
 
   if (expanded && mounted) {
     return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+      <div
+        className="viz-overlay viz-overlay-fit"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Visualizador · contando operações no mesmo array"
+        onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}
+      >
         {viz}
       </div>,
       document.body
