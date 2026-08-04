@@ -66,3 +66,7 @@ pnpm-debug.log*
 .claude/settings.local.json
 .claude/scheduled_tasks.*
 .claude/worktrees/
+
+# Cache do Python (os guardas em scripts/)
+__pycache__/
+*.pyc
