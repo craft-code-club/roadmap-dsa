@@ -383,9 +383,20 @@ test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
 test("heap: inserir, remover e construir contam trabalho diferente sobre os mesmos dados", async ({ page }) => {
   await page.goto("/topico/binary-heap/");
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  // O laço sai calado se o limite estourar, e aí a asserção seguinte roda num
+  // passo do meio. Pior: `trocas` vale 0 no passo 0 de TODO preset, então
+  // `toBe(0)` passaria sem um único clique. Exigir o botão desabilitado no fim
+  // é o que transforma "andei até o fim" em fato verificado.
   const irAteOFim = async () => {
-    const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    // `isEnabled()` lê UMA vez e não reconsulta, então logo após trocar de preset
+    // ele ainda pode devolver o estado desabilitado do fim da rodada anterior. Aí
+    // o laço não clica e o `toBeDisabled()` passa sobre esse mesmo estado velho:
+    // a asserção volta a ser vazia por outro caminho. A espera web-first abaixo é
+    // o que garante que a animação reiniciou antes de o laço começar.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 120 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
   // O texto do card é rótulo + valor concatenados ("trocas16"), então a regex
   // ancorada casa só o card certo e evita depender da ordem no DOM.
@@ -516,7 +527,9 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
   const viz = page.locator("figure.viz").filter({ hasText: "metade some a cada olhada" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const irAteOFim = async () => {
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
 
   // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear
@@ -567,7 +580,9 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
   const viz = page.locator("figure.viz").filter({ hasText: "repetidos, bordas e a posição de inserção" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const resposta = async (rot: RegExp) => {
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     return viz.locator(".bigo-stat").filter({ hasText: rot });
   };
 
