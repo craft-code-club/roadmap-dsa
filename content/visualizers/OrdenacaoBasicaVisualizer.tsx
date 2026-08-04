@@ -186,7 +186,7 @@ function gerarPassos(algo: Algo, valores: number[]): Passo[] {
         ok: !trocou,
         nota: trocou
           ? `Fim da passada: o maior valor desta faixa (${a[fim]}) chegou à posição ${fim} e não sai mais de lá. Encolho o limite e recomeço.`
-          : `Esta passada inteira não trocou nada. Isso só acontece quando cada vizinho já é maior que o anterior, ou seja, o array está ordenado. Paro aqui, sem fazer as ${(fim * (fim + 1)) / 2} comparações que ainda faltariam.`,
+          : `Esta passada inteira não trocou nada. Isso só acontece quando cada vizinho já é maior que o anterior, ou seja, o array está ordenado. Paro aqui, sem fazer as ${(fim * (fim - 1)) / 2} comparações que ainda faltariam.`,
       });
       if (!trocou) {
         saiuCedo = true;
