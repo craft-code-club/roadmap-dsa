@@ -234,6 +234,7 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | sem bloco dispensável (SVG de árvore, canvas) | `collapsible: false` — ganha o painel parado e nada mais. Não invente um bloco só para ter o botão |
 | o recolhível não é código | `blockName: "tabela"` — o rótulo passa a dizer o que some, porque **rótulo que mente ensina errado** |
 | sem linha do tempo (classificador, tabela) | `total: 1` — some o contador de passo, o rodapé e os atalhos |
+| sem passo, mas com um número que resume o estado | passe o número como `children` do `VizHeader`: ele entra onde ficaria o "passo N de M". Mande o **rótulo junto** (`3 bytes em UTF-8`, não `3`), porque sem o passo ao lado o número perde o contexto que o explicava |
 | ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
 | só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
@@ -252,6 +253,15 @@ seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
 - **Lista de trilhas de grid só interpola quando todas são da mesma natureza.**
   `1fr 300px → 1fr` não anima. `minmax(0,2fr) minmax(0,1fr) → minmax(0,0fr)
   minmax(0,1fr)` anima.
+- **Quem deixa a trilha fechar é o `overflow` do filho, não um `min-height`
+  escrito à mão.** Um item de grid só ganha tamanho mínimo automático quando o
+  overflow dele é `visible`; qualquer outro valor já zera esse mínimo. É por isso
+  que o `.viz-code`, que é `overflow: hidden`, fecha sem mais nada. Ao recolher
+  um bloco que **não** é `.viz-code`, olhe o `overflow` dele antes de escrever
+  CSS: uma tabela dentro de um container com `overflow-x: auto` já fecha sozinha,
+  e o par de regras "de apoio" que parece obrigatório é inerte. Prove antes de
+  ficar com ele — se o teste de altura passa com a regra removida, a regra não é
+  a razão de nada.
 - **A sombra do rodapé não é simétrica à do cabeçalho por acidente.** O
   cabeçalho tem fundo próprio e dilui a sombra nesse degrau de cor; o rodapé
   divide o fundo com o miolo e ainda soma com o `border-top` dos controles. Com
