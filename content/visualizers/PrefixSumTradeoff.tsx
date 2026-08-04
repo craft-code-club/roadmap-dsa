@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useVisualizer, VizHeader } from "@/lib/visualizer";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // PrefixSumTradeoff, o ponto de virada do pré-processamento.
@@ -25,12 +25,10 @@ import { useVisualizer, VizHeader } from "@/lib/visualizer";
 //   · `total: 1` — não há linha do tempo. O eixo q é um slider contínuo, não
 //     uma sequência de passos.
 //
-// E as duas juntas têm uma consequência que morde: `VizFooter` devolve `null`
-// quando `total <= 1`, **descartando os `children` em silêncio**. Os dois
-// sliders e o Reiniciar sumiriam da tela sem erro nenhum. Por isso o rodapé é
-// escrito à mão com `.viz-foot` + `.viz-controls`, que é API de CSS pública
-// (§4) e recebe a mesma linha divisória e o mesmo respiro do rodapé do hook.
-// Consertar o `VizFooter` é PR de plataforma, não carona desta adaptação.
+// Com `total: 1` o `VizFooter` não desenha passo, atalhos nem barra de
+// progresso — só os `children`. É o que os dois sliders e o Reiniciar pedem:
+// eles são os controles desta peça, e ficam no `.viz-foot` (irmão do
+// `.viz-body`) para não subirem junto com o miolo no painel expandido.
 // ---------------------------------------------------------------------------
 
 const ARRAYS = [10, 50, 100, 500, 1000, 5000, 10000, 100000];
@@ -365,38 +363,35 @@ export function PrefixSumTradeoff() {
         </div>
       </div>
 
-      {/* Rodapé à mão porque `VizFooter` devolve `null` com `total: 1` e leva os
-          `children` junto — ver o cabeçalho deste arquivo. Fora do `.viz-body`
-          é o que deixa os dois sliders parados no pé do painel expandido. */}
-      <div className="viz-foot">
-        <div className="viz-controls">
-          <div className="viz-field grow">
-            <span>n: array de {num(n)} posições</span>
-            <input
-              type="range"
-              min={0}
-              max={ARRAYS.length - 1}
-              step={1}
-              value={arrayIndex}
-              onChange={(e) => setArrayIndex(parseInt(e.target.value, 10))}
-              style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
-            />
-          </div>
-          <div className="viz-field grow">
-            <span>m: intervalo médio de {SLICE_LABELS[sliceIndex]}</span>
-            <input
-              type="range"
-              min={0}
-              max={SLICES.length - 1}
-              step={1}
-              value={sliceIndex}
-              onChange={(e) => setSliceIndex(parseInt(e.target.value, 10))}
-              style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
-            />
-          </div>
-          <button className="viz-btn" onClick={() => { setArrayIndex(4); setSliceIndex(1); setRawQ(21); }}>↺ Reiniciar</button>
+      {/* Fora do `.viz-body` é o que deixa os dois sliders parados no pé do
+          painel expandido — ver o cabeçalho deste arquivo. */}
+      <VizFooter viz={viz}>
+        <div className="viz-field grow">
+          <span>n: array de {num(n)} posições</span>
+          <input
+            type="range"
+            min={0}
+            max={ARRAYS.length - 1}
+            step={1}
+            value={arrayIndex}
+            onChange={(e) => setArrayIndex(parseInt(e.target.value, 10))}
+            style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
+          />
         </div>
-      </div>
+        <div className="viz-field grow">
+          <span>m: intervalo médio de {SLICE_LABELS[sliceIndex]}</span>
+          <input
+            type="range"
+            min={0}
+            max={SLICES.length - 1}
+            step={1}
+            value={sliceIndex}
+            onChange={(e) => setSliceIndex(parseInt(e.target.value, 10))}
+            style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
+          />
+        </div>
+        <button className="viz-btn" onClick={() => { setArrayIndex(4); setSliceIndex(1); setRawQ(21); }}>↺ Reiniciar</button>
+      </VizFooter>
     </figure>
   );
 

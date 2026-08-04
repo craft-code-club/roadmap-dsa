@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { useVisualizer, VizHeader } from "@/lib/visualizer";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // SubTypesVisualizer, subarray / substring / subsequence / subset.
@@ -25,9 +25,9 @@ import { useVisualizer, VizHeader } from "@/lib/visualizer";
 //   · `collapsible: false` — não existe bloco dispensável (nem código, nem
 //     painel de variáveis). Inventar um só para ganhar o botão "Mostrar" seria
 //     esconder conteúdo que o aluno veio ver.
-//   · o rodapé é escrito à mão. `VizFooter` é o rodapé de REPRODUÇÃO e não
-//     renderiza nada quando `total <= 1` — inclusive descartando `children`.
-//     Como os presets são os controles deste visualizador, eles precisam do
+//   · o rodapé é o `VizFooter` com `children` e sem linha do tempo: com
+//     `total: 1` ele não desenha passo, atalhos nem barra de progresso, só
+//     estes presets. Eles são os controles deste visualizador, e precisam do
 //     `.viz-foot` (irmão do `.viz-body`) para ficarem parados no pé do painel
 //     enquanto o miolo rola. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
@@ -215,16 +215,16 @@ export function SubTypesVisualizer() {
 
       {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé da
           janela enquanto o miolo rola. Sem isso os presets sobem junto com o
-          conteúdo e o aluno perde de vista os botões que movem o visualizador. */}
-      <div className="viz-foot">
-        <div className="viz-controls">
-          <span className="sub-exemplos-label">Tente:</span>
-          <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([1, 2])}>colado</button>
-          <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([0, 2])}>com buraco</button>
-          <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([2, 0])}>fora de ordem</button>
-          <button className="viz-btn" disabled={empty} onClick={() => setPicks([])} style={{ marginLeft: "auto" }}>↺ Limpar</button>
-        </div>
-      </div>
+          conteúdo e o aluno perde de vista os botões que movem o visualizador.
+          Com `total: 1` o `VizFooter` desenha só estes botões — sem passo, sem
+          atalhos e sem barra de progresso. */}
+      <VizFooter viz={viz}>
+        <span className="sub-exemplos-label">Tente:</span>
+        <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([1, 2])}>colado</button>
+        <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([0, 2])}>com buraco</button>
+        <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([2, 0])}>fora de ordem</button>
+        <button className="viz-btn" disabled={empty} onClick={() => setPicks([])} style={{ marginLeft: "auto" }}>↺ Limpar</button>
+      </VizFooter>
     </figure>
   );
 
