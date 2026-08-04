@@ -232,6 +232,39 @@ test("no expandido, seta e espaço andam a animação e não roubam a tecla de q
   await expect(page.locator(".viz-overlay")).toHaveCount(0);
 });
 
+test("o Pular para a consulta cai no mesmo passo por mais que se clique", async ({ page }) => {
+  // A tecla e o clique rápido repetem mais depressa do que o React re-renderiza:
+  // um salto escrito como delta a partir do passo atual soma o mesmo delta duas
+  // vezes e passa direto. Medido antes do conserto: dois cliques no mesmo quadro
+  // levavam do passo 9 ao 12 de 12, e o aluno via o resultado em vez da conta.
+  await page.setViewportSize({ width: 1512, height: 900 });
+  await page.goto(URL);
+  await preparar(page);
+  const peca = page.locator("article figure.viz").nth(0);
+  const botao = peca.getByRole("button", { name: "Pular para a consulta" });
+
+  // A ORDEM aqui é o teste. Os dois cliques precisam sair do passo 1: com a
+  // peça já na consulta o delta vale zero e a versão quebrada passaria verde —
+  // aconteceu, e o defeito era o experimento, não a asserção.
+  await expect(peca.locator(".viz-step")).toHaveText("passo 1 de 12");
+  await peca.evaluate((f) => {
+    const b = [...f.querySelectorAll("button")].find((x) =>
+      /Pular para a consulta/.test(x.textContent ?? "")
+    ) as HTMLButtonElement;
+    b.click();
+    b.click();
+  });
+  await expect(peca.locator(".viz-step")).toHaveText("passo 9 de 12");
+  // O rótulo do passo e a nota contam a mesma coisa: é o começo da consulta,
+  // não o resultado dela.
+  await expect(peca.locator(".viz-note")).toContainText("Tabela pronta com 7 somas");
+
+  // E clicar de novo, já lá, continua no mesmo lugar.
+  await botao.click();
+  await expect(peca.locator(".viz-step")).toHaveText("passo 9 de 12");
+  await expect(peca.locator(".viz-note")).toContainText("Tabela pronta com 7 somas");
+});
+
 test("o trade-off não promete esconder bloco nenhum, e os controles ficam parados", async ({
   page,
 }) => {
