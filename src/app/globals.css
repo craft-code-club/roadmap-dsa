@@ -1455,6 +1455,10 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .bb-passos li b { font-family: var(--mono); font-size: 14px; color: #cbd9ea; }
 .bb-passos li.ruim { background: rgba(248, 113, 113, 0.1); }
 .bb-passos li.ruim b { color: #fca5a5; }
+/* Foco NÃO é falha: o vermelho do .ruim afirma que algo deu errado, e usá-lo
+   para marcar a linha corrente de uma lista faz o passo atual parecer defeito. */
+.bb-passos li.foco { background: rgba(59, 130, 246, 0.14); }
+.bb-passos li.foco b { color: #93bbfd; }
 .bb-formula-fim { margin: 10px 0 0; font-size: 12.5px; line-height: 1.55; color: #8ba0bb; }
 
 .bb-bits { display: flex; flex-wrap: wrap; gap: 2px; margin: 8px 0 10px; }
@@ -1534,6 +1538,81 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .ss-selo.nao { border-color: rgba(255, 255, 255, 0.1); }
 .ord-linha.ss-base { border-style: dashed; }
 
+/* --- backtracking: a árvore explorada, a pilha, o sudoku e as rainhas ------
+   A árvore reusa a família tt-no; o que entra aqui é o estado "ainda não
+   visitado", que não existia (nas outras árvores todo nó já está lá desde o
+   começo), mais os dois tabuleiros. */
+.tt-no.porvir circle { fill: #0e1725; stroke: rgba(255, 255, 255, 0.1); }
+.tt-no.porvir text { fill: #3d4d63; }
+.bt-no text { font-size: 10.5px; }
+
+.bt-paineis { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.bt-pilha { display: flex; flex-direction: column-reverse; gap: 4px; }
+.bt-quadro { padding: 5px 10px; border: 1px solid var(--ccc-line); border-left: 3px solid rgba(255, 255, 255, 0.14); border-radius: 7px; background: #0f1826; font-family: var(--mono); font-size: 11.5px; color: #8ba0bb; }
+.bt-quadro.topo { border-left-color: var(--ccc-accent); background: rgba(59, 130, 246, 0.14); color: #dbeafe; }
+
+.bt-solucoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.bt-sol { padding: 4px 10px; border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 999px; background: rgba(52, 211, 153, 0.1); font-family: var(--mono); font-size: 12px; color: #a7f3d0; }
+.bt-sol.nova { border-color: var(--ccc-green); background: rgba(52, 211, 153, 0.24); color: #fff; animation: cccPulse 1s ease-out; }
+
+.bt-sudoku-wrap { overflow-x: auto; }
+.bt-sudoku { display: grid; gap: 0; width: max-content; min-width: 100%; max-width: 420px; margin: 0 auto; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 6px; overflow: hidden; }
+.bt-cel { display: grid; place-items: center; aspect-ratio: 1; min-width: 26px; border: 1px solid rgba(255, 255, 255, 0.08); font-family: var(--mono); font-size: 15px; font-weight: 600; color: #93bbfd; transition: background 0.15s ease, color 0.15s ease; }
+.bt-cel.topo { border-top: 2px solid rgba(255, 255, 255, 0.28); }
+.bt-cel.esq { border-left: 2px solid rgba(255, 255, 255, 0.28); }
+.bt-cel.fixa { background: rgba(255, 255, 255, 0.05); color: #cbd9ea; }
+.bt-cel.foco { background: rgba(52, 211, 153, 0.28); color: #fff; }
+.bt-cel.conflito { background: rgba(248, 113, 113, 0.26); color: #fecaca; text-decoration: line-through; }
+.bt-cel.apagou { background: rgba(251, 191, 36, 0.24); color: #fcd34d; text-decoration: line-through; }
+.bt-sudoku.n4 .bt-cel { font-size: 17px; }
+
+.bt-rainhas-topo { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.bt-rainhas { display: grid; width: max-content; min-width: 240px; max-width: 320px; margin: 0 auto; border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 6px; overflow: hidden; }
+.bt-casa { display: grid; place-items: center; aspect-ratio: 1; min-width: 28px; background: #0d1421; font-size: 19px; line-height: 1; }
+.bt-casa.clara { background: #16202f; }
+.bt-casa.rainha { color: #fcd34d; }
+
+/* --- números binários: a fita de bits, a conta por extenso e o vai-um ------
+   A fita é flex com itens de base zero, e não largura fixa: com 8 a 16 bits ela
+   precisa caber em 390px sem rolagem, e deixar cada bit encolher é o que
+   garante isso sem media query por quantidade. */
+.bn-fita { display: flex; gap: 4px; }
+.bn-bit { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 7px 2px 5px; border: 1.5px solid rgba(255, 255, 255, 0.12); border-radius: 8px; background: #0f1826; font: inherit; color: #6b7f99; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
+.bn-bit.estatico { cursor: default; }
+.bn-bit:hover:not(.estatico) { border-color: rgba(255, 255, 255, 0.3); }
+.bn-bit:focus-visible { outline: 2px solid var(--ccc-accent); outline-offset: 2px; }
+.bn-bit.on { border-color: var(--ccc-accent); background: rgba(59, 130, 246, 0.22); color: #dbeafe; }
+.bn-bit.vazio { border-style: dashed; opacity: 0.55; }
+.bn-bit.novo { animation: cccPulse 1s ease-out; border-color: var(--ccc-green); }
+.bn-bit.sinal { border-color: rgba(251, 191, 36, 0.55); }
+.bn-bit.sinal.on { border-color: #f87171; background: rgba(248, 113, 113, 0.24); color: #fecaca; }
+.bn-bit-val { font-family: var(--mono); font-size: 17px; font-weight: 700; line-height: 1.1; }
+.bn-bit-exp { font-family: var(--mono); font-size: 9px; color: #4c5f79; }
+.bn-bit-peso { font-family: var(--mono); font-size: 9.5px; color: #6b7f99; }
+.bn-fita.compacta .bn-bit { padding: 5px 2px; }
+.bn-fita.compacta .bn-bit-val { font-size: 14px; }
+
+.bn-conta { margin: 0 0 6px; font-family: var(--mono); font-size: 13px; line-height: 1.9; color: #8ba0bb; }
+.bn-termo { padding: 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); }
+.bn-termo.forte { background: rgba(59, 130, 246, 0.16); color: #93bbfd; }
+.bn-termo.forte.negativo { background: rgba(248, 113, 113, 0.16); color: #fca5a5; }
+.bn-mais { color: #4c5f79; }
+.bn-igual { font-weight: 700; color: #fff; }
+
+.bn-carrys { display: flex; gap: 4px; align-items: center; margin-top: 6px; }
+.bn-carry { display: grid; flex: 1 1 0; place-items: center; min-width: 0; height: 20px; border-radius: 5px; font-family: var(--mono); font-size: 11px; color: #4c5f79; }
+.bn-carry.on { background: rgba(251, 191, 36, 0.18); color: #fcd34d; }
+.bn-carry-rot { flex: 0 0 auto; padding-left: 6px; font-size: 10px; color: #6b7f99; }
+
+.bn-escrita { font-family: var(--mono); font-size: 13.5px; color: #cbd9ea; word-break: break-all; }
+.bn-grupos { display: flex; flex-wrap: wrap; gap: 8px; }
+.bn-grupo { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 10px; border: 1px solid var(--ccc-line); border-radius: 9px; background: #0e1725; }
+.bn-grupo-bits { font-family: var(--mono); font-size: 13px; color: #93bbfd; letter-spacing: 0.08em; }
+.bn-grupo-hex { font-family: var(--mono); font-size: 15px; font-weight: 700; color: #fcd34d; }
+
+.bn-passeio { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
+.bn-passeio-txt { font-size: 11.5px; color: var(--ccc-muted); }
+
 /* ------------------------------ responsive ------------------------------ */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
@@ -1584,6 +1663,15 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .bb-formulas, .hp-formulas { grid-template-columns: minmax(0, 1fr); }
   /* os dois lados da intercalação e as duas versões do operador viram lista */
   .ms-merge, .ms-operadores { grid-template-columns: minmax(0, 1fr); }
+  /* solução parcial e pilha de chamadas empilham: lado a lado em telas
+     estreitas as duas ficam sem largura para o rótulo do quadro. */
+  .bt-paineis { grid-template-columns: minmax(0, 1fr); }
+  /* a fita de bits encolhe junto: com 8 colunas em 300px de largura útil,
+     o peso da posição não cabe e o dígito precisa diminuir para o bit não
+     virar uma coluna de 20px. */
+  .bn-bit { padding: 5px 1px 4px; }
+  .bn-bit-val { font-size: 14px; }
+  .bn-bit-exp, .bn-bit-peso { font-size: 8px; }
 }
 @media (max-width: 560px) {
   .brand-name { display: none; } /* no celular, só o logo */

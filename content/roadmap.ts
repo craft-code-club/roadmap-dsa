@@ -23,7 +23,7 @@ export type Problem = {
   url: string;
 };
 
-export type Visualizer = "a-star" | "arrays" | "arvores-binarias" | "bellman-ford" | "big-o" | "binary-heap" | "bst" | "busca-binaria" | "dfs-bfs" | "dijkstra" | "filas" | "grafos-intro" | "hash-table" | "heap-sort" | "intervals" | "listas-ligadas" | "merge-sort" | "mst" | "n-ary-trees" | "ordenacao-basica" | "pilhas" | "prefix-sum" | "quick-sort" | "recursao" | "recursao-funcional" | "shell-sort" | "skip-list" | "sliding-window" | "strings" | "sub-types" | "topological-sort" | "tree-traversals" | "two-pointers";
+export type Visualizer = "a-star" | "arrays" | "arvores-binarias" | "backtracking" | "bellman-ford" | "big-o" | "binary-heap" | "binary-numbers" | "bst" | "busca-binaria" | "dfs-bfs" | "dijkstra" | "filas" | "grafos-intro" | "hash-table" | "heap-sort" | "intervals" | "listas-ligadas" | "merge-sort" | "mst" | "n-ary-trees" | "negative-binary" | "ordenacao-basica" | "pilhas" | "prefix-sum" | "quick-sort" | "recursao" | "recursao-funcional" | "shell-sort" | "skip-list" | "sliding-window" | "strings" | "sub-types" | "topological-sort" | "tree-traversals" | "two-pointers";
 
 // Vídeos extras de um tópico: aparecem como links clicáveis (não embed).
 export type VideoLink = { title: string; youtube?: string; url?: string; duration?: string };
@@ -946,7 +946,6 @@ export const GROUPS: Group[] = [
         level: "Fácil",
         status: "ready",
         viz: "ordenacao-basica",
-        isNew: true,
         youtube: yt("GxhxsbbzaTI"),
         videoMinutes: "1:52:10",
         readingTime: "12 min",
@@ -975,7 +974,6 @@ export const GROUPS: Group[] = [
         level: "Médio",
         status: "ready",
         viz: "merge-sort",
-        isNew: true,
         youtube: yt("lbktBOwmmhg"),
         videoMinutes: "3:14:02",
         readingTime: "13 min",
@@ -1004,7 +1002,6 @@ export const GROUPS: Group[] = [
         level: "Médio",
         status: "ready",
         viz: "quick-sort",
-        isNew: true,
         youtube: yt("2T0Itw-oaEA"),
         videoMinutes: "1:58:04",
         readingTime: "13 min",
@@ -1033,7 +1030,6 @@ export const GROUPS: Group[] = [
         level: "Médio",
         status: "ready",
         viz: "shell-sort",
-        isNew: true,
         youtube: yt("symbT7Cgrr8"),
         videoMinutes: "1:58:45",
         readingTime: "12 min",
@@ -1069,10 +1065,30 @@ export const GROUPS: Group[] = [
         name: "Backtracking",
         group: "Backtracking",
         level: "Difícil",
-        status: "soon",
+        status: "ready",
+        viz: "backtracking",
+        isNew: true,
         youtube: yt("Vcm6mhLKU5A"),
+        videoMinutes: "2:08:38",
+        readingTime: "13 min",
+        language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-backtracking",
         description: "Tentar, falhar e voltar atrás, busca exaustiva com poda.",
+        problems: [
+          { id: "lc-78", name: "Subsets", number: "78", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/subsets/" },
+          { id: "lc-46", name: "Permutations", number: "46", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/permutations/" },
+          { id: "lc-79", name: "Word Search", number: "79", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/word-search/" },
+          { id: "lc-51", name: "N-Queens", number: "51", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/n-queens/" },
+          { id: "lc-37", name: "Sudoku Solver", number: "37", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/sudoku-solver/" },
+          { id: "gfg-backtracking", name: "Backtracking: guia completo", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/introduction-to-backtracking-2/" },
+        ],
+        references: [
+          { title: "Algoritmos de enumeração", source: "Paulo Feofiloff, IME-USP", url: "https://www.ime.usp.br/~pf/algoritmos/aulas/enum.html" },
+          { title: "Backtracking (MC-202)", source: "IC, UNICAMP", url: "https://www.ic.unicamp.br/~rafael/cursos/2s2018/mc202/slides/unidade09-backtracking.pdf" },
+          { title: "Backtracking, capítulo do livro Algorithms", source: "Jeff Erickson, University of Illinois", url: "https://jeffe.cs.illinois.edu/teaching/algorithms/book/02-backtracking.pdf" },
+          { title: "O problema das oito rainhas e a história dele", source: "Wikipedia", url: "https://en.wikipedia.org/wiki/Eight_queens_puzzle" },
+          { title: "Introduction to Backtracking", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-backtracking-2/" },
+        ],
         extraVideos: [
           { title: "Desvendando Backtracking", youtube: "GavxeYye6sg" },
           { title: "Na prática: Sudoku (corte)", youtube: "ThOaYVhOmbc" },
@@ -1113,8 +1129,64 @@ export const GROUPS: Group[] = [
     id: "bits",
     name: "Manipulação de Bits",
     topics: [
-      { slug: "binary-numbers", name: "Números Binários", group: "Manipulação de Bits", level: "Fácil", status: "soon", youtube: yt("8VHi44rAVFo"), description: "O sistema binário e a conversão decimal ⇄ binário." },
-      { slug: "negative-binary", name: "Binários Negativos", group: "Manipulação de Bits", level: "Médio", status: "soon", youtube: yt("93CpmUXLbzc"), description: "Sign-magnitude, complemento de um e de dois." },
+      {
+        slug: "binary-numbers",
+        name: "Números Binários",
+        group: "Manipulação de Bits",
+        level: "Fácil",
+        status: "ready",
+        viz: "binary-numbers",
+        isNew: true,
+        youtube: yt("8VHi44rAVFo"),
+        videoMinutes: "27:33",
+        readingTime: "10 min",
+        language: "Python",
+        description: "O sistema binário e a conversão decimal ⇄ binário.",
+        problems: [
+          { id: "lc-191", name: "Number of 1 Bits", number: "191", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/number-of-1-bits/" },
+          { id: "lc-67", name: "Add Binary", number: "67", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/add-binary/" },
+          { id: "lc-405", name: "Convert a Number to Hexadecimal", number: "405", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/convert-a-number-to-hexadecimal/" },
+          { id: "lc-338", name: "Counting Bits", number: "338", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/counting-bits/" },
+          { id: "lc-1009", name: "Complement of Base 10 Integer", number: "1009", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/complement-of-base-10-integer/" },
+          { id: "gfg-binary-numbers", name: "Sistemas de numeração e conversão de bases", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/number-system-and-base-conversions/" },
+        ],
+        references: [
+          { title: "Bytes, números e caracteres", source: "Paulo Feofiloff, IME-USP", url: "https://www.ime.usp.br/~pf/algoritmos/aulas/bytes.html" },
+          { title: "Os tipos int e char", source: "Paulo Feofiloff, IME-USP", url: "https://www.ime.usp.br/~pf/algoritmos/aulas/int.html" },
+          { title: "Operações sobre bits em inteiros", source: "docs.python.org", url: "https://docs.python.org/3/library/stdtypes.html#bitwise-operations-on-integer-types" },
+          { title: "Binary number: história e notação", source: "Wikipedia", url: "https://en.wikipedia.org/wiki/Binary_number" },
+          { title: "Number System and Base Conversions", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/number-system-and-base-conversions/" },
+        ],
+      },
+      {
+        slug: "negative-binary",
+        name: "Binários Negativos",
+        group: "Manipulação de Bits",
+        level: "Médio",
+        status: "ready",
+        viz: "negative-binary",
+        isNew: true,
+        youtube: yt("93CpmUXLbzc"),
+        videoMinutes: "26:13",
+        readingTime: "11 min",
+        language: "Python",
+        description: "Sign-magnitude, complemento de um e de dois.",
+        problems: [
+          { id: "lc-461", name: "Hamming Distance", number: "461", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/hamming-distance/" },
+          { id: "lc-190", name: "Reverse Bits", number: "190", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/reverse-bits/" },
+          { id: "lc-7", name: "Reverse Integer", number: "7", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/reverse-integer/" },
+          { id: "lc-371", name: "Sum of Two Integers", number: "371", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/sum-of-two-integers/" },
+          { id: "lc-29", name: "Divide Two Integers", number: "29", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/divide-two-integers/" },
+          { id: "gfg-complemento", name: "Complemento de um e de dois", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/1s-2s-complement-binary-number/" },
+        ],
+        references: [
+          { title: "Os tipos int e char: representação e limites", source: "Paulo Feofiloff, IME-USP", url: "https://www.ime.usp.br/~pf/algoritmos/aulas/int.html" },
+          { title: "Two's complement: por que ela venceu", source: "Wikipedia", url: "https://en.wikipedia.org/wiki/Two%27s_complement" },
+          { title: "O problema do ano 2038", source: "Wikipedia", url: "https://en.wikipedia.org/wiki/Year_2038_problem" },
+          { title: "Operações sobre bits em inteiros", source: "docs.python.org", url: "https://docs.python.org/3/library/stdtypes.html#bitwise-operations-on-integer-types" },
+          { title: "1's and 2's Complement of a Binary Number", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/1s-2s-complement-binary-number/" },
+        ],
+      },
       { slug: "operacoes-bitwise", name: "Operações Bitwise", group: "Manipulação de Bits", level: "Médio", status: "soon", description: "AND, OR, XOR, shifts e os truques de bit mais usados em entrevistas." },
     ],
   },
@@ -1157,8 +1229,17 @@ export function topicTags(t: Topic): Tag[] {
 // Tópico realmente vazio: ainda não tem nenhum material (vídeo, artigo ou
 // visualização). Só esses recebem o rótulo "em breve" no menu e ficam fora do
 // índice do Google; quem já tem ao menos um material não é mais "em breve".
+// "Em breve" é derivado, nunca marcado à mão: some sozinho no dia em que o
+// tópico ganha material. E material quer dizer as três coisas que a página
+// entrega de verdade: vídeo do encontro, artigo ou visualização.
+//
+// `extraVideos` NÃO conta, de propósito. Eles são links para resoluções soltas
+// de exercício, e um tópico que só tem isso continua sendo um tópico sem aula,
+// sem texto e sem visualização. Contá-los tirava o selo de quem não tinha nada
+// a mostrar, e ainda fazia a página entrar no índice do Google como conteúdo
+// raso.
 export function isEmptyTopic(t: Topic): boolean {
-  return t.status === "soon" && !t.youtube && !t.article && !t.viz && !t.extraVideos?.length;
+  return t.status === "soon" && !t.youtube && !t.article && !t.viz;
 }
 
 export function getNeighbors(slug: string): { previous?: Topic; next?: Topic } {
