@@ -1577,17 +1577,22 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   /* as duas fórmulas do meio e os cartões de índice do heap não cabem
      lado a lado em 390px: viram lista. */
   .bb-formulas, .hp-formulas { grid-template-columns: minmax(0, 1fr); }
-  /* comparações e escritas empilham: duas barras lado a lado em 390px ficam
-     estreitas demais para o número caber dentro delas. */
-  .ord-medidas { grid-template-columns: minmax(0, 1fr); }
   /* os dois lados da intercalação e as duas versões do operador viram lista */
   .ms-merge, .ms-operadores { grid-template-columns: minmax(0, 1fr); }
-  /* o rótulo de cada trecho não cabe em 390px; a faixa sozinha já conta a
-     história, e o trecho ativo continua acendendo. */
-  .ms-seg { font-size: 0; padding: 0 2px; }
 }
 @media (max-width: 560px) {
   .brand-name { display: none; } /* no celular, só o logo */
+  /* Comparações e escritas empilham. Não é overflow (a legenda quebra linha em
+     vez de estourar), é legibilidade: medido, cada coluna cai de 319px em 760
+     para 219px em 560 e 134px em 390, e nessa largura a legenda embaixo da
+     barra quebra em três linhas. Empilhado ela cabe numa. */
+  .ord-medidas { grid-template-columns: minmax(0, 1fr); }
+  /* O rótulo de cada trecho da recursão some. Medido no merge sort com 16
+     posições: em 560px o trecho mais estreito tem 25px e o texto ainda cabe
+     inteiro; em 480px, 9 dos 44 já saem cortados. Escondo a partir daqui, que é
+     o breakpoint que o arquivo já usa, e a faixa sozinha continua contando a
+     história com o trecho ativo aceso. */
+  .ms-seg { font-size: 0; padding: 0 2px; }
   .prevnext { flex-direction: column; }
   .topic-done { flex-direction: column; align-items: flex-start; }
 }
