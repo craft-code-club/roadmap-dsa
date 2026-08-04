@@ -293,6 +293,10 @@ const TOPICOS_PRONTOS = [
   { slug: "binary-heap", h1: "Binary Heap", vizMin: 2 },
   { slug: "heap-sort", h1: "Heap Sort", vizMin: 2 },
   { slug: "busca-binaria", h1: "Busca Binária", vizMin: 3 },
+  { slug: "ordenacao-basica", h1: "Ordenação Básica", vizMin: 3 },
+  { slug: "merge-sort", h1: "Merge Sort", vizMin: 3 },
+  { slug: "quick-sort", h1: "Quick Sort", vizMin: 3 },
+  { slug: "shell-sort", h1: "Shell Sort", vizMin: 3 },
 ];
 
 for (const t of TOPICOS_PRONTOS) {
@@ -598,6 +602,234 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
   await expect(retorno).toContainText("-10");
 });
 
+test("ordenação básica: o selection sort não tem melhor caso", async ({ page }) => {
+  await page.goto("/topico/ordenacao-basica/");
+  const viz = page.locator("figure.viz").filter({ hasText: "os três O(n²) sobre o mesmo array" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
+  // O helper fecha com toBeDisabled: sem isso, um limite estourado deixaria a
+  // asserção rodando num passo do meio e ela passaria calada.
+  const irAteOFim = async () => {
+    await expect(proximo).toBeEnabled();
+    for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo).toBeDisabled();
+  };
+
+  // array já ordenado: o bubble sort percebe na primeira passada e sai em 7
+  await viz.getByRole("button", { name: /Já ordenado/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("7");
+  await expect(stat(/^escritas no array\d/)).toContainText("0");
+
+  // o insertion sort também aproveita, com as mesmas 7
+  await viz.getByRole("button", { name: "Insertion sort" }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("7");
+
+  // e o selection sort faz as 28 assim mesmo, que é o ponto do tópico:
+  // varrer o resto inteiro é a única forma de ter certeza de quem é o menor
+  await viz.getByRole("button", { name: "Selection sort" }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("28");
+  // em compensação, ele é o que menos escreve: nenhuma troca num array pronto
+  await expect(stat(/^escritas no array\d/)).toContainText("0");
+
+  // no array invertido as 28 comparações continuam iguais, e as escritas separam
+  // os três: 56 do bubble contra 8 do selection, sempre 2 por inversão x 2 por rodada
+  await viz.getByRole("button", { name: /Ao contrário/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("28");
+  await expect(stat(/^escritas no array\d/)).toContainText("8");
+  await viz.getByRole("button", { name: "Bubble sort" }).click();
+  await irAteOFim();
+  await expect(stat(/^escritas no array\d/)).toContainText("56");
+});
+
+test("ordenação básica: as barras batem com o passo a passo e a lei das inversões", async ({ page }) => {
+  await page.goto("/topico/ordenacao-basica/");
+  const corrida = page.locator("figure.viz").filter({ hasText: "o mesmo array custa três preços" });
+  const barras = (linha: number) => corrida.locator(".ord-linha").nth(linha).locator(".bb-barra-txt");
+
+  // preset embaralhado (12 inversões): os números são os mesmos que o
+  // visualizador de passo a passo mostra, porque saem do mesmo gerador
+  await expect(corrida.locator(".viz-step")).toContainText("12 inversões");
+  await expect(barras(0)).toHaveText(["25", "24"]); // bubble: 2 x 12 inversões
+  await expect(barras(1)).toHaveText(["28", "12"]); // selection: sempre 28
+  await expect(barras(2)).toHaveText(["17", "19"]); // insertion: 12 + 7 colocações
+
+  // a lei escrita ao lado da barra tem que bater com o número dela
+  await expect(corrida.locator(".ord-lei").first()).toHaveText("2 x 12 inversões = 24");
+
+  // o instável do trio é o selection, e a causa está no card de distância
+  const est = page.locator("figure.viz").filter({ hasText: "a distância da troca decide" });
+  const fila = (i: number) => est.locator(".hs-fila").nth(i);
+  await expect(fila(1).locator(".hp-cel.reg.inverteu")).toHaveCount(0); // bubble
+  await expect(fila(2).locator(".hp-cel.reg.inverteu")).toHaveCount(0); // insertion
+  await expect(fila(3).locator(".hp-cel.reg.inverteu")).toHaveCount(2); // selection
+  await expect(fila(1)).toContainText("distância 1");
+  await expect(fila(3)).toContainText("distância 2");
+
+  // o preset em que o instável acerta por acaso: nenhum empate trocou, e ainda
+  // assim a distância da troca continua maior que 1. Sem garantia não é o mesmo
+  // que sempre errado, e é o lado da condicional que costuma ficar sem teste.
+  await est.getByRole("button", { name: /sobrevive por sorte/ }).click();
+  await expect(est.locator(".hp-cel.reg.inverteu")).toHaveCount(0);
+  await expect(fila(3)).toContainText("distância 2");
+});
+
+test("merge sort: o custo não depende dos dados, e o empate depende do sinal", async ({ page }) => {
+  await page.goto("/topico/merge-sort/");
+  const viz = page.locator("figure.viz").filter({ hasText: "a descida divide, a subida ordena" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
+  const irAteOFim = async () => {
+    await expect(proximo).toBeEnabled();
+    for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo).toBeDisabled();
+  };
+
+  // já ordenado e invertido custam exatamente o mesmo, e as cópias são 24 nos
+  // dois: 3 rodadas de intercalação x 8 elementos, sem olhar para os dados
+  await viz.getByRole("button", { name: /Já ordenado/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("12");
+  await expect(stat(/^cópias para o buffer\d/)).toContainText("24");
+  await viz.getByRole("button", { name: /Ao contrário/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("12");
+  await expect(stat(/^cópias para o buffer\d/)).toContainText("24");
+
+  // o pior caso possível com 8 elementos custa 17: cinco comparações a mais que
+  // o melhor. É esse intervalo estreito que o artigo chama de garantia.
+  await viz.getByRole("button", { name: /Pior caso/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("17");
+  await expect(stat(/^cópias para o buffer\d/)).toContainText("24");
+  await expect(viz.locator(".ms-seg.pronto")).toHaveCount(15); // 8 folhas + 7 trechos
+
+  // o n log n desenhado: 5 níveis para 16 elementos, e a faixa soma 16 sempre
+  const niveis = page.locator("figure.viz").filter({ hasText: "altura vezes largura" });
+  await expect(niveis.locator(".ms-nivel")).toHaveCount(5);
+  await niveis.getByRole("button", { name: "n = 64" }).click();
+  await expect(niveis.locator(".ms-nivel")).toHaveCount(7);
+  await expect(niveis.locator(".viz-step")).toContainText("6 rodadas de intercalação x 64 elementos = 384");
+
+  // estabilidade: o mesmo merge com <= e com <, e só o segundo inverte empates
+  const empate = page.locator("figure.viz").filter({ hasText: "o sinal que decide a estabilidade" });
+  const coluna = (i: number) => empate.locator(".ms-op").nth(i);
+  await expect(coluna(0).locator(".hp-cel.reg.inverteu")).toHaveCount(0);
+  await expect(coluna(1).locator(".hp-cel.reg.inverteu")).toHaveCount(5);
+  // e existe uma entrada sem empate nenhum, em que os dois operadores coincidem:
+  // é o lado da condicional que prova que a diferença mora no empate
+  await empate.getByRole("button", { name: /Chaves todas iguais/ }).click();
+  await expect(coluna(1).locator(".hp-cel.reg.inverteu")).toHaveCount(4);
+  await empate.getByRole("button", { name: /Um único empate/ }).click();
+  await expect(coluna(0).locator(".hp-cel.reg.inverteu")).toHaveCount(0);
+  await expect(coluna(1).locator(".hp-cel.reg.inverteu")).toHaveCount(2);
+});
+
+test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) => {
+  await page.goto("/topico/quick-sort/");
+  const viz = page.locator("figure.viz").filter({ hasText: "a partição e o pivô que fica pronto" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
+  const irAteOFim = async () => {
+    await expect(proximo).toBeEnabled();
+    for (let i = 0; i < 300 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo).toBeDisabled();
+  };
+
+  // embaralhado: partições equilibradas, profundidade 4 com 8 elementos
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("14");
+  await expect(stat(/^profundidade da recursão\d/)).toContainText("4");
+
+  // já ordenado: cada partição elimina um elemento só. Profundidade 8 e as
+  // mesmas 28 comparações de um selection sort, que é n(n-1)/2.
+  await viz.getByRole("button", { name: /Já ordenado/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("28");
+  await expect(stat(/^profundidade da recursão\d/)).toContainText("8");
+
+  // array constante: nada para ordenar e mesmo assim o trabalho quadrático
+  // inteiro, com TODAS as trocas sendo de um elemento com ele mesmo
+  await viz.getByRole("button", { name: /Todos iguais/ }).click();
+  await irAteOFim();
+  await expect(stat(/^comparações\d/)).toContainText("28");
+  const trocas = viz.locator(".bigo-stat").filter({ hasText: /^trocas executadas\d/ });
+  const semEfeito = viz.locator(".bigo-stat").filter({ hasText: /^trocas sem efeito\d/ });
+  await expect(trocas).toContainText("35");
+  await expect(semEfeito).toContainText("35");
+
+  // a escolha do pivô é o que separa n log n de n²: no mesmo array já ordenado,
+  // o pivô do meio desce 4 níveis e o da ponta desce 8
+  const pivo = page.locator("figure.viz").filter({ hasText: "a escolha do pivô decide" });
+  const prof = (linha: number) => pivo.locator(".ord-linha").nth(linha).locator(".bb-barra-txt").nth(1);
+  await expect(prof(0)).toHaveText("8"); // último
+  await expect(prof(1)).toHaveText("8"); // primeiro
+  await expect(prof(2)).toHaveText("4"); // meio
+  await expect(prof(3)).toHaveText("4"); // mediana de três
+  // e nenhuma regra fixa é imune: no preset do vale, a do meio é a que quebra
+  await pivo.getByRole("button", { name: /Com o maior bem no meio/ }).click();
+  await expect(prof(2)).toHaveText("6");
+
+  // três vias: com o array constante a faixa dos iguais sai da recursão inteira
+  const vias = page.locator("figure.viz").filter({ hasText: "o que fazer com os iguais" });
+  await expect(vias.locator(".ms-op").nth(0)).toContainText("profundidade 8");
+  await expect(vias.locator(".ms-op").nth(1)).toContainText("profundidade 1");
+  await expect(vias.locator(".ms-op").nth(1)).toContainText("nenhum subproblema");
+  // sem repetidos ela não é melhor: mesma profundidade e o dobro de comparações
+  await vias.getByRole("button", { name: /Sem repetição/ }).click();
+  await expect(vias.locator(".ms-op").nth(0)).toContainText("18 comparações · profundidade 5");
+  await expect(vias.locator(".ms-op").nth(1)).toContainText("35 comparações · profundidade 5");
+});
+
+test("shell sort: a h-ordenação não se perde e o gap só compensa com n grande", async ({ page }) => {
+  await page.goto("/topico/shell-sort/");
+  const viz = page.locator("figure.viz").filter({ hasText: "o insertion sort com gap" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
+  await expect(proximo).toBeEnabled();
+  for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo).toBeDisabled();
+  await expect(stat(/^comparações\d/)).toContainText("21");
+  await expect(stat(/^escritas no array\d/)).toContainText("23");
+
+  // as subsequências: uma vez 4-ordenado, sempre 4-ordenado. É o resultado que
+  // sustenta o algoritmo, e sem ele cada rodada desmancharia a anterior.
+  const sub = page.locator("figure.viz").filter({ hasText: "insertion sorts entrelaçados" });
+  const selos = sub.locator(".ss-selo");
+  await expect(selos).toHaveText(["4-ordenado: sim", "2-ordenado: ainda não", "1-ordenado: ainda não"]);
+  await sub.getByRole("button", { name: "Rodada 2: gap 2" }).click();
+  await expect(selos).toHaveText(["4-ordenado: sim", "2-ordenado: sim", "1-ordenado: ainda não"]);
+  await sub.getByRole("button", { name: "Rodada 3: gap 1" }).click();
+  await expect(selos).toHaveText(["4-ordenado: sim", "2-ordenado: sim", "1-ordenado: sim"]);
+  // com gap 1 existe uma subsequência só, e ela é o array inteiro
+  await expect(sub.locator(".viz-step")).toContainText("1 subsequência de 8 elementos");
+
+  // o cruzamento: com 8 elementos o shell sort perde, com 128 ele ganha de longe
+  const gaps = page.locator("figure.viz").filter({ hasText: "a partir de que tamanho o gap compensa" });
+  const comp = (linha: number) => gaps.locator(".ord-linha").nth(linha).locator(".bb-barra-txt").first();
+  await gaps.getByRole("button", { name: "n = 8" }).click();
+  await expect(comp(0)).toHaveText("25"); // a sequência original de Shell
+  await expect(comp(4)).toHaveText("24"); // insertion sort, que ganha dela aqui
+  await gaps.getByRole("button", { name: "n = 128" }).click();
+  await expect(comp(4)).toHaveText("4396");
+  await expect(gaps.locator(".viz-note")).toContainText("compensa");
+
+  // a entrada adversária: gaps potência de dois têm ponto cego, gaps ímpares não
+  await gaps.getByRole("button", { name: "Adversária dos gaps pares" }).click();
+  await expect(comp(0)).toHaveText("4609"); // Shell, gaps 64, 32, 16...
+  await expect(comp(1)).toHaveText("1038"); // Hibbard, gaps ímpares
+  await expect(gaps.locator(".viz-note")).toContainText("potências de dois");
+
+  // e o contra-exemplo honesto: com poucas inversões o insertion sort ganha em
+  // qualquer tamanho, e aumentar n não vira a conta
+  await gaps.getByRole("button", { name: "Quase ordenado" }).click();
+  await expect(comp(4)).toHaveText("142");
+  await expect(gaps.locator(".viz-note")).toContainText("Aumentar o tamanho não vira essa conta");
+});
+
 // Regressão: cinco visualizadores foram parar num PR com o estado de animação
 // completo (passo, tocando, velocidade) e SEM os controles renderizados, então o
 // aluno ficava preso no passo 1 sem nenhum aviso. Os testes de contrato não
@@ -651,7 +883,9 @@ test("no celular, nenhum painel de visualizador colapsa", async ({ page }) => {
       .locator(
         "article figure.viz .gr-painel, article figure.viz .tt-painel, " +
           "article figure.viz .hp-bloco, article figure.viz .hs-fila, " +
-          "article figure.viz .bb-formula, article figure.viz .hp-formula"
+          "article figure.viz .bb-formula, article figure.viz .hp-formula, " +
+          "article figure.viz .ord-linha, article figure.viz .ord-medida, " +
+          "article figure.viz .ms-lado, article figure.viz .ms-op"
       )
       .evaluateAll((els) =>
         els.map((e) => ({ cls: e.className, w: Math.round(e.getBoundingClientRect().width) }))
