@@ -445,12 +445,12 @@ os dois passando contra a quebra antes de serem consertados:
 
 ---
 
-## 9. Dois limites medidos da casca
+## 9. Limites medidos da casca
 
-Ambos apareceram adaptando o tópico `intervals`, e ambos são do comportamento
-da casca — não do componente. Estão aqui porque um explica um número que o
-relatório de qualquer adaptação vai encontrar, e o outro é um recurso que o hook
-não tem.
+Todos são do comportamento da casca — não do componente — e estão aqui porque
+explicam números que o relatório de qualquer adaptação vai encontrar, ou
+recursos que o hook não tem. A seção cresce: acrescente no fim em vez de
+renumerar.
 
 ### A compressão da camada 2 não alcança o fluxo do artigo
 
@@ -494,3 +494,29 @@ o `out/` congela o passo 1 e só o cliente corrige — conferido no HTML do buil
 Uma consequência a assumir: o `↺` do `VizFooter` é `viz.reset()`, que volta ao
 passo **0**, e não ao passo inicial escolhido. Se o estado de partida for para
 valer, ele precisa de um botão próprio — ver a nota do `↺` na §6.
+
+### Adotar a casca deixa a peça mais ALTA no artigo, e quem não tem bloco paga
+
+O `.viz-foot` sai do `.viz-body` — é isso que o deixa parado no pé do painel — e
+traz o respiro dele: uma linha divisória e o padding dos controles. No painel
+expandido isso não custa nada, porque lá a régua é a janela e o miolo rola. **No
+fluxo do artigo custa altura**, e quem tem bloco recolhível paga com o bloco.
+
+Quem não tem, não paga: com `collapsible: false` não existe a camada 3, e a
+camada 2 não alcança o artigo (limite acima). Medido:
+
+| peça | artigo antes | artigo depois |
+|---|---|---|
+| `HashTableBuscaVisualizer` (`collapsible: false`, com linha do tempo) | 847px | **875px** (+28) |
+| `PrefixSumTradeoff` (`collapsible: false`, `total: 1`, rodapé à mão) | 731px | **741px** (+10) |
+
+Nos dois a adaptação valeu, porque o que ela conserta é outra coisa — e só
+aparece **abaixo** da régua de 1512x900. Na busca da hash table, o `▶ Rodar` era
+desenhado 104px (1440x700) e 204px (1440x600) abaixo do pé visível da peça; no
+trade-off, o `↺ Reiniciar` ficava 135px e 235px abaixo. Nos quatro casos o
+controle voltou para dentro da janela e o cabeçalho parou de subir.
+
+Mas o número no artigo piora, e o relatório tem que dizer isso **com o
+número**, não arredondar para "sem mudança". A pergunta certa ao decidir o
+escopo de uma peça sem bloco não é "quanto ela encolhe", é "onde ficam os
+controles quando ela rola".
