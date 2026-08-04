@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // LinkedListFloyd, o ponteiro rápido e o lento nas DUAS fases do algoritmo.
@@ -50,9 +51,6 @@ const CODIGO = [
   "            return lento          # início do ciclo",
   "    return None                   # não tem ciclo",
 ];
-
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 
 // prox(i): índice do próximo nó, ou null quando a lista acaba.
 function fazProx(cauda: number, ciclo: number) {
@@ -153,14 +151,6 @@ export function LinkedListFloyd() {
   const [cauda, setCauda] = useState(3);
   const [ciclo, setCiclo] = useState(5);
   const [preset, setPreset] = useState("classico");
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   // Uma lista sem nenhum nó não teria o que percorrer nem o que desenhar.
   const nCauda = cauda + ciclo === 0 ? 1 : cauda;
@@ -168,33 +158,21 @@ export function LinkedListFloyd() {
 
   const passos = useMemo(() => gerarPassos(nCauda, ciclo), [nCauda, ciclo]);
   const qtd = passos.length;
-  const idx = Math.min(passo, qtd - 1);
+
+  const viz = useVisualizer({
+    title: "Visualizador · rápido e lento: o meio, o ciclo e onde ele começa",
+    total: qtd,
+    // O tamanho do ciclo é o que mais mexe na altura: o raio da roda cresce com
+    // ele e o viewBox cresce junto. A cauda alarga o desenho, o que com
+    // `height: auto` ENCOLHE a altura renderizada. O número de passos entra
+    // porque a nota do passo a passo muda de tamanho entre as duas fases.
+    measureOn: [nCauda, ciclo, qtd],
+  });
+
+  const idx = viz.step;
   const p = passos[idx];
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
-
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= qtd - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, qtd, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= qtd - 1) setTocando(false);
-  }, [tocando, idx, qtd]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
+  const reiniciar = viz.reset;
   const aoMudarCauda = (v: number) => { reiniciar(); setPreset(""); setCauda(v); };
   const aoMudarCiclo = (v: number) => { reiniciar(); setPreset(""); setCiclo(v); };
   const aplicarPreset = (pr: Preset) => { reiniciar(); setPreset(pr.key); setCauda(pr.cauda); setCiclo(pr.ciclo); };
@@ -298,25 +276,13 @@ export function LinkedListFloyd() {
   ];
 
   const notaCls = "viz-note" + (p.ok ? " ok" : p.fim ? " invalid" : "");
-  const pctPasso = Math.round(((idx + 1) / qtd) * 100);
   const descricao = `Lista com ${total} nós, ${ciclo > 0 ? `com um ciclo de ${ciclo} nós que começa no nó ${nCauda}` : "sem ciclo"}. Lento em ${p.lento === null ? "None" : `nó ${p.lento}`}, rápido em ${p.rapido === null ? "None" : `nó ${p.rapido}`}. ${p.nota}`;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · rápido e lento: o meio, o ciclo e onde ele começa</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {qtd}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const quadro = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="ll-grupo">
           <span className="ll-grupo-rot">Casos</span>
           <div className="bigo-chips">
@@ -424,18 +390,23 @@ export function LinkedListFloyd() {
         <p className={notaCls}>{p.nota}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">floyd.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura do
+              código. O `.viz-code-slot` é o truque de grid 1fr→0fr. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">floyd.py</div>
+              <div className="viz-code-body">
+                {CODIGO.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {variaveis.map((v) => (
               <div className="viz-var" key={v.nome}>
@@ -455,31 +426,13 @@ export function LinkedListFloyd() {
           ))}
         </div>
 
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= qtd - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === qtd - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, qtd - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(quadro);
 }
