@@ -77,6 +77,15 @@ import { QuickSortTresVias } from "@content/visualizers/QuickSortTresVias";
 import { ShellSortVisualizer } from "@content/visualizers/ShellSortVisualizer";
 import { ShellSortSubsequencias } from "@content/visualizers/ShellSortSubsequencias";
 import { ShellSortGaps } from "@content/visualizers/ShellSortGaps";
+import { BacktrackingVisualizer } from "@content/visualizers/BacktrackingVisualizer";
+import { BacktrackingSudoku } from "@content/visualizers/BacktrackingSudoku";
+import { BacktrackingPoda } from "@content/visualizers/BacktrackingPoda";
+import { BinarioConversor } from "@content/visualizers/BinarioConversor";
+import { BinarioDivisoes } from "@content/visualizers/BinarioDivisoes";
+import { BinarioBases } from "@content/visualizers/BinarioBases";
+import { BinarioComplemento } from "@content/visualizers/BinarioComplemento";
+import { BinarioTresFormas } from "@content/visualizers/BinarioTresFormas";
+import { BinarioFaixa } from "@content/visualizers/BinarioFaixa";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -264,6 +273,15 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ShellSortVisualizer,
     ShellSortSubsequencias,
     ShellSortGaps,
+    BacktrackingVisualizer,
+    BacktrackingSudoku,
+    BacktrackingPoda,
+    BinarioConversor,
+    BinarioDivisoes,
+    BinarioBases,
+    BinarioComplemento,
+    BinarioTresFormas,
+    BinarioFaixa,
     ...components,
   };
 }
