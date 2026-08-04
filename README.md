@@ -102,6 +102,10 @@ uma execução passo a passo), o visualizador troca a linha do tempo por manipul
 veja `SubTypesVisualizer.tsx`, onde o leitor monta um pedaço clicando nos elementos e o painel
 responde o que aquele pedaço é. A casca (cabeçalho, **Expandir**, células) continua a mesma.
 
+A casca tem contrato próprio, em [`content/visualizers/README.md`](content/visualizers/README.md):
+como a peça se adapta à altura da tela do aluno, o que fica parado e o que rola no modo
+expandido, e o que o teclado faz ali dentro. Leia antes de mexer nela.
+
 ## Progresso do usuário
 
 `ProgressProvider` guarda dois mapas no `localStorage`: `ccc-dsa-progresso` (tópicos concluídos)

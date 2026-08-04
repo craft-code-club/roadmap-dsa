@@ -65,6 +65,13 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
 - Visualizadores ficam em `content/visualizers/` (ex.: `SlidingWindowVisualizer`,
   `TwoPointersVisualizer`), expostos em `mdx-components.tsx`. A lista de apoiadores fica em
   `src/app/apoie/apoiadores.ts` (página fixa, não é conteúdo de DSA).
+- **Vai mexer na casca de um visualizador (altura, expandido, teclado, foco, rolagem)?
+  Leia [`content/visualizers/README.md`](content/visualizers/README.md) antes.** Ele é o
+  contrato da casca adaptativa (`.viz-fit`): as três camadas (comprimir antes de esconder),
+  a decisão por medição em vez de breakpoint, a API de CSS, o contrato de teclado e foco do
+  painel expandido, e as armadilhas já medidas. Referência viva:
+  `BigOCounterVisualizer.tsx`. **Não edite o bloco `viz-fit` do `globals.css` para acomodar
+  um visualizador específico** — ele é compartilhado por todos.
 - Alias: `@/*` → `src/*`, `@content/*` → `content/*`.
 - **Adicionar tópico/visualizador:** ver README (seções "Como adicionar"). O padrão de
   visualizador é gerador puro de passos + casca compartilhada + botão Expandir.

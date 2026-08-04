@@ -101,6 +101,11 @@ variáveis, controles e o botão **Expandir**). Para uma técnica nova:
 2. Exponha-o em `mdx-components.tsx`.
 3. Use no `.mdx` do tópico: `<MeuVisualizador />`.
 
+A **casca** — como a peça se adapta à altura da tela, o que fica parado e o que
+rola no modo expandido, e o que o teclado faz ali dentro — tem contrato próprio
+em [`content/visualizers/README.md`](content/visualizers/README.md), com um
+checklist de aplicação e as armadilhas já medidas. Leia antes de mexer nela.
+
 
 ## <a name="passos-gerais"></a> Passos gerais (fork e PR)
 

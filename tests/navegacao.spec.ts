@@ -413,6 +413,21 @@ test("Big O: em tela alta o código já vem aberto, sem precisar de clique", asy
   await expect(viz.locator(".viz-code-head")).toContainText("busca_binaria.py");
 });
 
+test("Big O: a conta de altura lê o token do cabeçalho, não um número fixo", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 1400 });
+  await page.goto("/topico/big-o/");
+
+  const alternar = page.locator(`${CONTADOR} .viz-toggle-codigo`);
+  await expect(alternar).toHaveText("Ocultar código"); // com essa altura, cabe
+
+  // O cabeçalho fixo do site fica gigante: o orçamento de altura da peça
+  // encolhe junto e ela deixa de caber. Com um 60 digitado no componente, nada
+  // mudaria — e a conta ficaria descalibrada no dia em que o token mudasse.
+  await page.evaluate(() => document.documentElement.style.setProperty("--ccc-header-h", "700px"));
+  await page.setViewportSize({ width: 1500, height: 1399 }); // provoca medição nova
+  await expect(alternar, "a medição ignorou o token --ccc-header-h").toHaveText("Mostrar código");
+});
+
 test("Big O: a escolha do aluno vence a medição até ele fechar o painel", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
   await page.goto("/topico/big-o/");

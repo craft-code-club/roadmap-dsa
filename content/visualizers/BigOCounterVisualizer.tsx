@@ -38,8 +38,17 @@ const FOLGA = 8;
 
 // Quanto do topo da janela já está ocupado quando a peça está no fluxo do
 // artigo: o cabeçalho fixo do site, mais um respiro para não colar na borda.
-const HEADER_H = 60;
+// A altura do cabeçalho é lida do token do CSS, que é a fonte da verdade dela;
+// o 60 é só o fallback para quando o token não resolve (SSR, teste sem estilo).
+const HEADER_PADRAO = 60;
 const RESPIRO_INLINE = 24;
+
+function alturaDoCabecalho(): number {
+  if (typeof document === "undefined") return HEADER_PADRAO;
+  const bruto = getComputedStyle(document.documentElement).getPropertyValue("--ccc-header-h");
+  const px = parseFloat(bruto);
+  return Number.isFinite(px) && px > 0 ? px : HEADER_PADRAO;
+}
 
 type Passo = {
   linha: number;
@@ -435,7 +444,7 @@ export function BigOCounterVisualizer() {
       ? corpo.scrollHeight > corpo.clientHeight + FOLGA
       // No fluxo do artigo a régua é a janela: se a peça inteira não cabe numa
       // tela, o aluno olha o array sem enxergar os botões que o fazem andar.
-      : fig.getBoundingClientRect().height > window.innerHeight - HEADER_H - RESPIRO_INLINE - FOLGA;
+      : fig.getBoundingClientRect().height > window.innerHeight - alturaDoCabecalho() - RESPIRO_INLINE - FOLGA;
     if (estoura) setCodigoAberto(false);
     // Só no quadro seguinte, para o recolhimento desta decisão não animar.
     requestAnimationFrame(() => { setMedindo(false); setAnimar(true); });
