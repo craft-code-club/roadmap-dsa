@@ -43,7 +43,14 @@ export default defineConfig({
   // Testa o artefato real (SSG em ./out), não o dev server. Rode `npm run build`
   // antes de `npm test` (ou use `npm run test:build`).
   webServer: {
-    command: `python3 -m http.server ${PORT} --directory out`,
+    // `ThreadingHTTPServer`, e não o `python3 -m http.server` de antes, que é
+    // single-thread: ele atende um pedido por vez, e uma página do Next puxa
+    // dezenas de arquivos. Com a máquina carregada isso vira `page.goto`
+    // estourando os 30s — em testes SORTEADOS a cada rodada, quase sempre em
+    // `navegacao.spec.ts`, com `BrokenPipeError` no servidor. Três adaptações
+    // desta série perderam tempo caçando um bug que não existia no código
+    // delas. O flake é do servidor de teste; o `out/` servido é o mesmo.
+    command: `python3 -c "from functools import partial; from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler as H; ThreadingHTTPServer(('', ${PORT}), partial(H, directory='out')).serve_forever()"`,
     url: `http://localhost:${PORT}`,
     // `false` de propósito, e não `!process.env.CI` como era: reusar o servidor
     // que já está na porta faz a suíte testar o `out/` DE OUTRA PESSOA sem dizer

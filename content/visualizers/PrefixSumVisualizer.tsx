@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // PrefixSumVisualizer, a construção da tabela de prefixos e a consulta O(1).
 //
-// Mesmo padrão do TwoPointersVisualizer: gerador PURO de passos + a mesma casca
-// (células, código sincronizado, variáveis, controles, Expandir). A história
-// tem duas fases numa linha do tempo só:
+// Gerador PURO de passos + a casca compartilhada. A história tem duas fases
+// numa linha do tempo só:
 //
 //   1. construir  -> preenche p[k + 1] = p[k] + nums[k], uma posição por passo
 //   2. consultar  -> acende p[j + 1] (entra) e p[i] (sai) e faz a subtração
@@ -16,28 +16,35 @@ import { createPortal } from "react-dom";
 // O contador de operações é o que amarra o visualizador ao artigo: a consulta
 // custa 1 subtração contra as (j - i + 1) somas da força bruta, e o painel
 // mostra os dois números ao mesmo tempo.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Fase = "construir" | "consultar";
+// Os valores das uniões (`"construir"`, `"consultar"`) ficam como estão de
+// propósito: identificador é inglês, mas trocar o LITERAL só aumentaria o ruído
+// do guarda de idioma sem ninguém ganhar nada — ele não aparece na tela.
+type Phase = "construir" | "consultar";
 
-type Passo = {
-  fase: Fase;
-  linha: number;
-  escritos: number; // quantas posições de p já foram preenchidas
-  atualNums: number | null; // índice destacado em nums
-  atualP: number | null; // índice sendo escrito em p
-  somas: number; // somas feitas no pré-processamento
-  opsConsulta: number;
-  mais: number | null; // índice de p que entra na soma
-  menos: number | null; // índice de p que sai da soma
-  resultado: number | null;
-  nota: string;
+type Step = {
+  phase: Phase;
+  line: number;
+  written: number; // quantas posições de p já foram preenchidas
+  currentNums: number | null; // índice destacado em nums
+  currentP: number | null; // índice sendo escrito em p
+  sums: number; // somas feitas no pré-processamento
+  queryOps: number;
+  plus: number | null; // índice de p que entra na soma
+  minus: number | null; // índice de p que sai da soma
+  result: number | null;
+  note: string;
   ok?: boolean;
 };
 
-// As linhas mapeiam 1:1 com os passos (campo `linha` em gerarPassos), então a
+// As linhas mapeiam 1:1 com os passos (campo `line` em generateSteps), então a
 // ordem e a quantidade de linhas não podem mudar.
-const CODIGO = [
+const CODE = [
   "class SomaDeIntervalo:",
   "    def __init__(self, nums):",
   "        self.p = [0] * (len(nums) + 1)",
@@ -48,108 +55,108 @@ const CODIGO = [
   "        return self.p[j + 1] - self.p[i]",
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
-const MAX_ITENS = 12;
+const MAX_ITEMS = 12;
 
-// O array do encontro, com a consulta que apareceu na tela: soma(1, 4) = 155.
+// O array de referência do tópico, com a consulta que o artigo destrincha:
+// soma(1, 4) = 155.
 const DEFAULT_NUMS = [10, 30, 20, 45, 60, 40, 50];
 
-type Preset = { rotulo: string; nums: number[]; i: number; j: number };
+type Preset = { label: string; nums: number[]; i: number; j: number };
 
 const PRESETS: Preset[] = [
-  { rotulo: "Encontro: soma(1, 4)", nums: DEFAULT_NUMS, i: 1, j: 4 },
-  { rotulo: "Miolo: soma(2, 3)", nums: DEFAULT_NUMS, i: 2, j: 3 },
-  { rotulo: "Do início: soma(0, 2)", nums: DEFAULT_NUMS, i: 0, j: 2 },
-  { rotulo: "Um elemento: soma(3, 3)", nums: DEFAULT_NUMS, i: 3, j: 3 },
-  { rotulo: "Tudo: soma(0, 6)", nums: DEFAULT_NUMS, i: 0, j: 6 },
-  { rotulo: "Com negativos", nums: [3, -2, 5, -1, 4, -6, 2], i: 1, j: 4 },
+  { label: "Encontro: soma(1, 4)", nums: DEFAULT_NUMS, i: 1, j: 4 },
+  { label: "Miolo: soma(2, 3)", nums: DEFAULT_NUMS, i: 2, j: 3 },
+  { label: "Do início: soma(0, 2)", nums: DEFAULT_NUMS, i: 0, j: 2 },
+  { label: "Um elemento: soma(3, 3)", nums: DEFAULT_NUMS, i: 3, j: 3 },
+  { label: "Tudo: soma(0, 6)", nums: DEFAULT_NUMS, i: 0, j: 6 },
+  { label: "Com negativos", nums: [3, -2, 5, -1, 4, -6, 2], i: 1, j: 4 },
 ];
 
-function prefixos(nums: number[]): number[] {
+function prefixSums(nums: number[]): number[] {
   const p: number[] = [0];
   for (let k = 0; k < nums.length; k++) p.push(p[k] + nums[k]);
   return p;
 }
 
-function gerarPassos(nums: number[], i: number, j: number): Passo[] {
+function generateSteps(nums: number[], i: number, j: number): Step[] {
   const n = nums.length;
-  const p = prefixos(nums);
-  const out: Passo[] = [];
+  const p = prefixSums(nums);
+  const out: Step[] = [];
 
   out.push({
-    fase: "construir",
-    linha: 2,
-    escritos: 1,
-    atualNums: null,
-    atualP: 0,
-    somas: 0,
-    opsConsulta: 0,
-    mais: null,
-    menos: null,
-    resultado: null,
-    nota: `Crio p com ${n + 1} posições, uma a mais que o array, e deixo p[0] = 0. Essa posição extra é a sentinela: ela guarda a soma de nada.`,
+    phase: "construir",
+    line: 2,
+    written: 1,
+    currentNums: null,
+    currentP: 0,
+    sums: 0,
+    queryOps: 0,
+    plus: null,
+    minus: null,
+    result: null,
+    note: `Crio p com ${n + 1} posições, uma a mais que o array, e deixo p[0] = 0. Essa posição extra é a sentinela: ela guarda a soma de nada.`,
   });
 
-  let guarda = 0;
-  for (let k = 0; k < n && guarda++ < 100; k++) {
+  let guard = 0;
+  for (let k = 0; k < n && guard++ < 100; k++) {
     out.push({
-      fase: "construir",
-      linha: 4,
-      escritos: k + 2,
-      atualNums: k,
-      atualP: k + 1,
-      somas: k + 1,
-      opsConsulta: 0,
-      mais: null,
-      menos: null,
-      resultado: null,
-      nota: `p[${k + 1}] = p[${k}] + nums[${k}] = ${p[k]} + ${nums[k]} = ${p[k + 1]}. Agora sei a soma de tudo do início até a posição ${k}.`,
+      phase: "construir",
+      line: 4,
+      written: k + 2,
+      currentNums: k,
+      currentP: k + 1,
+      sums: k + 1,
+      queryOps: 0,
+      plus: null,
+      minus: null,
+      result: null,
+      note: `p[${k + 1}] = p[${k}] + nums[${k}] = ${p[k]} + ${nums[k]} = ${p[k + 1]}. Agora sei a soma de tudo do início até a posição ${k}.`,
     });
   }
 
-  const largura = j - i + 1;
+  const width = j - i + 1;
   out.push({
-    fase: "consultar",
-    linha: 6,
-    escritos: n + 1,
-    atualNums: null,
-    atualP: null,
-    somas: n,
-    opsConsulta: 0,
-    mais: null,
-    menos: null,
-    resultado: null,
-    nota: `Tabela pronta com ${n} ${n === 1 ? "soma" : "somas"}, e ela não muda mais. Agora quero soma(${i}, ${j}): na força bruta eu somaria ${largura} ${largura === 1 ? "número" : "números"} de novo.`,
+    phase: "consultar",
+    line: 6,
+    written: n + 1,
+    currentNums: null,
+    currentP: null,
+    sums: n,
+    queryOps: 0,
+    plus: null,
+    minus: null,
+    result: null,
+    note: `Tabela pronta com ${n} ${n === 1 ? "soma" : "somas"}, e ela não muda mais. Agora quero soma(${i}, ${j}): na força bruta eu somaria ${width} ${width === 1 ? "número" : "números"} de novo.`,
   });
 
   out.push({
-    fase: "consultar",
-    linha: 7,
-    escritos: n + 1,
-    atualNums: null,
-    atualP: null,
-    somas: n,
-    opsConsulta: 0,
-    mais: j + 1,
-    menos: null,
-    resultado: null,
-    nota: `p[${j + 1}] = ${p[j + 1]} é a soma de nums[0] até nums[${j}]. O fim do intervalo já está incluído aqui, é por isso que o índice é j + 1 e não j.`,
+    phase: "consultar",
+    line: 7,
+    written: n + 1,
+    currentNums: null,
+    currentP: null,
+    sums: n,
+    queryOps: 0,
+    plus: j + 1,
+    minus: null,
+    result: null,
+    note: `p[${j + 1}] = ${p[j + 1]} é a soma de nums[0] até nums[${j}]. O fim do intervalo já está incluído aqui, é por isso que o índice é j + 1 e não j.`,
   });
 
   out.push({
-    fase: "consultar",
-    linha: 7,
-    escritos: n + 1,
-    atualNums: null,
-    atualP: null,
-    somas: n,
-    opsConsulta: 0,
-    mais: j + 1,
-    menos: i,
-    resultado: null,
-    nota:
+    phase: "consultar",
+    line: 7,
+    written: n + 1,
+    currentNums: null,
+    currentP: null,
+    sums: n,
+    queryOps: 0,
+    plus: j + 1,
+    minus: i,
+    result: null,
+    note:
       i === 0
         ? "p[0] = 0: antes da posição 0 não existe nada para descontar. É exatamente para isso que a sentinela serve, sem ela eu precisaria de um if bem aqui."
         : `p[${i}] = ${p[i]} é a soma de nums[0] até nums[${i - 1}], ou seja, tudo que vem antes do intervalo. Esse é o pedaço que sobra e precisa sair.`,
@@ -157,18 +164,18 @@ function gerarPassos(nums: number[], i: number, j: number): Passo[] {
 
   const res = p[j + 1] - p[i];
   out.push({
-    fase: "consultar",
-    linha: 7,
-    escritos: n + 1,
-    atualNums: null,
-    atualP: null,
-    somas: n,
-    opsConsulta: 1,
-    mais: j + 1,
-    menos: i,
-    resultado: res,
+    phase: "consultar",
+    line: 7,
+    written: n + 1,
+    currentNums: null,
+    currentP: null,
+    sums: n,
+    queryOps: 1,
+    plus: j + 1,
+    minus: i,
+    result: res,
     ok: true,
-    nota: `${p[j + 1]} - ${p[i]} = ${res}. Duas leituras e uma subtração, e o custo seria exatamente o mesmo para um intervalo de um milhão de posições.`,
+    note: `${p[j + 1]} - ${p[i]} = ${res}. Duas leituras e uma subtração, e o custo seria exatamente o mesmo para um intervalo de um milhão de posições.`,
   });
 
   return out;
@@ -182,151 +189,123 @@ function num(v: number): string {
 
 export function PrefixSumVisualizer() {
   const [nums, setNums] = useState<number[]>(DEFAULT_NUMS);
-  const [entrada, setEntrada] = useState(DEFAULT_NUMS.join(", "));
-  const [iBruto, setIBruto] = useState(1);
-  const [jBruto, setJBruto] = useState(4);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
+  const [input, setInput] = useState(DEFAULT_NUMS.join(", "));
+  const [rawI, setRawI] = useState(1);
+  const [rawJ, setRawJ] = useState(4);
 
   const n = nums.length;
   // Os índices são presos aqui, e não no onChange, para o aluno poder digitar
   // qualquer coisa nos campos sem o visualizador entrar em estado inválido.
-  const j = Math.min(Math.max(jBruto, 0), n - 1);
-  const i = Math.min(Math.max(iBruto, 0), j);
+  const j = Math.min(Math.max(rawJ, 0), n - 1);
+  const i = Math.min(Math.max(rawI, 0), j);
 
-  const passos = useMemo(() => gerarPassos(nums, i, j), [nums, i, j]);
-  const p = useMemo(() => prefixos(nums), [nums]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const s = passos[idx];
-  const inicioConsulta = n + 1;
+  const steps = useMemo(() => generateSteps(nums, i, j), [nums, i, j]);
+  const p = useMemo(() => prefixSums(nums), [nums]);
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const viz = useVisualizer({
+    title: "Visualizador · construir a tabela e consultar em O(1)",
+    total: steps.length,
+    speeds: SPEEDS,
+    // O que muda a altura da peça: o tamanho do array. As duas fitas de células
+    // (nums e p, com n + 1 posições) quebram linha, e a nota fica mais longa.
+    measureOn: [n],
+  });
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((v) => (v >= total - 1 ? v : v + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
+  const s = steps[viz.step];
+  const queryStart = n + 1;
 
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
+  // Salto ABSOLUTO, não um delta a partir de `viz.step`: dois cliques rápidos
+  // leem o mesmo passo do closure e somariam o mesmo delta duas vezes, passando
+  // direto da consulta (medido: dois cliques no mesmo quadro iam do passo 9 ao
+  // 12 de 12). `reset` é o que para o relógio, como nos outros controles.
+  const jumpToQuery = () => {
+    viz.reset();
+    viz.setStep(queryStart);
+  };
 
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
-
-  const aoMudarEntrada = (v: string) => {
+  const onInputChange = (v: string) => {
     const arr = v
       .split(",")
       .map((x) => parseInt(x.trim(), 10))
       .filter((x) => !isNaN(x))
-      .slice(0, MAX_ITENS);
-    reiniciar();
-    setEntrada(v);
+      .slice(0, MAX_ITEMS);
+    viz.reset();
+    setInput(v);
     setNums(arr.length ? arr : [1]);
   };
 
-  const aplicarPreset = (pr: Preset) => {
-    reiniciar();
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
     setNums(pr.nums);
-    setEntrada(pr.nums.join(", "));
-    setIBruto(pr.i);
-    setJBruto(pr.j);
+    setInput(pr.nums.join(", "));
+    setRawI(pr.i);
+    setRawJ(pr.j);
   };
 
-  const sortear = () => {
-    const tam = 6 + Math.floor(Math.random() * 4);
-    const arr = Array.from({ length: tam }, () => 1 + Math.floor(Math.random() * 60));
-    const a = Math.floor(Math.random() * tam);
-    const b = Math.floor(Math.random() * tam);
-    reiniciar();
+  const shuffle = () => {
+    const size = 6 + Math.floor(Math.random() * 4);
+    const arr = Array.from({ length: size }, () => 1 + Math.floor(Math.random() * 60));
+    const a = Math.floor(Math.random() * size);
+    const b = Math.floor(Math.random() * size);
+    viz.reset();
     setNums(arr);
-    setEntrada(arr.join(", "));
-    setIBruto(Math.min(a, b));
-    setJBruto(Math.max(a, b));
+    setInput(arr.join(", "));
+    setRawI(Math.min(a, b));
+    setRawJ(Math.max(a, b));
   };
 
   const cellsNums = nums.map((v, k) => {
     let cls = "viz-cell";
-    if (s.fase === "consultar") {
+    if (s.phase === "consultar") {
       if (k >= i && k <= j) cls += " in";
       else cls += " drop";
     }
-    if (s.atualNums === k) cls += " entra";
-    let marca = "";
-    if (s.fase === "consultar") {
-      if (k === i && k === j) marca = "i j";
-      else if (k === i) marca = "i";
-      else if (k === j) marca = "j";
-    } else if (s.atualNums === k) {
-      marca = "k";
+    if (s.currentNums === k) cls += " entra";
+    let mark = "";
+    if (s.phase === "consultar") {
+      if (k === i && k === j) mark = "i j";
+      else if (k === i) mark = "i";
+      else if (k === j) mark = "j";
+    } else if (s.currentNums === k) {
+      mark = "k";
     }
-    return { k, v, cls, marca };
+    return { k, v, cls, mark };
   });
 
   const cellsP = p.map((v, k) => {
     let cls = "viz-cell";
-    if (k >= s.escritos) cls += " drop";
-    if (s.atualP === k) cls += " in entra";
-    if (s.mais === k) cls += " in entra";
-    if (s.menos === k) cls += " sai";
-    let marca = "";
-    if (s.mais === k) marca = "+";
-    else if (s.menos === k) marca = "-";
-    else if (s.atualP === k) marca = "p";
-    return { k, v: k >= s.escritos ? 0 : v, cls, marca };
+    if (k >= s.written) cls += " drop";
+    if (s.currentP === k) cls += " in entra";
+    if (s.plus === k) cls += " in entra";
+    if (s.minus === k) cls += " sai";
+    let mark = "";
+    if (s.plus === k) mark = "+";
+    else if (s.minus === k) mark = "-";
+    else if (s.currentP === k) mark = "p";
+    return { k, v: k >= s.written ? 0 : v, cls, mark };
   });
 
-  const largura = j - i + 1;
+  const width = j - i + 1;
 
-  const variaveis = [
-    { nome: "i", valor: `${i}` },
-    { nome: "j", valor: `${j}` },
-    { nome: `p[${j + 1}]`, valor: s.mais == null ? "-" : `${p[j + 1]}` },
-    { nome: `p[${i}]`, valor: s.menos == null ? "-" : `${p[i]}` },
-    { nome: "soma", valor: s.resultado == null ? "-" : `${s.resultado}`, best: true },
+  const vars = [
+    { name: "i", value: `${i}` },
+    { name: "j", value: `${j}` },
+    { name: `p[${j + 1}]`, value: s.plus == null ? "-" : `${p[j + 1]}` },
+    { name: `p[${i}]`, value: s.minus == null ? "-" : `${p[i]}` },
+    { name: "soma", value: s.result == null ? "-" : `${s.result}`, best: true },
   ];
 
-  const notaCls = "viz-note" + (s.ok ? " ok" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const noteClass = "viz-note" + (s.ok ? " ok" : "");
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · construir a tabela e consultar em O(1)</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.rotulo} className="bigo-chip" onClick={() => aplicarPreset(pr)}>
-              {pr.rotulo}
+            <button key={pr.label} className="bigo-chip" onClick={() => applyPreset(pr)}>
+              {pr.label}
             </button>
           ))}
         </div>
@@ -334,15 +313,15 @@ export function PrefixSumVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Array (nums)</span>
-            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+            <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
           <label className="viz-field">
             <span>i</span>
             <input
               className="viz-input k"
               type="number"
-              value={iBruto}
-              onChange={(e) => { reiniciar(); setIBruto(parseInt(e.target.value, 10) || 0); }}
+              value={rawI}
+              onChange={(e) => { viz.reset(); setRawI(parseInt(e.target.value, 10) || 0); }}
             />
           </label>
           <label className="viz-field">
@@ -350,11 +329,11 @@ export function PrefixSumVisualizer() {
             <input
               className="viz-input k"
               type="number"
-              value={jBruto}
-              onChange={(e) => { reiniciar(); setJBruto(parseInt(e.target.value, 10) || 0); }}
+              value={rawJ}
+              onChange={(e) => { viz.reset(); setRawJ(parseInt(e.target.value, 10) || 0); }}
             />
           </label>
-          <button className="viz-btn" onClick={sortear}>Sortear</button>
+          <button className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="viz-vars-head">nums, o array de entrada</div>
@@ -363,7 +342,7 @@ export function PrefixSumVisualizer() {
             <div className="viz-cell-wrap" key={c.k}>
               <span className="viz-cell-idx">{c.k}</span>
               <div className={c.cls}>{c.v}</div>
-              <span className={`viz-mark${c.marca ? " show" : ""}`}>{c.marca || "·"}</span>
+              <span className={`viz-mark${c.mark ? " show" : ""}`}>{c.mark || "·"}</span>
             </div>
           ))}
         </div>
@@ -374,7 +353,7 @@ export function PrefixSumVisualizer() {
             <div className="viz-cell-wrap" key={c.k}>
               <span className="viz-cell-idx">{c.k}</span>
               <div className={c.cls}>{c.v}</div>
-              <span className={`viz-mark${c.marca ? " show" : ""}`}>{c.marca || "·"}</span>
+              <span className={`viz-mark${c.mark ? " show" : ""}`}>{c.mark || "·"}</span>
             </div>
           ))}
         </div>
@@ -382,15 +361,15 @@ export function PrefixSumVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>somas no pré-processamento</span>
-            <strong>{num(s.somas)}</strong>
+            <strong>{num(s.sums)}</strong>
           </div>
           <div className="bigo-stat">
             <span>operações desta consulta</span>
-            <strong style={{ color: "var(--ccc-green)" }}>{num(s.opsConsulta)}</strong>
+            <strong style={{ color: "var(--ccc-green)" }}>{num(s.queryOps)}</strong>
           </div>
           <div className="bigo-stat">
             <span>a mesma consulta na força bruta</span>
-            <strong style={{ color: "#fbbf24" }}>{num(largura)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{num(width)}</strong>
           </div>
           <div className="bigo-stat">
             <span>n (tamanho do array)</span>
@@ -398,57 +377,47 @@ export function PrefixSumVisualizer() {
           </div>
         </div>
 
-        <p className={notaCls}>{s.nota}</p>
+        <p className={noteClass}>{s.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">soma_de_intervalo.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, k) => (
-                <div key={k} className={`viz-line${k === s.linha ? " on" : ""}`}>
-                  <span className="ln">{k + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura do
+              código. O `.viz-code-slot` é o truque de grid 1fr→0fr. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">soma_de_intervalo.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, k) => (
+                  <div key={k} className={`viz-line${k === s.line ? " on" : ""}`}>
+                    <span className="ln">{k + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <button className="viz-btn" onClick={() => { parar(); setTocando(false); setPasso(inicioConsulta); }}>Pular para a consulta</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      {/* O rótulo fica numa linha só de propósito: o guarda de idioma não
+          enxerga nó de texto JSX quebrado em várias linhas, e o que ele não vê
+          ele não protege. */}
+      <VizFooter viz={viz}>
+        <button className="viz-btn" onClick={jumpToQuery}>Pular para a consulta</button>
+      </VizFooter>
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }

@@ -5,28 +5,66 @@
 Compara TUDO que aparece na tela — literais de string e nós de texto JSX — e
 falha se alguma coisa entrou ou saiu. O que sobrar tem que ser só nome de
 import, de hook e de prop.
+
+Este arquivo já teve DUAS versões que passavam verde com a aula estragada, e as
+duas falharam do mesmo jeito: por olhar de menos, não por olhar errado. Quando
+ele passar, a pergunta útil é o que ele NÃO está olhando.
+
+  1ª versão — só literais de string, sem nó JSX. `<span>Array (fica
+     sorted)</span>` e mais dois rótulos passaram batido.
+  2ª versão — nó JSX só numa linha (`[^...\\n]`) e interpolação apagada inteira
+     (`\\$\\{[^}]*\\}` → `§`). Isso deixou de fora justamente os dois formatos
+     mais comuns do repo, e as duas brechas foram medidas em rename de verdade:
+
+       <button className="viz-btn" onClick={() => pickOp("push-end")}>
+         inserir no fim          ← nó JSX em linha própria: virou "inserir no done"
+       </button>
+
+       `... ${cond ? "reservar a capacidade certa" : "..."} ...`
+                                 ↑ literal DENTRO da interpolação: virou "capacity"
+
+Daí as duas mudanças desta versão: o nó JSX pode atravessar linhas, e os
+literais são varridos em passadas SEPARADAS, para o casamento da crase não
+engolir as aspas aninhadas nela.
 """
 import re, sys
 from collections import Counter
 
-# Nó de texto JSX: entre `>` e `<`, sem quebra de linha e sem sinal de código.
-# Sem essas restrições o casamento atravessa funções inteiras e o relatório
-# vira ruído — foi assim que três strings de tela passaram batido.
-JSX_TEXTO = r">([^<>{}\n;=]*[A-Za-zÀ-ÿ][^<>{}\n;=]*)<"
-LITERAIS = (r'"([^"\\\n]*(?:\\.[^"\\\n]*)*)"'
-            r"|'([^'\\\n]*(?:\\.[^'\\\n]*)*)'"
-            r"|`([^`\\]*(?:\\.[^`\\]*)*)`")
+# Nó de texto JSX. Atravessa linhas de propósito — é assim que o Prettier
+# formata qualquer elemento cujos atributos não cabem numa linha só. Os sinais
+# de código (`{}`, `;`, `=`, `<`, `>`) seguem de fora, e o teto de tamanho
+# impede que um `>` de comparação abra um casamento que atravessa uma função.
+JSX_TEXTO = r">([^<>{};=]*[A-Za-zÀ-ÿ][^<>{};=]*)<"
+MAX_JSX = 240
+
+# Passadas SEPARADAS, e não uma alternância só: numa alternância o casamento da
+# crase consome `${cond ? "texto de tela" : "outro"}` inteiro e as aspas de
+# dentro nunca são vistas. Varrendo aspas por conta própria elas aparecem.
+ASPAS_DUPLAS = r'"([^"\\\n]*(?:\\.[^"\\\n]*)*)"'
+ASPAS_SIMPLES = r"'([^'\\\n]*(?:\\.[^'\\\n]*)*)'"
+CRASE = r"`([^`\\]*(?:\\.[^`\\]*)*)`"
+
 
 def na_tela(caminho: str) -> Counter:
     s = open(caminho, encoding="utf-8").read()
     s = re.sub(r"//[^\n]*|/\*.*?\*/", "", s, flags=re.S)     # comentário não é tela
     achados = []
-    for m in re.finditer(f"{LITERAIS}|{JSX_TEXTO}", s):
-        t = next((g for g in m.groups() if g is not None), "")
-        t = re.sub(r"\$\{[^}]*\}", "§", t).strip()           # interpolação é código
-        if t and re.search(r"[A-Za-zÀ-ÿ]", t):
-            achados.append(t)
+    # O teto de tamanho é do nó JSX, e só dele; a flag diz isso explicitamente
+    # em vez de perguntar `padrao is JSX_TEXTO`, que compara IDENTIDADE de
+    # objeto — funcionaria por acidente aqui e calaria se alguém montasse o
+    # padrão numa variável nova.
+    for padrao, e_jsx in ((ASPAS_DUPLAS, False), (ASPAS_SIMPLES, False),
+                          (CRASE, False), (JSX_TEXTO, True)):
+        for m in re.finditer(padrao, s, flags=re.S):
+            t = m.group(1)
+            if e_jsx and len(t) > MAX_JSX:
+                continue
+            t = re.sub(r"\$\{[^{}]*\}", "§", t)              # interpolação é código
+            t = " ".join(t.split())                          # a indentação não é tela
+            if t and re.search(r"[A-Za-zÀ-ÿ]", t):
+                achados.append(t)
     return Counter(achados)
+
 
 antes, depois = na_tela(sys.argv[1]), na_tela(sys.argv[2])
 sumiram, apareceram = sorted(antes - depois), sorted(depois - antes)

@@ -509,7 +509,23 @@ export function VizFooter({
   /** Para quem não tem animação contínua, só step a step. */
   noSpeed?: boolean;
 }) {
-  if (viz.total <= 1) return null;
+  // Sem linha do tempo não há reprodução: passo, atalhos e barra de progresso
+  // somem, como manda o contrato. Mas os botões extras do componente NÃO são da
+  // linha do tempo, e engoli-los calado já custou dois rodapés escritos à mão
+  // (SubTypesVisualizer e PrefixSumTradeoff, nesta mesma rodada). Sem `children`
+  // não há o que desenhar, e aí o rodapé some inteiro.
+  if (viz.total <= 1) {
+    // Ausência, não falsidade: `0` e `""` são conteúdo legítimo e um `!children`
+    // os engoliria — o mesmo tipo de sumiço silencioso que este conserto veio
+    // resolver. `== null` cobre `null` e `undefined`; `false` entra junto porque
+    // é o que sobra de um `{cond && <button/>}` com a condição falsa.
+    if (children == null || children === false) return null;
+    return (
+      <div className="viz-foot">
+        <div className="viz-controls">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="viz-foot">
       <div className="viz-controls">

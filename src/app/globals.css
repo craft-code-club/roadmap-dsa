@@ -595,6 +595,19 @@ html { scroll-behavior: smooth; }
 .tp-canvas-wrap { border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); overflow-x: auto; }
 .tp-svg { display: block; width: 100%; min-width: 440px; height: auto; }
 
+/* Camada 2 da casca adaptativa, para ESTE desenho: com `width: 100%` o rho é
+   esticado até a largura do corpo, e o que cresce junto é o vazio entre os nós.
+   Medido em 1512x900, no fluxo do artigo: viewBox de 406x204 renderizando a
+   800x402px, ou seja 402 dos 939px da peça, contra um orçamento de 816.
+   O teto devolve 138px sem esconder nada — o `preserveAspectRatio` padrão
+   encolhe e centraliza o desenho, que continua inteiro na tela.
+   No expandido o teto sai: lá o miolo rola, e o painel existe justamente para
+   ver o desenho maior. Vence por especificidade, não por ordem de arquivo. */
+@media (max-height: 950px) {
+  .tp-svg { max-height: 264px; }
+  .viz-overlay-fit .tp-svg { max-height: none; }
+}
+
 /* ------ Strings: heap de alocações, fita de bytes e as duas fitas do rotate ---
    Prefixo .str-* para não colidir com os próximos temas. Usado por
    StringsVisualizer, StringsBytesVisualizer e StringsRotateVisualizer. */
@@ -627,7 +640,16 @@ html { scroll-behavior: smooth; }
 .str-byte-cell { display: inline-grid; place-items: center; min-width: 34px; height: 30px; padding: 0 5px; border-radius: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; color: #071019; }
 .str-byte-cell.ini { box-shadow: inset 0 0 0 2px rgba(7, 16, 25, 0.55); }
 
-/* tabela caractere → code point → bytes */
+/* tabela caractere → code point → bytes.
+   O `overflow-x: auto` daqui não é só a barra horizontal da tabela larga: ele é
+   o que deixa esta tabela servir de bloco recolhível da casca adaptativa sem uma
+   linha de CSS a mais. Um item de grid só ganha o tamanho mínimo automático
+   quando o overflow dele é `visible`; com o eixo X em `auto`, o Y sai de
+   `visible` junto, o mínimo automático vira 0 e a trilha do `.viz-code-slot`
+   consegue fechar de `1fr` para `0fr`. É por isso que o `.viz-code`, que é
+   `overflow: hidden`, também dispensa `min-height` — e por isso o par de regras
+   que eu tinha escrito aqui para "ajudar" não fazia nada (o teste passava
+   inteiro com elas removidas). */
 .str-scroll { overflow-x: auto; margin-bottom: 4px; }
 .str-tab { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13.5px; }
 .str-tab th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); border-bottom: 1px solid var(--ccc-line); }
@@ -837,6 +859,16 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 /* Endereço de memória embaixo de cada célula. */
 .arr-addr { height: 13px; font-family: var(--mono); font-size: 10px; line-height: 13px; letter-spacing: -0.02em; color: #4c5f79; }
 .arr-addr.on { color: var(--ccc-accent-2); font-weight: 700; }
+
+/* Mapa das linhas de cache: um cartão por bloco de 64 B, com o intervalo de
+   índices que mora nele. Estava em `style={{...}}` no componente; virou classe
+   aqui para o bloco temático dos arrays ser o único lugar onde a aparência
+   desta peça se decide. */
+.arr-cache-mapa { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 14px; }
+.arr-cache-linha { flex: 1 1 160px; min-width: 0; padding: 8px 10px; border: 1px solid var(--ccc-line); border-radius: 9px; background: var(--ccc-panel); }
+.arr-cache-linha.on { border-color: var(--ccc-accent); background: var(--ccc-accent-soft); }
+.arr-cache-rot { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ccc-muted); }
+.arr-cache-faixa { margin-top: 2px; font-family: var(--mono); font-size: 13px; }
 
 /* A conta do endereço, em destaque: base + i * tamanho. */
 .arr-formula { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 16px 0 2px; padding: 13px 15px; border: 1px solid var(--ccc-line); border-left: 3px solid var(--ccc-accent); border-radius: 10px; background: var(--ccc-panel); font-family: var(--mono); font-size: 14px; color: #cbd9ea; overflow-x: auto; }

@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // SlidingWindowVisualizer, visualização passo a passo da Sliding Window.
-//
-// Padrão para novos visualizadores: um gerador puro de "passos" + a mesma
-// casca de UI (células, código sincronizado, variáveis, controles, expandir).
-// Para uma técnica nova, copie este arquivo, troque `gerarPassos` e o `CODIGO`.
 //
 // variant="fixed"    → maior soma de uma janela de tamanho k (tamanho travado)
 // variant="dynamic"  → maior subarray com soma ≤ k (cresce/encolhe)
@@ -16,34 +13,34 @@ import { createPortal } from "react-dom";
 // Os dois modos contam LEITURAS DO ARRAY (cada `nums[i]` executado) e mostram,
 // ao lado, quantas leituras a força bruta faria. É esse par de números que
 // transforma "a janela é O(n)" em algo que o aluno vê acontecendo:
-//   janela fixa    → 2n - k          força bruta → (n - k + 1) · k
+//   janela fixa    → 2n - k             força bruta → (n - k + 1) · k
 //   janela variável→ n + encolhimentos  força bruta → n(n+1)/2 no pior caso
 //
-// O array padrão da janela variável, [2, 3, 4, 5, 6, 7, 9] com soma ≤ 15, é o
-// mesmo que a galera desenhou no encontro: as somas saem 2, 5, 9, 14, depois
-// estoura em 20, volta para 15, estoura em 22, volta para 13, e a resposta é 4.
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
 type Variant = "fixed" | "dynamic";
 
-type Passo = {
+type Step = {
   l: number;
   r: number;
   curr: number; // métrica da janela (soma)
   ans: number; // resposta acumulada (fixa: melhor soma / dinâmica: maior tamanho)
-  linha: number;
-  leituras: number; // acessos a nums[...] executados até aqui
-  entra?: number;
-  sai?: number;
+  line: number;
+  reads: number; // acessos a nums[...] executados até aqui
+  entering?: number;
+  leaving?: number;
   invalid?: boolean;
   ok?: boolean;
-  fim?: boolean;
-  nota: string;
+  done?: boolean;
+  note: string;
 };
 
-// As linhas mapeiam 1:1 com os passos (campo `linha` em gerarPassos*), então a
+// As linhas mapeiam 1:1 com os passos (campo `line` nos geradores), então a
 // ordem e a quantidade de linhas não podem mudar.
-const CODIGO_FIXA = [
+const FIXED_CODE = [
   "def melhor_soma(nums, k):",
   "    soma = sum(nums[:k])",
   "    melhor = soma",
@@ -56,7 +53,7 @@ const CODIGO_FIXA = [
   "    return melhor",
 ];
 
-const CODIGO_DINAMICA = [
+const DYNAMIC_CODE = [
   "def maior_subarray(nums, k):",
   "    esquerda = 0",
   "    soma = 0",
@@ -70,390 +67,354 @@ const CODIGO_DINAMICA = [
   "    return melhor",
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
-function plural(v: number, um: string, muitos: string): string {
-  return `${v} ${v === 1 ? um : muitos}`;
+function plural(v: number, one: string, many: string): string {
+  return `${v} ${v === 1 ? one : many}`;
 }
 
-function gerarPassosFixa(nums: number[], k: number): Passo[] {
-  const out: Passo[] = [];
+function generateFixedSteps(nums: number[], k: number): Step[] {
+  const steps: Step[] = [];
   const n = nums.length;
-  let soma = 0;
-  for (let i = 0; i < k; i++) soma += nums[i];
-  let leituras = k;
-  let melhor = soma;
-  let esq = 0;
+  let sum = 0;
+  for (let i = 0; i < k; i++) sum += nums[i];
+  let reads = k;
+  let best = sum;
+  let left = 0;
 
-  out.push({
+  steps.push({
     l: 0,
     r: k - 1,
-    curr: soma,
-    ans: melhor,
-    linha: 1,
-    leituras,
-    nota: `Monto a primeira janela somando do zero: ${nums.slice(0, k).join(" + ")} = ${soma}. É a única vez que eu faço isso, e me custou ${plural(k, "leitura", "leituras")}.`,
+    curr: sum,
+    ans: best,
+    line: 1,
+    reads,
+    note: `Monto a primeira janela somando do zero: ${nums.slice(0, k).join(" + ")} = ${sum}. É a única vez que eu faço isso, e me custou ${plural(k, "leitura", "leituras")}.`,
   });
-  out.push({
+  steps.push({
     l: 0,
     r: k - 1,
-    curr: soma,
-    ans: melhor,
-    linha: 2,
-    leituras,
+    curr: sum,
+    ans: best,
+    line: 2,
+    reads,
     ok: true,
-    nota: `Ainda não tenho com quem comparar, então a primeira janela já é a melhor: ${melhor}.`,
+    note: `Ainda não tenho com quem comparar, então a primeira janela já é a melhor: ${best}.`,
   });
 
   for (let d = k; d < n; d++) {
-    soma += nums[d];
-    leituras++;
-    out.push({
-      l: esq,
+    sum += nums[d];
+    reads++;
+    steps.push({
+      l: left,
       r: d,
-      curr: soma,
-      ans: melhor,
-      linha: 5,
-      leituras,
-      entra: d,
-      nota: `Entra nums[${d}] = ${nums[d]} pela direita. Agora tenho ${k + 1} elementos e soma ${soma}: sobrou um, preciso devolver o mais antigo.`,
+      curr: sum,
+      ans: best,
+      line: 5,
+      reads,
+      entering: d,
+      note: `Entra nums[${d}] = ${nums[d]} pela direita. Agora tenho ${k + 1} elementos e soma ${sum}: sobrou um, preciso devolver o mais antigo.`,
     });
 
-    const saiu = esq;
-    soma -= nums[saiu];
-    leituras++;
-    esq++;
-    out.push({
-      l: esq,
+    const removed = left;
+    sum -= nums[removed];
+    reads++;
+    left++;
+    steps.push({
+      l: left,
       r: d,
-      curr: soma,
-      ans: melhor,
-      linha: 6,
-      leituras,
-      sai: saiu,
-      nota: `Sai nums[${saiu}] = ${nums[saiu]} pela esquerda. soma = ${soma}, de volta aos ${k} elementos, e esquerda passa a ser ${esq}. Duas leituras, não ${k}.`,
+      curr: sum,
+      ans: best,
+      line: 6,
+      reads,
+      leaving: removed,
+      note: `Sai nums[${removed}] = ${nums[removed]} pela esquerda. soma = ${sum}, de volta aos ${k} elementos, e esquerda passa a ser ${left}. Duas leituras, não ${k}.`,
     });
 
-    const superou = soma > melhor;
-    if (superou) melhor = soma;
-    out.push({
-      l: esq,
+    const improved = sum > best;
+    if (improved) best = sum;
+    steps.push({
+      l: left,
       r: d,
-      curr: soma,
-      ans: melhor,
-      linha: 8,
-      leituras,
-      ok: superou,
-      nota: superou
-        ? `A janela [${esq}..${d}] soma ${soma} e é a melhor até agora.`
-        : `A janela [${esq}..${d}] soma ${soma}, não supera ${melhor}. Sigo em frente.`,
+      curr: sum,
+      ans: best,
+      line: 8,
+      reads,
+      ok: improved,
+      note: improved
+        ? `A janela [${left}..${d}] soma ${sum} e é a melhor até agora.`
+        : `A janela [${left}..${d}] soma ${sum}, não supera ${best}. Sigo em frente.`,
     });
   }
 
-  const bruta = (n - k + 1) * k;
-  out.push({
-    l: esq,
+  const brute = (n - k + 1) * k;
+  steps.push({
+    l: left,
     r: n - 1,
-    curr: soma,
-    ans: melhor,
-    linha: 9,
-    leituras,
-    fim: true,
-    nota: `Fim: a maior soma de ${k} elementos seguidos é ${melhor}. Gastei ${plural(leituras, "leitura", "leituras")} do array, contra ${bruta} da força bruta.`,
+    curr: sum,
+    ans: best,
+    line: 9,
+    reads,
+    done: true,
+    note: `Fim: a maior soma de ${k} elementos seguidos é ${best}. Gastei ${plural(reads, "leitura", "leituras")} do array, contra ${brute} da força bruta.`,
   });
-  return out;
+  return steps;
 }
 
-function gerarPassosDinamica(nums: number[], k: number): Passo[] {
-  const out: Passo[] = [];
+function generateDynamicSteps(nums: number[], k: number): Step[] {
+  const steps: Step[] = [];
   const n = nums.length;
-  let soma = 0;
-  let melhor = 0;
-  let esq = 0;
-  let leituras = 0;
+  let sum = 0;
+  let best = 0;
+  let left = 0;
+  let reads = 0;
 
-  out.push({
+  steps.push({
     l: 0,
     r: -1,
     curr: 0,
     ans: 0,
-    linha: 2,
-    leituras,
-    nota: `Janela vazia: esquerda e direita em 0, soma 0. Vou crescer pela direita enquanto a soma couber em ${k}.`,
+    line: 2,
+    reads,
+    note: `Janela vazia: esquerda e direita em 0, soma 0. Vou crescer pela direita enquanto a soma couber em ${k}.`,
   });
 
   for (let d = 0; d < n; d++) {
-    soma += nums[d];
-    leituras++;
-    out.push({
-      l: esq,
+    sum += nums[d];
+    reads++;
+    steps.push({
+      l: left,
       r: d,
-      curr: soma,
-      ans: melhor,
-      linha: 5,
-      leituras,
-      entra: d,
-      nota: `Entra nums[${d}] = ${nums[d]} pela direita. soma = ${soma}.`,
+      curr: sum,
+      ans: best,
+      line: 5,
+      reads,
+      entering: d,
+      note: `Entra nums[${d}] = ${nums[d]} pela direita. soma = ${sum}.`,
     });
 
-    let guarda = 0;
-    while (soma > k && esq <= d && guarda++ < 200) {
-      out.push({
-        l: esq,
+    let guard = 0;
+    while (sum > k && left <= d && guard++ < 200) {
+      steps.push({
+        l: left,
         r: d,
-        curr: soma,
-        ans: melhor,
-        linha: 6,
-        leituras,
+        curr: sum,
+        ans: best,
+        line: 6,
+        reads,
         invalid: true,
-        sai: esq,
-        nota: `soma ${soma} passou de k = ${k}: janela inválida. Como todo mundo aqui é positivo, só encolhendo pela esquerda ela volta a valer.`,
+        leaving: left,
+        note: `soma ${sum} passou de k = ${k}: janela inválida. Como todo mundo aqui é positivo, só encolhendo pela esquerda ela volta a valer.`,
       });
-      soma -= nums[esq];
-      leituras++;
-      esq++;
-      out.push({
-        l: esq,
+      sum -= nums[left];
+      reads++;
+      left++;
+      steps.push({
+        l: left,
         r: d,
-        curr: soma,
-        ans: melhor,
-        linha: 7,
-        leituras,
-        nota: `Sai nums[${esq - 1}] = ${nums[esq - 1]} pela esquerda. soma = ${soma}. O índice ${esq - 1} nunca mais volta.`,
+        curr: sum,
+        ans: best,
+        line: 7,
+        reads,
+        note: `Sai nums[${left - 1}] = ${nums[left - 1]} pela esquerda. soma = ${sum}. O índice ${left - 1} nunca mais volta.`,
       });
     }
 
-    const len = d - esq + 1;
-    const superou = len > melhor;
-    if (superou) melhor = len;
-    out.push({
-      l: esq,
+    const len = d - left + 1;
+    const improved = len > best;
+    if (improved) best = len;
+    steps.push({
+      l: left,
       r: d,
-      curr: soma,
-      ans: melhor,
-      linha: 9,
-      leituras,
+      curr: sum,
+      ans: best,
+      line: 9,
+      reads,
       ok: true,
-      nota:
+      note:
         len <= 0
-          ? `A janela ficou vazia: nums[${d}] = ${nums[d]} sozinho já estoura ${k}. Melhor resposta segue ${melhor}.`
-          : superou
-            ? `Janela válida [${esq}..${d}], ${plural(len, "elemento", "elementos")}. É a maior até agora: ${melhor}.`
-            : `Janela válida [${esq}..${d}], ${plural(len, "elemento", "elementos")}, que não supera ${melhor}.`,
+          ? `A janela ficou vazia: nums[${d}] = ${nums[d]} sozinho já estoura ${k}. Melhor resposta segue ${best}.`
+          : improved
+            ? `Janela válida [${left}..${d}], ${plural(len, "elemento", "elementos")}. É a maior até agora: ${best}.`
+            : `Janela válida [${left}..${d}], ${plural(len, "elemento", "elementos")}, que não supera ${best}.`,
     });
   }
 
-  const bruta = (n * (n + 1)) / 2;
-  out.push({
-    l: esq,
+  const brute = (n * (n + 1)) / 2;
+  steps.push({
+    l: left,
     r: n - 1,
-    curr: soma,
-    ans: melhor,
-    linha: 10,
-    leituras,
-    fim: true,
-    nota: `Fim: o maior subarray com soma ≤ ${k} tem ${melhor} ${melhor === 1 ? "elemento" : "elementos"}. Cada índice entrou uma vez e saiu no máximo uma: ${plural(leituras, "leitura", "leituras")}, contra ${bruta} da força bruta no pior caso.`,
+    curr: sum,
+    ans: best,
+    line: 10,
+    reads,
+    done: true,
+    note: `Fim: o maior subarray com soma ≤ ${k} tem ${best} ${best === 1 ? "elemento" : "elementos"}. Cada índice entrou uma vez e saiu no máximo uma: ${plural(reads, "leitura", "leituras")}, contra ${brute} da força bruta no pior caso.`,
   });
-  return out;
+  return steps;
 }
 
-type Preset = { key: string; rotulo: string; nums: number[]; k: number };
+type Preset = { key: string; label: string; nums: number[]; k: number };
 
-const CENARIOS: Record<Variant, Preset[]> = {
+const PRESETS: Record<Variant, Preset[]> = {
   // Casos escolhidos a dedo: o padrão, o k grande, o k = n e a borda de tudo igual.
   fixed: [
-    { key: "padrao", rotulo: "Padrão: k = 3", nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 3 },
-    { key: "k5", rotulo: "Janela maior: k = 5", nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 5 },
-    { key: "kn", rotulo: "k = n: uma janela só", nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 8 },
-    { key: "iguais", rotulo: "Tudo igual: k = 2", nums: [4, 4, 4, 4, 4], k: 2 },
+    { key: "padrao", label: "Padrão: k = 3", nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 3 },
+    { key: "k5", label: "Janela maior: k = 5", nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 5 },
+    { key: "kn", label: "k = n: uma janela só", nums: [3, 6, 2, 8, 1, 4, 1, 5], k: 8 },
+    { key: "iguais", label: "Tudo igual: k = 2", nums: [4, 4, 4, 4, 4], k: 2 },
   ],
-  // O do encontro, um que encolhe várias vezes seguidas, a borda do elemento
-  // que sozinho estoura k, e o caso em que nada estoura (a janela nunca encolhe).
+  // Um array crescente (as somas sobem 2, 5, 9, 14, estouram em 20, voltam para
+  // 15, estouram em 22, voltam para 13, e a resposta é 4), um que encolhe várias
+  // vezes seguidas, a borda do elemento que sozinho estoura k, e o caso em que
+  // nada estoura (a janela nunca encolhe).
   dynamic: [
-    { key: "encontro", rotulo: "Do encontro: soma ≤ 15", nums: [2, 3, 4, 5, 6, 7, 9], k: 15 },
-    { key: "encolhe", rotulo: "Encolhe em série: soma ≤ 8", nums: [3, 1, 2, 7, 4, 2, 1, 1, 5], k: 8 },
-    { key: "estoura", rotulo: "Um elemento maior que k", nums: [1, 2, 20, 1, 1], k: 5 },
-    { key: "nunca", rotulo: "Nada estoura: k folgado", nums: [1, 1, 1, 1, 1], k: 9 },
+    { key: "encontro", label: "Do encontro: soma ≤ 15", nums: [2, 3, 4, 5, 6, 7, 9], k: 15 },
+    { key: "encolhe", label: "Encolhe em série: soma ≤ 8", nums: [3, 1, 2, 7, 4, 2, 1, 1, 5], k: 8 },
+    { key: "estoura", label: "Um elemento maior que k", nums: [1, 2, 20, 1, 1], k: 5 },
+    { key: "nunca", label: "Nada estoura: k folgado", nums: [1, 1, 1, 1, 1], k: 9 },
   ],
 };
 
-const TITULOS: Record<Variant, string> = {
+const TITLES: Record<Variant, string> = {
   fixed: "janela fixa, a maior soma de k elementos seguidos",
   dynamic: "janela variável, o maior subarray com soma ≤ k",
 };
 
-const ROTULO_K: Record<Variant, string> = { fixed: "k", dynamic: "soma máx (k)" };
+const K_LABEL: Record<Variant, string> = { fixed: "k", dynamic: "soma máx (k)" };
 
 export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Variant }) {
-  const modo = variant;
-  const cenarios = CENARIOS[modo];
-  const inicial = cenarios[0];
-  const CODIGO = modo === "fixed" ? CODIGO_FIXA : CODIGO_DINAMICA;
+  const mode = variant;
+  const presets = PRESETS[mode];
+  const initial = presets[0];
+  const CODE = mode === "fixed" ? FIXED_CODE : DYNAMIC_CODE;
 
-  const [nums, setNums] = useState<number[]>(inicial.nums);
-  const [entrada, setEntrada] = useState(inicial.nums.join(", "));
-  const [k, setK] = useState(inicial.k);
-  const [cenario, setCenario] = useState(inicial.key);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
+  const [nums, setNums] = useState<number[]>(initial.nums);
+  const [input, setInput] = useState(initial.nums.join(", "));
+  const [k, setK] = useState(initial.k);
+  const [presetKey, setPresetKey] = useState(initial.key);
 
   // Na janela fixa, k é o tamanho e não pode passar de n. Na variável, k é um
   // teto de soma e pode ser qualquer número.
-  const kEfetivo = modo === "fixed" ? Math.max(1, Math.min(k, nums.length)) : Math.max(1, k);
+  const effectiveK = mode === "fixed" ? Math.max(1, Math.min(k, nums.length)) : Math.max(1, k);
 
-  const passos = useMemo(() => {
+  const steps = useMemo(() => {
     const arr = nums.length ? nums : [1];
-    const kk = modo === "fixed" ? Math.max(1, Math.min(k, arr.length)) : Math.max(1, k);
-    return modo === "fixed" ? gerarPassosFixa(arr, kk) : gerarPassosDinamica(arr, kk);
-  }, [nums, k, modo]);
+    const kk = mode === "fixed" ? Math.max(1, Math.min(k, arr.length)) : Math.max(1, k);
+    return mode === "fixed" ? generateFixedSteps(arr, kk) : generateDynamicSteps(arr, kk);
+  }, [nums, k, mode]);
 
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const n = nums.length;
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
+  const viz = useVisualizer({
+    title: `Visualizador · ${TITLES[mode]}`,
+    total: steps.length,
+    speeds: SPEEDS,
+    // O que muda a altura da peça: o modo (o código vai de 10 a 11 linhas) e o
+    // tamanho do array (as células quebram linha).
+    measureOn: [mode, n],
+  });
 
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  // Loop de reprodução, reinicia o intervalo quando play/velocidade mudam.
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => {
-      setPasso((s) => (s >= total - 1 ? s : s + 1));
-    }, VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  // Pausa automaticamente ao chegar no fim.
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  // Esc fecha o modo expandido.
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = useCallback(() => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  }, [parar]);
-
-  const aoMudarEntrada = (v: string) => {
+  const onInputChange = (v: string) => {
     const arr = v.split(",").map((x) => parseInt(x.trim(), 10)).filter((x) => !isNaN(x)).slice(0, 14);
-    reiniciar();
-    setCenario("");
-    setEntrada(v);
-    setNums(arr.length ? arr : [1]);
+    const novo = arr.length ? arr : [1];
+    viz.reset();
+    setPresetKey("");
+    setInput(v);
+    setNums(novo);
+    // Na janela fixa k é o TAMANHO da janela: encurtar o array tem que encurtar
+    // o k junto. Sem isso o campo continuava mostrando o k antigo enquanto o
+    // algoritmo já rodava com `min(k, n)` — o aluno lia 8 e via janelas de 3.
+    // Forma funcional porque este handler dispara a cada tecla digitada.
+    if (mode === "fixed") setK((atual) => Math.min(atual, novo.length));
   };
-  const aoMudarK = (v: string) => {
-    const bruto = parseInt(v, 10) || 1;
-    const kk = modo === "fixed" ? Math.max(1, Math.min(bruto, nums.length)) : Math.max(1, bruto);
-    reiniciar();
-    setCenario("");
+  const onKChange = (v: string) => {
+    const raw = parseInt(v, 10) || 1;
+    const kk = mode === "fixed" ? Math.max(1, Math.min(raw, nums.length)) : Math.max(1, raw);
+    viz.reset();
+    setPresetKey("");
     setK(kk);
   };
-  const aplicar = (pr: Preset) => {
-    reiniciar();
-    setCenario(pr.key);
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
+    setPresetKey(pr.key);
     setNums(pr.nums);
-    setEntrada(pr.nums.join(", "));
+    setInput(pr.nums.join(", "));
     setK(pr.k);
   };
   // Math.random só aqui, num handler de clique: no caminho de render ele
   // quebraria a hidratação (o HTML do build divergiria do cliente).
-  const sortear = () => {
-    const n = 7 + Math.floor(Math.random() * 3);
-    const arr = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * 9));
-    reiniciar();
-    setCenario("");
+  const shuffle = () => {
+    const size = 7 + Math.floor(Math.random() * 3);
+    const arr = Array.from({ length: size }, () => 1 + Math.floor(Math.random() * 9));
+    viz.reset();
+    setPresetKey("");
     setNums(arr);
-    setEntrada(arr.join(", "));
-    setK(modo === "fixed" ? Math.min(k, n) : k);
+    setInput(arr.join(", "));
+    setK(mode === "fixed" ? Math.min(k, size) : k);
   };
 
-  const janelaVazia = p.l > p.r;
-  const janelaAtiva = p.r >= 0 && !p.fim && !janelaVazia;
+  const emptyWindow = p.l > p.r;
+  const activeWindow = p.r >= 0 && !p.done && !emptyWindow;
 
   const cells = nums.map((v, i) => {
-    const dentro = janelaAtiva && i >= p.l && i <= p.r;
+    const inside = activeWindow && i >= p.l && i <= p.r;
     let cls = "viz-cell";
-    if (dentro) cls += " in";
+    if (inside) cls += " in";
     if (p.r >= 0 && i < p.l) cls += " drop";
-    if (p.entra === i) cls += " entra";
-    if (p.sai === i) cls += " sai";
-    let marca = "";
-    if (janelaAtiva && i === p.l) marca = "esq";
-    if (janelaAtiva && i === p.r) marca = marca ? "esq/dir" : "dir";
-    return { i, v, cls, marca };
+    if (p.entering === i) cls += " entra";
+    if (p.leaving === i) cls += " sai";
+    let mark = "";
+    if (activeWindow && i === p.l) mark = "esq";
+    if (activeWindow && i === p.r) mark = mark ? "esq/dir" : "dir";
+    return { i, v, cls, mark };
   });
 
-  const variaveis =
-    modo === "fixed"
+  const vars: { name: string; value: string; best?: boolean }[] =
+    mode === "fixed"
       ? [
-          { nome: "esquerda", valor: `${p.l}` },
-          { nome: "direita", valor: p.r < 0 ? "-" : `${p.r}` },
-          { nome: "soma", valor: `${p.curr}` },
-          { nome: "melhor", valor: `${p.ans}`, best: true },
+          { name: "esquerda", value: `${p.l}` },
+          { name: "direita", value: p.r < 0 ? "-" : `${p.r}` },
+          { name: "soma", value: `${p.curr}` },
+          { name: "melhor", value: `${p.ans}`, best: true },
         ]
       : [
-          { nome: "esquerda", valor: `${p.l}` },
-          { nome: "direita", valor: p.r < 0 ? "-" : `${p.r}` },
-          { nome: "soma", valor: `${p.curr}` },
-          { nome: "melhor (tam.)", valor: `${p.ans}`, best: true },
+          { name: "esquerda", value: `${p.l}` },
+          { name: "direita", value: p.r < 0 ? "-" : `${p.r}` },
+          { name: "soma", value: `${p.curr}` },
+          { name: "melhor (tam.)", value: `${p.ans}`, best: true },
         ];
 
-  const n = nums.length;
-  const bruta = modo === "fixed" ? (n - kEfetivo + 1) * kEfetivo : (n * (n + 1)) / 2;
-  const estatisticas = [
-    { k: "n", rot: "tamanho (n)", val: `${n}` },
-    { k: "leituras", rot: "leituras da janela", val: `${p.leituras}` },
-    { k: "bruta", rot: modo === "fixed" ? "leituras da força bruta" : "força bruta (pior caso)", val: `${bruta}` },
-    { k: "espaco", rot: "memória extra", val: "O(1)" },
+  const brute = mode === "fixed" ? (n - effectiveK + 1) * effectiveK : (n * (n + 1)) / 2;
+  const stats = [
+    { key: "n", label: "tamanho (n)", value: `${n}` },
+    { key: "leituras", label: "leituras da janela", value: `${p.reads}` },
+    {
+      key: "bruta",
+      label: mode === "fixed" ? "leituras da força bruta" : "força bruta (pior caso)",
+      value: `${brute}`,
+    },
+    { key: "espaco", label: "memória extra", value: "O(1)" },
   ];
 
-  const notaCls = "viz-note" + (p.invalid ? " invalid" : p.ok || p.fim ? " ok" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const noteClass = "viz-note" + (p.invalid ? " invalid" : p.ok || p.done ? " ok" : "");
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · {TITULOS[modo]}</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {cenarios.map((pr) => (
+          {presets.map((pr) => (
             <button
               key={pr.key}
-              className={`bigo-chip${cenario === pr.key ? " on" : ""}`}
-              onClick={() => aplicar(pr)}
-              aria-pressed={cenario === pr.key}
+              className={`bigo-chip${presetKey === pr.key ? " on" : ""}`}
+              onClick={() => applyPreset(pr)}
+              aria-pressed={presetKey === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
@@ -461,13 +422,13 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Seu array</span>
-            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+            <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
           <label className="viz-field">
-            <span>{ROTULO_K[modo]}</span>
-            <input className="viz-input k" type="number" value={k} onChange={(e) => aoMudarK(e.target.value)} />
+            <span>{K_LABEL[mode]}</span>
+            <input className="viz-input k" type="number" value={k} onChange={(e) => onKChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={sortear}>Sortear</button>
+          <button className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="viz-cells">
@@ -475,71 +436,59 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
             <div className="viz-cell-wrap" key={c.i}>
               <span className="viz-cell-idx">{c.i}</span>
               <div className={c.cls}>{c.v}</div>
-              <span className={`viz-mark${c.marca ? " show" : ""}`}>{c.marca || "·"}</span>
+              <span className={`viz-mark${c.mark ? " show" : ""}`}>{c.mark || "·"}</span>
             </div>
           ))}
         </div>
 
-        <p className={notaCls}>{p.nota}</p>
+        <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">solucao.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura do
+              código. O `.viz-code-slot` é o truque de grid 1fr→0fr, a única
+              forma de animar altura automática em CSS puro. O código fica no
+              DOM mesmo recolhido, e é isso que permite medir o pior caso de
+              altura; `inert` tira ele do teclado e dos leitores de tela. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">solucao.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bigo-stats">
-          {estatisticas.map((s) => (
-            <div className="bigo-stat" key={s.k}>
-              <span>{s.rot}</span>
-              <strong>{s.val}</strong>
+          {stats.map((s) => (
+            <div className="bigo-stat" key={s.key}>
+              <span>{s.label}</span>
+              <strong>{s.value}</strong>
             </div>
           ))}
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-
-  return viz;
+  return viz.inPanel(frame);
 }

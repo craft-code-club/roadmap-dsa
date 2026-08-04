@@ -53,15 +53,58 @@ python3 scripts/guarda-idioma.py /tmp/antes.tsx content/visualizers/MeuVisualiza
 ```
 
 Ele sai com erro se qualquer texto de tela entrou ou saiu. O que sobrar tem que
-ser só nome de import, de hook e de prop. Na primeira versão deste guarda os
-nós JSX ficaram de fora, e três rótulos passaram batido — `<span>Array (fica
-sorted)</span>` entre eles. Depois, confira no navegador: contador, botões,
-notas, rótulos e o bloco de código.
+ser só nome de import, de hook e de prop.
 
-Duas notas de execução: renomear um campo pode **colidir com uma variável local**
-de mesmo nome (`fora` → `out` bateu num `out` que já existia, e o `tsc` reclamou
-de tipo em vez de nome); e a substituição por palavra inteira estraga
-**comentários** também, então releia os que citam nomes.
+**Este guarda já passou verde três vezes com a aula estragada**, e as três por
+olhar de menos. Vale conhecer os buracos que ele tapou, porque eles dizem onde
+procurar o próximo:
+
+| versão | o que não olhava | o que passou |
+|---|---|---|
+| 1ª | nós de texto JSX | `<span>Array (fica sorted)</span>` e mais dois rótulos |
+| 2ª | nó JSX **em mais de uma linha** | `inserir no fim` virou `inserir no done` |
+| 2ª | literal **dentro** de `${...}` | `reservar a capacidade certa` virou `capacity` |
+
+Os dois da 2ª versão não são casos exóticos: o Prettier quebra a linha de
+qualquer elemento cujos atributos não cabem, e ternário dentro de interpolação
+é como metade das notas deste repo escolhe entre singular e plural.
+
+**E um buraco continua aberto, por construção: ele compara o CONJUNTO de textos,
+não onde cada um aparece.** Trocar dois campos de lugar num rename (o subtítulo
+de um cartão indo para o corpo e vice-versa) mantém o conjunto idêntico e passa
+verde. Medido: com `{l.subtitle}` e `{l.body}` invertidos no
+`SubTypesVisualizer`, o guarda não acusa nada e a tela mente. Quem pega isso é
+teste que lê **rótulo e valor juntos**, no mesmo cartão — veja a §8.
+
+Por isso, **a prova final de um rename não é o guarda, é o HTML do build**. Ele
+é o que o aluno recebe, e a comparação é objetiva:
+
+```bash
+render() { python3 -c "
+import re,sys
+s=open(sys.argv[1],encoding='utf-8').read()
+s=re.sub(r'<script.*?</script>','',s,flags=re.S)
+s=re.sub(r'<[^>]+>','\n',s)
+print('\n'.join(l.strip() for l in s.split('\n') if l.strip()))" "$1"; }
+
+npm run build && render out/topico/<slug>/index.html > /tmp/depois.txt
+diff /tmp/antes.txt /tmp/depois.txt     # tem que sair vazio
+```
+
+Três notas de execução, todas medidas:
+
+- renomear um campo pode **colidir com uma variável local** de mesmo nome
+  (`fora` → `out` bateu num `out` que já existia, e o `tsc` reclamou de tipo em
+  vez de nome);
+- a substituição por palavra inteira estraga **comentários** também, então
+  releia os que citam nomes;
+- **chave de tipo escrita como literal é código**, e qualquer ferramenta que
+  protege literais a deixa para trás: em `Omit<Step, "slots" | "desloc">` o
+  `"desloc"` precisava virar `"shifts"` junto com o campo. Aqui só o `tsc`
+  pegou — o guarda de idioma, por construção, nunca vai pegar.
+
+Depois de tudo isso, confira no navegador: contador, botões, notas, rótulos e o
+bloco de código.
 
 > Para *criar* um visualizador do zero (gerador puro de passos, registro no
 > `mdx-components.tsx`), veja o [README](../../README.md) e o
@@ -234,13 +277,59 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | sem bloco dispensável (SVG de árvore, canvas) | `collapsible: false` — ganha o painel parado e nada mais. Não invente um bloco só para ter o botão |
 | o recolhível não é código | `blockName: "tabela"` — o rótulo passa a dizer o que some, porque **rótulo que mente ensina errado** |
 | sem linha do tempo (classificador, tabela) | `total: 1` — some o contador de passo, o rodapé e os atalhos |
+| sem passo, mas com um número que resume o estado | passe o número como `children` do `VizHeader`: ele entra onde ficaria o "passo N de M". Mande o **rótulo junto** (`3 bytes em UTF-8`, não `3`), porque sem o passo ao lado o número perde o contexto que o explicava |
 | ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
 | só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
+| **sem linha do tempo E com botões extras** | escreva o rodapé à mão (abaixo) |
+
+A linha do `total: 1` e a dos **botões extras** se contradizem, e a contradição é
+real: **`VizFooter` é o rodapé de REPRODUÇÃO e retorna `null` quando
+`total <= 1`, descartando os `children` em silêncio.** Um classificador com
+presets — que é o caso do `SubTypesVisualizer` — cai exatamente aí, e passar os
+botões para o `VizFooter` some com eles sem erro nenhum. Nesse caso os controles
+são seus e o `.viz-foot` também:
+
+```tsx
+{/* Fora do `.viz-body` de propósito: é o que os deixa parados no pé do
+    painel enquanto o miolo rola. */}
+<div className="viz-foot">
+  <div className="viz-controls">…seus botões…</div>
+</div>
+```
+
+Não é um atalho: `.viz-foot` é parte da API de CSS (§4), e `.viz-controls`
+dentro dele recebe a mesma linha divisória e o mesmo respiro que o rodapé do
+hook. O que você não ganha — progresso, velocidade, atalhos — é justamente o que
+um visualizador sem linha do tempo não tem.
+
+`measureOn` não faz nada quando `collapsible: false`: sem bloco para recolher,
+não há decisão a tomar e o hook nem espera as fontes. Passar a lista ali é ruído
+que sugere uma medição que não acontece.
+
+**`total` que vem da entrada do aluno pode cair para 1, e aí o rodapé some
+inteiro** — com ele, os `children` que você pôs lá dentro. No visualizador de
+memória contígua o passo É o índice, então um array de um elemento zera a linha
+do tempo; se o preset "20 inteiros" morasse no rodapé, o aluno que digitasse um
+número só ficaria sem o caminho de volta. Preset e botão de estado ficam no
+miolo; no rodapé só o que é reprodução.
+
+E o `↺` do `VizFooter` é `viz.reset()`: ele volta ao passo 0 e **não** desfaz o
+estado que o aluno montou (array, modo, parâmetros). Se o seu visualizador tinha
+um "reiniciar" que zerava tudo, esse caminho de volta vira um botão seu — o
+rótulo do `↺` promete uma coisa só, e é a que ele faz.
 
 O que continua por sua conta: envolver o bloco recolhível no `.viz-code-slot`
 (zerar a coluna tira a largura, não a altura — §7) e escolher um `titulo` que
 seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
+
+**`measureOn` tem que cobrir o que liga ou desliga um pedaço da casca, não só o
+que muda o miolo.** Quando o `total` é derivado da entrada, ele pode atravessar
+1 durante o uso: o gerador da comparação da sliding window devolve **um passo
+só** no caso de borda `k > n`, e aí o contador, o rodapé e os atalhos somem
+inteiros — cerca de 90px a menos de peça — sem que o tamanho da entrada tenha
+mudado. Um `measureOn: [n]` não pediria medição nova nessa travessia. O que
+resolveu foi `measureOn: [n, steps.length]`.
 
 ## 7. Armadilhas medidas
 
@@ -252,6 +341,15 @@ seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
 - **Lista de trilhas de grid só interpola quando todas são da mesma natureza.**
   `1fr 300px → 1fr` não anima. `minmax(0,2fr) minmax(0,1fr) → minmax(0,0fr)
   minmax(0,1fr)` anima.
+- **Quem deixa a trilha fechar é o `overflow` do filho, não um `min-height`
+  escrito à mão.** Um item de grid só ganha tamanho mínimo automático quando o
+  overflow dele é `visible`; qualquer outro valor já zera esse mínimo. É por isso
+  que o `.viz-code`, que é `overflow: hidden`, fecha sem mais nada. Ao recolher
+  um bloco que **não** é `.viz-code`, olhe o `overflow` dele antes de escrever
+  CSS: uma tabela dentro de um container com `overflow-x: auto` já fecha sozinha,
+  e o par de regras "de apoio" que parece obrigatório é inerte. Prove antes de
+  ficar com ele — se o teste de altura passa com a regra removida, a regra não é
+  a razão de nada.
 - **A sombra do rodapé não é simétrica à do cabeçalho por acidente.** O
   cabeçalho tem fundo próprio e dilui a sombra nesse degrau de cor; o rodapé
   divide o fundo com o miolo e ainda soma com o `border-top` dos controles. Com
@@ -262,6 +360,16 @@ seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
   margem dos controles: dentro de uma área rolável ele também é a folga contra a
   borda, então o conteúdo não encosta na linha do rodapé quando a rolagem chega
   ao fim.
+- **Desenho com `width: 100%` e `height: auto` infla a ALTURA junto com a
+  largura, e o que infla é o vazio.** Um SVG com viewBox de 406x204 esticado
+  para os 800px do corpo passa a ocupar 402px de altura — 2x o tamanho natural,
+  e no visualizador de ciclo isso era 402 dos 939px da peça inteira. Recolher o
+  código não resolve, porque o problema não é o código. Um `max-height` no bloco
+  temático do visualizador, dentro de `@media (max-height: ...)`, devolve a
+  altura sem esconder nada: o `preserveAspectRatio` padrão encolhe e centraliza,
+  e o desenho continua inteiro. **No expandido o teto não vale** — lá o miolo
+  rola, e o painel existe justamente para ver o desenho maior; deixe a regra do
+  painel ganhar por especificidade, não por ordem de arquivo.
 
 ## 8. Como provar que funcionou
 
@@ -293,6 +401,22 @@ Nos testes (`tests/`), o mínimo por visualizador adaptado:
 4. a escolha do aluno sobrevive a uma troca de estado que pediria medição nova;
 5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**.
 
+Os itens 2, 3 e 4 — os três que falam do bloco recolhível — não existem quando
+`collapsible: false`. No lugar deles, prove que a ausência tem o rótulo certo:
+**nenhum botão pode prometer esconder um bloco que o visualizador não tem.**
+
+Duas armadilhas medidas ao escrever esses testes:
+
+- **`click()` do Playwright ROLA o contêiner para alcançar o alvo.** Um teste
+  que clica no botão do rodapé e conclui "está ao alcance" passa igualzinho com
+  o rodapé de volta dentro do miolo — medido, com a quebra aplicada e o build
+  visível. *Alcançável* não é *à vista*. Ancore no `scrollTop`: clique só no que
+  está no topo do miolo e exija `scrollTop` igual a `0` **depois** do clique no
+  controle.
+- **Um teste de rolagem sem sobra para rolar não testa nada.** Afirme primeiro
+  que `scrollHeight - clientHeight` passa de zero; senão o dia em que a peça
+  encolher o teste vira decoração verde.
+
 E rode cada teste novo **contra o código quebrado** antes de confiar nele. Duas
 regras que custaram caro:
 
@@ -302,3 +426,71 @@ regras que custaram caro:
   foi o experimento. Escolha uma quebra que **compile** (inverter uma condição,
   não acrescentar um `return` que deixa código inalcançável).
 - Use `npm run test:build`. `npm test` sozinho exercita o build anterior.
+
+E dois jeitos de escrever um teste **vazio** desta casca, os dois medidos aqui,
+os dois passando contra a quebra antes de serem consertados:
+
+- **Rolar o `.viz-body` sem provar que é ele quem rola.** Se a quebra devolve a
+  rolagem para a figura inteira — que é exatamente o bug que a camada 1 conserta
+  —, `body.scrollTop` fica em zero, o cabeçalho não se mexe, e o teste aprova a
+  quebra. Exija as três coisas: que o miolo **estoure**
+  (`scrollHeight - clientHeight > SLACK`), que ele mesmo **role**
+  (`scrollTop > 0` depois de rolar) e que a figura **não** role.
+- **Trocar um estado que não está em `measureOn`.** O teste da escolha manual só
+  significa alguma coisa quando a medição discordaria do aluno. Um preset que
+  troca só o alvo não muda `measureOn`, não dispara medição nenhuma, e a escolha
+  "sobrevive" sem que nada a tenha ameaçado. Escolha um estado que muda mesmo a
+  entrada da medição, **confirme a troca na tela** antes de concluir, e deixe a
+  janela apertada o bastante para a medição querer recolher.
+
+---
+
+## 9. Dois limites medidos da casca
+
+Ambos apareceram adaptando o tópico `intervals`, e ambos são do comportamento
+da casca — não do componente. Estão aqui porque um explica um número que o
+relatório de qualquer adaptação vai encontrar, e o outro é um recurso que o hook
+não tem.
+
+### A compressão da camada 2 não alcança o fluxo do artigo
+
+O bloco `@media (max-height: 950px)` do `globals.css` é escopado em
+`.viz-overlay-fit`: ele só aperta o respiro **dentro do painel expandido**.
+Medido, com o código à mostra nas cinco peças do `intervals`: as alturas numa
+janela de 940px (dentro da consulta) e numa de 1000px (fora dela) são
+**idênticas ao pixel** — 1004, 1176, 1180, 1208 e 1071.
+
+A consequência prática é a ordem em que as camadas agem no artigo: lá só valem
+a 3 (recolher) e o layout base, porque a 2 nunca entra. Por isso uma peça pode
+caber com folga no expandido e ainda passar do orçamento no fluxo do artigo,
+com o bloco já recolhido — e o relatório deve dizer isso com número, em vez de
+tratar como defeito do componente.
+
+Estender a compressão ao artigo é **PR de plataforma**: mexe em base
+compartilhada e alcança página que ninguém abriu. Não vá de carona numa
+adaptação de tópico.
+
+### O hook não tem passo inicial, e a saída não é um efeito
+
+`useVisualizer` sempre começa no passo 0. Quando a peça precisa abrir noutro
+instante — no `intervals`, a sobreposição abre com B já invadindo A, porque em
+t = 0 os dois nem se tocam e abrir sem sobreposição num visualizador sobre
+sobreposição ensina ao contrário —, o ajuste vai na **fase de render**, não num
+`useEffect`:
+
+```tsx
+const [placed, setPlaced] = useState(false);
+if (!placed) {
+  setPlaced(true);
+  viz.setStep(INITIAL_STEP);
+}
+```
+
+É o padrão documentado do React para estado derivado, e a diferença importa duas
+vezes: ele roda antes da pintura (nada pisca na hidratação) **e dentro do build
+estático**, então o HTML pré-renderizado já sai no passo certo. Com `useEffect`,
+o `out/` congela o passo 1 e só o cliente corrige — conferido no HTML do build.
+
+Uma consequência a assumir: o `↺` do `VizFooter` é `viz.reset()`, que volta ao
+passo **0**, e não ao passo inicial escolhido. Se o estado de partida for para
+valer, ele precisa de um botão próprio — ver a nota do `↺` na §6.

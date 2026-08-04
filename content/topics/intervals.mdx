@@ -213,7 +213,7 @@ Dois detalhes do código que decidem casos de teste inteiros:
 - A fase 1 testa `intervalos[i][1] < inicio` com **`<` estrito**, e isso é proposital. Um intervalo que termina exatamente onde o novo começa, como `[1, 7]` contra o novo `[7, 13]`, **não** sai copiado: ele reprova na fase 1, cai na fase 2 e é fundido, que é o que o LeetCode 57 espera. Trocar aquele `<` por `<=` devolveria `[[1, 7], [7, 13]]` em vez de `[[1, 13]]`.
 - O `min` do início só muda alguma coisa na **primeira** absorção. Como a lista chega ordenada e sem sobreposição, do segundo engolido em diante todo mundo começa depois do que o novo já cobre, e o `min` devolve o valor que já estava lá. O `max` do fim, ao contrário, pode mudar em qualquer uma das absorções, e foi o que aconteceu com `[12, 16]`. Mantenha os dois no laço mesmo assim: o `min` não custa nada e é ele que salva o caso em que a fase 2 abre com um intervalo que nasceu antes do novo.
 
-<IntervalsVisualizer modo="insert" />
+<IntervalsVisualizer mode="insert" />
 
 Troque entre os cenários e observe o painel: a estatística **ordenações** fica em zero o tempo todo, e o total de comparações nunca passa de `n + 1` (só o intervalo que reprova na fase 1 é testado duas vezes). É a diferença entre O(n) e O(n log n) aparecendo na tela. Vale rodar mais dois cenários: **Não toca ninguém** (`[4, 5]`, o único que exercita as três fases de verdade) e **Engole tudo** (`[0, 20]`, que absorve a lista inteira e devolve um intervalo só).
 
@@ -318,7 +318,7 @@ def maximo_sem_conflito(intervalos):
 
 Na agenda do começo, esse guloso fica com `[1, 4] [8, 10] [13, 16] [17, 18]`, ou seja, **4 dos 6 compromissos**, e descarta 2. E esse número 2 é exatamente a resposta do LeetCode 435, que pergunta quantos intervalos remover para não sobrar sobreposição: é sempre `n` menos o máximo que cabe.
 
-<IntervalsVisualizer modo="greedy" />
+<IntervalsVisualizer mode="greedy" />
 
 Compare os cenários **Caso base** e **Pelo início falharia** lado a lado. No segundo, a lista já está desenhada de propósito para punir quem ordena pelo início. E rode também o **Cadeia perfeita** (`[1,3] [3,5] [5,7] [7,9]`): os quatro cabem, porque `inicio >= fim_anterior` aceita encostar. Se o seu problema disser que encostar já é conflito, o `>=` vira `>` e a resposta cai. O cenário **Todos em cima** (`[1,5] [2,6] [3,7] [4,8]`) é o extremo oposto: como todo mundo se atropela, sobra 1 escolhido e 3 descartados, e o painel mostra os dois números.
 
