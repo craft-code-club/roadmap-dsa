@@ -1513,6 +1513,7 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .ms-seg.menor { border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.14); color: #a7f3d0; }
 .ms-seg.maior { border-color: rgba(251, 191, 36, 0.5); background: rgba(251, 191, 36, 0.14); color: #fcd34d; }
 .ms-seg.naovisto { border-color: rgba(255, 255, 255, 0.12); background: #131c2b; color: #6b7f99; }
+.ms-seg.exame { border-color: var(--ccc-accent); background: rgba(59, 130, 246, 0.26); color: #fff; }
 .ms-seg.pivo { border-color: rgba(248, 113, 113, 0.6); background: rgba(248, 113, 113, 0.18); color: #fecaca; }
 .qs-explica { font-weight: 400; letter-spacing: 0; text-transform: none; color: #6b7f99; }
 

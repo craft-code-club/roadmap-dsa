@@ -71,7 +71,7 @@ E vale insistir num ponto: **array já ordenado não é um caso raro de laborat�
 Nenhuma regra fixa é imune. Para qualquer estratégia determinística de escolha de pivô, existe uma entrada construída para derrubá-la, e isso já foi usado como vetor de ataque real: um serviço que ordena dados vindos do usuário pode ser levado ao pior caso de propósito. As duas defesas usadas na prática são **sortear** parte da escolha, o que tira do atacante a capacidade de prever, e **vigiar a profundidade**: o introsort do C++ conta os níveis e, quando passa de `2 log n`, troca para [heap sort](/topico/heap-sort) no meio da execução, aceitando um pouco menos de velocidade em troca da garantia.
 </Callout>
 
-Na prática, a escolha mais comum é a **mediana de três** (primeiro, meio e último), muitas vezes combinada com sorteio. Ela custa duas comparações a mais por partição, um preço O(1) que some na conta assintótica, e elimina de uma vez os dois casos ordenados.
+Na prática, a escolha mais comum é a **mediana de três** (primeiro, meio e último), muitas vezes combinada com sorteio. Ela custa duas ou três comparações a mais por partição, dependendo de onde a mediana cai, um preço O(1) que some na conta assintótica, e elimina de uma vez os dois casos ordenados.
 
 ## Repetidos: o buraco que a partição de duas vias tem
 

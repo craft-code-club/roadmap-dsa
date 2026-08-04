@@ -33,7 +33,14 @@ type Passo = {
   i: number; // fronteira dos menores ou iguais
   j: number; // varredura
   pivoIdx: number;
-  jVisto: boolean; // a posição j já foi classificada nesta comparação?
+  // As faixas da invariante saem do GERADOR, não de uma reconstrução na
+  // renderização: só aqui dentro se sabe se a posição j já foi classificada ou
+  // se ela ainda está em exame, e reconstruir isso a partir de i e j fazia a
+  // faixa contradizer a nota no passo da comparação.
+  particionando: boolean;
+  menorAte: number; // último índice comprovadamente <= pivô
+  maiorAte: number; // último índice comprovadamente > pivô
+  exame: number; // índice sendo examinado agora, ou -1
   fixos: number[];
   pilha: string[];
   comp: number;
@@ -109,7 +116,10 @@ export function gerarPassos(valores: number[]): Passo[] {
     i: -1,
     j: -1,
     pivoIdx: -1,
-    jVisto: false,
+    particionando: false,
+    menorAte: -1,
+    maiorAte: -1,
+    exame: -1,
     fixos: [...fixos],
     pilha: [...pilha],
     comp,
@@ -164,6 +174,9 @@ export function gerarPassos(valores: number[]): Passo[] {
       hi,
       i,
       pivoIdx: hi,
+      particionando: true,
+      menorAte: lo - 1,
+      maiorAte: lo - 1,
       linha: 8,
       nota: `A fronteira i começa em ${lo}. A promessa dela é: tudo antes de i já foi visto e é menor ou igual ao pivô. Agora ela está vazia, e a promessa vale de graça.`,
     });
@@ -178,6 +191,10 @@ export function gerarPassos(valores: number[]): Passo[] {
         i,
         j,
         pivoIdx: hi,
+        particionando: true,
+        menorAte: i - 1,
+        maiorAte: j - 1,
+        exame: j,
         linha: 10,
         nota: cabe
           ? `${a[j]} <= ${pivo}: este elemento pertence ao lado dos menores. Vou trocá-lo com quem está na fronteira e empurrar a fronteira uma casa.`
@@ -193,8 +210,10 @@ export function gerarPassos(valores: number[]): Passo[] {
           hi,
           i,
           j,
-          jVisto: true,
           pivoIdx: hi,
+          particionando: true,
+          menorAte: i,
+          maiorAte: j,
           linha: 11,
           nota: igual
             ? `Troca da posição ${i} com ela mesma: quando nenhum elemento maior apareceu ainda, i e j andam colados. O esquema de Lomuto faz muito disso, e é um dos motivos de ele perder em número de escritas para outros esquemas de partição.`
@@ -207,8 +226,10 @@ export function gerarPassos(valores: number[]): Passo[] {
           hi,
           i,
           j,
-          jVisto: true,
           pivoIdx: hi,
+          particionando: true,
+          menorAte: i - 1,
+          maiorAte: j,
           linha: 12,
           nota: `A fronteira avança para ${i}. Agora as posições ${lo} a ${i - 1} são, todas, menores ou iguais a ${pivo}.`,
         });
@@ -323,13 +344,16 @@ export function QuickSortVisualizer() {
   const pctPasso = Math.round(((idx + 1) / total) * 100);
   const fixos = new Set(p.fixos);
 
-  // As quatro regiões da invariante, como faixas alinhadas com o array.
+  // As cinco faixas da invariante, todas vindas do passo. A de "em exame" tem
+  // uma posição só e existe porque, no instante da comparação, aquele elemento
+  // ainda não pertence a nenhum dos dois lados.
   const regioes: { de: number; ate: number; cls: string; txt: string }[] = [];
-  if (p.i >= 0 && p.pivoIdx === p.hi) {
-    const jAtual = p.j >= 0 ? p.j + (p.jVisto ? 1 : 0) : p.i;
-    if (p.i > p.lo) regioes.push({ de: p.lo, ate: p.i - 1, cls: "menor", txt: `<= pivô` });
-    if (jAtual > p.i) regioes.push({ de: p.i, ate: jAtual - 1, cls: "maior", txt: `> pivô` });
-    if (p.hi - 1 >= jAtual) regioes.push({ de: jAtual, ate: p.hi - 1, cls: "naovisto", txt: "não vistos" });
+  if (p.particionando) {
+    const primeiroNaoVisto = (p.exame >= 0 ? p.exame : p.maiorAte) + 1;
+    if (p.menorAte >= p.lo) regioes.push({ de: p.lo, ate: p.menorAte, cls: "menor", txt: "<= pivô" });
+    if (p.maiorAte > p.menorAte) regioes.push({ de: p.menorAte + 1, ate: p.maiorAte, cls: "maior", txt: "> pivô" });
+    if (p.exame >= 0) regioes.push({ de: p.exame, ate: p.exame, cls: "exame", txt: "em exame" });
+    if (p.hi - 1 >= primeiroNaoVisto) regioes.push({ de: primeiroNaoVisto, ate: p.hi - 1, cls: "naovisto", txt: "não vistos" });
     regioes.push({ de: p.hi, ate: p.hi, cls: "pivo", txt: "pivô" });
   }
 

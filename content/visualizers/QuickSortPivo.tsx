@@ -38,7 +38,7 @@ const EXPLICA: Record<Estrategia, string> = {
   ultimo: "a[hi]. A escolha mais simples de escrever, e a que quebra nas duas entradas mais comuns do mundo.",
   primeiro: "a[lo]. Espelho da anterior: quebra exatamente nas mesmas entradas, pelo motivo oposto.",
   meio: "a[(lo + hi) // 2]. Resolve os dois casos ordenados de graça, e ainda pode ser derrubada por uma entrada feita de propósito.",
-  mediana3: "a mediana entre a[lo], a[meio] e a[hi]. Custa duas comparações a mais por partição e é o que as bibliotecas usam de verdade.",
+  mediana3: "a mediana entre a[lo], a[meio] e a[hi]. Custa duas ou três comparações a mais por partição, e é o que as bibliotecas usam de verdade.",
 };
 
 const ESTRATEGIAS: Estrategia[] = ["ultimo", "primeiro", "meio", "mediana3"];
@@ -90,12 +90,22 @@ function rodar(valores: number[], e: Estrategia): Resultado {
     if (e === "primeiro") return lo;
     const meio = lo + ((hi - lo) >> 1);
     if (e === "meio") return meio;
-    // mediana de três: as duas comparações a mais aparecem no contador
-    comp += 2;
+    // Mediana de três com contagem honesta: são 2 comparações no melhor caso e
+    // 3 no pior, e cada uma entra no contador na hora em que acontece. A versão
+    // com duas expressões booleanas encadeadas é mais curta de ler e executa de
+    // 2 a 8 comparações, o que faria o card mentir sobre o custo da estratégia.
     const [x, y, z] = [a[lo], a[meio], a[hi]];
-    if ((x <= y && y <= z) || (z <= y && y <= x)) return meio;
-    if ((y <= x && x <= z) || (z <= x && x <= y)) return lo;
-    return hi;
+    comp++;
+    if (x <= y) {
+      comp++;
+      if (y <= z) return meio; // x <= y <= z
+      comp++;
+      return x <= z ? hi : lo; // x <= z < y, ou z < x <= y
+    }
+    comp++;
+    if (x <= z) return lo; // y < x <= z
+    comp++;
+    return y <= z ? hi : meio; // y <= z < x, ou z < y < x
   };
 
   const quick = (lo: number, hi: number, prof: number) => {
@@ -222,10 +232,11 @@ export function QuickSortPivo() {
           <strong>{idealProf}</strong> níveis com {n} elementos, porque cada nível divide o problema por dois.
           Um pivô que sempre cai na ponta gera <strong>{piorProf}</strong> níveis, porque cada partição resolve
           um elemento e devolve o resto. Como cada nível é um quadro na pilha de chamadas, a profundidade é
-          também a memória: O(log n) no caso bom e O(n) no ruim. Uma ressalva sobre a barra de cima: as duas
+          também a memória: O(log n) no caso bom e O(n) no ruim. Uma ressalva sobre a barra de cima: as
           comparações que a mediana de três gasta para <strong>escolher</strong> o pivô estão contadas ali, e é
-          por isso que ela aparece com um total maior mesmo quando parte melhor. Elas são O(1) por partição e
-          somem na conta assintótica; no gráfico de um array de oito elementos, não.
+          por isso que ela aparece com um total maior mesmo quando parte melhor. São duas ou três por partição,
+          dependendo de onde a mediana cai, e O(1) de qualquer jeito, então somem na conta assintótica; no
+          gráfico de um array de oito elementos, não.
         </p>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
