@@ -15,8 +15,14 @@ painel, bloco que mostra e oculta, controles de reprodução) e **nada** do que
 cada um mostra. O miolo — células, SVG, canvas, tabela — é 100% seu; o hook
 nunca renderiza conteúdo.
 
-Quando este texto e o código divergirem, o código ganha e o texto está
-desatualizado — abra um PR corrigindo.
+Este documento é **normativo**: ele diz como a casca deve se comportar. O
+código é a implementação dele. Divergência entre os dois é defeito, e o
+conserto é alinhar os dois **no mesmo PR** — nem "o código sempre ganha" nem "o
+texto sempre ganha". Decida qual dos dois está errado:
+
+- comportamento que o código tem e o contrato não descreve → ou o contrato está
+  incompleto (documente), ou o comportamento é acidental (remova);
+- regra que o contrato promete e o código não cumpre → é bug, com teste.
 
 > Para *criar* um visualizador do zero (gerador puro de passos, registro no
 > `mdx-components.tsx`), veja o [README](../../README.md) e o
