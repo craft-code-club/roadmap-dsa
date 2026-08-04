@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // PrefixSumGrade2D, a soma de um retângulo em quatro leituras.
 //
-// Padrão passo a passo (gerador PURO de passos + a mesma casca), mas o dado
-// não é uma fita de células e sim duas grades: a matriz e a tabela de
+// Padrão passo a passo (gerador PURO de passos + a casca compartilhada), mas o
+// dado não é uma fita de células e sim duas grades: a matriz e a tabela de
 // prefixos, esta com uma linha e uma coluna sentinela.
 //
 // A ideia que o passo a passo precisa entregar é a inclusão e exclusão: cada
@@ -15,25 +16,32 @@ import { createPortal } from "react-dom";
 // retângulo qualquer é um retângulo grande menos duas faixas mais o canto que
 // foi descontado duas vezes. Por isso cada passo pinta NA MATRIZ o retângulo
 // que aquele termo representa, em vez de só acender um número na tabela.
+//
+// A casca vem do `useVisualizer`. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Regiao = { r1: number; c1: number; r2: number; c2: number };
+type Region = { r1: number; c1: number; r2: number; c2: number };
 
-type Passo = {
-  linha: number;
-  regiao: Regiao | null;
-  tipo: "alvo" | "mais" | "menos";
-  lerP: { r: number; c: number } | null;
-  sinais: Record<string, "mais" | "menos">;
-  acumulado: number | null;
+// `"alvo" | "mais" | "menos"` continuam em português porque `mais` e `menos`
+// são NOMES DE CLASSE do CSS (`.ps-cell.mais`), não identificadores do
+// componente: traduzir aqui obrigaria a mexer no `globals.css` compartilhado.
+type Kind = "alvo" | "mais" | "menos";
+
+type Step = {
+  line: number;
+  region: Region | null;
+  kind: Kind;
+  readP: { r: number; c: number } | null;
+  signs: Record<string, "mais" | "menos">;
+  accumulated: number | null;
   ops: number;
-  nota: string;
+  note: string;
   ok?: boolean;
 };
 
-// As linhas mapeiam 1:1 com os passos (campo `linha` em gerarPassos), então a
+// As linhas mapeiam 1:1 com os passos (campo `line` em generateSteps), então a
 // ordem e a quantidade de linhas não podem mudar.
-const CODIGO = [
+const CODE = [
   "def construir(m):",
   "    linhas, colunas = len(m), len(m[0])",
   "    p = [[0] * (colunas + 1)",
@@ -49,12 +57,11 @@ const CODIGO = [
   "            - p[r2+1][c1] + p[r1][c1])",
 ];
 
-const VELOCIDADES = [0, 1600, 1100, 750, 500, 300];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1600, 1100, 750, 500, 300];
 
 // A matriz do LeetCode 304, que é a referência mais fácil de conferir: a
 // consulta (2, 1) até (4, 3) tem que dar 8.
-const MATRIZ_PADRAO = [
+const DEFAULT_MATRIX = [
   [3, 0, 1, 4, 2],
   [5, 6, 3, 2, 1],
   [1, 2, 0, 1, 5],
@@ -62,131 +69,131 @@ const MATRIZ_PADRAO = [
   [1, 0, 3, 0, 5],
 ];
 
-type Preset = { rotulo: string; sel: Regiao };
+type Preset = { label: string; sel: Region };
 
 const PRESETS: Preset[] = [
-  { rotulo: "LeetCode 304", sel: { r1: 2, c1: 1, r2: 4, c2: 3 } },
-  { rotulo: "Uma linha", sel: { r1: 1, c1: 0, r2: 1, c2: 4 } },
-  { rotulo: "Uma coluna", sel: { r1: 0, c1: 2, r2: 4, c2: 2 } },
-  { rotulo: "Encostado na origem", sel: { r1: 0, c1: 0, r2: 1, c2: 2 } },
-  { rotulo: "Uma célula", sel: { r1: 3, c1: 3, r2: 3, c2: 3 } },
-  { rotulo: "A matriz toda", sel: { r1: 0, c1: 0, r2: 4, c2: 4 } },
+  { label: "LeetCode 304", sel: { r1: 2, c1: 1, r2: 4, c2: 3 } },
+  { label: "Uma linha", sel: { r1: 1, c1: 0, r2: 1, c2: 4 } },
+  { label: "Uma coluna", sel: { r1: 0, c1: 2, r2: 4, c2: 2 } },
+  { label: "Encostado na origem", sel: { r1: 0, c1: 0, r2: 1, c2: 2 } },
+  { label: "Uma célula", sel: { r1: 3, c1: 3, r2: 3, c2: 3 } },
+  { label: "A matriz toda", sel: { r1: 0, c1: 0, r2: 4, c2: 4 } },
 ];
 
 // Matriz aleatória do tamanho pedido. Só sai de handler de clique, nunca do
 // caminho de render, para não divergir entre servidor e cliente na hidratação.
-function matrizAleatoria(linhas: number, colunas: number): number[][] {
-  return Array.from({ length: linhas }, () =>
-    Array.from({ length: colunas }, () => Math.floor(Math.random() * 10))
+function randomMatrix(rows: number, cols: number): number[][] {
+  return Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => Math.floor(Math.random() * 10))
   );
 }
 
-function construir(m: number[][]): number[][] {
-  const linhas = m.length;
-  const colunas = m[0].length;
-  const p: number[][] = Array.from({ length: linhas + 1 }, () => new Array(colunas + 1).fill(0));
-  for (let r = 0; r < linhas; r++) {
-    for (let c = 0; c < colunas; c++) {
+function build(m: number[][]): number[][] {
+  const rows = m.length;
+  const cols = m[0].length;
+  const p: number[][] = Array.from({ length: rows + 1 }, () => new Array(cols + 1).fill(0));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       p[r + 1][c + 1] = m[r][c] + p[r][c + 1] + p[r + 1][c] - p[r][c];
     }
   }
   return p;
 }
 
-function chave(r: number, c: number) {
+function key(r: number, c: number) {
   return `${r},${c}`;
 }
 
-function gerarPassos(m: number[][], p: number[][], sel: Regiao): Passo[] {
+function generateSteps(m: number[][], p: number[][], sel: Region): Step[] {
   const { r1, c1, r2, c2 } = sel;
-  const celulas = (r2 - r1 + 1) * (c2 - c1 + 1);
-  const grande = p[r2 + 1][c2 + 1];
-  const cima = p[r1][c2 + 1];
-  const esquerda = p[r2 + 1][c1];
-  const canto = p[r1][c1];
-  const total = grande - cima - esquerda + canto;
+  const cells = (r2 - r1 + 1) * (c2 - c1 + 1);
+  const big = p[r2 + 1][c2 + 1];
+  const above = p[r1][c2 + 1];
+  const left = p[r2 + 1][c1];
+  const corner = p[r1][c1];
+  const total = big - above - left + corner;
 
-  const sinais: Record<string, "mais" | "menos"> = {};
-  const out: Passo[] = [];
+  const signs: Record<string, "mais" | "menos"> = {};
+  const out: Step[] = [];
 
   out.push({
-    linha: 10,
-    regiao: sel,
-    tipo: "alvo",
-    lerP: null,
-    sinais: { ...sinais },
-    acumulado: null,
+    line: 10,
+    region: sel,
+    kind: "alvo",
+    readP: null,
+    signs: { ...signs },
+    accumulated: null,
     ops: 0,
-    nota: `Quero a soma do retângulo que vai de (${r1}, ${c1}) até (${r2}, ${c2}): são ${celulas} ${celulas === 1 ? "célula" : "células"}. Na força bruta eu somaria uma por uma.`,
+    note: `Quero a soma do retângulo que vai de (${r1}, ${c1}) até (${r2}, ${c2}): são ${cells} ${cells === 1 ? "célula" : "células"}. Na força bruta eu somaria uma por uma.`,
   });
 
-  sinais[chave(r2 + 1, c2 + 1)] = "mais";
+  signs[key(r2 + 1, c2 + 1)] = "mais";
   out.push({
-    linha: 11,
-    regiao: { r1: 0, c1: 0, r2, c2 },
-    tipo: "mais",
-    lerP: { r: r2 + 1, c: c2 + 1 },
-    sinais: { ...sinais },
-    acumulado: grande,
+    line: 11,
+    region: { r1: 0, c1: 0, r2, c2 },
+    kind: "mais",
+    readP: { r: r2 + 1, c: c2 + 1 },
+    signs: { ...signs },
+    accumulated: big,
     ops: 1,
-    nota: `Somo p[${r2 + 1}][${c2 + 1}] = ${grande}, que é o retângulo inteiro da origem até (${r2}, ${c2}). Peguei demais de propósito, agora é só devolver o que sobrou.`,
+    note: `Somo p[${r2 + 1}][${c2 + 1}] = ${big}, que é o retângulo inteiro da origem até (${r2}, ${c2}). Peguei demais de propósito, agora é só devolver o que sobrou.`,
   });
 
-  sinais[chave(r1, c2 + 1)] = "menos";
+  signs[key(r1, c2 + 1)] = "menos";
   out.push({
-    linha: 11,
-    regiao: r1 > 0 ? { r1: 0, c1: 0, r2: r1 - 1, c2 } : null,
-    tipo: "menos",
-    lerP: { r: r1, c: c2 + 1 },
-    sinais: { ...sinais },
-    acumulado: grande - cima,
+    line: 11,
+    region: r1 > 0 ? { r1: 0, c1: 0, r2: r1 - 1, c2 } : null,
+    kind: "menos",
+    readP: { r: r1, c: c2 + 1 },
+    signs: { ...signs },
+    accumulated: big - above,
     ops: 2,
-    nota:
+    note:
       r1 > 0
-        ? `Tiro p[${r1}][${c2 + 1}] = ${cima}, a faixa que fica acima da linha ${r1}. Restaram ${grande - cima}.`
+        ? `Tiro p[${r1}][${c2 + 1}] = ${above}, a faixa que fica acima da linha ${r1}. Restaram ${big - above}.`
         : `Tiro p[0][${c2 + 1}] = 0: o retângulo já começa na linha 0, então não existe faixa de cima. É a linha sentinela evitando um if.`,
   });
 
-  sinais[chave(r2 + 1, c1)] = "menos";
+  signs[key(r2 + 1, c1)] = "menos";
   out.push({
-    linha: 12,
-    regiao: c1 > 0 ? { r1: 0, c1: 0, r2, c2: c1 - 1 } : null,
-    tipo: "menos",
-    lerP: { r: r2 + 1, c: c1 },
-    sinais: { ...sinais },
-    acumulado: grande - cima - esquerda,
+    line: 12,
+    region: c1 > 0 ? { r1: 0, c1: 0, r2, c2: c1 - 1 } : null,
+    kind: "menos",
+    readP: { r: r2 + 1, c: c1 },
+    signs: { ...signs },
+    accumulated: big - above - left,
     ops: 3,
-    nota:
+    note:
       c1 > 0
-        ? `Tiro p[${r2 + 1}][${c1}] = ${esquerda}, a faixa que fica à esquerda da coluna ${c1}. Restaram ${grande - cima - esquerda}.`
+        ? `Tiro p[${r2 + 1}][${c1}] = ${left}, a faixa que fica à esquerda da coluna ${c1}. Restaram ${big - above - left}.`
         : `Tiro p[${r2 + 1}][0] = 0: o retângulo já começa na coluna 0, então não existe faixa à esquerda. É a coluna sentinela evitando outro if.`,
   });
 
-  sinais[chave(r1, c1)] = "mais";
+  signs[key(r1, c1)] = "mais";
   out.push({
-    linha: 12,
-    regiao: r1 > 0 && c1 > 0 ? { r1: 0, c1: 0, r2: r1 - 1, c2: c1 - 1 } : null,
-    tipo: "mais",
-    lerP: { r: r1, c: c1 },
-    sinais: { ...sinais },
-    acumulado: total,
+    line: 12,
+    region: r1 > 0 && c1 > 0 ? { r1: 0, c1: 0, r2: r1 - 1, c2: c1 - 1 } : null,
+    kind: "mais",
+    readP: { r: r1, c: c1 },
+    signs: { ...signs },
+    accumulated: total,
     ops: 4,
-    nota:
+    note:
       r1 > 0 && c1 > 0
-        ? `As duas faixas se sobrepõem neste canto, então ele saiu duas vezes. Devolvo p[${r1}][${c1}] = ${canto} uma vez.`
+        ? `As duas faixas se sobrepõem neste canto, então ele saiu duas vezes. Devolvo p[${r1}][${c1}] = ${corner} uma vez.`
         : `Aqui p[${r1}][${c1}] = 0: como o retângulo encosta na borda, as faixas não se sobrepõem e não há canto para devolver.`,
   });
 
   out.push({
-    linha: 11,
-    regiao: sel,
-    tipo: "alvo",
-    lerP: null,
-    sinais: { ...sinais },
-    acumulado: total,
+    line: 11,
+    region: sel,
+    kind: "alvo",
+    readP: null,
+    signs: { ...signs },
+    accumulated: total,
     ops: 4,
     ok: true,
-    nota: `${grande} - ${cima} - ${esquerda} + ${canto} = ${total}. Quatro leituras contra as ${celulas} somas da força bruta, e esse 4 não muda nem se o retângulo cobrir a matriz inteira.`,
+    note: `${big} - ${above} - ${left} + ${corner} = ${total}. Quatro leituras contra as ${cells} somas da força bruta, e esse 4 não muda nem se o retângulo cobrir a matriz inteira.`,
   });
 
   return out;
@@ -198,154 +205,117 @@ function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function dentro(reg: Regiao | null, r: number, c: number) {
+function inside(reg: Region | null, r: number, c: number) {
   return !!reg && r >= reg.r1 && r <= reg.r2 && c >= reg.c1 && c <= reg.c2;
 }
 
 export function PrefixSumGrade2D() {
-  const [matriz, setMatriz] = useState<number[][]>(MATRIZ_PADRAO);
-  const [selBruta, setSel] = useState<Regiao>({ r1: 2, c1: 1, r2: 4, c2: 3 });
-  const [ancora, setAncora] = useState<{ r: number; c: number } | null>(null);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [matrix, setMatrix] = useState<number[][]>(DEFAULT_MATRIX);
+  const [rawSel, setSel] = useState<Region>({ r1: 2, c1: 1, r2: 4, c2: 3 });
+  const [anchor, setAnchor] = useState<{ r: number; c: number } | null>(null);
 
-  useEffect(() => setMounted(true), []);
-
-  const linhas = matriz.length;
-  const colunas = matriz[0].length;
+  const rows = matrix.length;
+  const cols = matrix[0].length;
   // A seleção é presa ao tamanho da matriz aqui, e não em quem chama setSel:
   // trocar para uma matriz menor com um retângulo grande selecionado leria
   // fora da tabela de prefixos e derrubaria o componente.
-  const sel = useMemo<Regiao>(
+  const sel = useMemo<Region>(
     () => ({
-      r1: Math.min(Math.max(selBruta.r1, 0), linhas - 1),
-      c1: Math.min(Math.max(selBruta.c1, 0), colunas - 1),
-      r2: Math.min(Math.max(selBruta.r2, 0), linhas - 1),
-      c2: Math.min(Math.max(selBruta.c2, 0), colunas - 1),
+      r1: Math.min(Math.max(rawSel.r1, 0), rows - 1),
+      c1: Math.min(Math.max(rawSel.c1, 0), cols - 1),
+      r2: Math.min(Math.max(rawSel.r2, 0), rows - 1),
+      c2: Math.min(Math.max(rawSel.c2, 0), cols - 1),
     }),
-    [selBruta, linhas, colunas]
+    [rawSel, rows, cols]
   );
-  const p = useMemo(() => construir(matriz), [matriz]);
-  const passos = useMemo(() => gerarPassos(matriz, p, sel), [matriz, p, sel]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const s = passos[idx];
+  const p = useMemo(() => build(matrix), [matrix]);
+  const steps = useMemo(() => generateSteps(matrix, p, sel), [matrix, p, sel]);
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const viz = useVisualizer({
+    title: "Visualizador · soma de um retângulo em 4 leituras",
+    total: steps.length,
+    speeds: SPEEDS,
+    // O que muda a altura da peça: o tamanho da matriz. As duas grades crescem
+    // com o número de linhas (5 × 5 → 8 × 8 é o botão que mais mexe nisso).
+    measureOn: [rows, cols],
+  });
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((v) => (v >= total - 1 ? v : v + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
+  const s = steps[viz.step];
 
   // Primeiro clique fixa um canto, o segundo fecha o retângulo. O terceiro
   // começa de novo, então dá para explorar sem nenhum botão de modo.
-  const clicar = (r: number, c: number) => {
-    reiniciar();
-    if (!ancora) {
-      setAncora({ r, c });
+  const pick = (r: number, c: number) => {
+    viz.reset();
+    if (!anchor) {
+      setAnchor({ r, c });
       setSel({ r1: r, c1: c, r2: r, c2: c });
       return;
     }
     setSel({
-      r1: Math.min(ancora.r, r),
-      c1: Math.min(ancora.c, c),
-      r2: Math.max(ancora.r, r),
-      c2: Math.max(ancora.c, c),
+      r1: Math.min(anchor.r, r),
+      c1: Math.min(anchor.c, c),
+      r2: Math.max(anchor.r, r),
+      c2: Math.max(anchor.c, c),
     });
-    setAncora(null);
+    setAnchor(null);
   };
 
   // O preset devolve o cenário inteiro, matriz incluída: os números citados no
   // artigo (o 8 do LeetCode 304, as 25 células da matriz toda) só fecham sobre
   // a matriz padrão, e o aluno pode ter sorteado outra antes de clicar.
-  const aplicarPreset = (pr: Preset) => {
-    reiniciar();
-    setAncora(null);
-    setMatriz(MATRIZ_PADRAO);
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
+    setAnchor(null);
+    setMatrix(DEFAULT_MATRIX);
     setSel(pr.sel);
   };
 
-  const sortear = () => {
-    reiniciar();
-    setAncora(null);
-    setMatriz(matrizAleatoria(linhas, colunas));
+  const shuffle = () => {
+    viz.reset();
+    setAnchor(null);
+    setMatrix(randomMatrix(rows, cols));
   };
 
   // Trocar o tamanho é o argumento central da seção: a força bruta sobe com a
   // área do retângulo, as leituras na tabela continuam sendo 4.
-  const trocarTamanho = () => {
-    reiniciar();
-    setAncora(null);
-    if (linhas === 5) {
-      setMatriz(matrizAleatoria(8, 8));
+  const toggleSize = () => {
+    viz.reset();
+    setAnchor(null);
+    if (rows === 5) {
+      setMatrix(randomMatrix(8, 8));
       setSel({ r1: 1, c1: 2, r2: 6, c2: 6 });
     } else {
-      setMatriz(MATRIZ_PADRAO);
+      setMatrix(DEFAULT_MATRIX);
       setSel({ r1: 2, c1: 1, r2: 4, c2: 3 });
     }
   };
 
-  const celulas = (sel.r2 - sel.r1 + 1) * (sel.c2 - sel.c1 + 1);
-  const alvo: Regiao = sel;
+  const cells = (sel.r2 - sel.r1 + 1) * (sel.c2 - sel.c1 + 1);
+  const target: Region = sel;
 
-  const variaveis = [
-    { nome: "r1, c1", valor: `${sel.r1}, ${sel.c1}` },
-    { nome: "r2, c2", valor: `${sel.r2}, ${sel.c2}` },
-    { nome: "leituras", valor: `${s.ops}` },
-    { nome: "soma", valor: s.acumulado == null ? "-" : `${s.acumulado}`, best: true },
+  const vars = [
+    { name: "r1, c1", value: `${sel.r1}, ${sel.c1}` },
+    { name: "r2, c2", value: `${sel.r2}, ${sel.c2}` },
+    { name: "leituras", value: `${s.ops}` },
+    { name: "soma", value: s.accumulated == null ? "-" : `${s.accumulated}`, best: true },
   ];
 
-  const notaCls = "viz-note" + (s.ok ? " ok" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const noteClass = "viz-note" + (s.ok ? " ok" : "");
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · soma de um retângulo em 4 leituras</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.rotulo} className="bigo-chip" onClick={() => aplicarPreset(pr)}>
-              {pr.rotulo}
+            <button key={pr.label} className="bigo-chip" onClick={() => applyPreset(pr)}>
+              {pr.label}
             </button>
           ))}
-          <button className="bigo-chip" onClick={sortear}>Sortear valores</button>
-          <button className="bigo-chip" onClick={trocarTamanho}>
-            {linhas === 5 ? "Aumentar para 8 × 8" : "Voltar para 5 × 5"}
+          <button className="bigo-chip" onClick={shuffle}>Sortear valores</button>
+          <button className="bigo-chip" onClick={toggleSize}>
+            {rows === 5 ? "Aumentar para 8 × 8" : "Voltar para 5 × 5"}
           </button>
         </div>
 
@@ -355,27 +325,27 @@ export function PrefixSumGrade2D() {
               matriz · clique em duas células para escolher o retângulo
             </div>
             <div className="ps-grade-scroll">
-              <div className="ps-grade" style={{ gridTemplateColumns: `repeat(${colunas + 1}, auto)` }}>
+              <div className="ps-grade" style={{ gridTemplateColumns: `repeat(${cols + 1}, auto)` }}>
                 <div className="ps-rot" />
-                {Array.from({ length: colunas }, (_, c) => (
+                {Array.from({ length: cols }, (_, c) => (
                   <div className="ps-rot" key={`hc-${c}`}>{c}</div>
                 ))}
-                {matriz.map((linha, r) => (
+                {matrix.map((row, r) => (
                   <div key={`lin-${r}`} style={{ display: "contents" }}>
                     <div className="ps-rot">{r}</div>
-                    {linha.map((v, c) => {
+                    {row.map((v, c) => {
                       let cls = "ps-cell";
-                      if (dentro(alvo, r, c)) cls += " alvo";
-                      if (dentro(s.regiao, r, c)) {
-                        cls += s.tipo === "alvo" ? " foco" : s.tipo === "mais" ? " mais" : " menos";
+                      if (inside(target, r, c)) cls += " alvo";
+                      if (inside(s.region, r, c)) {
+                        cls += s.kind === "alvo" ? " foco" : s.kind === "mais" ? " mais" : " menos";
                       }
-                      if (ancora && ancora.r === r && ancora.c === c) cls += " ancora";
+                      if (anchor && anchor.r === r && anchor.c === c) cls += " ancora";
                       return (
                         <button
                           key={`m-${r}-${c}`}
                           className={cls}
-                          onClick={() => clicar(r, c)}
-                          aria-pressed={dentro(alvo, r, c)}
+                          onClick={() => pick(r, c)}
+                          aria-pressed={inside(target, r, c)}
                           aria-label={`Linha ${r}, coluna ${c}, valor ${v}`}
                         >
                           {v}
@@ -393,22 +363,22 @@ export function PrefixSumGrade2D() {
               p · tabela de prefixos, com linha e coluna sentinela
             </div>
             <div className="ps-grade-scroll">
-              <div className="ps-grade" style={{ gridTemplateColumns: `repeat(${colunas + 2}, auto)` }}>
+              <div className="ps-grade" style={{ gridTemplateColumns: `repeat(${cols + 2}, auto)` }}>
                 <div className="ps-rot" />
-                {Array.from({ length: colunas + 1 }, (_, c) => (
+                {Array.from({ length: cols + 1 }, (_, c) => (
                   <div className="ps-rot" key={`ph-${c}`}>{c}</div>
                 ))}
-                {p.map((linha, r) => (
+                {p.map((row, r) => (
                   <div key={`plin-${r}`} style={{ display: "contents" }}>
                     <div className="ps-rot">{r}</div>
-                    {linha.map((v, c) => {
-                      const sinal = s.sinais[chave(r, c)];
-                      const emFoco = !!s.lerP && s.lerP.r === r && s.lerP.c === c;
+                    {row.map((v, c) => {
+                      const sign = s.signs[key(r, c)];
+                      const focused = !!s.readP && s.readP.r === r && s.readP.c === c;
                       let cls = "ps-cell est";
-                      if (sinal === "mais") cls += " mais";
-                      else if (sinal === "menos") cls += " menos";
+                      if (sign === "mais") cls += " mais";
+                      else if (sign === "menos") cls += " menos";
                       else if (r === 0 || c === 0) cls += " eixo";
-                      if (emFoco) cls += " atual";
+                      if (focused) cls += " atual";
                       return <div key={`p-${r}-${c}`} className={cls}>{v}</div>;
                     })}
                   </div>
@@ -421,72 +391,58 @@ export function PrefixSumGrade2D() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>células no retângulo</span>
-            <strong style={{ color: "#fbbf24" }}>{num(celulas)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{num(cells)}</strong>
           </div>
           <div className="bigo-stat">
             <span>leituras na tabela</span>
             <strong style={{ color: "var(--ccc-green)" }}>{num(s.ops)}</strong>
           </div>
           <div className="bigo-stat">
-            <span>pré-processamento ({linhas} × {colunas})</span>
-            <strong>{num(linhas * colunas)}</strong>
+            <span>pré-processamento ({rows} × {cols})</span>
+            <strong>{num(rows * cols)}</strong>
           </div>
           <div className="bigo-stat">
             <span>soma do retângulo</span>
-            <strong>{s.acumulado == null ? "-" : num(s.acumulado)}</strong>
+            <strong>{s.accumulated == null ? "-" : num(s.accumulated)}</strong>
           </div>
         </div>
 
-        <p className={notaCls}>{s.nota}</p>
+        <p className={noteClass}>{s.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">prefixo_2d.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, k) => (
-                <div key={k} className={`viz-line${k === s.linha ? " on" : ""}`}>
-                  <span className="ln">{k + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura do
+              código. O `.viz-code-slot` é o truque de grid 1fr→0fr. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">prefixo_2d.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, k) => (
+                  <div key={k} className={`viz-line${k === s.line ? " on" : ""}`}>
+                    <span className="ln">{k + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
