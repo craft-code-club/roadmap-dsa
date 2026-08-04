@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ALL_TOPICS } from "../content/roadmap";
+import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
@@ -297,6 +297,9 @@ const TOPICOS_PRONTOS = [
   { slug: "merge-sort", h1: "Merge Sort", vizMin: 3 },
   { slug: "quick-sort", h1: "Quick Sort", vizMin: 3 },
   { slug: "shell-sort", h1: "Shell Sort", vizMin: 3 },
+  { slug: "backtracking", h1: "Backtracking", vizMin: 3 },
+  { slug: "binary-numbers", h1: "Números Binários", vizMin: 3 },
+  { slug: "negative-binary", h1: "Binários Negativos", vizMin: 3 },
 ];
 
 for (const t of TOPICOS_PRONTOS) {
@@ -861,6 +864,184 @@ test("shell sort: a h-ordenação não se perde e o gap só compensa com n grand
   await expect(gaps.locator(".viz-note")).toContainText("Aumentar o tamanho não vira essa conta");
 });
 
+test("backtracking: escolher, explorar e desfazer, com a lista voltando ao início", async ({ page }) => {
+  await page.goto("/topico/backtracking/");
+  const viz = page.locator("figure.viz").filter({ hasText: "escolher, explorar, desfazer" });
+  const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
+  const irAteOFim = async () => {
+    await expect(proximo).toBeEnabled();
+    for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo).toBeDisabled();
+  };
+
+  // subconjuntos de 1,2,3: todo nó é resposta, então 8 nós e 8 soluções
+  await irAteOFim();
+  await expect(stat(/^nós visitados\d/)).toHaveText("8");
+  await expect(stat(/^soluções encontradas\d/)).toHaveText("8");
+  // a invariante: um retrocesso por aresta, ou seja, nós - 1
+  await expect(stat(/^retrocessos\d/)).toHaveText("7");
+  // e a solução parcial termina vazia, porque todo escolher teve o seu desfazer
+  await expect(viz.locator(".hp-bloco").first()).toContainText("vazia");
+
+  // permutações: só as folhas são resposta, então 16 nós para 6 soluções
+  await viz.getByRole("button", { name: /Permutações/ }).click();
+  await irAteOFim();
+  await expect(stat(/^nós visitados\d/)).toHaveText("16");
+  await expect(stat(/^soluções encontradas\d/)).toHaveText("6");
+  await expect(stat(/^retrocessos\d/)).toHaveText("15");
+  await expect(viz.locator(".bt-sol")).toHaveCount(6);
+
+  // combinações de 2 entre 4: C(4,2) = 6, com 10 nós
+  await viz.getByRole("button", { name: /Combinações/ }).click();
+  await irAteOFim();
+  await expect(stat(/^nós visitados\d/)).toHaveText("10");
+  await expect(stat(/^soluções encontradas\d/)).toHaveText("6");
+});
+
+test("backtracking: o sudoku fecha válido e a poda não muda a resposta", async ({ page }) => {
+  await page.goto("/topico/backtracking/");
+  const sud = page.locator("figure.viz").filter({ hasText: "resolvendo sudoku" });
+  const proximo = sud.getByRole("button", { name: "Próximo ›" });
+  await expect(proximo).toBeEnabled();
+  for (let i = 0; i < 400 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo).toBeDisabled();
+
+  // 4x4 resolvido: nenhuma célula vazia e os quatro dígitos em cada linha
+  const celulas = sud.locator(".bt-cel");
+  await expect(celulas).toHaveCount(16);
+  const valores = await celulas.allTextContents();
+  expect(valores.filter((v) => v.trim() === ""), "sobrou célula vazia no fim").toHaveLength(0);
+  for (let r = 0; r < 4; r++) {
+    const linha = valores.slice(r * 4, r * 4 + 4).sort();
+    expect(linha, `linha ${r + 1} do sudoku`).toEqual(["1", "2", "3", "4"]);
+  }
+  await expect(sud.locator(".bigo-stat").filter({ hasText: /^dígitos testados\d/ }).locator("strong")).toHaveText("51");
+
+  // a poda visita muito menos nós E devolve exatamente as mesmas soluções
+  const poda = page.locator("figure.viz").filter({ hasText: "mesma resposta, uma fração" });
+  const barras = poda.locator(".bb-barra-txt");
+  await expect(barras.nth(0)).toHaveText("55.987"); // sem poda, 6 rainhas
+  await expect(barras.nth(1)).toHaveText("4"); // soluções sem poda
+  await expect(barras.nth(2)).toHaveText("153"); // com poda
+  await expect(barras.nth(3)).toHaveText("4"); // soluções com poda
+  await expect(poda).toContainText("exatamente as mesmas da versão sem poda");
+  // e a razão cresce com o tabuleiro: com 4 rainhas ela é bem menor
+  await poda.getByRole("button", { name: "4 rainhas" }).click();
+  await expect(barras.nth(0)).toHaveText("341");
+  await expect(barras.nth(2)).toHaveText("17");
+});
+
+test("números binários: a soma das posições ligadas e as divisões por 2", async ({ page }) => {
+  await page.goto("/topico/binary-numbers/");
+  const conv = page.locator("figure.viz").filter({ hasText: "soma de potências de dois" });
+  const stat = (rot: RegExp) => conv.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
+
+  // abre em 53 = 00110101, com quatro bits ligados
+  await expect(conv.locator(".viz-step")).toHaveText("00110101 = 53");
+  await expect(stat(/^valor decimal\d/)).toHaveText("53");
+  await expect(stat(/^bits ligados\d/)).toHaveText("4");
+
+  // clicar no bit mais significativo soma 128, e não 1: é o teste de que o
+  // peso da posição está sendo aplicado e não só contado
+  await conv.getByRole("button", { name: /Bit de expoente 7/ }).click();
+  await expect(stat(/^valor decimal\d/)).toHaveText("181");
+  await conv.getByRole("button", { name: /Bit de expoente 7/ }).click();
+  await expect(stat(/^valor decimal\d/)).toHaveText("53");
+  // e o da direita soma 1
+  await conv.getByRole("button", { name: /Bit de expoente 0/ }).click();
+  await expect(stat(/^valor decimal\d/)).toHaveText("52");
+
+  // as divisões: 201 precisa de 8 divisões e fecha em 11001001
+  const div = page.locator("figure.viz").filter({ hasText: "dividindo por 2" });
+  const proximo = div.getByRole("button", { name: "Próximo ›" });
+  await expect(proximo).toBeEnabled();
+  for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo).toBeDisabled();
+  await expect(div.locator(".bigo-stat").filter({ hasText: /^divisões feitas\d/ }).locator("strong")).toHaveText("8");
+  await expect(div.locator(".viz-note")).toContainText("11001001");
+  await expect(div.locator(".viz-note")).toContainText("128 + 64 + 8 + 1 = 201");
+
+  // as bases: o mesmo número escrito de quatro formas, e hexa em grupos de 4 bits
+  const bases = page.locator("figure.viz").filter({ hasText: "a base é um parâmetro" });
+  await bases.getByRole("button", { name: "48.879" }).click();
+  await expect(bases.locator(".viz-step")).toContainText("0xBEEF");
+  await expect(bases.locator(".bn-grupo-hex")).toHaveText(["B", "E", "E", "F"]);
+});
+
+test("binários negativos: complemento de dois, zero único e o padrão sem sinal", async ({ page }) => {
+  await page.goto("/topico/negative-binary/");
+  const comp = page.locator("figure.viz").filter({ hasText: "inverter e somar 1" });
+  const proximo = comp.getByRole("button", { name: "Próximo ›" });
+  const irAteOFim = async () => {
+    await expect(proximo).toBeEnabled();
+    for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo).toBeDisabled();
+  };
+
+  // 26 -> 11100110, e a prova soma zero
+  await irAteOFim();
+  await expect(comp.locator(".viz-note")).toContainText("11100110");
+  await expect(comp.locator(".viz-note")).toContainText("vai-um sobrando");
+
+  // o zero é o caso que prova a ausência de ambiguidade: o oposto dele é ele
+  await comp.getByRole("button", { name: /teste da ambiguidade/ }).click();
+  await irAteOFim();
+  await expect(comp.locator(".viz-var").nth(2)).toContainText("0");
+
+  // as três convenções: só o complemento de dois tem um zero e soma zero
+  const tres = page.locator("figure.viz").filter({ hasText: "três formas de escrever um negativo" });
+  await expect(tres.locator(".viz-step")).toHaveText("1 de 3 passam nos três testes");
+  const zeros = (col: number) => tres.locator(".ms-op").nth(col).locator(".bb-passos li b").first();
+  await expect(zeros(0)).toHaveText("2"); // sinal e magnitude
+  await expect(zeros(1)).toHaveText("2"); // complemento de um
+  await expect(zeros(2)).toHaveText("1"); // complemento de dois
+  // e o desperdício que vem junto: 255 números distintos contra 256
+  const distintos = (col: number) => tres.locator(".ms-op").nth(col).locator(".bb-passos li b").nth(2);
+  await expect(distintos(0)).toHaveText("255");
+  await expect(distintos(2)).toHaveText("256");
+
+  // o mesmo padrão lido de dois jeitos, e a virada de 127 para -128
+  const faixa = page.locator("figure.viz").filter({ hasText: "o mesmo padrão, duas leituras" });
+  await expect(faixa.locator(".viz-step")).toHaveText("10000000 · sem sinal 128 · com sinal -128");
+  await faixa.getByRole("button", { name: "01111111" }).click();
+  await expect(faixa.locator(".viz-step")).toHaveText("01111111 · sem sinal 127 · com sinal 127");
+  await faixa.getByRole("button", { name: "Próximo padrão" }).click();
+  await expect(faixa.locator(".viz-step")).toHaveText("10000000 · sem sinal 128 · com sinal -128");
+  await expect(faixa.locator(".viz-note")).toContainText("desaba");
+});
+
+// Regressão: "em breve" é derivado, e a regra de derivação já esteve errada.
+// Vídeo extra é link para resolução de exercício, não material do tópico, e um
+// tópico que só tem isso continua sem aula, sem texto e sem visualização.
+test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização", async ({ page }) => {
+  // O menu lateral só renderiza o grupo aberto, então a conferência é por grupo.
+  // Ler de ALL_TOPICS em vez de fixar uma lista faz o teste sobreviver ao dia
+  // em que qualquer um destes tópicos for publicado.
+  const conferirGrupo = async (slug: string) => {
+    await page.goto(`/topico/${slug}/`);
+    const grupo = ALL_TOPICS.find((t) => t.slug === slug)!.group;
+    const doGrupo = ALL_TOPICS.filter((t) => t.group === grupo);
+    const vazios = doGrupo.filter((t) => isEmptyTopic(t));
+    await expect(page.locator(".sidebar .badge-soon")).toHaveCount(vazios.length);
+    for (const t of doGrupo) {
+      const item = page.locator(`.sidebar a[href="/topico/${t.slug}/"]`);
+      if (isEmptyTopic(t)) await expect(item, `${t.slug} devia estar em breve`).toHaveClass(/\bsoon\b/);
+      else await expect(item, `${t.slug} NÃO devia estar em breve`).not.toHaveClass(/\bsoon\b/);
+    }
+  };
+
+  // Programação Dinâmica só tem vídeos extras (recortes de resolução), e isso
+  // não é material do tópico: ela continua em breve.
+  await conferirGrupo("programacao-dinamica");
+  await expect(page.locator('.sidebar a[href="/topico/programacao-dinamica/"]')).toHaveClass(/\bsoon\b/);
+
+  // Manipulação de Bits tem dois publicados e um vazio, no mesmo grupo
+  await conferirGrupo("binary-numbers");
+  // Ordenação tem quatro publicados e três vazios
+  await conferirGrupo("ordenacao-basica");
+});
+
 // Regressão: cinco visualizadores foram parar num PR com o estado de animação
 // completo (passo, tocando, velocidade) e SEM os controles renderizados, então o
 // aluno ficava preso no passo 1 sem nenhum aviso. Os testes de contrato não
@@ -916,7 +1097,8 @@ test("no celular, nenhum painel de visualizador colapsa", async ({ page }) => {
           "article figure.viz .hp-bloco, article figure.viz .hs-fila, " +
           "article figure.viz .bb-formula, article figure.viz .hp-formula, " +
           "article figure.viz .ord-linha, article figure.viz .ord-medida, " +
-          "article figure.viz .ms-lado, article figure.viz .ms-op"
+          "article figure.viz .ms-lado, article figure.viz .ms-op, " +
+          "article figure.viz .bt-paineis > .hp-bloco"
       )
       .evaluateAll((els) =>
         els.map((e) => ({ cls: e.className, w: Math.round(e.getBoundingClientRect().width) }))
