@@ -65,6 +65,18 @@ import { HeapSortComparativo } from "@content/visualizers/HeapSortComparativo";
 import { BuscaBinariaVisualizer } from "@content/visualizers/BuscaBinariaVisualizer";
 import { BuscaBinariaOverflow } from "@content/visualizers/BuscaBinariaOverflow";
 import { BuscaBinariaFronteira } from "@content/visualizers/BuscaBinariaFronteira";
+import { OrdenacaoBasicaVisualizer } from "@content/visualizers/OrdenacaoBasicaVisualizer";
+import { OrdenacaoBasicaCorrida } from "@content/visualizers/OrdenacaoBasicaCorrida";
+import { OrdenacaoBasicaEstabilidade } from "@content/visualizers/OrdenacaoBasicaEstabilidade";
+import { MergeSortVisualizer } from "@content/visualizers/MergeSortVisualizer";
+import { MergeSortNiveis } from "@content/visualizers/MergeSortNiveis";
+import { MergeEmpate } from "@content/visualizers/MergeEmpate";
+import { QuickSortVisualizer } from "@content/visualizers/QuickSortVisualizer";
+import { QuickSortPivo } from "@content/visualizers/QuickSortPivo";
+import { QuickSortTresVias } from "@content/visualizers/QuickSortTresVias";
+import { ShellSortVisualizer } from "@content/visualizers/ShellSortVisualizer";
+import { ShellSortSubsequencias } from "@content/visualizers/ShellSortSubsequencias";
+import { ShellSortGaps } from "@content/visualizers/ShellSortGaps";
 import { slugify, textOf } from "@/lib/slug";
 
 /**
@@ -240,6 +252,18 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     BuscaBinariaVisualizer,
     BuscaBinariaOverflow,
     BuscaBinariaFronteira,
+    OrdenacaoBasicaVisualizer,
+    OrdenacaoBasicaCorrida,
+    OrdenacaoBasicaEstabilidade,
+    MergeSortVisualizer,
+    MergeSortNiveis,
+    MergeEmpate,
+    QuickSortVisualizer,
+    QuickSortPivo,
+    QuickSortTresVias,
+    ShellSortVisualizer,
+    ShellSortSubsequencias,
+    ShellSortGaps,
     ...components,
   };
 }

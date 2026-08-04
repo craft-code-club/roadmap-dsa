@@ -1461,6 +1461,74 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .bb-bit.sinal.on { border-color: #f87171; background: rgba(248, 113, 113, 0.28); color: #fecaca; }
 .bb-array-nota { margin: 0; font-size: 12.5px; line-height: 1.55; color: #8ba0bb; }
 
+/* --- ordenação: as regiões do array, a corrida de custo e as faixas de gap ---
+   Toda a família de ordenação (básica, merge, quick e shell) reaproveita
+   .hp-arr/.hp-cel para o array e .bb-barra para medida. O que entra aqui é só o
+   vocabulário que não existia: a distinção entre "posição final" e "ordenado
+   entre si", as barras comparativas e as faixas de subsequência do shell. */
+.hp-cel.quase { border-style: dashed; border-color: rgba(52, 211, 153, 0.45); color: #8fd8bb; }
+.hp-cel.alvo { border-color: rgba(167, 139, 250, 0.7); background: rgba(167, 139, 250, 0.16); color: #ddd6fe; }
+.hp-cel.pivo { border-color: #f87171; background: rgba(248, 113, 113, 0.2); color: #fecaca; }
+.hp-cel.fantasma { opacity: 0.28; }
+
+.ord-corrida { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.ord-linha { min-width: 0; padding: 11px 13px; border: 1px solid var(--ccc-line); border-radius: 11px; background: var(--ccc-panel); }
+.ord-linha-nome { margin-bottom: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); }
+.ord-medidas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ord-medida { min-width: 0; }
+.ord-medida-rot { display: block; margin-bottom: 2px; font-size: 11.5px; color: #8ba0bb; }
+.ord-medida.melhor .ord-medida-rot { color: var(--ccc-green); font-weight: 600; }
+.ord-medida.melhor .bb-barra { border-color: rgba(52, 211, 153, 0.5); }
+.bb-barra-fill.esc { background: rgba(251, 191, 36, 0.22); }
+.ord-lei { display: block; margin-top: 2px; font-family: var(--mono); font-size: 10.5px; color: #6b7f99; }
+
+/* --- merge sort: as faixas de nível, a intercalação e os dois operadores ---
+   As faixas são um grid de n colunas por nível, e cada trecho ocupa exatamente
+   as colunas do array que ele representa. É esse alinhamento que liga a
+   estrutura da recursão às posições do array. */
+.ms-niveis { display: flex; flex-direction: column; gap: 5px; }
+.ms-nivel { min-width: 0; }
+.ms-nivel-rot { display: block; margin-bottom: 2px; font-family: var(--mono); font-size: 10px; color: #4c5f79; }
+.ms-nivel-faixa { display: grid; gap: 3px; }
+.ms-seg { display: grid; place-items: center; min-width: 0; height: 22px; padding: 0 4px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 5px; background: #0f1826; font-family: var(--mono); font-size: 10px; color: #6b7f99; white-space: nowrap; overflow: hidden; transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
+.ms-seg.folha { opacity: 0.6; }
+.ms-seg.pronto { border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.13); color: #a7f3d0; }
+.ms-seg.ativo { border-color: var(--ccc-accent); background: rgba(59, 130, 246, 0.28); color: #fff; opacity: 1; }
+
+.ms-merge { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.ms-lado { min-width: 0; padding: 9px 11px; border: 1px solid var(--ccc-line); border-radius: 10px; background: #0e1725; }
+.ms-lado.saida { border-left: 3px solid var(--ccc-green); }
+.ms-lado-rot { display: block; margin-bottom: 7px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); }
+
+.ms-operadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.ms-op { min-width: 0; padding: 13px 15px; border: 1px solid var(--ccc-line); border-left: 3px solid rgba(255, 255, 255, 0.14); border-radius: 12px; background: var(--ccc-panel); }
+.ms-op.ok { border-left-color: rgba(52, 211, 153, 0.7); }
+.ms-op.ok .bb-formula-selo { color: var(--ccc-green); }
+.ms-op.quebrou { border-left-color: #f87171; }
+.ms-op.quebrou .bb-formula-selo { color: #fca5a5; }
+
+/* --- quick sort: as regiões da invariante e a nota de cada estratégia ------
+   As faixas reusam o grid de .ms-nivel-faixa; o que muda é o significado das
+   cores, que aqui é "o que o algoritmo já sabe" em vez de "nível da recursão". */
+.ms-seg.menor { border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.14); color: #a7f3d0; }
+.ms-seg.maior { border-color: rgba(251, 191, 36, 0.5); background: rgba(251, 191, 36, 0.14); color: #fcd34d; }
+.ms-seg.naovisto { border-color: rgba(255, 255, 255, 0.12); background: #131c2b; color: #6b7f99; }
+.ms-seg.pivo { border-color: rgba(248, 113, 113, 0.6); background: rgba(248, 113, 113, 0.18); color: #fecaca; }
+.qs-explica { font-weight: 400; letter-spacing: 0; text-transform: none; color: #6b7f99; }
+
+/* --- shell sort: as subsequências entrelaçadas e os selos de h-ordenação ----
+   Uma cor por subsequência (resto da divisão do índice pelo gap): é o que faz
+   as h fitas entrelaçadas aparecerem como fitas, e não como saltos aleatórios. */
+.hp-cel.sub-0 { border-color: rgba(59, 130, 246, 0.45); color: #93bbfd; }
+.hp-cel.sub-1 { border-color: rgba(52, 211, 153, 0.45); color: #6ee7b7; }
+.hp-cel.sub-2 { border-color: rgba(251, 191, 36, 0.45); color: #fcd34d; }
+.hp-cel.sub-3 { border-color: rgba(167, 139, 250, 0.45); color: #c4b5fd; }
+.ss-selos { display: flex; flex-wrap: wrap; gap: 8px; }
+.ss-selo { padding: 4px 10px; border: 1px solid var(--ccc-line); border-radius: 999px; font-family: var(--mono); font-size: 11.5px; color: var(--ccc-muted); }
+.ss-selo.sim { border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.12); color: #a7f3d0; }
+.ss-selo.nao { border-color: rgba(255, 255, 255, 0.1); }
+.ord-linha.ss-base { border-style: dashed; }
+
 /* ------------------------------ responsive ------------------------------ */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
@@ -1509,6 +1577,14 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   /* as duas fórmulas do meio e os cartões de índice do heap não cabem
      lado a lado em 390px: viram lista. */
   .bb-formulas, .hp-formulas { grid-template-columns: minmax(0, 1fr); }
+  /* comparações e escritas empilham: duas barras lado a lado em 390px ficam
+     estreitas demais para o número caber dentro delas. */
+  .ord-medidas { grid-template-columns: minmax(0, 1fr); }
+  /* os dois lados da intercalação e as duas versões do operador viram lista */
+  .ms-merge, .ms-operadores { grid-template-columns: minmax(0, 1fr); }
+  /* o rótulo de cada trecho não cabe em 390px; a faixa sozinha já conta a
+     história, e o trecho ativo continua acendendo. */
+  .ms-seg { font-size: 0; padding: 0 2px; }
 }
 @media (max-width: 560px) {
   .brand-name { display: none; } /* no celular, só o logo */
