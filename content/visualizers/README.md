@@ -69,6 +69,13 @@ Os dois da 2ª versão não são casos exóticos: o Prettier quebra a linha de
 qualquer elemento cujos atributos não cabem, e ternário dentro de interpolação
 é como metade das notas deste repo escolhe entre singular e plural.
 
+**E um buraco continua aberto, por construção: ele compara o CONJUNTO de textos,
+não onde cada um aparece.** Trocar dois campos de lugar num rename (o subtítulo
+de um cartão indo para o corpo e vice-versa) mantém o conjunto idêntico e passa
+verde. Medido: com `{l.subtitle}` e `{l.body}` invertidos no
+`SubTypesVisualizer`, o guarda não acusa nada e a tela mente. Quem pega isso é
+teste que lê **rótulo e valor juntos**, no mesmo cartão — veja a §8.
+
 Por isso, **a prova final de um rename não é o guarda, é o HTML do build**. Ele
 é o que o aluno recebe, e a comparação é objetiva:
 
@@ -274,6 +281,31 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
 | só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
+| **sem linha do tempo E com botões extras** | escreva o rodapé à mão (abaixo) |
+
+As duas últimas linhas se contradizem, e a contradição é real: **`VizFooter` é o
+rodapé de REPRODUÇÃO e retorna `null` quando `total <= 1`, descartando os
+`children` em silêncio.** Um classificador com presets — que é o caso do
+`SubTypesVisualizer` — cai exatamente aí, e passar os botões para o `VizFooter`
+faz eles sumirem sem erro nenhum. Nesse caso os controles são seus e o `.viz-foot`
+também:
+
+```tsx
+{/* Fora do `.viz-body` de propósito: é o que os deixa parados no pé do
+    painel enquanto o miolo rola. */}
+<div className="viz-foot">
+  <div className="viz-controls">…seus botões…</div>
+</div>
+```
+
+Não é um atalho: `.viz-foot` é parte da API de CSS (§4), e `.viz-controls`
+dentro dele recebe a mesma linha divisória e o mesmo respiro que o rodapé do
+hook. O que você não ganha — progresso, velocidade, atalhos — é justamente o que
+um visualizador sem linha do tempo não tem.
+
+`measureOn` não faz nada quando `collapsible: false`: sem bloco para recolher,
+não há decisão a tomar e o hook nem espera as fontes. Passar a lista ali é ruído
+que sugere uma medição que não acontece.
 
 **`total` que vem da entrada do aluno pode cair para 1, e aí o rodapé some
 inteiro** — com ele, os `children` que você pôs lá dentro. No visualizador de
@@ -350,6 +382,22 @@ Nos testes (`tests/`), o mínimo por visualizador adaptado:
 3. em tela alta ele já vem aberto;
 4. a escolha do aluno sobrevive a uma troca de estado que pediria medição nova;
 5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**.
+
+Os itens 2, 3 e 4 não existem quando `collapsible: false`. No lugar deles, prove
+que a ausência tem o rótulo certo: **nenhum botão pode prometer esconder um
+bloco que o visualizador não tem.**
+
+Duas armadilhas medidas ao escrever esses testes:
+
+- **`click()` do Playwright ROLA o contêiner para alcançar o alvo.** Um teste
+  que clica no botão do rodapé e conclui "está ao alcance" passa igualzinho com
+  o rodapé de volta dentro do miolo — medido, com a quebra aplicada e o build
+  visível. *Alcançável* não é *à vista*. Ancore no `scrollTop`: clique só no que
+  está no topo do miolo e exija `scrollTop` igual a `0` **depois** do clique no
+  controle.
+- **Um teste de rolagem sem sobra para rolar não testa nada.** Afirme primeiro
+  que `scrollHeight - clientHeight` passa de zero; senão o dia em que a peça
+  encolher o teste vira decoração verde.
 
 E rode cada teste novo **contra o código quebrado** antes de confiar nele. Duas
 regras que custaram caro:
