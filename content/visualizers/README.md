@@ -118,9 +118,12 @@ Três regras que só apareceram medindo:
   lê um layout a caminho e conclui "cabe" para uma peça que passa 64px da
   janela. A decisão acontece em duas passadas dentro do mesmo quadro, em
   `useLayoutEffect` (antes da pintura), com a transição desligada.
-- **A escolha explícita do aluno vence a medição**, e só é zerada quando ele
-  troca de contexto (abre ou fecha o expandido). Sem isso o clique dele é
-  desfeito no primeiro `resize`.
+- **A escolha explícita do aluno vence a medição, e não é desfeita por nada.**
+  Nem por `resize`, nem por troca de estado, nem por abrir ou fechar o painel.
+  Isso já foi diferente — a escolha era zerada na travessia, com o argumento de
+  que abrir o painel é "um pedido novo" — e estava errado: quem clica em
+  "Mostrar código" e expande espera continuar vendo o código. Se não couber, o
+  miolo rola, que é para isso que o cabeçalho e o rodapé ficam parados.
 
 ## 4. A API de CSS
 

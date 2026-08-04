@@ -229,7 +229,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   const [measuring, setMeasuring] = useState(false);
   // `null` = ninguém escolheu na mão, a medição manda.
   const manualChoice = useRef<boolean | null>(null);
-  const [measureTick, setAferir] = useState(0);
+  const [measureTick, setMeasureTick] = useState(0);
   const measuredRound = useRef(-1);
 
   useEffect(() => setMounted(true), []);
@@ -248,11 +248,14 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   // "123" e uma troca real de estado não pediria medição nova.
   const measureKey = measureOn.join("\u0001");
 
-  // Trocar de contexto zera a escolha manual: abrir o panel grande é um pedido
-  // novo de "mostre isso do melhor jeito nesta tela".
-  useIsomorphicLayoutEffect(() => { manualChoice.current = null; }, [expanded]);
+  // A escolha do aluno NÃO é zerada ao expandir ou fechar. Ela era, e estava
+  // errado: quem clica em "Mostrar código" e então abre o painel espera
+  // continuar vendo o código, não que o clique seja desfeito na travessia. A
+  // medição decide enquanto ninguém escolheu; depois disso ela cala a boca, e o
+  // miolo rola se não couber — que é para isso que o cabeçalho e o rodapé ficam
+  // parados.
 
-  useIsomorphicLayoutEffect(() => { setAferir((a) => a + 1); }, [expanded, measureKey, fontsReady]);
+  useIsomorphicLayoutEffect(() => { setMeasureTick((a) => a + 1); }, [expanded, measureKey, fontsReady]);
 
   // Duas passadas dentro do MESMO frame (efeito de layout roda antes da
   // pintura, então nada disso aparece na tela):
@@ -283,7 +286,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     let frame = 0;
     const onResize = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setAferir((a) => a + 1));
+      frame = requestAnimationFrame(() => setMeasureTick((a) => a + 1));
     };
     window.addEventListener("resize", onResize);
     return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", onResize); };
