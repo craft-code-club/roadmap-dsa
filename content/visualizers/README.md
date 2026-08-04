@@ -302,3 +302,53 @@ regras que custaram caro:
   foi o experimento. Escolha uma quebra que **compile** (inverter uma condição,
   não acrescentar um `return` que deixa código inalcançável).
 - Use `npm run test:build`. `npm test` sozinho exercita o build anterior.
+
+## 9. Dois limites medidos da casca
+
+Ambos apareceram adaptando o tópico `intervals`, e ambos são do comportamento
+da casca — não do componente. Estão aqui porque um explica um número que o
+relatório de qualquer adaptação vai encontrar, e o outro é um recurso que o hook
+não tem.
+
+### A compressão da camada 2 não alcança o fluxo do artigo
+
+O bloco `@media (max-height: 950px)` do `globals.css` é escopado em
+`.viz-overlay-fit`: ele só aperta o respiro **dentro do painel expandido**.
+Medido, com o código à mostra nas cinco peças do `intervals`: as alturas numa
+janela de 940px (dentro da consulta) e numa de 1000px (fora dela) são
+**idênticas ao pixel** — 1004, 1176, 1180, 1208 e 1071.
+
+A consequência prática é a ordem em que as camadas agem no artigo: lá só valem
+a 3 (recolher) e o layout base, porque a 2 nunca entra. Por isso uma peça pode
+caber com folga no expandido e ainda passar do orçamento no fluxo do artigo,
+com o bloco já recolhido — e o relatório deve dizer isso com número, em vez de
+tratar como defeito do componente.
+
+Estender a compressão ao artigo é **PR de plataforma**: mexe em base
+compartilhada e alcança página que ninguém abriu. Não vá de carona numa
+adaptação de tópico.
+
+### O hook não tem passo inicial, e a saída não é um efeito
+
+`useVisualizer` sempre começa no passo 0. Quando a peça precisa abrir noutro
+instante — no `intervals`, a sobreposição abre com B já invadindo A, porque em
+t = 0 os dois nem se tocam e abrir sem sobreposição num visualizador sobre
+sobreposição ensina ao contrário —, o ajuste vai na **fase de render**, não num
+`useEffect`:
+
+```tsx
+const [placed, setPlaced] = useState(false);
+if (!placed) {
+  setPlaced(true);
+  viz.setStep(INITIAL_STEP);
+}
+```
+
+É o padrão documentado do React para estado derivado, e a diferença importa duas
+vezes: ele roda antes da pintura (nada pisca na hidratação) **e dentro do build
+estático**, então o HTML pré-renderizado já sai no passo certo. Com `useEffect`,
+o `out/` congela o passo 1 e só o cliente corrige — conferido no HTML do build.
+
+Uma consequência a assumir: o `↺` do `VizFooter` é `viz.reset()`, que volta ao
+passo **0**, e não ao passo inicial escolhido. Se o estado de partida for para
+valer, ele precisa de um botão próprio — ver a nota do `↺` na §6.
