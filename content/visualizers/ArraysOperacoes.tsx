@@ -311,7 +311,7 @@ export function ArraysOperacoes() {
   const [nums, setNums] = useState<number[]>(DEFAULT_NUMS);
   const [op, setOp] = useState<OpKey>("insert");
   const [k, setK] = useState(2);
-  const [value, setValor] = useState(99);
+  const [value, setValue] = useState(99);
 
   const steps = useMemo(() => buildSteps(op, nums.length ? nums : [0], k, value), [op, nums, k, value]);
   const total = steps.length;
@@ -422,7 +422,7 @@ export function ArraysOperacoes() {
               disabled={!needsValue}
               onChange={(e) => {
                 viz.reset();
-                setValor(parseInt(e.target.value, 10) || 0);
+                setValue(parseInt(e.target.value, 10) || 0);
               }}
             />
           </label>
