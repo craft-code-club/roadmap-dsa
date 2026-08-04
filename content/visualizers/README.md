@@ -281,14 +281,18 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
 | só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
-| **sem linha do tempo E com botões extras** | escreva o rodapé à mão (abaixo) |
+| **sem linha do tempo E com botões extras** | `<VizFooter>{seus botões}</VizFooter>` também: o rodapé sai com os seus botões e sem nada de reprodução |
 
-A linha do `total: 1` e a dos **botões extras** se contradizem, e a contradição é
-real: **`VizFooter` é o rodapé de REPRODUÇÃO e retorna `null` quando
-`total <= 1`, descartando os `children` em silêncio.** Um classificador com
-presets — que é o caso do `SubTypesVisualizer` — cai exatamente aí, e passar os
-botões para o `VizFooter` some com eles sem erro nenhum. Nesse caso os controles
-são seus e o `.viz-foot` também:
+A última linha já foi a contradição desta tabela, e **não é mais**: `VizFooter`
+retornava `null` sempre que `total <= 1`, **descartando os `children` em
+silêncio**, e dois visualizadores (`SubTypesVisualizer` e `PrefixSumTradeoff`)
+escreveram o rodapé à mão por causa disso. O hook foi consertado: com
+`total <= 1` ele descarta os controles de reprodução — que um visualizador sem
+linha do tempo não tem —, mas desenha o `.viz-foot` com os seus `children`. Só
+quando não há `children` é que ele some inteiro.
+
+Escrever o rodapé à mão continua sendo API pública, e é o que você usa quando
+precisa de um `.viz-foot` que o hook não monta:
 
 ```tsx
 {/* Fora do `.viz-body` de propósito: é o que os deixa parados no pé do
@@ -307,12 +311,12 @@ um visualizador sem linha do tempo não tem.
 não há decisão a tomar e o hook nem espera as fontes. Passar a lista ali é ruído
 que sugere uma medição que não acontece.
 
-**`total` que vem da entrada do aluno pode cair para 1, e aí o rodapé some
-inteiro** — com ele, os `children` que você pôs lá dentro. No visualizador de
+**`total` que vem da entrada do aluno pode cair para 1, e aí somem o contador, os
+atalhos, a barra de progresso e os botões de reprodução** — os seus `children`
+ficam, mas sozinhos numa linha que era de outra coisa. No visualizador de
 memória contígua o passo É o índice, então um array de um elemento zera a linha
-do tempo; se o preset "20 inteiros" morasse no rodapé, o aluno que digitasse um
-número só ficaria sem o caminho de volta. Preset e botão de estado ficam no
-miolo; no rodapé só o que é reprodução.
+do tempo. Preset e botão de estado ficam no miolo; no rodapé só o que é
+reprodução — assim a linha não muda de sentido quando a linha do tempo some.
 
 E o `↺` do `VizFooter` é `viz.reset()`: ele volta ao passo 0 e **não** desfaz o
 estado que o aluno montou (array, modo, parâmetros). Se o seu visualizador tinha
