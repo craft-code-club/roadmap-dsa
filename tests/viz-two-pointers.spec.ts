@@ -66,6 +66,35 @@ async function altura(loc: Locator): Promise<number> {
   return loc.evaluate((el) => Math.round(el.getBoundingClientRect().height));
 }
 
+/**
+ * Amostra o estado do bloco recolhível N vezes ao longo de `ms` e devolve as
+ * amostras que falharam.
+ *
+ * Quando a promessa é PERMANÊNCIA ("a escolha do aluno sobrevive"), uma espera
+ * fixa seguida de uma leitura olha um instante só — o instante depois da
+ * espera. Um `expect.poll` cobre mais, mas passa na primeira amostra que der
+ * certo, então ele responde "esteve aberto em algum momento", não "continuou
+ * aberto". Amostrar responde a pergunta certa: nenhum instante da janela pode
+ * ter falhado.
+ *
+ * (Medido, para não virar folclore: contra a quebra que remove a trava da
+ * escolha manual, as duas formas reprovam nos três visualizadores. A
+ * amostragem é a mais forte das duas por construção, não porque a outra não
+ * pegue este bug específico.)
+ */
+async function amostrarAberto(page: Page, fig: Locator, ms = 900, n = 9): Promise<string[]> {
+  const falhas: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const alturaSlot = await altura(fig.locator(".viz-code-slot"));
+    const rotulo = (await fig.locator("button.viz-toggle-codigo").textContent()) ?? "";
+    if (alturaSlot <= 100 || rotulo !== "Ocultar código") {
+      falhas.push(`aos ${Math.round((i * ms) / n)}ms: slot=${alturaSlot}px, rótulo=${JSON.stringify(rotulo)}`);
+    }
+    await page.waitForTimeout(ms / n);
+  }
+  return falhas;
+}
+
 for (const v of VISUALIZADORES) {
   test.describe(`two-pointers · ${v.nome}`, () => {
     // §8.1 do contrato: no expandido o cabeçalho e o rodapé ficam parados, e o
@@ -176,10 +205,11 @@ for (const v of VISUALIZADORES) {
       // A entrada da medição mudou MESMO: sem esta prova o teste passaria
       // celebrando uma medição que nunca aconteceu.
       await expect(fig.locator(v.pecas)).toHaveCount(v.quantas);
-      await page.waitForTimeout(500); // deixa a medição e a transição rodarem
 
-      await expect(botao).toHaveText("Ocultar código");
-      expect(await altura(fig.locator(".viz-code-slot"))).toBeGreaterThan(100);
+      // A janela amostrada cobre a medição E a transição de 0,32s que viria
+      // depois dela. Exigir que NENHUMA amostra tenha falhado é o que separa
+      // "está aberto" de "continua aberto".
+      expect(await amostrarAberto(page, fig)).toEqual([]);
     });
 
     // §8.5: as teclas dirigem a animação dentro do painel.
