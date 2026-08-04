@@ -246,12 +246,12 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
 | **sem linha do tempo E com botões extras** | escreva o rodapé à mão (abaixo) |
 
-As duas últimas linhas se contradizem, e a contradição é real: **`VizFooter` é o
-rodapé de REPRODUÇÃO e retorna `null` quando `total <= 1`, descartando os
-`children` em silêncio.** Um classificador com presets — que é o caso do
-`SubTypesVisualizer` — cai exatamente aí, e passar os botões para o `VizFooter`
-faz eles sumirem sem erro nenhum. Nesse caso os controles são seus e o `.viz-foot`
-também:
+A linha do `total: 1` e a dos **botões extras** se contradizem, e a contradição é
+real: **`VizFooter` é o rodapé de REPRODUÇÃO e retorna `null` quando
+`total <= 1`, descartando os `children` em silêncio.** Um classificador com
+presets — que é o caso do `SubTypesVisualizer` — cai exatamente aí, e passar os
+botões para o `VizFooter` some com eles sem erro nenhum. Nesse caso os controles
+são seus e o `.viz-foot` também:
 
 ```tsx
 {/* Fora do `.viz-body` de propósito: é o que os deixa parados no pé do
@@ -325,9 +325,9 @@ Nos testes (`tests/`), o mínimo por visualizador adaptado:
 4. a escolha do aluno sobrevive a uma troca de estado que pediria medição nova;
 5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**.
 
-Os itens 2, 3 e 4 não existem quando `collapsible: false`. No lugar deles, prove
-que a ausência tem o rótulo certo: **nenhum botão pode prometer esconder um
-bloco que o visualizador não tem.**
+Os itens 2, 3 e 4 — os três que falam do bloco recolhível — não existem quando
+`collapsible: false`. No lugar deles, prove que a ausência tem o rótulo certo:
+**nenhum botão pode prometer esconder um bloco que o visualizador não tem.**
 
 Duas armadilhas medidas ao escrever esses testes:
 
