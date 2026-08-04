@@ -49,6 +49,26 @@ async function medicaoTerminou(alvo: Locator) {
   await expect(alvo).toHaveAttribute("data-anim", "on");
 }
 
+/**
+ * Rola o miolo até uma fração da sobra e só volta quando o navegador aplicou a
+ * rolagem e pintou o quadro seguinte. Espera fixa aqui erra dos dois lados: é
+ * lenta quando a máquina está livre e insuficiente quando ela está carregada.
+ *
+ * O retorno é o `scrollTop` REAL, e conferi-lo não é preciosismo: se a rolagem
+ * não acontecer, "o cabeçalho não se mexeu" vira verdade à toa e o teste passa
+ * sem ter testado nada.
+ */
+async function rolarMiolo(miolo: Locator, fracao: number): Promise<number> {
+  return miolo.evaluate(
+    (el, f) =>
+      new Promise<number>((resolve) => {
+        el.scrollTop = (el.scrollHeight - el.clientHeight) * f;
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(el.scrollTop)));
+      }),
+    fracao
+  );
+}
+
 async function expandir(page: Page, n: number) {
   await figura(page, n).getByRole("button", { name: "⤢ Expandir" }).click();
   await expect(painel(page)).toBeVisible();
@@ -92,10 +112,8 @@ test("rotate expandido: cabeçalho e rodapé não se mexem quando o miolo rola a
   // em vez de olhar só o instante depois de uma espera fixa.
   const desvios: number[] = [];
   for (const destino of [0.25, 0.5, 0.75, 1]) {
-    await miolo.evaluate((el, f) => {
-      el.scrollTop = (el.scrollHeight - el.clientHeight) * f;
-    }, destino);
-    await page.waitForTimeout(120);
+    const real = await rolarMiolo(miolo, destino);
+    expect(Math.abs(real - sobra * destino)).toBeLessThanOrEqual(1);
     desvios.push(
       Math.abs((await cabeca.boundingBox())!.y - antes.cabeca),
       Math.abs((await rodape.boundingBox())!.y - antes.rodape),
@@ -171,6 +189,11 @@ test("strings: abrir o código na mão sobrevive a trocar de modo, que pediria m
   // A promessa aqui é de PERMANÊNCIA, então uma leitura só depois de uma espera
   // não serve: ela olha um instante. Amostra ao longo do intervalo em que a
   // medição nova teria tempo de desfazer a escolha.
+  //
+  // Este `waitForTimeout` não é o mesmo bicho do que se usa para "esperar
+  // assentar": ali o sono é remendo (e virou `rolarMiolo`, com rAF), aqui o
+  // tempo decorrido É o objeto do teste — a medição roda em `requestAnimation-
+  // Frame`, então 600ms de amostragem dão a ela várias chances de reprovar.
   for (let i = 0; i < 4; i++) {
     await expect(alternar).toHaveText("Ocultar código");
     await expect(f).toHaveAttribute("data-codigo", "on");
@@ -231,10 +254,12 @@ test("rotate expandido: setas andam o passo e o espaço roda, sem roubar a tecla
   await expect.poll(() => campoS.inputValue()).toHaveLength(valorAntes.length + 1);
   expect((await campoS.inputValue()).replace(" ", "")).toBe(valorAntes);
   // Trocar a entrada reinicia a animação, e ela fica PARADA no primeiro passo.
+  // O segundo aqui também é objeto do teste, e não remendo de sincronização: a
+  // marcha padrão anda a cada 650ms, então se o espaço tivesse ligado a
+  // reprodução o passo teria andado pelo menos uma vez dentro da janela.
   await expect(passo).toHaveText(/^passo 1 de \d+$/);
-  const depoisDeUmSegundo = passo;
   await page.waitForTimeout(1000);
-  await expect(depoisDeUmSegundo).toHaveText(/^passo 1 de \d+$/);
+  await expect(passo).toHaveText(/^passo 1 de \d+$/);
 });
 
 // ---------------------------------------------------------------------------
@@ -319,10 +344,8 @@ test("bytes expandido: o cabeçalho fica parado enquanto a tabela aberta rola", 
   const antes = (await cabeca.boundingBox())!.y;
   const desvios: number[] = [];
   for (const destino of [0.34, 0.67, 1]) {
-    await miolo.evaluate((el, ff) => {
-      el.scrollTop = (el.scrollHeight - el.clientHeight) * ff;
-    }, destino);
-    await page.waitForTimeout(120);
+    const real = await rolarMiolo(miolo, destino);
+    expect(Math.abs(real - sobra * destino)).toBeLessThanOrEqual(1);
     desvios.push(Math.abs((await cabeca.boundingBox())!.y - antes));
   }
   expect(Math.max(...desvios)).toBeLessThanOrEqual(1);
