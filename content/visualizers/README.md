@@ -5,10 +5,10 @@ comporta. Ele não descreve o algoritmo que cada um ensina — isso é assunto d
 componente — e sim a moldura em volta: o que aparece, o que rola, o que o
 teclado faz e o que precisa caber na tela do aluno.
 
-A mecânica toda vive num hook: **`src/lib/visualizador.tsx`**. Você não
-reescreve nada disso — chama `useVisualizador`, espalha as props que ele devolve
-e usa os dois componentes prontos (`VizCabecalho` e `VizRodape`). Referência de
-uso: **`BigOCounterVisualizer.tsx`**.
+A mecânica toda vive num hook: **`src/lib/visualizer.tsx`**. Você não reescreve
+nada disso — chama `useVisualizer`, espalha as props que ele devolve e usa os
+dois componentes prontos (`VizHeader` e `VizFooter`). Referência de uso:
+**`BigOCounterVisualizer.tsx`**.
 
 O corte é rígido: o hook cobre **o que todo visualizador tem** (caber na tela,
 painel, bloco que mostra e oculta, controles de reprodução) e **nada** do que
@@ -23,6 +23,34 @@ texto sempre ganha". Decida qual dos dois está errado:
 - comportamento que o código tem e o contrato não descreve → ou o contrato está
   incompleto (documente), ou o comportamento é acidental (remova);
 - regra que o contrato promete e o código não cumpre → é bug, com teste.
+
+## 0. Idioma: identificador em inglês, tela em português
+
+Mesma regra dos campos do `content/roadmap.ts`, agora valendo para o código dos
+visualizadores:
+
+| o quê | idioma | exemplo |
+|---|---|---|
+| identificadores: variáveis, tipos, campos, props, funções | **inglês** | `step`, `worstCase`, `measureOn`, `blockProps` |
+| qualquer coisa que o aluno lê | **português** | `"passo 1 de 7"`, `"Mostrar código"`, `name: "operações"` |
+| comentários | português, quando explicar melhor | — |
+| nome do componente | o que fizer sentido | `BigOCounterVisualizer`, `BinarioDivisoes` |
+
+**A armadilha está na fronteira, e ela já mordeu:** o código Python que aparece
+na tela (`esq, dir = 0, len(nums) - 1`), os rótulos das variáveis (`esq`, `dir`,
+`operações`) e as notas do passo a passo são **conteúdo didático em português**,
+mesmo morando dentro de uma string no meio do código. Um `find & replace` de
+`esq` → `left` traduz o identificador e estraga a aula junto — e produz frases
+como "O array precisa estar sorted".
+
+Ao renomear em lote, **compare as strings antes e depois** e exija que só
+mudem as que são código:
+
+```bash
+git show HEAD:<arquivo> > /tmp/antes.tsx
+# extraia os literais dos dois e diffe: o que sumir/aparecer tem que ser
+# só nome de import, de hook e de prop.
+```
 
 > Para *criar* um visualizador do zero (gerador puro de passos, registro no
 > `mdx-components.tsx`), veja o [README](../../README.md) e o
@@ -67,7 +95,7 @@ implementa nada disto — está aqui porque explica o comportamento que o aluno 
 e porque é o que quebra se alguém reescrever a mecânica à mão.
 
 - **Expandido:** o miolo é a única área rolável, então "não coube" é
-  `corpo.scrollHeight > corpo.clientHeight + FOLGA`.
+  `body.scrollHeight > body.clientHeight + SLACK`.
 - **No artigo:** a régua é a janela. Se a peça inteira não cabe numa tela, o
   aluno olha o array sem enxergar os botões que o fazem andar.
 
@@ -93,10 +121,10 @@ o que está vendo no DOM e no CSS, não para digitar à mão.
 
 | classe / atributo | onde | o que faz |
 |---|---|---|
-| `.viz-fit` | no `<figure>` | liga a casca adaptativa (vem em `propsFigura`) |
+| `.viz-fit` | no `<figure>` | liga a casca adaptativa (vem em `figureProps`) |
 | `data-codigo="on\|off"` | no `<figure>` | estado do bloco recolhível |
 | `data-anim="on\|off"` | no `<figure>` | liga as transições. `off` durante a medição e antes da primeira decisão |
-| `.viz-overlay-fit` | na `<div>` do overlay | flex column, miolo rolável, cabeçalho e rodapé parados (vem do `emPainel`) |
+| `.viz-overlay-fit` | na `<div>` do overlay | flex column, miolo rolável, cabeçalho e rodapé parados (vem do `inPanel`) |
 | `.viz-foot` | irmão do `.viz-body` | os controles fora do miolo, para ficarem parados |
 | `.viz-code-slot` | envolve o `.viz-code` | recolhe a **altura** (grid `1fr → 0fr`) |
 | `.viz-vars.linha` | no painel de variáveis | vira fileira de fichas quando o código sai |
@@ -127,74 +155,74 @@ velocidade, seta é do slider. Espaço com um botão em foco é o botão. Seques
 isso deixa o array impossível de editar, o que é pior que não ter atalho.
 
 Os comandos de passo usam a **forma funcional do `setState`**: a tecla repete
-muito mais rápido que o clique, e ler `idx` do closure engole repetições.
+muito mais rápido que o clique, e ler o índice do closure engole repetições.
 
 ## 6. Como aplicar: o hook
 
 Tudo o que está descrito acima — medição, congelamento da animação, espera das
 fontes, escolha manual, trava de rolagem, foco, `Tab` circulando, atalhos,
-passo, rodar/pausar, velocidade, progresso — vem de **`useVisualizador`**. Não
+passo, rodar/pausar, velocidade, progresso — vem de **`useVisualizer`**. Não
 reescreva: são armadilhas já resolvidas que voltam sozinhas quando alguém faz de
 novo do zero.
 
 ```tsx
-import { useVisualizador, VizCabecalho, VizRodape } from "@/lib/visualizador";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
-const passos = useMemo(() => gerarPassos(entrada), [entrada]);
+const steps = useMemo(() => generateSteps(input), [input]);
 
-const viz = useVisualizador({
-  titulo: "Visualizador · o que este aqui mostra",
-  total: passos.length,
-  velocidades: VELOCIDADES,   // opcional: o ritmo é seu
+const viz = useVisualizer({
+  title: "Visualizador · o que este aqui mostra",
+  total: steps.length,
+  speeds: SPEEDS,             // opcional: o ritmo é seu
   // o que MAIS muda a altura da peça (modo, tamanho da entrada, preset).
   // Expandir e redimensionar já entram sozinhos. Use valores primitivos.
-  medirQuando: [modo, entrada.length],
+  measureOn: [mode, input.length],
 });
 
-const p = passos[viz.passo];
+const s = steps[viz.step];
 ```
 
 E o JSX vira só o seu miolo:
 
 ```tsx
-return viz.emPainel(
-  <figure {...viz.propsFigura} style={{ margin: 0 }}>
-    <VizCabecalho viz={viz} cor={cor} />
+return viz.inPanel(
+  <figure {...viz.figureProps} style={{ margin: 0 }}>
+    <VizHeader viz={viz} color={color} />
 
-    <div {...viz.propsCorpo}>
+    <div {...viz.bodyProps}>
       …o que ESTE visualizador mostra…
       <div className="viz-split">
         <div className="viz-code-slot">
-          <div className="viz-code" {...viz.propsBloco}>…</div>
+          <div className="viz-code" {...viz.blockProps}>…</div>
         </div>
-        <div {...viz.propsVars}>…</div>
+        <div {...viz.varsProps}>…</div>
       </div>
     </div>
 
-    <VizRodape viz={viz} cor={cor} />
+    <VizFooter viz={viz} color={color} />
   </figure>
 );
 ```
 
-`VizCabecalho` monta a bolinha, o título, o contador de passo e os dois botões.
-`VizRodape` monta os controles, a dica de atalhos e a barra de progresso — fora
+`VizHeader` monta a bolinha, o título, o contador de passo e os dois botões.
+`VizFooter` monta os controles, a dica de atalhos e a barra de progresso — fora
 do `.viz-body`, que é o que os deixa parados no pé do painel. Os dois aceitam
 `children` para o que for específico do seu (botão de preset, seletor de modo).
 
-Reprodução, quando você precisa mexer nela de fora: `viz.passo` (já limitado a
-`[0, total-1]`), `viz.reiniciar()` — chame quando a **entrada** mudar —,
-`viz.irPasso(±1)`, `viz.setPasso`, `viz.tocando`, `viz.pct`.
+Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado a
+`[0, total-1]`), `viz.reset()` — chame quando a **entrada** mudar —,
+`viz.stepBy(±1)`, `viz.setStep`, `viz.playing`, `viz.progress`.
 
 ### Os casos fora do padrão
 
 | situação | o que passar |
 |---|---|
-| sem bloco dispensável (SVG de árvore, canvas) | `recolhivel: false` — ganha o painel parado e nada mais. Não invente um bloco só para ter o botão |
-| o recolhível não é código | `bloco: "tabela"` — o rótulo passa a dizer o que some, porque **rótulo que mente ensina errado** |
+| sem bloco dispensável (SVG de árvore, canvas) | `collapsible: false` — ganha o painel parado e nada mais. Não invente um bloco só para ter o botão |
+| o recolhível não é código | `blockName: "tabela"` — o rótulo passa a dizer o que some, porque **rótulo que mente ensina errado** |
 | sem linha do tempo (classificador, tabela) | `total: 1` — some o contador de passo, o rodapé e os atalhos |
-| ritmo próprio | `velocidades: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
-| só passo a passo, sem animação contínua | `<VizRodape semVelocidade />` |
-| botões extras nos controles | `<VizRodape>{seus botões}</VizRodape>` |
+| ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
+| só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
+| botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
 
 O que continua por sua conta: envolver o bloco recolhível no `.viz-code-slot`
 (zerar a coluna tira a largura, não a altura — §7) e escolher um `titulo` que
