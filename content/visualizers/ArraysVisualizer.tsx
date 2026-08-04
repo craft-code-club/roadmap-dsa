@@ -86,6 +86,15 @@ export function ArraysVisualizer() {
 
   const idx = viz.step;
 
+  // Salto ABSOLUTO para o índice clicado, não um delta a partir de `idx`: o
+  // clique rápido repete mais depressa do que o React re-renderiza, então dois
+  // cliques leem o mesmo `idx` do closure e somam o mesmo delta duas vezes.
+  // É o mesmo idioma dos presets logo abaixo — `reset` é o que para o relógio.
+  const goToIndex = (k: number) => {
+    viz.reset();
+    viz.setStep(k);
+  };
+
   const onInputChange = (v: string) => {
     viz.reset();
     setInput(v);
@@ -237,7 +246,7 @@ export function ArraysVisualizer() {
                 className={c.cls}
                 aria-pressed={c.k === idx}
                 aria-label={`Índice ${c.k}, valor ${c.v}, endereço ${hex(c.addr)}`}
-                onClick={() => viz.stepBy(c.k - idx)}
+                onClick={() => goToIndex(c.k)}
               >
                 {c.v}
               </button>

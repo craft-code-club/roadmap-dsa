@@ -267,3 +267,36 @@ test("array dinâmico: a nota do fim explica a capacidade reservada em portuguê
     "reservar a capacidade certa é o único jeito de o append custar exatamente 1"
   );
 });
+
+test("memória contígua: dois cliques rápidos param na célula clicada por último", async ({ page }) => {
+  // O clique repete mais depressa do que o React re-renderiza. Um salto escrito
+  // como delta a partir do `idx` do closure (`stepBy(c.k - idx)`) lê o MESMO
+  // `idx` velho nos dois cliques e soma os dois deltas: sair do índice 0, clicar
+  // no 6 e no 2 levava ao 7 (6 + 2, saturado no fim do array) em vez do 2 — a
+  // conta na tela passava a explicar uma célula que o aluno não pediu.
+  await pagina(page, 900);
+  const fig = figuraInline(page, VIZ[0].titulo);
+
+  // A ORDEM é o teste: os dois cliques precisam sair do índice 0. Partindo da
+  // própria célula o delta vale zero e a versão quebrada passaria verde.
+  expect((await passo(fig))[0]).toBe(1);
+
+  await fig.evaluate((f) => {
+    const cel = (k: number) =>
+      [...f.querySelectorAll("button")].find((b) =>
+        (b.getAttribute("aria-label") ?? "").startsWith(`Índice ${k},`)
+      ) as HTMLButtonElement;
+    cel(6).click();
+    cel(2).click();
+  });
+
+  // Rótulo junto do número nos três lugares que a peça ensina: o contador, a
+  // conta do endereço e o painel de variáveis. 0x1000 + 2 × 4 = 0x1008.
+  expect((await passo(fig))[0]).toBe(3);
+  await expect(fig.locator(".arr-formula")).toHaveText(/nums\[2\] = 0x1000 \+ 2 × 4 = 0x1008/);
+  await expect(fig.locator(".viz-var").filter({ hasText: "endereço" })).toContainText("0x1008");
+  await expect(fig.getByRole("button", { name: "Índice 2, valor 45, endereço 0x1008" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+});
