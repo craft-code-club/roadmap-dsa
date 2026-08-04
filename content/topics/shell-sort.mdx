@@ -83,9 +83,9 @@ Foi esse defeito que gerou uma linhagem de propostas, cada uma mexendo só na li
 | Sequência | Gaps | Pior caso conhecido |
 | --- | --- | --- |
 | Shell (1959) | n/2, n/4, n/8, ... | Θ(n²) |
-| Hibbard (1963) | 1, 3, 7, 15, 31, ... (2ᵏ - 1) | Θ(n^1,5) |
-| Knuth (1973) | 1, 4, 13, 40, 121, ... (3k + 1) | O(n^1,5) |
-| Sedgewick (1986) | 1, 5, 19, 41, 109, ... | O(n^4/3) |
+| Hibbard (1963) | 1, 3, 7, 15, 31, ... (2ᵏ - 1) | Θ(n^(3/2)) |
+| Knuth (1973) | 1, 4, 13, 40, 121, ... (3k + 1) | O(n^(3/2)) |
+| Sedgewick (1986) | 1, 5, 19, 41, 109, ... | O(n^(4/3)) |
 | Ciura (2001) | 1, 4, 10, 23, 57, 132, 301, 701 | sem prova, melhor medida |
 
 A última linha é a mais curiosa da tabela. A sequência de Ciura não foi deduzida de nenhuma fórmula: ela foi **encontrada por busca empírica**, testando combinações e medindo. Não existe termo geral publicado para continuá-la, e mesmo assim é ela que costuma medir melhor. Isso é raro em computação, e é sintoma de um fato maior: **o caso médio do shell sort segue em aberto**. Não há fórmula fechada conhecida para a maioria das sequências.

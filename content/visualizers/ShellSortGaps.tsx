@@ -52,7 +52,7 @@ const SEQUENCIAS: Seq[] = [
   {
     key: "knuth",
     nome: "Knuth (1973)",
-    nota: "3k + 1: 1, 4, 13, 40, 121... A mais citada em livro-texto, com pior caso conhecido de O(n^1,5).",
+    nota: "3k + 1: 1, 4, 13, 40, 121... A mais citada em livro-texto, com pior caso conhecido de O(n^(3/2)), ou seja, n elevado a 1,5.",
     gaps: (n) => {
       const g: number[] = [];
       for (let h = 1; h < n; h = h * 3 + 1) g.push(h);
