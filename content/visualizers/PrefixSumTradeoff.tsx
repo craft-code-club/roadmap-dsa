@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+
+import { useVisualizer, VizHeader } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // PrefixSumTradeoff, o ponto de virada do pré-processamento.
@@ -16,15 +17,28 @@ import { createPortal } from "react-dom";
 // Elas se cruzam em q = n / (m - 1). Antes do cruzamento, montar a tabela é
 // desperdício; depois, é a diferença entre milhões de operações e milhares.
 //
-// A casca (viz-head, viz-body, controles, Expandir) é a mesma dos demais.
+// É o canto fora do padrão da casca, nas DUAS pontas da tabela §6 do contrato:
+//
+//   · `collapsible: false` — não há bloco dispensável. O gráfico é canvas e é o
+//     conteúdo; não se inventa um bloco só para ganhar o botão. (E `measureOn`
+//     seria inerte aqui, então nem é passado.)
+//   · `total: 1` — não há linha do tempo. O eixo q é um slider contínuo, não
+//     uma sequência de passos.
+//
+// E as duas juntas têm uma consequência que morde: `VizFooter` devolve `null`
+// quando `total <= 1`, **descartando os `children` em silêncio**. Os dois
+// sliders e o Reiniciar sumiriam da tela sem erro nenhum. Por isso o rodapé é
+// escrito à mão com `.viz-foot` + `.viz-controls`, que é API de CSS pública
+// (§4) e recebe a mesma linha divisória e o mesmo respiro do rodapé do hook.
+// Consertar o `VizFooter` é PR de plataforma, não carona desta adaptação.
 // ---------------------------------------------------------------------------
 
 const ARRAYS = [10, 50, 100, 500, 1000, 5000, 10000, 100000];
-const FATIAS = [0.01, 0.05, 0.1, 0.25, 0.5, 1];
-const ROTULOS_FATIA = ["1% de n", "5% de n", "10% de n", "25% de n", "50% de n", "n inteiro"];
+const SLICES = [0.01, 0.05, 0.1, 0.25, 0.5, 1];
+const SLICE_LABELS = ["1% de n", "5% de n", "10% de n", "25% de n", "50% de n", "n inteiro"];
 
-const COR_BRUTA = "#fbbf24";
-const COR_PREFIXO = "#34d399";
+const BRUTE_COLOR = "#fbbf24";
+const PREFIX_COLOR = "#34d399";
 
 // Formatação determinística (nada de Intl, para o HTML do servidor e do
 // cliente baterem exatamente na hidratação). Um separador de milhar só, o
@@ -35,7 +49,7 @@ function num(v: number): string {
 
 // A razão entre as duas curvas é o único número que costuma cair no meio do
 // caminho (4,5 não é 5), então ela ganha uma casa decimal enquanto for pequena.
-function razaoTexto(v: number): string {
+function ratioText(v: number): string {
   if (v >= 10) return num(v);
   const d = Math.round(v * 10);
   return `${Math.floor(d / 10)},${d % 10}`;
@@ -43,7 +57,7 @@ function razaoTexto(v: number): string {
 
 // Arredonda para cima até o próximo 1, 2, 5 ou 10 vezes uma potência de 10,
 // para os eixos caírem sempre em números redondos.
-function bonito(v: number): number {
+function nice(v: number): number {
   if (v <= 10) return 10;
   const k = Math.pow(10, Math.floor(Math.log10(v)));
   for (const f of [1, 2, 5, 10]) if (f * k >= v) return f * k;
@@ -51,39 +65,34 @@ function bonito(v: number): number {
 }
 
 export function PrefixSumTradeoff() {
-  const [iArray, setIArray] = useState(4); // n = 1.000
-  const [iFatia, setIFatia] = useState(1); // m = 5% de n
-  const [qSel, setQSel] = useState(21);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [largura, setLargura] = useState(720);
+  const [arrayIndex, setArrayIndex] = useState(4); // n = 1.000
+  const [sliceIndex, setSliceIndex] = useState(1); // m = 5% de n
+  const [rawQ, setRawQ] = useState(21);
+  const [width, setWidth] = useState(720);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  const viz = useVisualizer({
+    title: "Visualizador · quando o pré-processamento se paga",
+    total: 1,
+    collapsible: false,
+  });
 
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const n = ARRAYS[iArray];
-  const m = Math.max(2, Math.min(n, Math.round(n * FATIAS[iFatia])));
+  const n = ARRAYS[arrayIndex];
+  const m = Math.max(2, Math.min(n, Math.round(n * SLICES[sliceIndex])));
   // Menor q inteiro em que n + q fica estritamente menor que q * m.
-  const virada = Math.floor(n / (m - 1)) + 1;
-  const qMax = Math.max(10, bonito(virada * 3));
-  const q = Math.min(Math.max(qSel, 0), qMax);
+  const turningPoint = Math.floor(n / (m - 1)) + 1;
+  const qMax = Math.max(10, nice(turningPoint * 3));
+  const q = Math.min(Math.max(rawQ, 0), qMax);
 
-  const custoBruta = q * m;
-  const custoPrefixo = n + q;
-  const yMax = bonito(qMax * m);
+  const bruteCost = q * m;
+  const prefixCost = n + q;
+  const yMax = nice(qMax * m);
 
-  const medir = useCallback((el: HTMLDivElement | null) => {
+  const measure = useCallback((el: HTMLDivElement | null) => {
     wrapRef.current = el;
-    if (el) setLargura(el.clientWidth || 720);
+    if (el) setWidth(el.clientWidth || 720);
   }, []);
 
   // O gráfico é redesenhado quando o container muda de tamanho (viewport ou
@@ -91,14 +100,14 @@ export function PrefixSumTradeoff() {
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setLargura(el.clientWidth || 720));
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth || 720));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [expanded, mounted]);
+  }, [viz.expanded]);
 
-  const altura = expanded ? 380 : 290;
-  const padE = 78;
-  const padD = 16;
+  const height = viz.expanded ? 380 : 290;
+  const padL = 78;
+  const padR = 16;
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -107,8 +116,8 @@ export function PrefixSumTradeoff() {
     if (!ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const W = Math.max(280, largura);
-    const H = altura;
+    const W = Math.max(280, width);
+    const H = height;
     cv.width = Math.round(W * dpr);
     cv.height = Math.round(H * dpr);
     cv.style.height = `${H}px`;
@@ -117,11 +126,11 @@ export function PrefixSumTradeoff() {
 
     const padT = 26;
     const padB = 34;
-    const gw = W - padE - padD;
+    const gw = W - padL - padR;
     const gh = H - padT - padB;
     const mono = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
 
-    const px = (v: number) => padE + (v / qMax) * gw;
+    const px = (v: number) => padL + (v / qMax) * gw;
     const py = (v: number) => padT + gh - Math.min(1.05, v / yMax) * gh;
 
     // Grade e eixo Y
@@ -133,11 +142,11 @@ export function PrefixSumTradeoff() {
       const y = padT + gh - (k / 5) * gh;
       ctx.strokeStyle = "rgba(255,255,255,0.06)";
       ctx.beginPath();
-      ctx.moveTo(padE, Math.round(y) + 0.5);
-      ctx.lineTo(padE + gw, Math.round(y) + 0.5);
+      ctx.moveTo(padL, Math.round(y) + 0.5);
+      ctx.lineTo(padL + gw, Math.round(y) + 0.5);
       ctx.stroke();
       ctx.fillStyle = "#61748c";
-      ctx.fillText(num((k / 5) * yMax), padE - 8, y);
+      ctx.fillText(num((k / 5) * yMax), padL - 8, y);
     }
 
     // Eixo X
@@ -157,25 +166,25 @@ export function PrefixSumTradeoff() {
 
     ctx.textAlign = "left";
     ctx.fillStyle = "#4c5f79";
-    ctx.fillText("q (número de consultas) →", padE, padT + gh + 21);
-    ctx.fillText("↑ operações no total", padE, 7);
+    ctx.fillText("q (número de consultas) →", padL, padT + gh + 21);
+    ctx.fillText("↑ operações no total", padL, 7);
 
     // Retas, recortadas na área do gráfico
     ctx.save();
     ctx.beginPath();
-    ctx.rect(padE, padT - 1, gw, gh + 2);
+    ctx.rect(padL, padT - 1, gw, gh + 2);
     ctx.clip();
     ctx.lineWidth = 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
-    ctx.strokeStyle = COR_BRUTA;
+    ctx.strokeStyle = BRUTE_COLOR;
     ctx.beginPath();
     ctx.moveTo(px(0), py(0));
     ctx.lineTo(px(qMax), py(qMax * m));
     ctx.stroke();
 
-    ctx.strokeStyle = COR_PREFIXO;
+    ctx.strokeStyle = PREFIX_COLOR;
     ctx.beginPath();
     ctx.moveTo(px(0), py(n));
     ctx.lineTo(px(qMax), py(n + qMax));
@@ -194,7 +203,7 @@ export function PrefixSumTradeoff() {
     ctx.fillStyle = "#93a9c2";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText("virada", Math.min(xv + 5, padE + gw - 44), padT + 4);
+    ctx.fillText("virada", Math.min(xv + 5, padL + gw - 44), padT + 4);
 
     // Marcador do q escolhido
     const xm = px(q);
@@ -205,10 +214,10 @@ export function PrefixSumTradeoff() {
     ctx.lineTo(Math.round(xm) + 0.5, padT + gh);
     ctx.stroke();
     ctx.setLineDash([]);
-    for (const [valor, cor] of [[custoBruta, COR_BRUTA], [custoPrefixo, COR_PREFIXO]] as const) {
-      ctx.fillStyle = cor;
+    for (const [value, color] of [[bruteCost, BRUTE_COLOR], [prefixCost, PREFIX_COLOR]] as const) {
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(xm, py(valor), 4, 0, Math.PI * 2);
+      ctx.arc(xm, py(value), 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#0d1420";
       ctx.lineWidth = 1.5;
@@ -219,126 +228,118 @@ export function PrefixSumTradeoff() {
     // Moldura
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(padE + 0.5, padT + 0.5, gw - 1, gh - 1);
-  }, [largura, altura, n, m, q, qMax, yMax, custoBruta, custoPrefixo, padE, padD]);
+    ctx.strokeRect(padL + 0.5, padT + 0.5, gw - 1, gh - 1);
+  }, [width, height, n, m, q, qMax, yMax, bruteCost, prefixCost, padL, padR]);
 
   // Só move com o ponteiro pressionado: seguir o hover redesenharia o canvas a
   // cada mousemove.
-  const mover = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const cv = canvasRef.current;
     if (!cv) return;
     const r = cv.getBoundingClientRect();
-    const gw = r.width - padE - padD;
-    const pct = (e.clientX - r.left - padE) / Math.max(1, gw);
-    setQSel(Math.round(Math.min(1, Math.max(0, pct)) * qMax));
+    const gw = r.width - padL - padR;
+    const pct = (e.clientX - r.left - padL) / Math.max(1, gw);
+    setRawQ(Math.round(Math.min(1, Math.max(0, pct)) * qMax));
   };
 
   // O canvas é um slider ao longo do eixo q: setas andam de pouco em pouco,
-  // PageUp/PageDown de muito em muito e Home/End vão para as pontas.
-  const aoTeclar = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
-    const fino = Math.max(1, Math.round(qMax / 50));
-    const grosso = Math.max(1, Math.round(qMax / 10));
-    const passos: Record<string, number> = {
-      ArrowLeft: -fino, ArrowRight: fino, ArrowDown: -fino, ArrowUp: fino,
-      PageDown: -grosso, PageUp: grosso,
+  // PageUp/PageDown de muito em muito e Home/End vão para as pontas. O hook não
+  // disputa essas teclas porque este visualizador não tem linha do tempo.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const fine = Math.max(1, Math.round(qMax / 50));
+    const coarse = Math.max(1, Math.round(qMax / 10));
+    const deltas: Record<string, number> = {
+      ArrowLeft: -fine, ArrowRight: fine, ArrowDown: -fine, ArrowUp: fine,
+      PageDown: -coarse, PageUp: coarse,
     };
     if (e.key === "Home" || e.key === "End") {
       e.preventDefault();
-      setQSel(e.key === "Home" ? 0 : qMax);
+      setRawQ(e.key === "Home" ? 0 : qMax);
       return;
     }
-    const d = passos[e.key];
+    const d = deltas[e.key];
     if (d === undefined) return;
     e.preventDefault();
-    setQSel((v) => Math.min(qMax, Math.max(0, v + d)));
+    setRawQ((v) => Math.min(qMax, Math.max(0, v + d)));
   };
 
   // Capturar o ponteiro mantém o arrasto vivo com o cursor fora do canvas. É
   // um extra: se o navegador recusar o id, o arrasto normal segue funcionando.
-  const capturar = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  const capture = (e: React.PointerEvent<HTMLCanvasElement>) => {
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* segue sem captura */ }
   };
-  const soltar = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  const release = (e: React.PointerEvent<HTMLCanvasElement>) => {
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* nada a soltar */ }
   };
 
-  const vencedor = custoPrefixo < custoBruta ? "prefixo" : custoPrefixo > custoBruta ? "bruta" : "empate";
-  const razao = custoPrefixo > 0 ? custoBruta / custoPrefixo : 0;
+  const winner = prefixCost < bruteCost ? "prefixo" : prefixCost > bruteCost ? "bruta" : "empate";
+  const ratio = prefixCost > 0 ? bruteCost / prefixCost : 0;
 
-  const leitura = useMemo(() => {
-    if (vencedor === "empate") return `Com ${num(q)} consultas as duas abordagens custam o mesmo: ${num(custoBruta)} operações. Este é o ponto de virada.`;
-    if (vencedor === "bruta") return `Com só ${num(q)} ${q === 1 ? "consulta" : "consultas"}, a força bruta ainda ganha: ${num(custoBruta)} operações contra ${num(custoPrefixo)} do prefixo. Montar a tabela custou mais do que ela economizou.`;
-    if (razao < 2) return `Com ${num(q)} consultas, o prefixo faz ${num(custoPrefixo)} operações contra ${num(custoBruta)} da força bruta. O pré-processamento acabou de se pagar, e a distância só cresce daqui para frente.`;
-    return `Com ${num(q)} consultas, o prefixo faz ${num(custoPrefixo)} operações contra ${num(custoBruta)} da força bruta, ${razaoTexto(razao)} vezes menos. O pré-processamento já se pagou com folga.`;
-  }, [vencedor, q, custoBruta, custoPrefixo, razao]);
+  const reading = useMemo(() => {
+    if (winner === "empate") return `Com ${num(q)} consultas as duas abordagens custam o mesmo: ${num(bruteCost)} operações. Este é o ponto de virada.`;
+    if (winner === "bruta") return `Com só ${num(q)} ${q === 1 ? "consulta" : "consultas"}, a força bruta ainda ganha: ${num(bruteCost)} operações contra ${num(prefixCost)} do prefixo. Montar a tabela custou mais do que ela economizou.`;
+    if (ratio < 2) return `Com ${num(q)} consultas, o prefixo faz ${num(prefixCost)} operações contra ${num(bruteCost)} da força bruta. O pré-processamento acabou de se pagar, e a distância só cresce daqui para frente.`;
+    return `Com ${num(q)} consultas, o prefixo faz ${num(prefixCost)} operações contra ${num(bruteCost)} da força bruta, ${ratioText(ratio)} vezes menos. O pré-processamento já se pagou com folga.`;
+  }, [winner, q, bruteCost, prefixCost, ratio]);
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" style={{ background: COR_PREFIXO }} />
-          <span>Visualizador · quando o pré-processamento se paga</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">q = {num(q)}</span>
-          <button className="viz-expand" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} color={PREFIX_COLOR}>
+        <span className="viz-step">q = {num(q)}</span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          <button className="bigo-chip" onClick={() => setQSel(1)}>
-            <span className="sw" style={{ background: COR_BRUTA }} />
+          <button className="bigo-chip" onClick={() => setRawQ(1)}>
+            <span className="sw" style={{ background: BRUTE_COLOR }} />
             Uma consulta só
           </button>
-          <button className="bigo-chip" onClick={() => setQSel(virada)}>
+          <button className="bigo-chip" onClick={() => setRawQ(turningPoint)}>
             <span className="sw" style={{ background: "#93a9c2" }} />
             No ponto de virada
           </button>
-          <button className="bigo-chip" onClick={() => setQSel(qMax)}>
-            <span className="sw" style={{ background: COR_PREFIXO }} />
+          <button className="bigo-chip" onClick={() => setRawQ(qMax)}>
+            <span className="sw" style={{ background: PREFIX_COLOR }} />
             Muitas consultas
           </button>
         </div>
 
-        <div className="bigo-canvas-wrap" ref={medir}>
+        <div className="bigo-canvas-wrap" ref={measure}>
           <canvas
             ref={canvasRef}
             className="bigo-canvas"
-            style={{ height: altura }}
+            style={{ height }}
             role="slider"
             tabIndex={0}
             aria-label="Número de consultas comparado entre força bruta e tabela de prefixos"
             aria-valuemin={0}
             aria-valuemax={qMax}
             aria-valuenow={q}
-            aria-valuetext={`${num(q)} consultas: força bruta ${num(custoBruta)} operações, com prefixo ${num(custoPrefixo)} operações. Ponto de virada em ${num(virada)} consultas.`}
-            onKeyDown={aoTeclar}
-            onPointerDown={(e) => { mover(e); capturar(e); }}
-            onPointerMove={(e) => { if (e.buttons === 1) mover(e); }}
-            onPointerUp={soltar}
-            onPointerCancel={soltar}
+            aria-valuetext={`${num(q)} consultas: força bruta ${num(bruteCost)} operações, com prefixo ${num(prefixCost)} operações. Ponto de virada em ${num(turningPoint)} consultas.`}
+            onKeyDown={onKeyDown}
+            onPointerDown={(e) => { onMove(e); capture(e); }}
+            onPointerMove={(e) => { if (e.buttons === 1) onMove(e); }}
+            onPointerUp={release}
+            onPointerCancel={release}
           />
         </div>
 
-        <p className={`viz-note${vencedor === "prefixo" ? " ok" : vencedor === "bruta" ? " invalid" : ""}`}>
-          {leitura} Arraste sobre o gráfico, ou use as setas do teclado, para mover o marcador.
+        <p className={`viz-note${winner === "prefixo" ? " ok" : winner === "bruta" ? " invalid" : ""}`}>
+          {reading} Arraste sobre o gráfico, ou use as setas do teclado, para mover o marcador.
         </p>
 
         <div className="bigo-grid">
-          <div className="bigo-card" style={{ borderLeftColor: COR_BRUTA }}>
+          <div className="bigo-card" style={{ borderLeftColor: BRUTE_COLOR }}>
             <div className="bigo-card-top">
-              <span className="bigo-card-nome" style={{ color: COR_BRUTA }}>força bruta</span>
-              <span className="bigo-card-val">{num(custoBruta)}</span>
+              <span className="bigo-card-nome" style={{ color: BRUTE_COLOR }}>força bruta</span>
+              <span className="bigo-card-val">{num(bruteCost)}</span>
             </div>
             <div className="bigo-card-ex">q × m = {num(q)} × {num(m)}</div>
           </div>
-          <div className="bigo-card" style={{ borderLeftColor: COR_PREFIXO }}>
+          <div className="bigo-card" style={{ borderLeftColor: PREFIX_COLOR }}>
             <div className="bigo-card-top">
-              <span className="bigo-card-nome" style={{ color: COR_PREFIXO }}>com prefixo</span>
-              <span className="bigo-card-val">{num(custoPrefixo)}</span>
+              <span className="bigo-card-nome" style={{ color: PREFIX_COLOR }}>com prefixo</span>
+              <span className="bigo-card-val">{num(prefixCost)}</span>
             </div>
             <div className="bigo-card-ex">n + q = {num(n)} + {num(q)}</div>
           </div>
@@ -355,14 +356,19 @@ export function PrefixSumTradeoff() {
           </div>
           <div className="bigo-stat">
             <span>ponto de virada</span>
-            <strong>{num(virada)}</strong>
+            <strong>{num(turningPoint)}</strong>
           </div>
           <div className="bigo-stat">
             <span>memória extra</span>
             <strong>{num(n + 1)}</strong>
           </div>
         </div>
+      </div>
 
+      {/* Rodapé à mão porque `VizFooter` devolve `null` com `total: 1` e leva os
+          `children` junto — ver o cabeçalho deste arquivo. Fora do `.viz-body`
+          é o que deixa os dois sliders parados no pé do painel expandido. */}
+      <div className="viz-foot">
         <div className="viz-controls">
           <div className="viz-field grow">
             <span>n: array de {num(n)} posições</span>
@@ -371,36 +377,28 @@ export function PrefixSumTradeoff() {
               min={0}
               max={ARRAYS.length - 1}
               step={1}
-              value={iArray}
-              onChange={(e) => setIArray(parseInt(e.target.value, 10))}
+              value={arrayIndex}
+              onChange={(e) => setArrayIndex(parseInt(e.target.value, 10))}
               style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
             />
           </div>
           <div className="viz-field grow">
-            <span>m: intervalo médio de {ROTULOS_FATIA[iFatia]}</span>
+            <span>m: intervalo médio de {SLICE_LABELS[sliceIndex]}</span>
             <input
               type="range"
               min={0}
-              max={FATIAS.length - 1}
+              max={SLICES.length - 1}
               step={1}
-              value={iFatia}
-              onChange={(e) => setIFatia(parseInt(e.target.value, 10))}
+              value={sliceIndex}
+              onChange={(e) => setSliceIndex(parseInt(e.target.value, 10))}
               style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
             />
           </div>
-          <button className="viz-btn" onClick={() => { setIArray(4); setIFatia(1); setQSel(21); }}>↺ Reiniciar</button>
+          <button className="viz-btn" onClick={() => { setArrayIndex(4); setSliceIndex(1); setRawQ(21); }}>↺ Reiniciar</button>
         </div>
       </div>
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
