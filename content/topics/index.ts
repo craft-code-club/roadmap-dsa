@@ -28,6 +28,10 @@ import Mst from "./mst.mdx";
 import BinaryHeap from "./binary-heap.mdx";
 import HeapSort from "./heap-sort.mdx";
 import BuscaBinaria from "./busca-binaria.mdx";
+import OrdenacaoBasica from "./ordenacao-basica.mdx";
+import MergeSort from "./merge-sort.mdx";
+import QuickSort from "./quick-sort.mdx";
+import ShellSort from "./shell-sort.mdx";
 
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
@@ -421,6 +425,54 @@ export const ARTICLES: Record<string, Article> = {
       "A conta: n log n no melhor e no pior caso",
       "In-place e instável",
       "Heap sort, merge sort ou quick sort",
+    ],
+  },
+  "ordenacao-basica": {
+    Body: OrdenacaoBasica,
+    summary: [
+      "Três jeitos de arrumar as mesmas oito cartas",
+      "Bubble sort: só troca com o vizinho",
+      "Selection sort: escolhe primeiro, escreve depois",
+      "Insertion sort: a mão de cartas",
+      "Inversões: a conta que os três pagam de forma diferente",
+      "Estável quer dizer que o empate não se mexe",
+      "O(n²) é o teto, não a sentença",
+    ],
+  },
+  "merge-sort": {
+    Body: MergeSort,
+    summary: [
+      "Ordenar na volta, não na descida",
+      "A intercalação é o algoritmo inteiro",
+      "De onde sai o n log n",
+      "O preço do merge sort é memória",
+      "Estável por causa de um sinal",
+      "Lista ligada: onde o merge sort não paga o preço",
+      "Onde ele é a escolha certa",
+    ],
+  },
+  "quick-sort": {
+    Body: QuickSort,
+    summary: [
+      "Uma posição resolvida por partição",
+      "A partição de Lomuto, e a invariante que ela mantém",
+      "O pivô é a única decisão que importa",
+      "Repetidos: o buraco que a partição de duas vias tem",
+      "In-place, instável, e a pilha que ninguém conta",
+      "Da recursão para a pilha explícita",
+      "Quickselect: a mesma partição, sem ordenar tudo",
+    ],
+  },
+  "shell-sort": {
+    Body: ShellSort,
+    summary: [
+      "O insertion sort com a constante 1 virando variável",
+      "Uma rodada de gap h são h insertion sorts entrelaçados",
+      "Por que as rodadas anteriores não são desperdício",
+      "A sequência de gaps, e o que ela muda",
+      "Onde ele ganha e onde ele perde",
+      "In-place e instável",
+      "Onde o shell sort ainda vive",
     ],
   },
   "busca-binaria": {

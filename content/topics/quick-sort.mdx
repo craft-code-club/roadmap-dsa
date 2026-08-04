@@ -1,0 +1,154 @@
+<Callout>
+O quick sort é o algoritmo de ordenação mais usado do mundo e o único dos grandes com um pior caso quadrático. As duas coisas são verdade ao mesmo tempo, e não por acaso: ele é rápido porque aposta, e a aposta pode dar errado. Este artigo é sobre onde exatamente está a aposta, o que a faz falhar, e o que as bibliotecas fazem para nunca perder feio.
+</Callout>
+
+## Uma posição resolvida por partição
+
+O [merge sort](/topico/merge-sort) divide o array sem olhar para os dados e faz todo o trabalho na volta da recursão. O quick sort faz o contrário: ele **trabalha na descida** e não faz nada na volta.
+
+A operação central chama-se **partição**. Escolha um elemento qualquer do trecho, chame-o de **pivô**, e rearranje o trecho de forma que tudo que é menor ou igual ao pivô fique à esquerda dele e tudo que é maior fique à direita. Feito isso, uma coisa notável aconteceu:
+
+**O pivô está na posição final dele.** Não "provavelmente", não "quase". Se ele tem `k` elementos menores ou iguais à esquerda, então no array ordenado ele ocupa exatamente a posição `k`, porque essa é a definição de estar ordenado. Aquela posição nunca mais será tocada.
+
+```python
+def quick_sort(a, lo, hi):
+    if lo >= hi: return           # 0 ou 1 elemento
+    p = particiona(a, lo, hi)
+    quick_sort(a, lo, p - 1)      # menores que o pivô
+    quick_sort(a, p + 1, hi)      # maiores que o pivô
+```
+
+Repare no que **não** está ali: nenhuma linha depois das duas chamadas recursivas. Não existe passo de combinação. Quando as duas chamadas voltam, o trabalho acabou, porque cada uma delas já arrumou o próprio pedaço e o pivô entre elas já estava certo desde antes.
+
+Essa diferença de arquitetura explica quase todas as comparações entre os dois. O merge sort precisa de espaço para combinar; o quick sort não combina, então não precisa. O merge sort divide em partes iguais sempre; o quick sort divide onde o pivô cair, então pode dividir mal.
+
+## A partição de Lomuto, e a invariante que ela mantém
+
+Existem vários jeitos de particionar. O mais simples de escrever e de entender é o esquema de **Lomuto**: escolha o último elemento como pivô, e varra o trecho da esquerda para a direita com dois índices.
+
+```python
+def particiona(a, lo, hi):
+    pivo = a[hi]                  # o último é o pivô
+    i = lo                        # fronteira dos menores
+    for j in range(lo, hi):
+        if a[j] <= pivo:
+            a[i], a[j] = a[j], a[i]
+            i += 1
+    a[i], a[hi] = a[hi], a[i]     # pivô vai para o lugar dele
+    return i
+```
+
+O jeito de entender esse laço não é seguir os índices, é ler a **invariante** que ele preserva. Em qualquer momento, o trecho está partido em quatro faixas:
+
+| Faixa | Conteúdo | O que se sabe |
+| --- | --- | --- |
+| `lo` até `i-1` | já examinados | são todos `<= pivô` |
+| `i` até `j-1` | já examinados | são todos `> pivô` |
+| `j` até `hi-1` | ainda não vistos | nada |
+| `hi` | o pivô | é a referência |
+
+O laço faz uma coisa só: **come a faixa dos não vistos, uma posição por vez**. Quando `a[j] > pivo`, o elemento já está na faixa certa e nada acontece. Quando `a[j] <= pivo`, ele precisa entrar na faixa dos menores, então troca de lugar com quem está na fronteira `i` (que é o primeiro dos maiores) e a fronteira avança. O elemento maior que foi para trás continua na faixa dos maiores, então a invariante sobrevive.
+
+<QuickSortVisualizer />
+
+Duas coisas que o visualizador deixa óbvias e o código esconde. A primeira é que o Lomuto faz **muita troca de um elemento com ele mesmo**: enquanto nenhum valor maior que o pivô apareceu, `i` e `j` andam colados e a troca não move nada. Não é bug, é o preço da simplicidade, e é o principal motivo de o esquema de **Hoare** (ponteiros convergindo das duas pontas) fazer menos escritas na prática.
+
+A segunda é que o `<=` na comparação não é neutro. Ele decide para que lado vão os elementos **iguais** ao pivô, e isso volta a importar mais adiante.
+
+## O pivô é a única decisão que importa
+
+O código da partição é fixo. A única liberdade do quick sort é qual elemento vira pivô, e é aí que mora a diferença entre `O(n log n)` e `O(n²)`.
+
+A medida certa para enxergar isso não é o tempo, é a **profundidade da recursão**. Se cada partição corta o trecho ao meio, a recursão tem `log₂ n` níveis. Se cada partição resolve um elemento e devolve todo o resto, ela tem `n` níveis, e cada nível ainda varre o que sobrou: `n + (n-1) + (n-2) + ...`, que é `n(n-1)/2`.
+
+<QuickSortPivo />
+
+Com oito elementos já dá para ver o abismo. Num array **já ordenado**, o pivô no último elemento é sempre o maior de todos: tudo cai à esquerda, a partição direita nasce vazia, e são 28 comparações com profundidade 8. Trocar para o elemento do meio resolve o mesmo array em 13 comparações e profundidade 4.
+
+E vale insistir num ponto: **array já ordenado não é um caso raro de laboratório**. É o que chega de uma consulta a banco com `ORDER BY`, de um arquivo de log, de uma etapa anterior do seu próprio código. A entrada que mais quebra o quick sort ingênuo é uma das mais comuns que existem.
+
+<Callout tipo="aviso">
+Nenhuma regra fixa é imune. Para qualquer estratégia determinística de escolha de pivô, existe uma entrada construída para derrubá-la, e isso já foi usado como vetor de ataque real: um serviço que ordena dados vindos do usuário pode ser levado ao pior caso de propósito. As duas defesas usadas na prática são **sortear** parte da escolha, o que tira do atacante a capacidade de prever, e **vigiar a profundidade**: o introsort do C++ conta os níveis e, quando passa de `2 log n`, troca para [heap sort](/topico/heap-sort) no meio da execução, aceitando um pouco menos de velocidade em troca da garantia.
+</Callout>
+
+Na prática, a escolha mais comum é a **mediana de três** (primeiro, meio e último), muitas vezes combinada com sorteio. Ela custa duas ou três comparações a mais por partição, dependendo de onde a mediana cai, um preço O(1) que some na conta assintótica, e elimina de uma vez os dois casos ordenados.
+
+## Repetidos: o buraco que a partição de duas vias tem
+
+Aqui está o defeito menos conhecido e mais surpreendente. Rode o quick sort clássico num array em que **todos os elementos são iguais**. Não há nada para ordenar, e mesmo assim ele faz o trabalho quadrático inteiro: 28 comparações e profundidade 8, com oito elementos.
+
+O motivo é que a partição de duas vias só sabe responder duas coisas: "menor ou igual" e "maior". Os elementos **iguais** ao pivô caem na primeira faixa e voltam para a recursão, como se ainda houvesse trabalho a fazer com eles. Não há: um elemento igual ao pivô já está no lugar certo no instante em que o pivô fica pronto.
+
+E é aqui que uma crença comum precisa ser desfeita: **trocar o `<=` por `<` não conserta nada**. Com `<`, os iguais deixam de avançar a fronteira, o pivô termina na primeira posição em vez da última, e o desequilíbrio simplesmente muda de lado. Continua sendo 7 contra 0.
+
+A correção de verdade é particionar em **três vias**, separando menores, iguais e maiores. A faixa do meio sai da recursão inteira, de uma vez.
+
+<QuickSortTresVias />
+
+```python
+def particiona3(a, lo, hi):
+    pivo = a[hi]
+    lt, i, gt = lo, lo, hi        # < pivo | = pivo | não visto | > pivo
+    while i <= gt:
+        if a[i] < pivo:
+            a[lt], a[i] = a[i], a[lt]; lt += 1; i += 1
+        elif a[i] > pivo:
+            a[gt], a[i] = a[i], a[gt]; gt -= 1
+        else:
+            i += 1
+    return lt, gt                 # a recursão vai só para fora de [lt, gt]
+```
+
+No array constante, isso derruba o custo de 28 comparações e profundidade 8 para **16 comparações e profundidade 1**: uma passada, e acabou. Existe um preço, e ele é honesto: cada elemento passa por até duas comparações em vez de uma, então num array **sem** repetidos a versão de três vias gasta perto do dobro de comparações sem ganhar nada. Ela é melhor quando existem repetidos, e poucas chaves distintas em muitos elementos é o caso comum, não o exótico: ordenar por status, por categoria, por nota de 1 a 5 ou por dia da semana cai exatamente aí.
+
+Esse arranjo de três faixas é o mesmo do problema clássico da **bandeira nacional holandesa**, que pede para arrumar um array de três cores numa passada só.
+
+## In-place, instável, e a pilha que ninguém conta
+
+Duas características decidem se o quick sort serve para o seu caso.
+
+<Colunas>
+<Cartao titulo="In-place">
+Todo o rearranjo acontece dentro do array original. Nenhum buffer é alocado, o que é a vantagem mais concreta dele sobre o merge sort.
+</Cartao>
+<Cartao titulo="Instável">
+A partição move elementos por saltos longos, e um salto pode passar por cima de um valor de chave igual. Não existe operador que conserte isso, ao contrário do merge sort.
+</Cartao>
+</Colunas>
+
+Sobre memória existe uma pegadinha que aparece em entrevista com frequência. "In-place" costuma ser lido como O(1) de espaço, e aqui não é: a **pilha de chamadas** é memória, e ela tem exatamente a profundidade da recursão. No caso equilibrado isso dá `O(log n)`; no pior caso, `O(n)`.
+
+A resposta completa é dizer as duas coisas: o algoritmo não aloca estrutura auxiliar, e o consumo de pilha vai de `O(log n)` a `O(n)` conforme o equilíbrio das partições. Existe até uma correção clássica para isso: recursar sempre no **menor** dos dois lados e tratar o maior por laço, o que limita a pilha a `O(log n)` mesmo no pior caso.
+
+## Da recursão para a pilha explícita
+
+Toda recursão pode virar um laço com uma pilha explícita, e no quick sort essa reescrita é curta e esclarecedora, porque deixa visível o que a recursão guardava escondido: **intervalos que ainda faltam resolver**.
+
+```python
+def quick_sort_iterativo(a):
+    pilha = [(0, len(a) - 1)]
+    while pilha:
+        lo, hi = pilha.pop()
+        if lo >= hi: continue
+        p = particiona(a, lo, hi)
+        pilha.append((lo, p - 1))
+        pilha.append((p + 1, hi))
+```
+
+Cada item da pilha é um trecho pendente, exatamente como um quadro na pilha de chamadas. A versão iterativa não é mais rápida nem mais lenta de forma relevante, mas ela torna concreta uma ideia de [Recursão](/topico/recursao): a pilha de chamadas é uma estrutura de dados como outra qualquer, e você pode gerenciá-la à mão quando quiser controlar a ordem ou limitar a profundidade.
+
+Um detalhe que essa versão permite: empilhar primeiro o lado maior e processar o menor antes. Isso limita a pilha a `O(log n)` no pior caso, que é o mesmo truque da seção anterior escrito de outro jeito.
+
+## Quickselect: a mesma partição, sem ordenar tudo
+
+A partição rende um segundo algoritmo, e ele é bonito demais para ficar de fora. Suponha que você não queira o array ordenado, só o **k-ésimo menor elemento**. Depois de uma partição, você sabe a posição final do pivô. Então:
+
+- se o pivô caiu **na** posição `k`, acabou, é ele;
+- se caiu **depois** de `k`, o que você procura está à esquerda;
+- se caiu **antes**, está à direita.
+
+Ou seja, **você só precisa descer por um lado**. É a mesma relação que a [busca binária](/topico/busca-binaria) tem com uma varredura linear, e o efeito na conta é o mesmo: em vez de `n + n/2 + n/4 + ...` por dois lados, você paga a soma por um lado só, que converge para `2n`. O quickselect é **O(n) no caso médio**, contra os `O(n log n)` de ordenar o array inteiro e pegar a posição `k`.
+
+O pior caso continua sendo `O(n²)` pelo mesmo motivo de sempre, e existe uma variante chamada **mediana das medianas** que garante `O(n)` no pior caso ao preço de constantes grandes o bastante para raramente compensar na prática.
+
+Daqui, [merge sort](/topico/merge-sort) mostra a outra forma de dividir e conquistar, com garantia no lugar da aposta, e [heap sort](/topico/heap-sort) mostra como conseguir `O(n log n)` garantido sem gastar memória, que é justamente o papel de rede de segurança que ele cumpre dentro do introsort. Para os arrays pequenos que sobram no fundo da recursão, a resposta está em [Ordenação Básica](/topico/ordenacao-basica): abaixo de algumas dezenas de elementos, o insertion sort ganha dos três.
