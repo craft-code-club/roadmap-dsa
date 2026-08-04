@@ -389,6 +389,12 @@ test("heap: inserir, remover e construir contam trabalho diferente sobre os mesm
   // `toBe(0)` passaria sem um único clique. Exigir o botão desabilitado no fim
   // é o que transforma "andei até o fim" em fato verificado.
   const irAteOFim = async () => {
+    // `isEnabled()` lê UMA vez e não reconsulta, então logo após trocar de preset
+    // ele ainda pode devolver o estado desabilitado do fim da rodada anterior. Aí
+    // o laço não clica e o `toBeDisabled()` passa sobre esse mesmo estado velho:
+    // a asserção volta a ser vazia por outro caminho. A espera web-first abaixo é
+    // o que garante que a animação reiniciou antes de o laço começar.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 120 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
@@ -521,6 +527,7 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
   const viz = page.locator("figure.viz").filter({ hasText: "metade some a cada olhada" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const irAteOFim = async () => {
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
@@ -573,6 +580,7 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
   const viz = page.locator("figure.viz").filter({ hasText: "repetidos, bordas e a posição de inserção" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const resposta = async (rot: RegExp) => {
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     return viz.locator(".bigo-stat").filter({ hasText: rot });
