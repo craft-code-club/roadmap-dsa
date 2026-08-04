@@ -183,6 +183,39 @@ Três regras que só apareceram medindo:
   "Mostrar código" e expande espera continuar vendo o código. Se não couber, o
   miolo rola, que é para isso que o cabeçalho e o rodapé ficam parados.
 
+### O estado mais alto não é "encher a entrada até o máximo"
+
+Você mede a peça no pior caso para saber se ela cabe. O jeito óbvio de achar
+esse pior caso — encher todo campo até o limite — **errou nas três peças em que
+foi tentado numa mesma rodada, e nas três por um motivo diferente**:
+
+| peça | o que "encher tudo" deu | por quê |
+|---|---|---|
+| busca da hash table | **833px, menos** que os 847 do padrão | a corrente longa cabe numa linha que já existia, e a nota que explica o estado padrão é mais comprida |
+| busca da skip list | **0px de diferença** com 14 elementos | a altura vem dos NÍVEIS, que têm teto (`MAX_LEVELS = 4`), e o padrão já batia nele; mais elementos só alargam o SVG, e o wrapper rola na horizontal |
+| reversão da lista | 4 nós = **979px**, 5 nós = 954px | o viewBox tem piso de largura, então menos nós = razão altura/largura maior = mais altura no esticão até a largura do corpo |
+
+O que fazer em vez disso, na ordem:
+
+1. **Ache o que gera as LINHAS do desenho** — o `while`, o `Array.from`, o
+   `map` sobre buckets ou níveis. É esse eixo que vira altura; os outros viram
+   largura, e largura rola sozinha quando o wrapper tem `overflow-x: auto`.
+2. **Verifique se ele tem teto.** Um eixo com limite já pode estar no máximo no
+   estado padrão, e aí encher devolve o mesmo número e você conclui "não tem
+   pior caso" com uma medição que não confirmou nada.
+3. **Cheque se o extremo é combinação.** Na pirâmide de níveis o pior caso exige
+   dois controles no máximo **ao mesmo tempo** (o `n` e o `p`); mexer só num deles
+   dá metade da altura — 21 linhas em vez de 40.
+4. **Se o pior caso construído der um número MENOR que o padrão, o padrão é o
+   pior caso.** Troque o número, não a narrativa.
+
+E o corolário que fecha a §3: **a régua de 1512x900 responde "a camada 3 é
+necessária?", não "a camada 1 é necessária?"**. Peça que parece sadia nela pode
+estar desenhando o botão de reprodução fora da janela em 1440x700 — foi o caso
+da busca da hash table (104px abaixo do pé visível) e do trade-off do prefix sum
+(135px). Meça também abaixo de 900 antes de dizer que uma peça não precisa de
+nada.
+
 ## 4. A API de CSS
 
 Tudo em `src/app/globals.css`, e tudo **opt-in**: um visualizador sem `viz-fit`
