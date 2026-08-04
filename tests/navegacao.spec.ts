@@ -260,6 +260,48 @@ test("Big O expandido: cabeçalho e controles ficam parados, só o miolo rola", 
   expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
 });
 
+test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 620 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(viz.getByRole("button", { name: /Fechar/ })).toBeVisible();
+  await expect(page.locator(".viz-overlay")).toHaveAttribute("aria-modal", "true");
+
+  // Voltas suficientes para dar duas passadas na lista de focáveis: se o foco
+  // escapasse uma única vez, o artigo por baixo receberia o Tab.
+  const fugas: string[] = [];
+  for (let i = 0; i < 24; i++) {
+    await page.keyboard.press("Tab");
+    const onde = await page.evaluate(() => {
+      const a = document.activeElement;
+      const fig = document.querySelector("figure.viz-fit");
+      return { dentro: !!(fig && a && fig.contains(a)), quem: a?.className || a?.tagName || "?" };
+    });
+    if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
+  }
+  expect(fugas, "o foco vazou do painel").toEqual([]);
+
+  // E para trás também, que é o lado que costuma ficar de fora do laço.
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  expect(
+    await page.evaluate(() => {
+      const fig = document.querySelector("figure.viz-fit");
+      return !!(fig && document.activeElement && fig.contains(document.activeElement));
+    })
+  ).toBe(true);
+
+  // O código recolhido some para leitor de tela, não só para o teclado.
+  const alternar = viz.locator(".viz-toggle-codigo");
+  if ((await alternar.textContent())?.includes("Ocultar")) await alternar.click();
+  await expect(alternar).toHaveText("Mostrar código");
+  await expect(viz.locator(".viz-code")).toHaveAttribute("aria-hidden", "true");
+  await alternar.click();
+  await expect(viz.locator(".viz-code")).not.toHaveAttribute("aria-hidden", "true");
+});
+
 test("Big O: em tela baixa o código já abre recolhido, com as variáveis em uma linha", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
   await page.goto("/topico/big-o/");

@@ -306,11 +306,41 @@ export function BigOCounterVisualizer() {
     if (tocando && idx >= total - 1) setTocando(false);
   }, [tocando, idx, total]);
 
+  // Teclado do painel: Esc fecha, e o Tab circula DENTRO dele. Sem a segunda
+  // parte o `aria-modal="true"` seria uma promessa falsa — o foco escapava para
+  // o artigo por baixo, que é justamente o que "modal" diz que não acontece.
   useEffect(() => {
     if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const focaveis = () => {
+      const painel = figRef.current;
+      if (!painel) return [] as HTMLElement[];
+      const seletor = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      return [...painel.querySelectorAll<HTMLElement>(seletor)].filter(
+        (el) => !el.hasAttribute("disabled") && !el.closest("[inert]") && el.offsetParent !== null
+      );
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setExpanded(false); return; }
+      if (e.key !== "Tab") return;
+      const painel = figRef.current;
+      const itens = focaveis();
+      if (!painel || !itens.length) return;
+      const primeiro = itens[0], ultimo = itens[itens.length - 1];
+      const ativo = document.activeElement;
+      if (!painel.contains(ativo)) {
+        // O foco já estava fora (barra do navegador, por exemplo): traz de volta.
+        e.preventDefault();
+        (e.shiftKey ? ultimo : primeiro).focus();
+      } else if (e.shiftKey && (ativo === primeiro || ativo === painel)) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && ativo === ultimo) {
+        e.preventDefault();
+        primeiro.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [expanded]);
 
   // Enquanto o painel está aberto ele é a única coisa que rola: sem isso a
@@ -518,9 +548,15 @@ export function BigOCounterVisualizer() {
               a única forma de animar altura automática em CSS puro.
               O código fica no DOM mesmo recolhido, e é isso que permite medir
               o pior caso de altura; `inert` tira ele do teclado e dos leitores
-              de tela enquanto está fora de vista. */}
+              de tela enquanto está fora de vista, com `aria-hidden` de reserva
+              para navegador ou leitor que ainda não honre `inert`. */}
           <div className="viz-code-slot">
-            <div className="viz-code" id={idCodigo} inert={!codigoAberto}>
+            <div
+              className="viz-code"
+              id={idCodigo}
+              inert={!codigoAberto}
+              aria-hidden={!codigoAberto || undefined}
+            >
               <div className="viz-code-head">{alg.arquivo} · {alg.formula}</div>
               <div className="viz-code-body">
                 {alg.codigo.map((txt, i) => (
