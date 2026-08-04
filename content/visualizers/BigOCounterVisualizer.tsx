@@ -295,6 +295,28 @@ export function BigOCounterVisualizer() {
   }, []);
   useEffect(() => () => parar(), [parar]);
 
+  // --- comandos, compartilhados pelos botões e pelo teclado ----------------
+  // `total` e `tocando` vêm de ref porque a tecla REPETE muito mais rápido que
+  // o clique: ler o valor do closure engoliria repetições, que é o mesmo bug de
+  // clique perdido que já apareceu neste repo, só que mais fácil de disparar.
+  const totalRef = useRef(total);
+  const tocandoRef = useRef(false);
+  useEffect(() => { totalRef.current = total; }, [total]);
+  useEffect(() => { tocandoRef.current = tocando; }, [tocando]);
+
+  const irPasso = useCallback((delta: number) => {
+    parar();
+    setTocando(false);
+    setPasso((s) => Math.max(0, Math.min(s + delta, totalRef.current - 1)));
+  }, [parar]);
+
+  const alternarPlay = useCallback(() => {
+    if (tocandoRef.current) { parar(); setTocando(false); return; }
+    // no fim da animação, rodar de novo rebobina em vez de não fazer nada
+    setPasso((s) => (s >= totalRef.current - 1 ? 0 : s));
+    setTocando(true);
+  }, [parar]);
+
   useEffect(() => {
     parar();
     if (!tocando) return;
@@ -306,11 +328,19 @@ export function BigOCounterVisualizer() {
     if (tocando && idx >= total - 1) setTocando(false);
   }, [tocando, idx, total]);
 
-  // Teclado do painel: Esc fecha, e o Tab circula DENTRO dele. Sem a segunda
-  // parte o `aria-modal="true"` seria uma promessa falsa — o foco escapava para
-  // o artigo por baixo, que é justamente o que "modal" diz que não acontece.
+  // Teclado do painel: Esc fecha, o Tab circula DENTRO dele, e as setas e o
+  // espaço dirigem a animação. Sem a trava do Tab o `aria-modal="true"` seria
+  // uma promessa falsa — o foco escapava para o artigo por baixo, que é
+  // justamente o que "modal" diz que não acontece.
+  //
+  // As setas e o espaço só valem no expandido, e **só quando o cursor não está
+  // num campo**: com o array em edição, seta é mover o cursor e espaço é digitar
+  // um espaço. Mesma coisa no controle de velocidade, onde a seta é do próprio
+  // slider. E espaço com um botão em foco é o botão, não o atalho.
   useEffect(() => {
     if (!expanded) return;
+    const emCampo = (alvo: EventTarget | null) =>
+      !!(alvo as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']");
     const focaveis = () => {
       const painel = figRef.current;
       if (!painel) return [] as HTMLElement[];
@@ -321,6 +351,18 @@ export function BigOCounterVisualizer() {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { setExpanded(false); return; }
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        if (emCampo(e.target)) return;
+        e.preventDefault(); // senão a seta rola o miolo junto
+        irPasso(e.key === "ArrowRight" ? 1 : -1);
+        return;
+      }
+      if (e.key === " " || e.key === "Spacebar") {
+        if (emCampo(e.target) || (e.target as HTMLElement | null)?.closest?.("button")) return;
+        e.preventDefault(); // espaço rolaria a área rolável
+        alternarPlay();
+        return;
+      }
       if (e.key !== "Tab") return;
       const painel = figRef.current;
       const itens = focaveis();
@@ -341,7 +383,7 @@ export function BigOCounterVisualizer() {
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [expanded]);
+  }, [expanded, irPasso, alternarPlay]);
 
   // Enquanto o painel está aberto ele é a única coisa que rola: sem isso a
   // roda do mouse atravessa o overlay e leva o artigo embora por baixo.
@@ -585,11 +627,16 @@ export function BigOCounterVisualizer() {
       <div className="viz-foot">
         <div className="viz-controls">
           <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
+          <button className="viz-btn" disabled={idx === 0} aria-keyshortcuts="ArrowLeft" onClick={() => irPasso(-1)}>‹ Anterior</button>
+          <button className="viz-play" aria-keyshortcuts="Space" onClick={alternarPlay}>
             {tocando ? "❚❚ Pausar" : "▶ Rodar"}
           </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
+          <button className="viz-btn" disabled={idx === total - 1} aria-keyshortcuts="ArrowRight" onClick={() => irPasso(1)}>Próximo ›</button>
+          {/* Atalho que ninguém descobre é atalho que não existe. Só aparece no
+              expandido, que é onde ele vale, e some em tela sem teclado. */}
+          <p className="viz-atalhos">
+            <kbd>←</kbd><kbd>→</kbd> passo <span>·</span> <kbd>espaço</kbd> roda
+          </p>
           <div className="viz-speed">
             <span>Velocidade</span>
             <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />

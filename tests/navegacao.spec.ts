@@ -302,6 +302,68 @@ test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal",
   await expect(viz.locator(".viz-code")).not.toHaveAttribute("aria-hidden", "true");
 });
 
+test("Big O expandido: setas andam o passo e espaço roda, sem atrapalhar quem digita", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(viz.getByRole("button", { name: /Fechar/ })).toBeVisible();
+  const passo = viz.locator(".viz-step");
+  await expect(passo).toHaveText("passo 1 de 7");
+
+  // seta direita anda, seta esquerda volta
+  await page.keyboard.press("ArrowRight");
+  await expect(passo).toHaveText("passo 2 de 7");
+  await page.keyboard.press("ArrowRight");
+  await expect(passo).toHaveText("passo 3 de 7");
+  await page.keyboard.press("ArrowLeft");
+  await expect(passo).toHaveText("passo 2 de 7");
+
+  // e não passa das pontas
+  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowLeft");
+  await expect(passo).toHaveText("passo 1 de 7");
+
+  // espaço roda e pausa, lido pelo rótulo do botão (que é o que promete o estado)
+  const play = viz.locator(".viz-play");
+  await expect(play).toHaveText(/Rodar/);
+  await page.keyboard.press("Space");
+  await expect(play).toHaveText(/Pausar/);
+  await page.keyboard.press("Space");
+  await expect(play).toHaveText(/Rodar/);
+
+  // A parte que importa: com o cursor num campo, seta é cursor e espaço é
+  // espaço. Sequestrar isso deixaria o array impossível de editar.
+  const entrada = viz.locator(".viz-input").first();
+  await entrada.click();
+  const antes = await passo.textContent();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await expect(passo, "a seta foi sequestrada com o cursor no campo").toHaveText(antes!);
+
+  // O espaço tem que chegar ao campo. Não asserto o passo aqui de propósito:
+  // editar o array reinicia a animação por regra própria do componente, e
+  // confundir uma coisa com a outra esconderia o sequestro em vez de pegá-lo.
+  // Comparo o valor com ele mesmo em vez de olhar o fim da string: no macOS a
+  // tecla End não leva o cursor ao fim do campo, então o espaço cai onde o
+  // clique deixou o cursor. O que precisa ser verdade é que ele CHEGOU.
+  const valorAntes = await entrada.inputValue();
+  await page.keyboard.press("Space");
+  await expect
+    .poll(async () => (await entrada.inputValue()).length, { message: "o espaço não chegou ao campo" })
+    .toBe(valorAntes.length + 1);
+  await expect(play, "o espaço rodou a animação em vez de digitar").toHaveText(/Rodar/);
+
+  // Mesma regra no controle de velocidade, onde a seta é do próprio slider.
+  const veloc = viz.locator(".viz-speed input[type=range]");
+  await veloc.focus();
+  const vAntes = await veloc.inputValue();
+  const pAntes = await passo.textContent();
+  await page.keyboard.press("ArrowLeft");
+  await expect(veloc, "a seta não chegou ao controle de velocidade").not.toHaveValue(vAntes);
+  await expect(passo).toHaveText(pAntes!);
+});
+
 test("Big O: em tela baixa o código já abre recolhido, com as variáveis em uma linha", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
   await page.goto("/topico/big-o/");
