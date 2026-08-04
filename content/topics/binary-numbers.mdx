@@ -1,0 +1,142 @@
+<Callout>
+Binário não é um código secreto que o computador usa para esconder as coisas. É o **mesmo sistema de numeração que você já usa desde a escola**, com um parâmetro trocado: em vez de dez símbolos por posição, dois. Entender essa frase inteira é entender o tópico, e o resto do artigo é ela em detalhe.
+</Callout>
+
+## Dois símbolos, e o motivo é físico
+
+O sistema que usamos no dia a dia se chama **decimal** porque tem dez símbolos: 0, 1, 2, 3, 4, 5, 6, 7, 8 e 9. Não há nada de especial neles além de termos dez dedos.
+
+O computador usa **binário**, com dois símbolos: 0 e 1. Cada um deles é um **bit**, e um conjunto de oito bits é um **byte**.
+
+A escolha não foi estética, foi elétrica. Por dentro, um computador é um monte de circuitos por onde passa (ou não passa) corrente. Distinguir "tem corrente" de "não tem corrente" é trivial e resiste a ruído, variação de temperatura e componente envelhecido. Distinguir **dez níveis diferentes de tensão** para representar dez símbolos seria possível e péssimo: qualquer oscilação transformaria um 6 num 7, e o computador precisaria de circuitos de correção em cada ponto.
+
+Dois estados é o mínimo que ainda carrega informação, e por isso é o mais robusto. Todo o resto (números, texto, imagem, som, este parágrafo) é construído em cima dessa decisão.
+
+## Notação posicional: você já sabe fazer isso
+
+Pegue o número decimal **243**. O que ele significa, na matemática?
+
+```
+243 = 2 x 10²  +  4 x 10¹  +  3 x 10⁰
+    = 2 x 100  +  4 x 10   +  3 x 1
+    = 200      +  40       +  3
+```
+
+Repare na estrutura: cada dígito é multiplicado por uma potência da **base**, e o expoente é a posição, contada da direita para a esquerda começando em zero. O dígito é o **coeficiente**, o 10 é a **base**, e a posição é o **expoente**.
+
+A base é a única coisa que muda entre sistemas de numeração. Ela diz quantos símbolos existem por posição, e é ela que aparece na potência:
+
+| Sistema | Base | Símbolos |
+| --- | --- | --- |
+| Binário | 2 | 0 e 1 |
+| Octal | 8 | 0 a 7 |
+| Decimal | 10 | 0 a 9 |
+| Hexadecimal | 16 | 0 a 9 e A a F |
+
+Ou seja, não existem quatro regras diferentes para aprender. Existe **uma** regra, com um parâmetro.
+
+## Lendo um binário: a soma das posições ligadas
+
+Aplicando a mesma fórmula com base 2, o binário `00110101` vale:
+
+```
+0 x 2⁷ + 0 x 2⁶ + 1 x 2⁵ + 1 x 2⁴ + 0 x 2³ + 1 x 2² + 0 x 2¹ + 1 x 2⁰
+=   0  +   0    +  32    +  16    +   0    +   4    +   0    +   1     = 53
+```
+
+Como os únicos coeficientes possíveis são 0 e 1, a multiplicação some da conta: os bits em zero contribuem com nada, e os bits em um contribuem com a potência inteira. **Ler um binário é somar as potências de dois das posições ligadas.** Nada além disso.
+
+<BinarioConversor />
+
+Vale fixar o vocabulário, porque ele aparece o tempo todo: o bit da esquerda é o **mais significativo** (MSB, de *most significant bit*) e o da direita é o **menos significativo** (LSB). É a mesma ideia da centena e da unidade num número decimal: mexer no primeiro muda muito, mexer no último muda pouco.
+
+## Escrevendo em binário: dividir por 2 até acabar
+
+O caminho de volta é um algoritmo de três linhas: divida o número por 2, guarde o resto, repita com o quociente até chegar a zero, e leia os restos **de trás para frente**.
+
+```python
+def para_binario(n):
+    if n == 0: return '0'
+    bits = ''
+    while n > 0:
+        bits = str(n % 2) + bits   # o resto entra na FRENTE
+        n = n // 2                 # e o número encolhe pela metade
+    return bits
+```
+
+<BinarioDivisoes />
+
+Duas observações que transformam a receita em entendimento.
+
+A primeira é **por que os restos saem ao contrário**. Dividir por 2 é deslocar o número inteiro uma casa para a direita, e o resto é justamente o bit que cai fora nesse deslocamento. Ou seja, a **primeira** divisão devolve o bit **menos** significativo. Não é um truque de leitura, é a ordem em que a informação aparece.
+
+A segunda é que o resto da divisão por 2 é exatamente a pergunta "este número é ímpar?". Todo número ímpar tem o bit da direita ligado, todo par tem ele desligado, e é por isso que `n & 1` é a forma idiomática de testar paridade em código de baixo nível.
+
+<Callout>
+O número de divisões é o número de bits significativos, e ele cresce como `log₂ n`. O 201 precisa de 8 divisões; 201 mil precisaria de 18; 201 bilhões, de 38. É a mesma razão pela qual a [busca binária](/topico/busca-binaria) é barata, escrita de outro jeito: partir pela metade repetidamente chega ao fim depressa.
+</Callout>
+
+## Bit, byte, e quanto cabe
+
+Com `k` bits existem `2ᵏ` combinações diferentes. Um byte tem 8 bits, então são `2⁸ = 256` combinações, e os valores vão de **0 a 255**.
+
+O 255 costuma causar confusão, e a conta explica: `128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255`. Somar todas as potências de dois até `2ⁿ⁻¹` sempre dá `2ⁿ - 1`, um a menos que a próxima potência. São 256 valores porque o zero também conta.
+
+<BinarioBases />
+
+Essa conta é o orçamento de qualquer tipo numérico:
+
+| Tamanho | Combinações | Maior valor sem sinal |
+| --- | --- | --- |
+| 8 bits (byte) | 2⁸ = 256 | 255 |
+| 16 bits | 2¹⁶ = 65.536 | 65.535 |
+| 32 bits | 2³² ≈ 4,3 bilhões | 4.294.967.295 |
+| 64 bits | 2⁶⁴ ≈ 18,4 quintilhões | 18.446.744.073.709.551.615 |
+
+E o salto entre as linhas é exponencial, não linear: **dobrar a quantidade de bits eleva o alcance ao quadrado**. É por isso que a diferença entre 32 e 64 bits importa tanto na prática, e é por isso que quase nada mais é declarado com 32 bits quando se trata de identificador, dinheiro ou tempo.
+
+## Hexadecimal: binário com outra roupa
+
+Ninguém quer escrever `11011110101011011011111011101111` num código. Por outro lado, o valor decimal correspondente (3.735.928.559) esconde completamente quais bits estão ligados.
+
+O hexadecimal resolve os dois problemas porque **16 é uma potência de 2**. Precisamente, `16 = 2⁴`, então **cada dígito hexadecimal corresponde a exatamente 4 bits**, sem sobra e sem depender dos vizinhos:
+
+| Bits | Hexa | Bits | Hexa |
+| --- | --- | --- | --- |
+| 0000 | 0 | 1000 | 8 |
+| 0001 | 1 | 1001 | 9 |
+| 0010 | 2 | 1010 | A |
+| 0011 | 3 | 1011 | B |
+| 0100 | 4 | 1100 | C |
+| 0101 | 5 | 1101 | D |
+| 0110 | 6 | 1110 | E |
+| 0111 | 7 | 1111 | F |
+
+Converter passa a ser recortar de quatro em quatro, sem nenhuma conta: `11110011` vira `1111 0011`, que vira `F3`. E `0xF3` é 243, o mesmo número da seção sobre notação posicional.
+
+Com decimal essa correspondência não existe, porque 10 não é potência de 2. Um dígito decimal ocupa entre 3 e 4 bits e não se alinha com nada, então converter exige dividir. É essa a razão inteira de endereço de memória, cor, máscara de bits e dump de arquivo serem escritos em hexadecimal: não é tradição, é alinhamento.
+
+## Onde isso aparece no código do dia a dia
+
+A pergunta justa é o que fazer com isto num trabalho em que ninguém pede para converter números na mão. Quatro coisas, todas comuns:
+
+<Colunas>
+<Cartao titulo="Cor">
+`#FF8000` é RGB com um byte por canal: FF = 255 de vermelho, 80 = 128 de verde, 00 = 0 de azul. Três bytes, um valor de 0 a 255 cada.
+</Cartao>
+<Cartao titulo="Permissão">
+O `chmod 755` do Unix é octal: cada dígito são 3 bits (leitura, escrita, execução) para dono, grupo e outros. 7 é 111, 5 é 101.
+</Cartao>
+<Cartao titulo="Flags">
+Guardar dezenas de opções booleanas num inteiro só, uma por bit, e testar com máscaras. Cabe num campo de banco e viaja de graça na rede.
+</Cartao>
+<Cartao titulo="Limite">
+Todo `int` tem um teto. Saber que 32 bits param em 2,1 bilhões com sinal é o que evita descobrir isso em produção.
+</Cartao>
+</Colunas>
+
+<Callout tipo="aviso">
+O caso mais famoso do último cartão tem data marcada: o tempo em sistemas Unix é contado em segundos desde 1 de janeiro de 1970, e por muito tempo isso foi guardado num inteiro de 32 bits com sinal. Esse contador estoura em **19 de janeiro de 2038**, e sistemas que ainda usarem 32 bits nessa data vão passar a ver uma data em 1901. O conserto (mudar para 64 bits) é conhecido há décadas e ainda está sendo aplicado, o que diz bastante sobre quanto uma decisão de representação sobrevive.
+</Callout>
+
+Daqui, o próximo passo é entender como o mesmo conjunto de bits representa números **negativos**, que é um problema mais interessante do que parece: existem três convenções conhecidas, duas delas têm defeito, e a vencedora usa um truque que faz o processador subtrair sem saber subtrair. Está em [Binários Negativos](/topico/negative-binary). Depois disso, [Operações Bitwise](/topico/operacoes-bitwise) mostra o que dá para fazer manipulando esses bits diretamente, e vale ver como os mesmos bytes viram texto em [Strings](/topico/strings).

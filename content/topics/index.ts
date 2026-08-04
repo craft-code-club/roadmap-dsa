@@ -32,6 +32,9 @@ import OrdenacaoBasica from "./ordenacao-basica.mdx";
 import MergeSort from "./merge-sort.mdx";
 import QuickSort from "./quick-sort.mdx";
 import ShellSort from "./shell-sort.mdx";
+import Backtracking from "./backtracking.mdx";
+import BinaryNumbers from "./binary-numbers.mdx";
+import NegativeBinary from "./negative-binary.mdx";
 
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
@@ -473,6 +476,42 @@ export const ARTICLES: Record<string, Article> = {
       "Onde ele ganha e onde ele perde",
       "In-place e instável",
       "Onde o shell sort ainda vive",
+    ],
+  },
+  backtracking: {
+    Body: Backtracking,
+    summary: [
+      "Tentar, falhar, e desfazer",
+      "A árvore de decisão não existe",
+      "O template, e as três peças que mudam",
+      "A cópia que salva as respostas",
+      "Sudoku é o mesmo algoritmo",
+      "Poda: a mesma resposta por uma fração do trabalho",
+      "O custo, e para onde isso vai",
+    ],
+  },
+  "binary-numbers": {
+    Body: BinaryNumbers,
+    summary: [
+      "Dois símbolos, e o motivo é físico",
+      "Notação posicional: você já sabe fazer isso",
+      "Lendo um binário: a soma das posições ligadas",
+      "Escrevendo em binário: dividir por 2 até acabar",
+      "Bit, byte, e quanto cabe",
+      "Hexadecimal: binário com outra roupa",
+      "Onde isso aparece no código do dia a dia",
+    ],
+  },
+  "negative-binary": {
+    Body: NegativeBinary,
+    summary: [
+      "O bit que deixa de valer magnitude",
+      "Tentativa 1: sinal e magnitude",
+      "Tentativa 2: complemento de um",
+      "Complemento de dois: inverter e somar 1",
+      "O truque de leitura: o peso da esquerda é negativo",
+      "A faixa assimétrica, e o padrão que não sabe o próprio sinal",
+      "Estouro: o erro que não avisa",
     ],
   },
   "busca-binaria": {
