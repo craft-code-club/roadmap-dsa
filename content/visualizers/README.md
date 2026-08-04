@@ -53,15 +53,51 @@ python3 scripts/guarda-idioma.py /tmp/antes.tsx content/visualizers/MeuVisualiza
 ```
 
 Ele sai com erro se qualquer texto de tela entrou ou saiu. O que sobrar tem que
-ser só nome de import, de hook e de prop. Na primeira versão deste guarda os
-nós JSX ficaram de fora, e três rótulos passaram batido — `<span>Array (fica
-sorted)</span>` entre eles. Depois, confira no navegador: contador, botões,
-notas, rótulos e o bloco de código.
+ser só nome de import, de hook e de prop.
 
-Duas notas de execução: renomear um campo pode **colidir com uma variável local**
-de mesmo nome (`fora` → `out` bateu num `out` que já existia, e o `tsc` reclamou
-de tipo em vez de nome); e a substituição por palavra inteira estraga
-**comentários** também, então releia os que citam nomes.
+**Este guarda já passou verde três vezes com a aula estragada**, e as três por
+olhar de menos. Vale conhecer os buracos que ele tapou, porque eles dizem onde
+procurar o próximo:
+
+| versão | o que não olhava | o que passou |
+|---|---|---|
+| 1ª | nós de texto JSX | `<span>Array (fica sorted)</span>` e mais dois rótulos |
+| 2ª | nó JSX **em mais de uma linha** | `inserir no fim` virou `inserir no done` |
+| 2ª | literal **dentro** de `${...}` | `reservar a capacidade certa` virou `capacity` |
+
+Os dois da 2ª versão não são casos exóticos: o Prettier quebra a linha de
+qualquer elemento cujos atributos não cabem, e ternário dentro de interpolação
+é como metade das notas deste repo escolhe entre singular e plural.
+
+Por isso, **a prova final de um rename não é o guarda, é o HTML do build**. Ele
+é o que o aluno recebe, e a comparação é objetiva:
+
+```bash
+render() { python3 -c "
+import re,sys
+s=open(sys.argv[1],encoding='utf-8').read()
+s=re.sub(r'<script.*?</script>','',s,flags=re.S)
+s=re.sub(r'<[^>]+>','\n',s)
+print('\n'.join(l.strip() for l in s.split('\n') if l.strip()))" "$1"; }
+
+npm run build && render out/topico/<slug>/index.html > /tmp/depois.txt
+diff /tmp/antes.txt /tmp/depois.txt     # tem que sair vazio
+```
+
+Três notas de execução, todas medidas:
+
+- renomear um campo pode **colidir com uma variável local** de mesmo nome
+  (`fora` → `out` bateu num `out` que já existia, e o `tsc` reclamou de tipo em
+  vez de nome);
+- a substituição por palavra inteira estraga **comentários** também, então
+  releia os que citam nomes;
+- **chave de tipo escrita como literal é código**, e qualquer ferramenta que
+  protege literais a deixa para trás: em `Omit<Step, "slots" | "desloc">` o
+  `"desloc"` precisava virar `"shifts"` junto com o campo. Aqui só o `tsc`
+  pegou — o guarda de idioma, por construção, nunca vai pegar.
+
+Depois de tudo isso, confira no navegador: contador, botões, notas, rótulos e o
+bloco de código.
 
 > Para *criar* um visualizador do zero (gerador puro de passos, registro no
 > `mdx-components.tsx`), veja o [README](../../README.md) e o
@@ -237,6 +273,18 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
 | só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
+
+**`total` que vem da entrada do aluno pode cair para 1, e aí o rodapé some
+inteiro** — com ele, os `children` que você pôs lá dentro. No visualizador de
+memória contígua o passo É o índice, então um array de um elemento zera a linha
+do tempo; se o preset "20 inteiros" morasse no rodapé, o aluno que digitasse um
+número só ficaria sem o caminho de volta. Preset e botão de estado ficam no
+miolo; no rodapé só o que é reprodução.
+
+E o `↺` do `VizFooter` é `viz.reset()`: ele volta ao passo 0 e **não** desfaz o
+estado que o aluno montou (array, modo, parâmetros). Se o seu visualizador tinha
+um "reiniciar" que zerava tudo, esse caminho de volta vira um botão seu — o
+rótulo do `↺` promete uma coisa só, e é a que ele faz.
 
 O que continua por sua conta: envolver o bloco recolhível no `.viz-code-slot`
 (zerar a coluna tira a largura, não a altura — §7) e escolher um `titulo` que
