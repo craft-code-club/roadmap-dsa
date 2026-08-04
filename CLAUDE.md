@@ -22,11 +22,15 @@ a passo (visualizador), artigo, vídeo, problemas (LeetCode/GeeksforGeeks) e ref
 npm run dev      # desenvolvimento
 npm run build    # DEVE passar (gera ./out). 55+ páginas.
 npm test         # Playwright (roda contra o ./out via python http.server). DEVE passar.
+PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma suíte na máquina
 ```
 
 ## Verificação (faça sempre)
 
 1. Depois de mudar código, rode `npm run build` **e** `npm test`. Os dois têm que passar.
+   A suíte **não reusa** servidor que já esteja na porta: reusar fazia ela testar o `out/` de
+   outro worktree (ou o dev server, que serve da fonte) e **passar verde com código quebrado**.
+   Porta ocupada agora falha dizendo isso; use `PORT=<outra> npm test`.
 2. Para conferência visual, use o **`agent-browser`** (Vercel Labs CLI, instalado na máquina):
    - Servir o build: `python3 -m http.server 4321 --directory out` e abrir nele; ou usar o dev server.
    - Screenshot da página inteira: flag é **`--full`** (não `--full-page`).
