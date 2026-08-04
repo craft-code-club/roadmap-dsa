@@ -96,7 +96,7 @@ Uma ressalva contra o exagero: numa entrada típica, sem estrutura adversária, 
 
 O shell sort tem um custo fixo que o insertion sort não tem: ele varre o array inteiro uma vez por gap. Com poucos elementos, esse custo domina.
 
-Com 8 elementos, o shell sort quase sempre **perde**. Com 32, ele já ganha com folga numa entrada embaralhada (138 comparações contra 313). Com 128, a diferença é de quatro vezes (993 contra 4.396). O ponto de virada fica por volta de uma dúzia de elementos, e não é um número mágico: é onde `n` cresce o bastante para o termo quadrático do insertion sort superar o custo das rodadas extras.
+Com 8 elementos e a sequência original de Shell, ele **perde**: 25 comparações contra as 24 do insertion sort numa entrada embaralhada, e perde em três dos quatro presets do visualizador de passo a passo (só ganha no array invertido, com 22 comparações contra 28). Com 32 elementos a mesma sequência já faz 178 contra 313, e a melhor do conjunto faz 138. Com 128, são 993 contra 4.396, uma diferença de mais de quatro vezes. O ponto de virada fica entre uma e duas dezenas de elementos, e não é um número mágico: é onde `n` cresce o bastante para o termo quadrático do insertion sort superar o custo fixo das rodadas extras. Trocar a sequência de gaps antecipa esse ponto, e no visualizador a de Hibbard já ganha com 8 elementos.
 
 Existe um caso, porém, em que aumentar `n` **não** vira a conta: entrada **quase ordenada**. Se o array tem poucas inversões, o insertion sort é praticamente linear, e nenhuma sequência de gaps consegue vencer isso, porque o shell sort varre o array inteiro uma vez por gap aconteça o que acontecer. Com 128 elementos e 16 inversões, o insertion sort faz 142 comparações e a melhor sequência de gaps faz 476.
 
