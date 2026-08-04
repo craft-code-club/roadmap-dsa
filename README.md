@@ -102,6 +102,16 @@ uma execução passo a passo), o visualizador troca a linha do tempo por manipul
 veja `SubTypesVisualizer.tsx`, onde o leitor monta um pedaço clicando nos elementos e o painel
 responde o que aquele pedaço é. A casca (cabeçalho, **Expandir**, células) continua a mesma.
 
+A casca não se escreve à mão: ela vem do hook `useVisualizer` (`src/lib/visualizer.tsx`), com
+`VizHeader` e `VizFooter`. Ele cobre o que todo visualizador tem — caber na altura da tela do
+aluno, o painel expandido com cabeçalho e controles parados, o bloco que mostra e oculta, os
+controles de reprodução — e nada do que cada um mostra. O contrato, com o uso e as opções, está
+em [`content/visualizers/README.md`](content/visualizers/README.md).
+
+O código dos visualizadores segue **identificador em inglês, tela em português**: variáveis,
+tipos e props em inglês; tudo que o aluno lê em português, inclusive o código de exemplo que
+aparece dentro do visualizador e os rótulos das variáveis.
+
 ## Progresso do usuário
 
 `ProgressProvider` guarda dois mapas no `localStorage`: `ccc-dsa-progresso` (tópicos concluídos)

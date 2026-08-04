@@ -413,7 +413,57 @@ test("Big O: em tela alta o código já vem aberto, sem precisar de clique", asy
   await expect(viz.locator(".viz-code-head")).toContainText("busca_binaria.py");
 });
 
-test("Big O: a escolha do aluno vence a medição até ele fechar o painel", async ({ page }) => {
+test("Big O: a conta de altura lê o token do cabeçalho, não um número fixo", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 1400 });
+  await page.goto("/topico/big-o/");
+
+  const alternar = page.locator(`${CONTADOR} .viz-toggle-codigo`);
+  await expect(alternar).toHaveText("Ocultar código"); // com essa altura, cabe
+
+  // O cabeçalho fixo do site fica gigante: o orçamento de altura da peça
+  // encolhe junto e ela deixa de caber. Com um 60 digitado no componente, nada
+  // mudaria — e a conta ficaria descalibrada no dia em que o token mudasse.
+  await page.evaluate(() => document.documentElement.style.setProperty("--ccc-header-h", "700px"));
+  await page.setViewportSize({ width: 1500, height: 1399 }); // provoca medição nova
+  await expect(alternar, "a medição ignorou o token --ccc-header-h").toHaveText("Mostrar código");
+});
+
+test("Big O: a escolha do aluno atravessa expandir e fechar", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await page.goto("/topico/big-o/");
+
+  const viz = page.locator(CONTADOR);
+  const alternar = viz.locator(".viz-toggle-codigo");
+  await expect(alternar).toHaveText("Mostrar código"); // a medição decidiu recolher
+  await alternar.click();
+  await expect(alternar).toHaveText("Ocultar código");
+  await expect.poll(async () => await alturaCodigo(page)).toBeGreaterThan(100);
+
+  // Abrir o painel não pode desfazer o clique: quem pediu o código quer o
+  // código, e é justamente no painel que ele tem mais espaço para caber.
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(viz.getByRole("button", { name: /Fechar/ })).toBeVisible();
+  await expect(alternar, "expandir desfez a escolha do aluno").toHaveText("Ocultar código");
+  await expect
+    .poll(async () => await alturaCodigo(page), { message: "o código sumiu ao expandir" })
+    .toBeGreaterThan(100);
+
+  // E fechar também não.
+  await viz.getByRole("button", { name: /Fechar/ }).click();
+  await expect(page.locator(".viz-overlay")).toHaveCount(0);
+  await expect(alternar, "fechar desfez a escolha do aluno").toHaveText("Ocultar código");
+  await expect
+    .poll(async () => await alturaCodigo(page), { message: "o código sumiu ao fechar" })
+    .toBeGreaterThan(100);
+
+  // O caminho inverso vale igual: quem escondeu continua sem o bloco.
+  await alternar.click();
+  await expect(alternar).toHaveText("Mostrar código");
+  await viz.getByRole("button", { name: /Expandir/ }).click();
+  await expect(alternar, "expandir reabriu um bloco que o aluno fechou").toHaveText("Mostrar código");
+});
+
+test("Big O: a escolha do aluno vence a medição numa troca de estado", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
   await page.goto("/topico/big-o/");
 

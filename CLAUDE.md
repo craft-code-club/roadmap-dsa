@@ -45,7 +45,14 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
   dados, artigos e visualizadores. Agrupamento estilo LeetCode (16 grupos): cada estrutura junto
   das técnicas que operam sobre ela; paradigmas (Recursão, Backtracking, Programação Dinâmica,
   Greedy Algorithms) como grupos próprios.
-- **Nomes dos campos em inglês; valores exibidos em português.** Campos do tópico: `name`, `group`,
+- **Identificadores em inglês; qualquer coisa que o aluno lê em português.** Vale para os
+  campos do roadmap **e para o código dos visualizadores** (variáveis, tipos, props, funções).
+  Comentários podem ser em português; nome de componente, o que fizer sentido. A fronteira que
+  já mordeu: o código Python que aparece na tela, os rótulos das variáveis e as notas do passo a
+  passo são **conteúdo didático**, mesmo dentro de uma string — renomear em lote traduz o
+  identificador e estraga a aula junto ("O array precisa estar sorted"). Detalhes e o
+  procedimento de conferência em [`content/visualizers/README.md`](content/visualizers/README.md) §0.
+- Campos do tópico: `name`, `group`,
   `level`, `description`, `youtube` (id), `article` (link do blog), `extraVideos`, `references`,
   `problems`, `viz`, `noViz`, `status: "ready" | "soon"`.
 - Tópicos "ready" têm corpo em `content/topics/<slug>.mdx`, registrado em `content/topics/index.ts`.
@@ -65,6 +72,16 @@ npm test         # Playwright (roda contra o ./out via python http.server). DEVE
 - Visualizadores ficam em `content/visualizers/` (ex.: `SlidingWindowVisualizer`,
   `TwoPointersVisualizer`), expostos em `mdx-components.tsx`. A lista de apoiadores fica em
   `src/app/apoie/apoiadores.ts` (página fixa, não é conteúdo de DSA).
+- **Vai mexer na casca de um visualizador (altura, expandido, teclado, foco, rolagem)?
+  Leia [`content/visualizers/README.md`](content/visualizers/README.md) antes.** Ele é o
+  contrato da casca adaptativa (`.viz-fit`): as três camadas (comprimir antes de esconder),
+  a decisão por medição em vez de breakpoint, a API de CSS, o contrato de teclado e foco do
+  painel expandido, e as armadilhas já medidas.
+  A mecânica é um hook, **`src/lib/visualizer.tsx`** (`useVisualizer` + `VizHeader` e `VizFooter`): chame, espalhe as props e use os componentes prontos — não reescreva.
+  Ele cobre o que TODO visualizador tem (caber na tela, painel, bloco que mostra e
+  oculta, controles de reprodução) e nada do que cada um mostra. Uso de referência: `BigOCounterVisualizer.tsx`.
+  **Não edite o bloco `viz-fit` do `globals.css` para acomodar um visualizador
+  específico** — ele é compartilhado por todos.
 - Alias: `@/*` → `src/*`, `@content/*` → `content/*`.
 - **Adicionar tópico/visualizador:** ver README (seções "Como adicionar"). O padrão de
   visualizador é gerador puro de passos + casca compartilhada + botão Expandir.
