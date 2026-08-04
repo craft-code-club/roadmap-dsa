@@ -1628,7 +1628,12 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
        formato que aproveita a largura liberada;
      · a decisão de recolher vem de medição no componente, não daqui — este
        arquivo só descreve os dois estados e a transição entre eles. */
-.viz-fit .viz-body { padding-bottom: 0; }
+/* O respiro do pé do miolo mora no `.viz-body`, não na margem dos controles:
+   dentro de uma área rolável ele também serve de folga contra a borda, então o
+   último bloco nunca encosta na linha do rodapé fixo quando a rolagem chega ao
+   fim. Os 14 + 14 dão os 28px de gap, contra os 18 de antes. */
+.viz-fit .viz-body { padding-bottom: 14px; }
+.viz-fit .viz-controls { margin-top: 14px; }
 .viz-fit .viz-foot { padding: 0 20px 18px; }
 
 /* Duas trilhas em `fr` no lugar de `1fr 300px`: lista de trilhas só interpola
@@ -1672,9 +1677,13 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 }
 .viz-overlay-fit .viz-fit .viz-head, .viz-overlay-fit .viz-fit .viz-foot { flex: none; }
 .viz-overlay-fit .viz-fit .viz-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-/* Sombra rasa nas duas bordas: diz que o conteúdo passa POR BAIXO delas. */
+/* Sombra rasa nas duas bordas: diz que o conteúdo passa POR BAIXO delas.
+   A de baixo é mais fraca de propósito, e não por simetria de números: o
+   cabeçalho tem fundo próprio (#0f1826) e a sombra dele se dilui nesse degrau,
+   enquanto o rodapé divide o fundo com o miolo e soma com o `border-top` dos
+   controles. Com os mesmos valores nos dois, a de baixo lia como o dobro. */
 .viz-overlay-fit .viz-fit .viz-head { box-shadow: 0 10px 18px -14px rgba(0, 0, 0, 0.9); }
-.viz-overlay-fit .viz-fit .viz-foot { box-shadow: 0 -10px 18px -14px rgba(0, 0, 0, 0.9); }
+.viz-overlay-fit .viz-fit .viz-foot { box-shadow: 0 -9px 16px -15px rgba(0, 0, 0, 0.45); }
 /* O cabeçalho ganhou um terceiro botão: em tela estreita ele quebra a linha em
    vez de espremer o título. */
 .viz-fit .viz-head { flex-wrap: wrap; }
