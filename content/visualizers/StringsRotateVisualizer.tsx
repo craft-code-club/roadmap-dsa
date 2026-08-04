@@ -18,25 +18,25 @@ import { createPortal } from "react-dom";
 // o goal ali dentro, porque s + s contém todas as rotações de s.
 // ---------------------------------------------------------------------------
 
-type Modo = "laco" | "truque";
+type Mode = "loop" | "trick";
 
-type Passo = {
-  linha: number;
-  fita: string[];
-  fitaLbl: string;
-  alvo: (string | null)[];
-  janela: { ini: number; fim: number } | null;
-  iguais: number[];
-  difere: number | null;
-  copias: number;
+type Step = {
+  line: number;
+  tape: string[];
+  tapeLabel: string;
+  target: (string | null)[];
+  window: { start: number; end: number } | null;
+  matched: number[];
+  differs: number | null;
+  copies: number;
   strings: number;
-  comparacoes: number;
-  nota: string;
+  comparisons: number;
+  note: string;
   ok?: boolean;
-  fim?: boolean;
+  done?: boolean;
 };
 
-const CODIGO_LACO = [
+const LOOP_CODE = [
   "def rotate_string(s, goal):",
   "    if len(s) != len(goal):",
   "        return False",
@@ -47,7 +47,7 @@ const CODIGO_LACO = [
   "    return False",
 ];
 
-const CODIGO_TRUQUE = [
+const TRICK_CODE = [
   "def rotate_string(s, goal):",
   "    if len(s) != len(goal):",
   "        return False",
@@ -55,78 +55,78 @@ const CODIGO_TRUQUE = [
   "    return goal in dobrado",
 ];
 
-const MODOS: { key: Modo; rotulo: string; familia: string; cor: string; arquivo: string }[] = [
-  { key: "laco", rotulo: "rotaciona e compara", familia: "O(n²)", cor: "#fbbf24", arquivo: "ingenuo.py" },
-  { key: "truque", rotulo: "goal in s + s", familia: "O(n)", cor: "#34d399", arquivo: "truque.py" },
+const MODES: { key: Mode; label: string; family: string; color: string; file: string }[] = [
+  { key: "loop", label: "rotaciona e compara", family: "O(n²)", color: "#fbbf24", file: "ingenuo.py" },
+  { key: "trick", label: "goal in s + s", family: "O(n)", color: "#34d399", file: "truque.py" },
 ];
 
-const PRESETS: { rotulo: string; s: string; goal: string }[] = [
-  { rotulo: "caso feliz", s: "abcde", goal: "cdeab" },
-  { rotulo: "não rotaciona", s: "abcde", goal: "abced" },
-  { rotulo: "tamanhos diferentes", s: "abc", goal: "abcd" },
-  { rotulo: "volta completa", s: "abcd", goal: "abcd" },
+const PRESETS: { label: string; s: string; goal: string }[] = [
+  { label: "caso feliz", s: "abcde", goal: "cdeab" },
+  { label: "não rotaciona", s: "abcde", goal: "abced" },
+  { label: "tamanhos diferentes", s: "abc", goal: "abcd" },
+  { label: "volta completa", s: "abcd", goal: "abcd" },
 ];
 
-const PALAVRAS = ["abcde", "craft", "codigo", "rotate", "banana"];
+const WORDS = ["abcde", "craft", "codigo", "rotate", "banana"];
 
 const MAX = 10;
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
+const SPEED_LABELS = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 
 function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function plural(n: number, um: string, muitos: string): string {
-  return n === 1 ? um : muitos;
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }
 
 // Quantos caracteres batem antes de divergir. Serve para o contador de
 // comparações não mentir: comparar duas strings NÃO é uma operação só.
-function prefixo(a: string[], b: string[]): number {
+function commonPrefix(a: string[], b: string[]): number {
   let k = 0;
   while (k < a.length && k < b.length && a[k] === b[k]) k++;
   return k;
 }
 
-function janelaAlvo(goal: string[], largura: number, offset: number): (string | null)[] {
-  const out: (string | null)[] = new Array(largura).fill(null);
-  for (let k = 0; k < goal.length && offset + k < largura; k++) out[offset + k] = goal[k];
+function targetWindow(goal: string[], width: number, offset: number): (string | null)[] {
+  const out: (string | null)[] = new Array(width).fill(null);
+  for (let k = 0; k < goal.length && offset + k < width; k++) out[offset + k] = goal[k];
   return out;
 }
 
-function gerarPassos(sEntrada: string, goalEntrada: string, modo: Modo): Passo[] {
-  const s0 = Array.from(sEntrada).slice(0, MAX);
-  const goal = Array.from(goalEntrada).slice(0, MAX);
+function generateSteps(sInput: string, goalInput: string, mode: Mode): Step[] {
+  const s0 = Array.from(sInput).slice(0, MAX);
+  const goal = Array.from(goalInput).slice(0, MAX);
   const n = s0.length;
-  const out: Passo[] = [];
+  const out: Step[] = [];
 
   const base = {
-    copias: 0,
+    copies: 0,
     strings: 0,
-    comparacoes: 0,
-    janela: null,
-    iguais: [],
-    difere: null,
+    comparisons: 0,
+    window: null,
+    matched: [],
+    differs: null,
   };
 
   if (n !== goal.length) {
     out.push({
       ...base,
-      linha: 1,
-      fita: s0,
-      fitaLbl: "s",
-      alvo: janelaAlvo(goal, Math.max(n, goal.length), 0),
-      nota: `len(s) = ${n} e len(goal) = ${goal.length}. Tamanhos diferentes: nenhuma rotação vai transformar um no outro.`,
+      line: 1,
+      tape: s0,
+      tapeLabel: "s",
+      target: targetWindow(goal, Math.max(n, goal.length), 0),
+      note: `len(s) = ${n} e len(goal) = ${goal.length}. Tamanhos diferentes: nenhuma rotação vai transformar um no outro.`,
     });
     out.push({
       ...base,
-      linha: 2,
-      fita: s0,
-      fitaLbl: "s",
-      alvo: janelaAlvo(goal, Math.max(n, goal.length), 0),
-      fim: true,
-      nota: "Devolvo False sem copiar um único caractere. Este teste de uma linha é o que salva o pior caso.",
+      line: 2,
+      tape: s0,
+      tapeLabel: "s",
+      target: targetWindow(goal, Math.max(n, goal.length), 0),
+      done: true,
+      note: "Devolvo False sem copiar um único caractere. Este teste de uma linha é o que salva o pior caso.",
     });
     return out;
   }
@@ -134,193 +134,193 @@ function gerarPassos(sEntrada: string, goalEntrada: string, modo: Modo): Passo[]
   if (n === 0) {
     out.push({
       ...base,
-      linha: 1,
-      fita: [],
-      fitaLbl: "s",
-      alvo: [],
+      line: 1,
+      tape: [],
+      tapeLabel: "s",
+      target: [],
       ok: true,
-      fim: true,
-      nota: "Duas strings vazias: mesmo tamanho e mesmo conteúdo, então a resposta é True sem nenhum trabalho.",
+      done: true,
+      note: "Duas strings vazias: mesmo tamanho e mesmo conteúdo, então a resposta é True sem nenhum trabalho.",
     });
     return out;
   }
 
-  if (modo === "laco") {
+  if (mode === "loop") {
     let s = [...s0];
-    let copias = 0;
+    let copies = 0;
     let strings = 0;
-    let comparacoes = 0;
+    let comparisons = 0;
     out.push({
       ...base,
-      linha: 1,
-      fita: [...s],
-      fitaLbl: "s",
-      alvo: janelaAlvo(goal, n, 0),
-      nota: `len(s) = len(goal) = ${n}, então vale tentar. Vou girar s uma posição por vez e comparar com goal a cada volta.`,
+      line: 1,
+      tape: [...s],
+      tapeLabel: "s",
+      target: targetWindow(goal, n, 0),
+      note: `len(s) = len(goal) = ${n}, então vale tentar. Vou girar s uma posição por vez e comparar com goal a cada volta.`,
     });
     for (let i = 0; i < n; i++) {
-      const primeiro = s[0];
-      s = [...s.slice(1), primeiro];
-      copias += n - 1 + n;
+      const first = s[0];
+      s = [...s.slice(1), first];
+      copies += n - 1 + n;
       strings += 2;
       out.push({
-        linha: 4,
-        fita: [...s],
-        fitaLbl: "s",
-        alvo: janelaAlvo(goal, n, 0),
-        janela: null,
-        iguais: [],
-        difere: null,
-        copias,
+        line: 4,
+        tape: [...s],
+        tapeLabel: "s",
+        target: targetWindow(goal, n, 0),
+        window: null,
+        matched: [],
+        differs: null,
+        copies,
         strings,
-        comparacoes,
-        nota: `Rotação ${i + 1}: s[1:] já é uma string nova com ${n - 1} ${plural(n - 1, "caractere", "caracteres")} copiados, e a concatenação com "${primeiro}" aloca outra de ${n} e copia ${n}. Duas strings novas e ${2 * n - 1} cópias só para testar um deslocamento.`,
+        comparisons,
+        note: `Rotação ${i + 1}: s[1:] já é uma string nova com ${n - 1} ${plural(n - 1, "caractere", "caracteres")} copiados, e a concatenação com "${first}" aloca outra de ${n} e copia ${n}. Duas strings novas e ${2 * n - 1} cópias só para testar um deslocamento.`,
       });
-      const k = prefixo(s, goal);
-      const igual = k === n;
-      comparacoes += igual ? n : k + 1;
+      const k = commonPrefix(s, goal);
+      const same = k === n;
+      comparisons += same ? n : k + 1;
       out.push({
-        linha: igual ? 6 : 5,
-        fita: [...s],
-        fitaLbl: "s",
-        alvo: janelaAlvo(goal, n, 0),
-        janela: { ini: 0, fim: n - 1 },
-        iguais: Array.from({ length: k }, (_, j) => j),
-        difere: igual ? null : k,
-        copias,
+        line: same ? 6 : 5,
+        tape: [...s],
+        tapeLabel: "s",
+        target: targetWindow(goal, n, 0),
+        window: { start: 0, end: n - 1 },
+        matched: Array.from({ length: k }, (_, j) => j),
+        differs: same ? null : k,
+        copies,
         strings,
-        comparacoes,
-        ok: igual,
-        fim: igual,
-        nota: igual
-          ? `"${s.join("")}" é igual a goal. Achei na rotação ${i + 1}, depois de ${copias} ${plural(copias, "caractere copiado", "caracteres copiados")} e ${strings} strings novas.`
+        comparisons,
+        ok: same,
+        done: same,
+        note: same
+          ? `"${s.join("")}" é igual a goal. Achei na rotação ${i + 1}, depois de ${copies} ${plural(copies, "caractere copiado", "caracteres copiados")} e ${strings} strings novas.`
           : `Comparo "${s.join("")}" com "${goal.join("")}": ${k === 0 ? "já diverge no índice 0" : `batem os ${k} ${plural(k, "primeiro", "primeiros")} e divergem no índice ${k}`} ("${s[k]}" contra "${goal[k]}"). Sigo girando, e as duas strings desta volta viram lixo.`,
       });
-      if (igual) return out;
+      if (same) return out;
     }
     out.push({
-      linha: 7,
-      fita: [...s],
-      fitaLbl: "s",
-      alvo: janelaAlvo(goal, n, 0),
-      janela: null,
-      iguais: [],
-      difere: null,
-      copias,
+      line: 7,
+      tape: [...s],
+      tapeLabel: "s",
+      target: targetWindow(goal, n, 0),
+      window: null,
+      matched: [],
+      differs: null,
+      copies,
       strings,
-      comparacoes,
-      fim: true,
-      nota: `Dei a volta completa (${n} rotações) e nunca bati com goal: False. Custou ${copias} caracteres copiados e ${strings} strings alocadas para descobrir isso.`,
+      comparisons,
+      done: true,
+      note: `Dei a volta completa (${n} rotações) e nunca bati com goal: False. Custou ${copies} caracteres copiados e ${strings} strings alocadas para descobrir isso.`,
     });
     return out;
   }
 
-  const dobrado = [...s0, ...s0];
-  let copias = 0;
+  const doubled = [...s0, ...s0];
+  let copies = 0;
   let strings = 0;
-  let comparacoes = 0;
+  let comparisons = 0;
   out.push({
     ...base,
-    linha: 1,
-    fita: [...s0],
-    fitaLbl: "s",
-    alvo: janelaAlvo(goal, n, 0),
-    nota: `len(s) = len(goal) = ${n}. Mesmo tamanho, então o teste continua.`,
+    line: 1,
+    tape: [...s0],
+    tapeLabel: "s",
+    target: targetWindow(goal, n, 0),
+    note: `len(s) = len(goal) = ${n}. Mesmo tamanho, então o teste continua.`,
   });
-  copias = 2 * n;
+  copies = 2 * n;
   strings = 1;
   out.push({
-    linha: 3,
-    fita: dobrado,
-    fitaLbl: "dobrado = s + s",
-    alvo: janelaAlvo(goal, 2 * n, 0),
-    janela: null,
-    iguais: [],
-    difere: null,
-    copias,
+    line: 3,
+    tape: doubled,
+    tapeLabel: "dobrado = s + s",
+    target: targetWindow(goal, 2 * n, 0),
+    window: null,
+    matched: [],
+    differs: null,
+    copies,
     strings,
-    comparacoes,
-    nota: `Concateno s comigo mesmo UMA vez: ${copias} cópias, uma string nova. Dentro de "${dobrado.join("")}" moram todas as ${n} rotações de s, cada uma começando numa posição.`,
+    comparisons,
+    note: `Concateno s comigo mesmo UMA vez: ${copies} cópias, uma string nova. Dentro de "${doubled.join("")}" moram todas as ${n} rotações de s, cada uma começando numa posição.`,
   });
   for (let j = 0; j <= n; j++) {
-    const janela = dobrado.slice(j, j + n);
-    const k = prefixo(janela, goal);
-    const igual = k === n;
-    comparacoes += igual ? n : k + 1;
+    const chunk = doubled.slice(j, j + n);
+    const k = commonPrefix(chunk, goal);
+    const same = k === n;
+    comparisons += same ? n : k + 1;
     out.push({
-      linha: 4,
-      fita: dobrado,
-      fitaLbl: "dobrado = s + s",
-      alvo: janelaAlvo(goal, 2 * n, j),
-      janela: { ini: j, fim: j + n - 1 },
-      iguais: Array.from({ length: k }, (_, t) => j + t),
-      difere: igual ? null : j + k,
-      copias,
+      line: 4,
+      tape: doubled,
+      tapeLabel: "dobrado = s + s",
+      target: targetWindow(goal, 2 * n, j),
+      window: { start: j, end: j + n - 1 },
+      matched: Array.from({ length: k }, (_, t) => j + t),
+      differs: same ? null : j + k,
+      copies,
       strings,
-      comparacoes,
-      ok: igual,
-      fim: igual,
-      nota: igual
-        ? `Posição ${j}: "${janela.join("")}" é exatamente o goal. True, e sem alocar mais nada: a busca só leu a memória que já existia.`
-        : `Posição ${j}: "${janela.join("")}" ${k === 0 ? "já diverge no primeiro caractere" : `bate ${k} ${plural(k, "caractere", "caracteres")} e diverge`}. Ando uma casa, sem alocar nada.`,
+      comparisons,
+      ok: same,
+      done: same,
+      note: same
+        ? `Posição ${j}: "${chunk.join("")}" é exatamente o goal. True, e sem alocar mais nada: a busca só leu a memória que já existia.`
+        : `Posição ${j}: "${chunk.join("")}" ${k === 0 ? "já diverge no primeiro caractere" : `bate ${k} ${plural(k, "caractere", "caracteres")} e diverge`}. Ando uma casa, sem alocar nada.`,
     });
-    if (igual) return out;
+    if (same) return out;
   }
   out.push({
-    linha: 4,
-    fita: dobrado,
-    fitaLbl: "dobrado = s + s",
-    alvo: janelaAlvo(goal, 2 * n, 0),
-    janela: null,
-    iguais: [],
-    difere: null,
-    copias,
+    line: 4,
+    tape: doubled,
+    tapeLabel: "dobrado = s + s",
+    target: targetWindow(goal, 2 * n, 0),
+    window: null,
+    matched: [],
+    differs: null,
+    copies,
     strings,
-    comparacoes,
-    fim: true,
-    nota: `Nenhuma posição de "${dobrado.join("")}" contém "${goal.join("")}": False. Foram ${copias} cópias no total, contra as ${n * (2 * n - 1)} que o laço gastaria com esta entrada.`,
+    comparisons,
+    done: true,
+    note: `Nenhuma posição de "${doubled.join("")}" contém "${goal.join("")}": False. Foram ${copies} cópias no total, contra as ${n * (2 * n - 1)} que o laço gastaria com esta entrada.`,
   });
   return out;
 }
 
 export function StringsRotateVisualizer() {
-  const [modo, setModo] = useState<Modo>("laco");
+  const [mode, setMode] = useState<Mode>("loop");
   const [s, setS] = useState(PRESETS[0].s);
   const [goal, setGoal] = useState(PRESETS[0].goal);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
+  const [step, setStep] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(3);
   const [expanded, setExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => setMounted(true), []);
 
-  const passos = useMemo(() => gerarPassos(s, goal, modo), [s, goal, modo]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
-  const cfg = MODOS.find((m) => m.key === modo) ?? MODOS[0];
+  const steps = useMemo(() => generateSteps(s, goal, mode), [s, goal, mode]);
+  const total = steps.length;
+  const idx = Math.min(step, total - 1);
+  const p = steps[idx];
+  const cfg = MODES.find((m) => m.key === mode) ?? MODES[0];
   const n = Math.min(Array.from(s).length, MAX);
 
-  const parar = useCallback(() => {
+  const stop = useCallback(() => {
     if (timer.current) {
       clearInterval(timer.current);
       timer.current = null;
     }
   }, []);
-  useEffect(() => () => parar(), [parar]);
+  useEffect(() => () => stop(), [stop]);
 
   useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((v) => (v >= total - 1 ? v : v + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
+    stop();
+    if (!playing) return;
+    timer.current = setInterval(() => setStep((v) => (v >= total - 1 ? v : v + 1)), SPEEDS[speed]);
+    return stop;
+  }, [playing, speed, total, stop]);
 
   useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
+    if (playing && idx >= total - 1) setPlaying(false);
+  }, [playing, idx, total]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -331,50 +331,50 @@ export function StringsRotateVisualizer() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  const reiniciar = () => {
-    parar();
-    setTocando(false);
-    setPasso(0);
+  const reset = () => {
+    stop();
+    setPlaying(false);
+    setStep(0);
   };
 
-  const aplicar = (novoS: string, novoGoal: string) => {
-    reiniciar();
-    setS(Array.from(novoS).slice(0, MAX).join(""));
-    setGoal(Array.from(novoGoal).slice(0, MAX).join(""));
+  const apply = (nextS: string, nextGoal: string) => {
+    reset();
+    setS(Array.from(nextS).slice(0, MAX).join(""));
+    setGoal(Array.from(nextGoal).slice(0, MAX).join(""));
   };
 
-  const sortear = () => {
-    const palavra = PALAVRAS[Math.floor(Math.random() * PALAVRAS.length)];
-    const k = 1 + Math.floor(Math.random() * (palavra.length - 1));
-    aplicar(palavra, palavra.slice(k) + palavra.slice(0, k));
+  const pickRandom = () => {
+    const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+    const k = 1 + Math.floor(Math.random() * (word.length - 1));
+    apply(word, word.slice(k) + word.slice(0, k));
   };
 
-  const classeCelula = (i: number, dentro: boolean) => {
+  const cellClass = (i: number, inside: boolean) => {
     let cls = "viz-cell";
-    if (p.difere === i) cls += " str-cell-no";
-    else if (p.iguais.includes(i)) cls += " str-cell-ok";
-    else if (p.janela && dentro) cls += " in";
-    else if (p.janela) cls += " drop";
+    if (p.differs === i) cls += " str-cell-no";
+    else if (p.matched.includes(i)) cls += " str-cell-ok";
+    else if (p.window && inside) cls += " in";
+    else if (p.window) cls += " drop";
     return cls;
   };
 
-  const piorLaco = n * (2 * n - 1);
-  const notaCls = "viz-note" + (p.ok ? " ok" : p.fim ? " invalid" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
-  const codigo = modo === "laco" ? CODIGO_LACO : CODIGO_TRUQUE;
+  const worstLoop = n * (2 * n - 1);
+  const noteClass = "viz-note" + (p.ok ? " ok" : p.done ? " invalid" : "");
+  const stepPct = Math.round(((idx + 1) / total) * 100);
+  const code = mode === "loop" ? LOOP_CODE : TRICK_CODE;
 
-  const variaveis = [
-    { nome: "n", valor: `${n}` },
-    { nome: "strings novas", valor: num(p.strings) },
-    { nome: "cópias", valor: num(p.copias) },
-    { nome: "comparações", valor: num(p.comparacoes), best: true },
+  const vars = [
+    { name: "n", value: `${n}` },
+    { name: "strings novas", value: num(p.strings) },
+    { name: "cópias", value: num(p.copies) },
+    { name: "comparações", value: num(p.comparisons), best: true },
   ];
 
   const viz = (
     <figure className="viz" style={{ margin: 0 }}>
       <div className="viz-head">
         <div className="viz-head-title">
-          <span className="dot" style={{ background: cfg.cor }} />
+          <span className="dot" style={{ background: cfg.color }} />
           <span>Visualizador · Rotate String, força bruta contra o truque</span>
         </div>
         <div className="viz-head-right">
@@ -389,21 +389,21 @@ export function StringsRotateVisualizer() {
 
       <div className="viz-body">
         <div className="bigo-chips">
-          {MODOS.map((m) => {
-            const on = m.key === modo;
+          {MODES.map((m) => {
+            const on = m.key === mode;
             return (
               <button
                 key={m.key}
                 className={`bigo-chip${on ? " on" : ""}`}
-                style={on ? { borderColor: m.cor, color: m.cor } : undefined}
+                style={on ? { borderColor: m.color, color: m.color } : undefined}
                 onClick={() => {
-                  reiniciar();
-                  setModo(m.key);
+                  reset();
+                  setMode(m.key);
                 }}
                 aria-pressed={on}
               >
-                <span className="sw" style={{ background: on ? m.cor : "#3a4a60" }} />
-                {m.familia} · {m.rotulo}
+                <span className="sw" style={{ background: on ? m.color : "#3a4a60" }} />
+                {m.family} · {m.label}
               </button>
             );
           })}
@@ -412,13 +412,13 @@ export function StringsRotateVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>s</span>
-            <input className="viz-input" value={s} onChange={(e) => aplicar(e.target.value, goal)} />
+            <input className="viz-input" value={s} onChange={(e) => apply(e.target.value, goal)} />
           </label>
           <label className="viz-field grow">
             <span>goal</span>
-            <input className="viz-input" value={goal} onChange={(e) => aplicar(s, e.target.value)} />
+            <input className="viz-input" value={goal} onChange={(e) => apply(s, e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={sortear}>
+          <button className="viz-btn" onClick={pickRandom}>
             Sortear
           </button>
         </div>
@@ -426,36 +426,36 @@ export function StringsRotateVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
-              key={pr.rotulo}
+              key={pr.label}
               className={`bigo-chip${s === pr.s && goal === pr.goal ? " on" : ""}`}
-              onClick={() => aplicar(pr.s, pr.goal)}
+              onClick={() => apply(pr.s, pr.goal)}
               aria-pressed={s === pr.s && goal === pr.goal}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
 
         <div className="str-fitas">
-          <span className="str-lbl">{p.fitaLbl}</span>
+          <span className="str-lbl">{p.tapeLabel}</span>
           <div className="viz-cells">
-            {p.fita.map((c, i) => {
-              const dentro = p.janela ? i >= p.janela.ini && i <= p.janela.fim : false;
+            {p.tape.map((c, i) => {
+              const inside = p.window ? i >= p.window.start && i <= p.window.end : false;
               return (
                 <div className="viz-cell-wrap" key={`f-${i}`}>
                   <span className="viz-cell-idx">{i}</span>
-                  <div className={classeCelula(i, dentro)}>{c}</div>
+                  <div className={cellClass(i, inside)}>{c}</div>
                 </div>
               );
             })}
           </div>
           <span className="str-lbl">goal</span>
           <div className="viz-cells">
-            {p.alvo.map((c, i) => {
-              const dentro = c !== null;
+            {p.target.map((c, i) => {
+              const inside = c !== null;
               return (
                 <div className="viz-cell-wrap" key={`a-${i}`}>
-                  <div className={c === null ? "viz-cell str-fantasma" : classeCelula(i, dentro)}>{c ?? "·"}</div>
+                  <div className={c === null ? "viz-cell str-fantasma" : cellClass(i, inside)}>{c ?? "·"}</div>
                 </div>
               );
             })}
@@ -465,15 +465,15 @@ export function StringsRotateVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>caracteres copiados</span>
-            <strong style={{ color: cfg.cor }}>{num(p.copias)}</strong>
+            <strong style={{ color: cfg.color }}>{num(p.copies)}</strong>
           </div>
           <div className="bigo-stat">
             <span>comparações de caractere</span>
-            <strong>{num(p.comparacoes)}</strong>
+            <strong>{num(p.comparisons)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso com o laço</span>
-            <strong style={{ color: "#fbbf24" }}>{num(piorLaco)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{num(worstLoop)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso com o truque</span>
@@ -481,16 +481,16 @@ export function StringsRotateVisualizer() {
           </div>
         </div>
 
-        <p className={notaCls}>{p.nota}</p>
+        <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
           <div className="viz-code">
             <div className="viz-code-head">
-              {cfg.arquivo} · {cfg.familia}
+              {cfg.file} · {cfg.family}
             </div>
             <div className="viz-code-body">
-              {codigo.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
+              {code.map((txt, i) => (
+                <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
                   <span className="ln">{i + 1}</span>
                   {txt}
                 </div>
@@ -499,26 +499,26 @@ export function StringsRotateVisualizer() {
           </div>
           <div className="viz-vars">
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
+          <button className="viz-btn" title="Reiniciar" onClick={reset}>
             ↺
           </button>
           <button
             className="viz-btn"
             disabled={idx === 0}
             onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
+              stop();
+              setPlaying(false);
+              setStep(Math.max(0, idx - 1));
             }}
           >
             ‹ Anterior
@@ -526,23 +526,23 @@ export function StringsRotateVisualizer() {
           <button
             className="viz-play"
             onClick={() => {
-              if (tocando) {
-                setTocando(false);
+              if (playing) {
+                setPlaying(false);
                 return;
               }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
+              setStep(idx >= total - 1 ? 0 : idx);
+              setPlaying(true);
             }}
           >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
+            {playing ? "❚❚ Pausar" : "▶ Rodar"}
           </button>
           <button
             className="viz-btn"
             disabled={idx === total - 1}
             onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
+              stop();
+              setPlaying(false);
+              setStep(Math.min(idx + 1, total - 1));
             }}
           >
             Próximo ›
@@ -554,14 +554,14 @@ export function StringsRotateVisualizer() {
               min={1}
               max={5}
               step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
+              value={speed}
+              onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
             />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
+            <span className="val">{SPEED_LABELS[speed]}</span>
           </div>
         </div>
         <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pctPasso}%`, background: cfg.cor }} />
+          <div className="viz-progress-fill" style={{ width: `${stepPct}%`, background: cfg.color }} />
         </div>
       </div>
     </figure>
