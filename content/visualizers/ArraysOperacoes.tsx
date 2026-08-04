@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // ArraysOperacoes, o custo real de cada operação num array.
@@ -14,6 +15,10 @@ import { createPortal } from "react-dom";
 // escrever e mexer na ponta não movem ninguém (O(1)); mexer no meio empurra
 // todo mundo que está depois (O(n)). O contador de deslocamentos é o que
 // separa os dois, e a projeção para n = 1.000.000 é o que dá escala à conta.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
 type Passo = {
@@ -73,9 +78,6 @@ const ROTULOS: Record<OpKey, string> = {
 };
 
 const OPS: OpKey[] = ["acessar", "inserir-fim", "inserir", "remover", "remover-fim"];
-
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
 
 const DEFAULT_NUMS = [12, 7, 45, 3, 20, 8];
 const FOLGA = 3; // vagas livres à direita, para caber a inserção
@@ -310,54 +312,23 @@ export function ArraysOperacoes() {
   const [op, setOp] = useState<OpKey>("inserir");
   const [k, setK] = useState(2);
   const [valor, setValor] = useState(99);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   const passos = useMemo(() => gerarPassos(op, nums.length ? nums : [0], k, valor), [op, nums, k, valor]);
   const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
   const codigo = CODIGOS[op];
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const viz = useVisualizer({
+    title: "Visualizador · o que cada operação custa de verdade",
+    total,
+    // O que muda a altura da peça: a operação (o código vai de 2 a 6 linhas) e
+    // quantas células cabem na fita (o array mais a folga da inserção).
+    measureOn: [op, nums.length],
+  });
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
+  const idx = viz.step;
+  const p = passos[idx];
 
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const zerar = () => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  };
+  const zerar = () => viz.reset();
 
   const aoMudarEntrada = (v: string) => {
     const arr = v
@@ -418,28 +389,14 @@ export function ArraysOperacoes() {
   ];
 
   const notaCls = "viz-note" + (p.fim ? " ok" : "");
-  const pct = Math.round(((idx + 1) / total) * 100);
   const precisaK = op === "inserir" || op === "remover" || op === "acessar";
   const precisaValor = op === "inserir" || op === "inserir-fim";
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · o que cada operação custa de verdade</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Array</span>
@@ -502,18 +459,24 @@ export function ArraysOperacoes() {
         <p className={notaCls}>{p.nota}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">operacoes.py</div>
-            <div className="viz-code-body">
-              {codigo.map((txt, nLinha) => (
-                <div key={nLinha} className={`viz-line${nLinha === p.linha ? " on" : ""}`}>
-                  <span className="ln">{nLinha + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura do
+              código. O `.viz-code-slot` é o truque de grid 1fr→0fr, a única
+              forma de animar altura automática em CSS puro. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">operacoes.py</div>
+              <div className="viz-code-body">
+                {codigo.map((txt, nLinha) => (
+                  <div key={nLinha} className={`viz-line${nLinha === p.linha ? " on" : ""}`}>
+                    <span className="ln">{nLinha + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {variaveis.map((v) => (
               <div className="viz-var" key={v.nome}>
@@ -543,62 +506,9 @@ export function ArraysOperacoes() {
           </div>
         </div>
 
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={zerar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pct}%` }} />
-        </div>
-
+        {/* Os presets seguem no miolo, e não no rodapé: são onze botões, e no
+            painel expandido eles empurrariam os controles de reprodução para
+            fora da tela — exatamente o que a casca existe para impedir. */}
         <div className="viz-controls">
           <span className="arr-presets-rot">Compare:</span>
           <button className="viz-btn" onClick={() => escolher("inserir", 0)}>
@@ -632,21 +542,12 @@ export function ArraysOperacoes() {
           </button>
         </div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
