@@ -141,7 +141,7 @@ export function ShellSortSubsequencias() {
                   <span className="hs-fila-tit">
                     Subsequência dos índices {sub.idx.join(", ")}
                   </span>
-                  <span className={`hs-fila-selo${mexeu ? "" : ""}`}>
+                  <span className="hs-fila-selo">
                     {antesSub.join(", ")} vira {depoisSub.join(", ")}
                     {mexeu ? "" : " (nada a fazer)"}
                   </span>

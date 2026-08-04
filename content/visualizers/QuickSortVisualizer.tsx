@@ -185,6 +185,7 @@ export function gerarPassos(valores: number[]): Passo[] {
       });
       if (cabe) {
         const igual = i === j;
+        const [naFronteira, varrido] = [a[i], a[j]]; // valores ANTES da troca
         trocar(i, j);
         out.push({
           ...base(),
@@ -197,7 +198,7 @@ export function gerarPassos(valores: number[]): Passo[] {
           linha: 11,
           nota: igual
             ? `Troca da posição ${i} com ela mesma: quando nenhum elemento maior apareceu ainda, i e j andam colados. O esquema de Lomuto faz muito disso, e é um dos motivos de ele perder em número de escritas para outros esquemas de partição.`
-            : `${a[i]} e ${a[j]} trocam de lugar. Repare que o valor que foi para ${j} era maior que o pivô: ele só mudou de casa dentro da região dos maiores, e continua do lado certo.`,
+            : `${varrido} sai da posição ${j} e vai para a fronteira, em ${i}; ${naFronteira} faz o caminho inverso. Repare que ${naFronteira} era maior que o pivô: ele só mudou de casa dentro da região dos maiores, e continua do lado certo.`,
         });
         i++;
         out.push({

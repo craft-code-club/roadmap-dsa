@@ -208,6 +208,7 @@ function gerarPassos(algo: Algo, valores: number[]): Passo[] {
       });
       for (let j = i + 1; j < n; j++) {
         comp++;
+        const anterior = menor; // o candidato ANTES desta comparação
         const melhor = a[j] < a[menor];
         if (melhor) menor = j;
         out.push({
@@ -217,8 +218,8 @@ function gerarPassos(algo: Algo, valores: number[]): Passo[] {
           marca: menor,
           linha: 5,
           nota: melhor
-            ? `${a[j]} é menor que ${a[menor === j ? j : menor]}: achei um candidato melhor, o menor passa a ser o da posição ${j}.`
-            : `${a[j]} não é menor que ${a[menor]}: o candidato continua sendo o da posição ${menor}. Mesmo assim tive que olhar, e é por isso que este algoritmo não tem melhor caso.`,
+            ? `${a[j]} é menor que ${a[anterior]} (posição ${anterior}): achei um candidato melhor, o menor passa a ser o da posição ${j}.`
+            : `${a[j]} não é menor que ${a[anterior]}: o candidato continua sendo o da posição ${anterior}. Mesmo assim tive que olhar, e é por isso que este algoritmo não tem melhor caso.`,
         });
       }
       if (menor !== i) {
