@@ -8,7 +8,24 @@ import { defineConfig, devices } from "@playwright/test";
 //     PORT=3101 npm test
 //
 // Sem isso, duas suítes simultâneas disputam a mesma porta.
-const PORT = Number(process.env.PORT) || 3000;
+//
+// A validação não é preciosismo: `Number(process.env.PORT) || 3000` engole
+// `PORT=310l` (com "L") caindo no padrão em silêncio, e passa `3000.5` adiante
+// para o `http.server` falhar de um jeito que não parece com o erro que é. Este
+// arquivo existe justamente para trocar silêncio por erro claro.
+function resolvePort(): number {
+  const raw = process.env.PORT;
+  if (raw === undefined || raw.trim() === "") return 3000;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) {
+    throw new Error(
+      `PORT inválida: ${JSON.stringify(raw)}. Use um inteiro entre 1 e 65535, por exemplo PORT=3101.`
+    );
+  }
+  return n;
+}
+
+const PORT = resolvePort();
 
 export default defineConfig({
   testDir: "./tests",
