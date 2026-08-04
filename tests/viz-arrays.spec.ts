@@ -273,15 +273,16 @@ test("array dinâmico: a nota do fim explica a capacidade reservada em portuguê
 test("memória contígua: dois cliques rápidos param na célula clicada por último", async ({ page }) => {
   // O clique repete mais depressa do que o React re-renderiza. Um salto escrito
   // como delta a partir do `idx` do closure (`stepBy(c.k - idx)`) lê o MESMO
-  // `idx` velho nos dois cliques e soma os dois deltas: sair do índice 0, clicar
-  // no 6 e no 2 levava ao 7 (6 + 2, saturado no fim do array) em vez do 2 — a
-  // conta na tela passava a explicar uma célula que o aluno não pediu.
+  // `idx` velho nos dois cliques e soma os dois deltas: partindo do índice 3,
+  // clicar no 6 e no 2 aplica +3 e depois -1 e para no 5, em vez do 2 — a conta
+  // na tela passava a explicar uma célula que o aluno não pediu.
   await pagina(page, 900);
   const fig = figuraInline(page, VIZ[0].titulo);
 
-  // A ORDEM é o teste: os dois cliques precisam sair do índice 0. Partindo da
-  // própria célula o delta vale zero e a versão quebrada passaria verde.
-  expect((await passo(fig))[0]).toBe(1);
+  // A ORDEM é o teste: os dois cliques precisam sair do índice inicial, que não
+  // é nenhum dos dois clicados. Partindo da própria célula o delta vale zero e
+  // a versão quebrada passaria verde.
+  expect((await passo(fig))[0]).toBe(4);
 
   await fig.evaluate((f) => {
     const cel = (k: number) =>

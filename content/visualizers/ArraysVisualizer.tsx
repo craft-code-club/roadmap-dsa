@@ -38,6 +38,12 @@ const DEFAULT_BASE = 0x1000;
 const MAX_ITEMS = 20;
 const DEFAULT_NUMS = [12, 7, 45, 3, 20, 8, 31, 16];
 
+// A peça abre no índice 3, não no 0, e o motivo é a aula: em `i = 0` a conta que
+// ela existe para mostrar degenera (`0 × 4 = 0`, o endereço é o próprio base) e
+// o leitor que não clica em nada vê o caso em que a fórmula some. Antes da casca
+// isso era o `useState(3)` do componente.
+const INITIAL_INDEX = 3;
+
 function thousands(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
@@ -84,6 +90,16 @@ export function ArraysVisualizer() {
     measureOn: [n, cache, sizeKey],
   });
 
+  // Ajuste na fase de RENDER, não num `useEffect`: o hook sempre começa no passo
+  // 0, e é assim que o passo certo entra também no HTML do build estático. Com
+  // efeito, o `out/` congelaria no índice 0 e só o cliente corrigiria — foi o
+  // que aconteceu, e quem pegou foi o diff do texto renderizado. Contrato §9.
+  const [placed, setPlaced] = useState(false);
+  if (!placed) {
+    setPlaced(true);
+    viz.setStep(INITIAL_INDEX);
+  }
+
   const idx = viz.step;
 
   // Salto ABSOLUTO para o índice clicado, não um delta a partir de `idx`: o
@@ -128,7 +144,7 @@ export function ArraysVisualizer() {
     setSizeKey("b4");
     setBaseText("0x1000");
     setCache(false);
-    viz.setStep(3);
+    viz.setStep(INITIAL_INDEX);
   };
 
   const bytes = elem.bytes;
