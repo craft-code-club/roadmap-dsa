@@ -262,6 +262,16 @@ seja o desse visualizador, porque ele vira o `aria-label` do diálogo.
   margem dos controles: dentro de uma área rolável ele também é a folga contra a
   borda, então o conteúdo não encosta na linha do rodapé quando a rolagem chega
   ao fim.
+- **Desenho com `width: 100%` e `height: auto` infla a ALTURA junto com a
+  largura, e o que infla é o vazio.** Um SVG com viewBox de 406x204 esticado
+  para os 800px do corpo passa a ocupar 402px de altura — 2x o tamanho natural,
+  e no visualizador de ciclo isso era 402 dos 939px da peça inteira. Recolher o
+  código não resolve, porque o problema não é o código. Um `max-height` no bloco
+  temático do visualizador, dentro de `@media (max-height: ...)`, devolve a
+  altura sem esconder nada: o `preserveAspectRatio` padrão encolhe e centraliza,
+  e o desenho continua inteiro. **No expandido o teto não vale** — lá o miolo
+  rola, e o painel existe justamente para ver o desenho maior; deixe a regra do
+  painel ganhar por especificidade, não por ordem de arquivo.
 
 ## 8. Como provar que funcionou
 
@@ -302,3 +312,19 @@ regras que custaram caro:
   foi o experimento. Escolha uma quebra que **compile** (inverter uma condição,
   não acrescentar um `return` que deixa código inalcançável).
 - Use `npm run test:build`. `npm test` sozinho exercita o build anterior.
+
+E dois jeitos de escrever um teste **vazio** desta casca, os dois medidos aqui,
+os dois passando contra a quebra antes de serem consertados:
+
+- **Rolar o `.viz-body` sem provar que é ele quem rola.** Se a quebra devolve a
+  rolagem para a figura inteira — que é exatamente o bug que a camada 1 conserta
+  —, `body.scrollTop` fica em zero, o cabeçalho não se mexe, e o teste aprova a
+  quebra. Exija as três coisas: que o miolo **estoure**
+  (`scrollHeight - clientHeight > SLACK`), que ele mesmo **role**
+  (`scrollTop > 0` depois de rolar) e que a figura **não** role.
+- **Trocar um estado que não está em `measureOn`.** O teste da escolha manual só
+  significa alguma coisa quando a medição discordaria do aluno. Um preset que
+  troca só o alvo não muda `measureOn`, não dispara medição nenhuma, e a escolha
+  "sobrevive" sem que nada a tenha ameaçado. Escolha um estado que muda mesmo a
+  entrada da medição, **confirme a troca na tela** antes de concluir, e deixe a
+  janela apertada o bastante para a medição querer recolher.
