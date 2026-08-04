@@ -214,6 +214,15 @@ export function PrefixSumVisualizer() {
   const s = steps[viz.step];
   const queryStart = n + 1;
 
+  // Salto ABSOLUTO, não um delta a partir de `viz.step`: dois cliques rápidos
+  // leem o mesmo passo do closure e somariam o mesmo delta duas vezes, passando
+  // direto da consulta (medido: dois cliques no mesmo quadro iam do passo 9 ao
+  // 12 de 12). `reset` é o que para o relógio, como nos outros controles.
+  const jumpToQuery = () => {
+    viz.reset();
+    viz.setStep(queryStart);
+  };
+
   const onInputChange = (v: string) => {
     const arr = v
       .split(",")
@@ -405,7 +414,7 @@ export function PrefixSumVisualizer() {
           enxerga nó de texto JSX quebrado em várias linhas, e o que ele não vê
           ele não protege. */}
       <VizFooter viz={viz}>
-        <button className="viz-btn" onClick={() => viz.stepBy(queryStart - viz.step)}>Pular para a consulta</button>
+        <button className="viz-btn" onClick={jumpToQuery}>Pular para a consulta</button>
       </VizFooter>
     </figure>
   );
