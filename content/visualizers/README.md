@@ -69,6 +69,21 @@ Os dois da 2ª versão não são casos exóticos: o Prettier quebra a linha de
 qualquer elemento cujos atributos não cabem, e ternário dentro de interpolação
 é como metade das notas deste repo escolhe entre singular e plural.
 
+**Mais dois buracos, medidos no `listas-ligadas`, e os dois continuam
+abertos** — porque tapá-los é reescrever o guarda com um analisador de verdade,
+e isso é PR de plataforma, não carona numa adaptação de tópico:
+
+| o que não olha | o que passa |
+|---|---|
+| **template dentro de `${...}`**: o casamento da crase é regex, então uma crase aninhada tira o pareamento de sincronia | o `LinkedListFloyd` tem 6 delas (``` `… ${cycle > 0 ? `, e ${cycle}…` : ""}` ```), e daí em diante o guarda compara **código** como se fosse tela: dezenas de linhas de ruído, e uma troca de rótulo de verdade some no meio |
+| **texto de tela que divide a linha com uma interpolação**: o padrão exige `>texto<`, e um `{` no meio corta o casamento | `<span>Nós no ciclo: {cycle === 0 ? … }</span>` — "Nós no ciclo: " não está em string nenhuma, não é visto pelo guarda, e um rename cego o estragaria **sem nenhum aviso** |
+
+O segundo é o mais perigoso dos dois, porque é silencioso: o primeiro pelo
+menos grita. E os dois têm a mesma consequência prática — **quando o arquivo
+tiver crase aninhada ou rótulo colado numa interpolação, o guarda não é prova;
+a prova é comparar o texto renderizado dos ESTADOS** (§8), que é o que pegou
+os dois aqui.
+
 **E um buraco continua aberto, por construção: ele compara o CONJUNTO de textos,
 não onde cada um aparece.** Trocar dois campos de lugar num rename (o subtítulo
 de um cartão indo para o corpo e vice-versa) mantém o conjunto idêntico e passa
