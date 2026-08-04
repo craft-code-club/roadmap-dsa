@@ -64,7 +64,9 @@ for (const { nome, titulo } of VIZ) {
     const painel = await expandir(page, titulo);
     // A transição do recolhimento dura 0,32s: ler no meio dela mede o layout a
     // caminho, e a comparação "não se mexeu" ficaria contra um alvo instável.
-    await page.waitForTimeout(600);
+    // Quem diz que acabou é a própria casca, pelo `data-anim` — sono fixo, sob
+    // máquina carregada, vira flake que parece bug do código sob teste.
+    await expect(painel).toHaveAttribute("data-anim", "on");
     const miolo = painel.locator(".viz-body");
     const cabeca = painel.locator(".viz-head");
     const rodar = painel.getByRole("button", { name: /Rodar|Pausar/ });
