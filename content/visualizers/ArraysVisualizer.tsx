@@ -24,21 +24,21 @@ import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 // só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Tipo = { key: string; rotulo: string; bytes: number; exemplo: string };
+type ElementSize = { key: string; label: string; bytes: number; example: string };
 
-const TIPOS: Tipo[] = [
-  { key: "b1", rotulo: "1 byte", bytes: 1, exemplo: "byte, bool, char do C" },
-  { key: "b2", rotulo: "2 bytes", bytes: 2, exemplo: "short, char do Java" },
-  { key: "b4", rotulo: "4 bytes", bytes: 4, exemplo: "int, float" },
-  { key: "b8", rotulo: "8 bytes", bytes: 8, exemplo: "long, double, ponteiro" },
+const ELEMENT_SIZES: ElementSize[] = [
+  { key: "b1", label: "1 byte", bytes: 1, example: "byte, bool, char do C" },
+  { key: "b2", label: "2 bytes", bytes: 2, example: "short, char do Java" },
+  { key: "b4", label: "4 bytes", bytes: 4, example: "int, float" },
+  { key: "b8", label: "8 bytes", bytes: 8, example: "long, double, ponteiro" },
 ];
 
-const LINHA_CACHE = 64;
-const BASE_PADRAO = 0x1000;
-const MAX_ITENS = 20;
+const CACHE_LINE = 64;
+const DEFAULT_BASE = 0x1000;
+const MAX_ITEMS = 20;
 const DEFAULT_NUMS = [12, 7, 45, 3, 20, 8, 31, 16];
 
-function milhar(v: number): string {
+function thousands(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
@@ -47,31 +47,31 @@ function hex(v: number): string {
   return "0x" + (t.length < 4 ? "0".repeat(4 - t.length) + t : t);
 }
 
-function lerBase(texto: string): number {
-  const limpo = texto.trim().replace(/^0x/i, "");
-  const v = parseInt(limpo, 16);
-  if (!isFinite(v) || v < 0) return BASE_PADRAO;
+function readBase(text: string): number {
+  const clean = text.trim().replace(/^0x/i, "");
+  const v = parseInt(clean, 16);
+  if (!isFinite(v) || v < 0) return DEFAULT_BASE;
   return Math.min(v, 0xffffff);
 }
 
-function lerNums(texto: string): number[] {
-  const arr = texto
+function readNums(text: string): number[] {
+  const arr = text
     .split(",")
     .map((x) => parseInt(x.trim(), 10))
     .filter((x) => !isNaN(x))
-    .slice(0, MAX_ITENS);
+    .slice(0, MAX_ITEMS);
   return arr.length ? arr : [0];
 }
 
 export function ArraysVisualizer() {
-  const [entrada, setEntrada] = useState(DEFAULT_NUMS.join(", "));
+  const [input, setInput] = useState(DEFAULT_NUMS.join(", "));
   const [nums, setNums] = useState<number[]>(DEFAULT_NUMS);
-  const [tipoKey, setTipoKey] = useState("b4");
-  const [baseTexto, setBaseTexto] = useState("0x1000");
+  const [sizeKey, setSizeKey] = useState("b4");
+  const [baseText, setBaseText] = useState("0x1000");
   const [cache, setCache] = useState(false);
 
-  const tipo = useMemo(() => TIPOS.find((t) => t.key === tipoKey) ?? TIPOS[2], [tipoKey]);
-  const base = useMemo(() => lerBase(baseTexto), [baseTexto]);
+  const elem = useMemo(() => ELEMENT_SIZES.find((t) => t.key === sizeKey) ?? ELEMENT_SIZES[2], [sizeKey]);
+  const base = useMemo(() => readBase(baseText), [baseText]);
   const n = nums.length;
 
   // O passo AQUI é o índice lido: andar na linha do tempo é andar no array.
@@ -81,60 +81,60 @@ export function ArraysVisualizer() {
     // O que muda a altura da peça: quantas células (elas quebram linha), o mapa
     // de linhas de cache aparecendo, e o tamanho do elemento — que muda quantas
     // linhas de cache o array ocupa, e portanto quantos cartões o mapa tem.
-    measureOn: [n, cache, tipoKey],
+    measureOn: [n, cache, sizeKey],
   });
 
   const idx = viz.step;
 
-  const aoMudarEntrada = (v: string) => {
+  const onInputChange = (v: string) => {
     viz.reset();
-    setEntrada(v);
-    setNums(lerNums(v));
+    setInput(v);
+    setNums(readNums(v));
   };
 
-  const sortear = () => {
-    const qtd = 7 + Math.floor(Math.random() * 4);
-    const arr = Array.from({ length: qtd }, () => 1 + Math.floor(Math.random() * 60));
+  const randomize = () => {
+    const count = 7 + Math.floor(Math.random() * 4);
+    const arr = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * 60));
     viz.reset();
     setNums(arr);
-    setEntrada(arr.join(", "));
-    viz.setStep(Math.floor(qtd / 2));
+    setInput(arr.join(", "));
+    viz.setStep(Math.floor(count / 2));
   };
 
   const preset20 = () => {
     const arr = Array.from({ length: 20 }, (_, k) => (k + 1) * 3);
     viz.reset();
     setNums(arr);
-    setEntrada(arr.join(", "));
-    setTipoKey("b4");
-    setBaseTexto("0x1000");
+    setInput(arr.join(", "));
+    setSizeKey("b4");
+    setBaseText("0x1000");
     setCache(true);
     viz.setStep(16);
   };
 
-  const restaurar = () => {
+  const restore = () => {
     viz.reset();
     setNums(DEFAULT_NUMS);
-    setEntrada(DEFAULT_NUMS.join(", "));
-    setTipoKey("b4");
-    setBaseTexto("0x1000");
+    setInput(DEFAULT_NUMS.join(", "));
+    setSizeKey("b4");
+    setBaseText("0x1000");
     setCache(false);
     viz.setStep(3);
   };
 
-  const tam = tipo.bytes;
-  const endereco = base + idx * tam;
-  const blocoAlvo = Math.floor(endereco / LINHA_CACHE);
-  const totalBytes = n * tam;
-  const naLinha = nums.filter((_, k) => Math.floor((base + k * tam) / LINHA_CACHE) === blocoAlvo).length;
+  const bytes = elem.bytes;
+  const address = base + idx * bytes;
+  const targetBlock = Math.floor(address / CACHE_LINE);
+  const totalBytes = n * bytes;
+  const sameLineCount = nums.filter((_, k) => Math.floor((base + k * bytes) / CACHE_LINE) === targetBlock).length;
 
   const cells = nums.map((v, k) => {
-    const addr = base + k * tam;
-    const mesmoBloco = Math.floor(addr / LINHA_CACHE) === blocoAlvo;
+    const addr = base + k * bytes;
+    const sameBlock = Math.floor(addr / CACHE_LINE) === targetBlock;
     let cls = "viz-cell arr-cell-btn";
-    if (cache && mesmoBloco) cls += " arr-cache";
+    if (cache && sameBlock) cls += " arr-cache";
     if (k === idx) cls += " in";
-    return { k, v, addr, cls, mesmoBloco };
+    return { k, v, addr, cls, sameBlock };
   });
 
   // Mapa das linhas de cache: um bloco de 64 B por chip, com o intervalo de
@@ -142,31 +142,31 @@ export function ArraysVisualizer() {
   // posições ocupa duas linhas": sozinho, o realce só pinta a linha lida.
   // Como o passo (1 a 8 bytes) é sempre menor que a linha, nenhum bloco entre
   // o primeiro e o último fica vazio, então a contagem bate com o cartão.
-  const blocoIni = Math.floor(base / LINHA_CACHE);
-  const blocoFim = Math.floor((base + (n - 1) * tam) / LINHA_CACHE);
-  const linhasCache: { bloco: number; de: number; ate: number; atual: boolean }[] = [];
-  for (let b = blocoIni; b <= blocoFim; b++) {
-    const dentro = cells.filter((c) => Math.floor(c.addr / LINHA_CACHE) === b);
-    if (!dentro.length) continue;
-    linhasCache.push({
-      bloco: b,
-      de: dentro[0].k,
-      ate: dentro[dentro.length - 1].k,
-      atual: b === blocoAlvo,
+  const firstBlock = Math.floor(base / CACHE_LINE);
+  const lastBlock = Math.floor((base + (n - 1) * bytes) / CACHE_LINE);
+  const cacheLines: { block: number; from: number; to: number; current: boolean }[] = [];
+  for (let b = firstBlock; b <= lastBlock; b++) {
+    const inside = cells.filter((c) => Math.floor(c.addr / CACHE_LINE) === b);
+    if (!inside.length) continue;
+    cacheLines.push({
+      block: b,
+      from: inside[0].k,
+      to: inside[inside.length - 1].k,
+      current: b === targetBlock,
     });
   }
 
-  const nota = cache
-    ? `O processador não busca 1 valor, busca a linha de cache inteira (${LINHA_CACHE} bytes). Ler nums[${idx}] em ${hex(endereco)} já traz ${naLinha} ${naLinha === 1 ? "posição" : "posições"} deste array para o L1: percorrer na ordem sai quase de graça.`
+  const note = cache
+    ? `O processador não busca 1 valor, busca a linha de cache inteira (${CACHE_LINE} bytes). Ler nums[${idx}] em ${hex(address)} já traz ${sameLineCount} ${sameLineCount === 1 ? "posição" : "posições"} deste array para o L1: percorrer na ordem sai quase de graça.`
     : idx === 0
-      ? `nums[0] mora no próprio endereço base: 0 × ${tam} = 0 byte de deslocamento, o valor ${nums[0]} está em ${hex(endereco)}.`
-      : `Para chegar em nums[${idx}] eu não caminho por ninguém: multiplico ${idx} × ${tam} = ${idx * tam} bytes, somo no endereço base ${hex(base)} e leio ${nums[idx]} direto em ${hex(endereco)}. Duas contas, sempre as mesmas.`;
+      ? `nums[0] mora no próprio endereço base: 0 × ${bytes} = 0 byte de deslocamento, o valor ${nums[0]} está em ${hex(address)}.`
+      : `Para chegar em nums[${idx}] eu não caminho por ninguém: multiplico ${idx} × ${bytes} = ${idx * bytes} bytes, somo no endereço base ${hex(base)} e leio ${nums[idx]} direto em ${hex(address)}. Duas contas, sempre as mesmas.`;
 
-  const variaveis = [
-    { nome: "base", valor: hex(base) },
-    { nome: "i", valor: `${idx}` },
-    { nome: "tamanho", valor: `${tam} B` },
-    { nome: "endereço", valor: hex(endereco), best: true },
+  const vars = [
+    { name: "base", value: hex(base) },
+    { name: "i", value: `${idx}` },
+    { name: "tamanho", value: `${bytes} B` },
+    { name: "endereço", value: hex(address), best: true },
   ];
 
   const frame = (
@@ -177,27 +177,27 @@ export function ArraysVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Array</span>
-            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+            <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
           <label className="viz-field">
             <span>Endereço base</span>
             <input
               className="viz-input k"
-              value={baseTexto}
-              onChange={(e) => setBaseTexto(e.target.value)}
+              value={baseText}
+              onChange={(e) => setBaseText(e.target.value)}
               aria-label="Endereço base em hexadecimal"
             />
           </label>
           {/* Os presets ficam AQUI, e não na linha de controles, porque com um
               array de 1 elemento não há linha do tempo e o rodapé some inteiro —
               levar o "20 inteiros" junto deixaria o aluno sem volta. */}
-          <button className="viz-btn" onClick={sortear}>
+          <button className="viz-btn" onClick={randomize}>
             Sortear
           </button>
           <button className="viz-btn" onClick={preset20}>
             20 inteiros
           </button>
-          <button className="viz-btn" onClick={restaurar}>
+          <button className="viz-btn" onClick={restore}>
             Voltar ao padrão
           </button>
         </div>
@@ -206,15 +206,15 @@ export function ArraysVisualizer() {
           <div className="viz-field">
             <span>Tamanho de cada elemento</span>
             <div className="arr-tabs">
-              {TIPOS.map((t) => (
+              {ELEMENT_SIZES.map((t) => (
                 <button
                   key={t.key}
-                  className={`arr-tab${t.key === tipoKey ? " on" : ""}`}
-                  aria-pressed={t.key === tipoKey}
-                  onClick={() => setTipoKey(t.key)}
-                  title={t.exemplo}
+                  className={`arr-tab${t.key === sizeKey ? " on" : ""}`}
+                  aria-pressed={t.key === sizeKey}
+                  onClick={() => setSizeKey(t.key)}
+                  title={t.example}
                 >
-                  {t.rotulo}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -248,15 +248,15 @@ export function ArraysVisualizer() {
 
         {cache ? (
           <div className="arr-cache-mapa" aria-label="Mapa das linhas de cache">
-            {linhasCache.map((l) => (
-              <div key={l.bloco} className={`arr-cache-linha${l.atual ? " on" : ""}`}>
+            {cacheLines.map((l) => (
+              <div key={l.block} className={`arr-cache-linha${l.current ? " on" : ""}`}>
                 <div className="arr-cache-rot">
-                  Linha de cache {hex(l.bloco * LINHA_CACHE)}
-                  {l.atual ? " · a que foi lida" : ""}
+                  Linha de cache {hex(l.block * CACHE_LINE)}
+                  {l.current ? " · a que foi lida" : ""}
                 </div>
                 <div className="arr-cache-faixa">
-                  {l.de === l.ate ? `índice ${l.de}` : `índices ${l.de} a ${l.ate}`} ·{" "}
-                  {l.ate - l.de + 1} de {n}
+                  {l.from === l.to ? `índice ${l.from}` : `índices ${l.from} a ${l.to}`} ·{" "}
+                  {l.to - l.from + 1} de {n}
                 </div>
               </div>
             ))}
@@ -266,11 +266,11 @@ export function ArraysVisualizer() {
         <div className="arr-formula">
           <span className="arr-formula-rot">endereço</span>
           <span>
-            nums[{idx}] = {hex(base)} + {idx} × {tam} = <b>{hex(endereco)}</b>
+            nums[{idx}] = {hex(base)} + {idx} × {bytes} = <b>{hex(address)}</b>
           </span>
         </div>
 
-        <p className="viz-note">{nota}</p>
+        <p className="viz-note">{note}</p>
 
         <div className="viz-split">
           {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
@@ -302,10 +302,10 @@ export function ArraysVisualizer() {
           </div>
           <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
@@ -318,15 +318,15 @@ export function ArraysVisualizer() {
           </div>
           <div className="bigo-stat">
             <span>Numa lista encadeada</span>
-            <strong>{milhar(idx + 1)}</strong>
+            <strong>{thousands(idx + 1)}</strong>
           </div>
           <div className="bigo-stat">
             <span>Bytes do array</span>
-            <strong>{milhar(totalBytes)}</strong>
+            <strong>{thousands(totalBytes)}</strong>
           </div>
           <div className="bigo-stat">
-            <span>Linhas de cache ({LINHA_CACHE} B)</span>
-            <strong>{milhar(linhasCache.length)}</strong>
+            <span>Linhas de cache ({CACHE_LINE} B)</span>
+            <strong>{thousands(cacheLines.length)}</strong>
           </div>
         </div>
       </div>
