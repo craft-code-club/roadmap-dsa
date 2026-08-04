@@ -217,10 +217,10 @@ function fmt(v: number): string {
 }
 
 export function BigOCounterVisualizer() {
-  const [algIndex, setIAlg] = useState(1);
+  const [algIndex, setAlgIndex] = useState(1);
   const [nums, setNums] = useState<number[]>(DEFAULT_ARRAY);
-  const [input, setEntrada] = useState(DEFAULT_ARRAY.join(", "));
-  const [target, setAlvo] = useState(DEFAULT_TARGET);
+  const [input, setInput] = useState(DEFAULT_ARRAY.join(", "));
+  const [target, setTarget] = useState(DEFAULT_TARGET);
   const alg = ALGORITHMS[algIndex];
   const steps = useMemo(() => alg.generate(nums.length ? nums : [1], target), [alg, nums, target]);
   const n = nums.length;
@@ -240,11 +240,11 @@ export function BigOCounterVisualizer() {
     const arr = v.split(",").map((x) => parseInt(x.trim(), 10)).filter((x) => !isNaN(x)).slice(0, 14);
     const sorted = [...arr].sort((a, b) => a - b);
     viz.reset();
-    setEntrada(v);
+    setInput(v);
     setNums(sorted.length ? sorted : [1]);
   };
 
-  const pickAlgorithm = (i: number) => { viz.reset(); setIAlg(i); };
+  const pickAlgorithm = (i: number) => { viz.reset(); setAlgIndex(i); };
 
   const cells = nums.map((v, i) => {
     let cls = "viz-cell";
@@ -281,17 +281,17 @@ export function BigOCounterVisualizer() {
 
         <div className="viz-inputs">
           <label className="viz-field grow">
-            <span>Array (fica sorted)</span>
+            <span>Array (fica ordenado)</span>
             <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
           {alg.usesTarget && (
             <label className="viz-field">
-              <span>target</span>
+              <span>alvo</span>
               <input
                 className="viz-input k"
                 type="number"
                 value={target}
-                onChange={(e) => { viz.reset(); setAlvo(parseInt(e.target.value, 10) || 0); }}
+                onChange={(e) => { viz.reset(); setTarget(parseInt(e.target.value, 10) || 0); }}
               />
             </label>
           )}
@@ -313,7 +313,7 @@ export function BigOCounterVisualizer() {
             <strong style={{ color: alg.cor }}>{fmt(p.ops)}</strong>
           </div>
           <div className="bigo-stat">
-            <span>n (tamanho da input)</span>
+            <span>n (tamanho da entrada)</span>
             <strong>{fmt(n)}</strong>
           </div>
           <div className="bigo-stat">

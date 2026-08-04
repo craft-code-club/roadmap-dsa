@@ -70,7 +70,7 @@ export type VisualizerOptions = {
   title: string;
   /**
    * Quantos passos a animação tem. `1` (ou menos) = visualizador sem linha do
-   * tempo: ele ganha a casca e o panel, e none controle de reprodução.
+   * tempo: ele ganha a casca e o panel, e nenhum controle de reprodução.
    */
   total: number;
   /**
@@ -243,8 +243,10 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     return () => { alive = false; };
   }, [collapsible]);
 
-  // Chave em vez de spread: array de dependências precisa ter tamanho fixo.
-  const measureKey = measureOn.join("");
+  // Chave em vez de spread: array de dependências precisa ter tamanho fixo. O
+  // separador não é enfeite: sem ele `[1, 23]` e `[12, 3]` viram a mesma chave
+  // "123" e uma troca real de estado não pediria medição nova.
+  const measureKey = measureOn.join("\u0001");
 
   // Trocar de contexto zera a escolha manual: abrir o panel grande é um pedido
   // novo de "mostre isso do melhor jeito nesta tela".
@@ -297,6 +299,14 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   }, []);
 
   const toggleExpanded = useCallback(() => setExpanded((e) => !e), []);
+
+  // A marcha é índice de array: fora da faixa, `speeds[speed]` vira `undefined`
+  // e o `setInterval` dispara sem intervalo. Limitar na API é mais barato que
+  // confiar em todo consumidor passar 1..5.
+  const setSpeedClamped = useCallback(
+    (i: number) => setSpeed(Math.max(1, Math.min(Math.round(i), speeds.length - 1))),
+    [speeds.length]
+  );
 
   // ---------------------------------------------------- o panel como diálogo
   // Enquanto o panel está open ele é a única coisa que rola: sem isso a roda
@@ -408,7 +418,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     stepBy,
     togglePlay,
     reset,
-    setSpeed,
+    setSpeed: setSpeedClamped,
     expanded,
     open,
     collapsible,

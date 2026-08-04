@@ -102,9 +102,21 @@ variáveis, controles e o botão **Expandir**). Para uma técnica nova:
 3. Use no `.mdx` do tópico: `<MeuVisualizador />`.
 
 A **casca** — como a peça se adapta à altura da tela, o que fica parado e o que
-rola no modo expandido, e o que o teclado faz ali dentro — tem contrato próprio
-em [`content/visualizers/README.md`](content/visualizers/README.md), com um
-checklist de aplicação e as armadilhas já medidas. Leia antes de mexer nela.
+rola no modo expandido, e o que o teclado faz ali dentro — não se escreve à mão:
+ela vem do hook `useVisualizer` (`src/lib/visualizer.tsx`), com `VizHeader` e
+`VizFooter`. O contrato está em
+[`content/visualizers/README.md`](content/visualizers/README.md), com o uso, as
+opções e as armadilhas já medidas. Leia antes de mexer nela.
+
+**Idioma do código: identificador em inglês, tela em português.** Variáveis,
+tipos, campos e props em inglês; tudo que o aluno lê em português. Comentário em
+português quando explicar melhor, e o nome do componente como fizer sentido.
+
+Repare que a fronteira não é o arquivo, é a string: o trecho de código que
+aparece **na tela** do visualizador, os rótulos das variáveis e as notas do
+passo a passo são conteúdo didático em português, mesmo morando dentro do
+`.tsx`. Renomear em lote traduz a aula junto — já produziu "O array precisa
+estar *sorted*" aqui. O procedimento para conferir isso está no §0 do contrato.
 
 
 ## <a name="passos-gerais"></a> Passos gerais (fork e PR)

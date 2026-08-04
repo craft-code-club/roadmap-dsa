@@ -43,14 +43,25 @@ mesmo morando dentro de uma string no meio do código. Um `find & replace` de
 `esq` → `left` traduz o identificador e estraga a aula junto — e produz frases
 como "O array precisa estar sorted".
 
-Ao renomear em lote, **compare as strings antes e depois** e exija que só
-mudem as que são código:
+Ao renomear em lote, **não revise o diff a olho** — ele tem centenas de linhas e
+o erro passa. Rode o guarda, que compara tudo que aparece na tela (literais de
+string **e nós de texto JSX**) antes e depois:
 
 ```bash
-git show HEAD:<arquivo> > /tmp/antes.tsx
-# extraia os literais dos dois e diffe: o que sumir/aparecer tem que ser
-# só nome de import, de hook e de prop.
+git show HEAD:content/visualizers/MeuVisualizador.tsx > /tmp/antes.tsx
+python3 scripts/guarda-idioma.py /tmp/antes.tsx content/visualizers/MeuVisualizador.tsx
 ```
+
+Ele sai com erro se qualquer texto de tela entrou ou saiu. O que sobrar tem que
+ser só nome de import, de hook e de prop. Na primeira versão deste guarda os
+nós JSX ficaram de fora, e três rótulos passaram batido — `<span>Array (fica
+sorted)</span>` entre eles. Depois, confira no navegador: contador, botões,
+notas, rótulos e o bloco de código.
+
+Duas notas de execução: renomear um campo pode **colidir com uma variável local**
+de mesmo nome (`fora` → `out` bateu num `out` que já existia, e o `tsc` reclamou
+de tipo em vez de nome); e a substituição por palavra inteira estraga
+**comentários** também, então releia os que citam nomes.
 
 > Para *criar* um visualizador do zero (gerador puro de passos, registro no
 > `mdx-components.tsx`), veja o [README](../../README.md) e o
