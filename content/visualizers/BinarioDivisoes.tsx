@@ -258,7 +258,7 @@ export function BinarioDivisoes() {
               </li>
             ) : (
               p.linhas.map((l, k) => (
-                <li key={k} className={k === p.destaque ? "ruim" : ""}>
+                <li key={k} className={k === p.destaque ? "foco" : ""}>
                   <span>
                     {l.n} ÷ 2 = {l.quociente}
                   </span>

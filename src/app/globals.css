@@ -1455,6 +1455,10 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .bb-passos li b { font-family: var(--mono); font-size: 14px; color: #cbd9ea; }
 .bb-passos li.ruim { background: rgba(248, 113, 113, 0.1); }
 .bb-passos li.ruim b { color: #fca5a5; }
+/* Foco NÃO é falha: o vermelho do .ruim afirma que algo deu errado, e usá-lo
+   para marcar a linha corrente de uma lista faz o passo atual parecer defeito. */
+.bb-passos li.foco { background: rgba(59, 130, 246, 0.14); }
+.bb-passos li.foco b { color: #93bbfd; }
 .bb-formula-fim { margin: 10px 0 0; font-size: 12.5px; line-height: 1.55; color: #8ba0bb; }
 
 .bb-bits { display: flex; flex-wrap: wrap; gap: 2px; margin: 8px 0 10px; }

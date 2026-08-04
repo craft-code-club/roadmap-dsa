@@ -149,6 +149,10 @@ export function BinarioFaixa() {
           </div>
         </div>
 
+        {/* Os dois cards ficam neutros de propósito. Nenhuma das duas leituras é
+            errada: o mesmo padrão vale 255 ou -1 conforme o tipo, e pintar a
+            leitura com sinal de vermelho quando o bit de sinal acende diria o
+            contrário do que o texto ao lado afirma. */}
         <div className="ms-operadores">
           <div className="ms-op">
             <div className="bb-formula-cab">
@@ -173,7 +177,7 @@ export function BinarioFaixa() {
             </p>
             <p className="bb-formula-fim">Todos os oito bits valem magnitude. A faixa vai de 0 a 255.</p>
           </div>
-          <div className={`ms-op${bits[0] === 1 ? " quebrou" : " ok"}`}>
+          <div className="ms-op">
             <div className="bb-formula-cab">
               <span className="bb-formula-tit">Lido como com sinal</span>
               <span className="bb-formula-selo">sbyte, int8</span>
