@@ -147,9 +147,18 @@ function entradaDe(forma: Forma, n: number): number[] {
   // (nada de Math.random, que quebraria a hidratação e tornaria os números da
   // tela impossíveis de citar) e sem a estrutura aritmética que uma fórmula do
   // tipo k * c % n deixa para trás.
+  //
+  // A multiplicação usa Math.imul e a máscara de 31 bits de propósito: o
+  // produto da semente pelo multiplicador passa de 2^53, e com aritmética de
+  // ponto flutuante ele perderia os bits de baixo, deixando de ser o LCG que o
+  // comentário promete. Com imul a conta fecha em 32 bits, como manda a
+  // definição, e continua determinística.
   const a = Array.from({ length: n }, (_, k) => k + 1);
   let semente = 20250803;
-  const prox = () => (semente = (semente * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const prox = () => {
+    semente = (Math.imul(semente, 1103515245) + 12345) & 0x7fffffff;
+    return semente / 2147483648;
+  };
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(prox() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];

@@ -811,10 +811,11 @@ test("shell sort: a h-ordenação não se perde e o gap só compensa com n grand
   const gaps = page.locator("figure.viz").filter({ hasText: "a partir de que tamanho o gap compensa" });
   const comp = (linha: number) => gaps.locator(".ord-linha").nth(linha).locator(".bb-barra-txt").first();
   await gaps.getByRole("button", { name: "n = 8" }).click();
-  await expect(comp(0)).toHaveText("25"); // a sequência original de Shell
-  await expect(comp(4)).toHaveText("24"); // insertion sort, que ganha dela aqui
+  await expect(comp(0)).toHaveText("24"); // a sequência original de Shell
+  await expect(comp(4)).toHaveText("24"); // insertion sort: empatam neste tamanho
+  await expect(comp(1)).toHaveText("17"); // Hibbard já ganha com 8 elementos
   await gaps.getByRole("button", { name: "n = 128" }).click();
-  await expect(comp(4)).toHaveText("4396");
+  await expect(comp(4)).toHaveText("4273");
   await expect(gaps.locator(".viz-note")).toContainText("compensa");
 
   // a entrada adversária: gaps potência de dois têm ponto cego, gaps ímpares não

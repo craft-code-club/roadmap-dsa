@@ -253,26 +253,34 @@ export function gerarPassos(valores: number[]): Passo[] {
       }A posição ${p} está definitiva: ${a[p]} tem ${p - lo} valores menores ou iguais à esquerda e ${hi - p} maiores à direita, que é exatamente o lugar dele no array ordenado. Ele nunca mais será tocado.`,
     });
 
-    pilha.push(`${p + 1}..${hi}`);
+    // Só entra na pilha o que é de fato chamada pendente: com o pivô na última
+    // posição o lado direito nasce vazio, e mostrar "8..7" como algo a resolver
+    // faria o painel de chamadas mentir.
+    const temDireita = p < hi;
+    if (temDireita) pilha.push(`${p + 1}..${hi}`);
     out.push({
       ...base(),
       lo,
       hi,
       pivoIdx: p,
       linha: 3,
-      nota: `Guardo o lado direito (${p + 1}..${hi}, ${hi - p} elemento${hi - p === 1 ? "" : "s"}) para depois e desço no lado esquerdo, ${lo}..${p - 1}, com ${p - lo} elemento${p - lo === 1 ? "" : "s"}.`,
+      nota: temDireita
+        ? `Guardo o lado direito (${p + 1}..${hi}, ${hi - p} elemento${hi - p === 1 ? "" : "s"}) para depois e desço no lado esquerdo, ${lo}..${p - 1}, com ${p - lo} elemento${p - lo === 1 ? "" : "s"}.`
+        : `O pivô ficou na última posição, então o lado direito nasce vazio: não há nada para guardar. Desço direto no lado esquerdo, ${lo}..${p - 1}, com ${p - lo} elemento${p - lo === 1 ? "" : "s"}. Partição assim, ${p - lo} contra 0, é a definição do pior caso.`,
     });
     quick(lo, p - 1, prof + 1);
-    pilha.pop();
-    out.push({
-      ...base(),
-      lo,
-      hi,
-      pivoIdx: p,
-      linha: 4,
-      nota: `Esquerda resolvida. Agora o lado direito, ${p + 1}..${hi}.`,
-    });
-    quick(p + 1, hi, prof + 1);
+    if (temDireita) pilha.pop();
+    if (temDireita) {
+      out.push({
+        ...base(),
+        lo,
+        hi,
+        pivoIdx: p,
+        linha: 4,
+        nota: `Esquerda resolvida. Agora o lado direito, ${p + 1}..${hi}.`,
+      });
+      quick(p + 1, hi, prof + 1);
+    }
   };
 
   quick(0, a.length - 1, 1);
