@@ -558,6 +558,23 @@ html { scroll-behavior: smooth; }
 .ll-svg-wrap { margin: 6px 0 2px; border: 1px solid var(--ccc-line); border-radius: 10px; background: var(--ccc-panel); overflow-x: auto; }
 .ll-svg { display: block; width: 100%; min-width: 460px; height: auto; }
 
+/* Camada 2 da casca adaptativa, para ESTES desenhos: com `width: 100%` o SVG é
+   esticado até a largura do corpo e a altura vai junto, e o que cresce no
+   esticão é o vazio entre os nós — respiro, que é o que a camada 2 negocia
+   antes de esconder qualquer coisa. Medido em 1512x900, no fluxo do artigo,
+   com o código já recolhido pela medição: o rho do Floyd renderiza a 800x337px
+   a partir de um viewBox de 504x212, e a peça pede 870px contra 816 de
+   orçamento. O teto devolve 73px e ela passa a caber (797px).
+   264px é o teto porque o viewBox mais alto desta família tem 260px de altura
+   (o ciclo de 8 nós): nenhum estado é desenhado menor que o tamanho natural
+   dele, o teto só corta o esticão.
+   No expandido o teto sai: lá o miolo rola, e o painel existe justamente para
+   ver o desenho maior. Vence por especificidade, não por ordem de arquivo. */
+@media (max-height: 950px) {
+  .ll-svg { max-height: 264px; }
+  .viz-overlay-fit .ll-svg { max-height: none; }
+}
+
 .ll-legenda { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--ccc-muted); }
 .ll-legenda span { display: inline-flex; align-items: center; gap: 7px; }
 .ll-legenda i { width: 11px; height: 11px; border-radius: 3px; flex: none; }
