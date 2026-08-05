@@ -117,14 +117,23 @@ Três notas de execução, todas medidas:
   protege literais a deixa para trás: em `Omit<Step, "slots" | "desloc">` o
   `"desloc"` precisava virar `"shifts"` junto com o campo. Aqui só o `tsc`
   pegou — o guarda de idioma, por construção, nunca vai pegar;
-- **valor de união que vira SUFIXO DE CLASSE é contrato com o CSS**, e esse
-  ninguém guarda. No `HeapSortVisualizer` a união `"construir" | "ordenar" |
-  "fim"` entra em `` `hs-fase f-${fase}` ``, e o `globals.css` compartilhado
-  define `.hs-fase.f-ordenar` e `.hs-fase.f-fim`. Traduzir a união apagaria a
-  cor de duas fases **sem nada acusar**: o `tsc` continua coerente, o guarda não
-  vê (não é texto de tela) e o teste não pega (é cor). Antes de renomear uma
-  união, **faça `grep` do valor no `globals.css`**; se ele estiver lá, use um
-  mapa (`PHASE_CLASS`) em vez de interpolar o valor cru.
+- **qualquer literal que vira NOME DE CLASSE é contrato com o CSS**, e esse
+  ninguém guarda. Ele passa pelo `tsc` (o tipo continua coerente), pelo guarda
+  de idioma (não é texto de tela) e pelo teste (é cor). As três formas medidas,
+  em ordem de quão fácil é não vê-las:
+
+  | forma | exemplo | o que aponta para ele |
+  |---|---|---|
+  | valor de **união** interpolado | `` `hs-fase f-${fase}` `` com `"construir" \| "ordenar" \| "fim"` | o tipo — dá para achar pela declaração |
+  | **literal cru** num ternário | `` `hs-fase ${gap === 1 ? "f-fim" : "f-ordenar"}` `` | **nada**: não há tipo, não há `Record`, não há declaração |
+  | literal com **dois papéis** | `"quase"` é chave de preset **e** classe de célula | o guarda **engana**: lista como sumido enquanto ele segue no arquivo, e pede a reação que re-quebra o rename |
+
+  A segunda forma é a pior de achar e foi medida no `ShellSortVisualizer`:
+  trocar por `f-end`/`f-sort` **compila, passa no guarda e apaga a cor de duas
+  fases**. Antes de renomear qualquer literal, **faça `grep` do valor no
+  `globals.css`**. Se ele estiver lá, use um mapa (`PHASE_CLASS`,
+  `CELL_CLASS`) e deixe a classe em português — o nome da classe não é
+  identificador do seu componente, é API compartilhada.
 
 Depois de tudo isso, confira no navegador: contador, botões, notas, rótulos e o
 bloco de código.
@@ -337,10 +346,40 @@ pergunta certa é:
 Se o aluno não consegue mudar a dimensão por nenhum controle, ela não é eixo, e
 procurar pior caso ali é procurar no lugar errado.
 
+### Antes do degrau: o número chega a virar GEOMETRIA?
+
+A pergunta do caminho tem um pressuposto que o grupo de Ordenação derrubou:
+**que o número, alcançado, vira altura**. Nem sempre vira. Ele pode aparecer só
+como **contador num cartão** ou como uma **string de uma linha**, e aí a altura
+não sabe que ele existe.
+
+Medido no `QuickSortVisualizer`, e o sinal inverte: a profundidade da recursão
+depende do pivô, como se espera — mas os três presets **degenerados** chegam a
+profundidade **8 com no máximo UMA chamada pendente** (o pivô de Lomuto cai no
+extremo e um lado nasce vazio), enquanto o **embaralhado**, de profundidade 4, é
+o único com **duas**. A ficha mede 36px nos quatro presets e nas três réguas.
+Seguir a regra do degrau sem esta pergunta mandaria caçar altura no preset mais
+baixo.
+
+> **Um número só é eixo de altura se algo na tela REPETIR com ele.** Ache o
+> elemento que se multiplica — a linha, o nível, a ficha — antes de perguntar
+> qualquer coisa sobre o valor.
+
+### E a grandeza é desenhada toda junta, ou uma de cada vez?
+
+Terceira pergunta, e ela separa duas coisas que parecem iguais. Uma grandeza
+`log₂` pode ser **espacial** (as faixas por nível de um merge sort, desenhadas
+todas ao mesmo tempo) ou **temporal** (as rodadas de um shell sort, que são
+passos consecutivos). Só a primeira é altura.
+
+Medido no `ShellSortVisualizer`: a sequência de gaps é `log₂` e o degrau seguinte
+abriria em 16 elementos — mas a pergunta nem chega a valer, porque cada rodada
+**substitui** a anterior na tela. O `.hs-fase` mede **35px nos 261 estados**.
+
 ### Eixo alcançável ainda pode ser eixo com DEGRAUS
 
-A pergunta acima tem um segundo tempo, e sem ele ela leva à conclusão errada:
-**o caminho existe, mas ele chega a atravessar um degrau?**
+Passadas as duas perguntas acima, vem o terceiro tempo, e sem ele a conclusão
+também sai errada: **o caminho existe, mas ele chega a atravessar um degrau?**
 
 A altura de uma árvore é `⌊log₂ n⌋`, uma função **degrau**. Um controle que muda
 a contagem pode variar bastante e **não mover a altura um pixel**, porque os
@@ -351,12 +390,28 @@ independentes na mesma rodada:
 |---|---|---|
 | `HeapSortVisualizer` | presets de 8 e de 10 elementos | `depth()` devolve **3 nos dois**; os quatro presets desenham **242px nos 289 estados** |
 | `BinaryHeapVisualizer` | presets de 6, 8 e 9 valores | 8 e 9 dão o **mesmo desenho ao pixel** (252px); 6 dá 192. Os 50% a mais compram um nível, o elemento seguinte compra **zero** |
+| `MergeSortVisualizer` | presets de 7 e de 8 elementos | os mesmos **4 níveis**; `.ms-niveis` mede **163px nos 358 estados**. O degrau seguinte só abre em **9**, e nenhum chip chega lá — o vão é de **um elemento** |
 
 **Varrer os presets pode medir dois pontos achando que mediu quatro.** Antes de
 concluir "não tem pior caso", calcule em que valores o degrau muda e veja se
 algum controle chega lá. E quando o eixo satura, diga isso com o número — no
 heap binário, dos 327px entre o estado mais alto e o mais baixo, **só 60 são o
 desenho**; o resto é a operação escolhida.
+
+### O eixo pode ser um bloco CONDICIONAL, que aparece e some
+
+O contrato até aqui só falava de blocos que **crescem**. Existe outro mecanismo,
+e ele explica picos no meio que a regra do crescimento não prevê: um bloco que
+**existe em alguns passos e não existe em outros**.
+
+Medido no `MergeSortVisualizer`: o painel de intercalação (`{s.merge ? … : null}`)
+vale **183px dos 215 de amplitude** da peça inteira. Por isso o pico cai nos
+passos 76 e 90 dos 93 — nunca no primeiro nem no último, e nunca no meio
+geométrico. Nenhum bloco da peça cresce; um deles simplesmente aparece.
+
+**Procure o `? … : null` antes de procurar o que cresce.** Se a sua peça tem um
+painel que só existe durante uma fase, ele provavelmente é o eixo, e o passo do
+pico é o primeiro em que ele aparece com o resto já cheio.
 
 ### A §3 se responde POR PEÇA, não por tópico
 

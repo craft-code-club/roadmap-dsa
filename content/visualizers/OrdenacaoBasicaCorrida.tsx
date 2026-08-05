@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ALGOS, NOMES, PRESETS, custo, inversoes, type Algo } from "./OrdenacaoBasicaVisualizer";
+import { ALGOS, NAMES, PRESETS, cost, inversions, type Algorithm } from "./OrdenacaoBasicaVisualizer";
 
 // ---------------------------------------------------------------------------
 // OrdenacaoBasicaCorrida, o custo total dos três lado a lado.
@@ -14,7 +14,7 @@ import { ALGOS, NOMES, PRESETS, custo, inversoes, type Algo } from "./OrdenacaoB
 // Interativo sem linha do tempo: não há passo, não há play, não há intervalo.
 // A variável que o aluno mexe é a ENTRADA, e as seis barras respondem juntas.
 //
-// Os números vêm de `custo()`, que roda o mesmo gerador de passos da animação.
+// Os números vêm de `cost()`, que roda o mesmo gerador de passos da animação.
 // Nada aqui é tabela fixa: mudar o gerador muda as barras no mesmo commit, e é
 // isso que impede a corrida de mentir sobre o que o visualizador ao lado mostra.
 //
@@ -24,34 +24,34 @@ import { ALGOS, NOMES, PRESETS, custo, inversoes, type Algo } from "./OrdenacaoB
 // barras seriam só três números bonitos sem explicação.
 // ---------------------------------------------------------------------------
 
-type Linha = { algo: Algo; comp: number; escritas: number };
+type Row = { algo: Algorithm; comps: number; writes: number };
 
-function leiDe(algo: Algo, inv: number, n: number): string {
+function lawFor(algo: Algorithm, inv: number, n: number): string {
   if (algo === "bubble") return `2 x ${inv} inversões = ${2 * inv}`;
   if (algo === "insertion") return `${inv} inversões + ${n - 1} colocações = ${inv + n - 1}`;
   return "2 por rodada que precisou trocar";
 }
 
 export function OrdenacaoBasicaCorrida() {
-  const [presetKey, setPresetKey] = useState("embaralhado");
+  const [presetKey, setPresetKey] = useState("shuffled");
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
-  const n = preset.valores.length;
-  const inv = useMemo(() => inversoes(preset.valores), [preset]);
+  const n = preset.values.length;
+  const inv = useMemo(() => inversions(preset.values), [preset]);
 
-  const linhas: Linha[] = useMemo(
-    () => ALGOS.map((algo) => ({ algo, ...custo(algo, preset.valores) })),
+  const rows: Row[] = useMemo(
+    () => ALGOS.map((algo) => ({ algo, ...cost(algo, preset.values) })),
     [preset]
   );
 
-  const maxComp = Math.max(...linhas.map((l) => l.comp), 1);
-  const maxEsc = Math.max(...linhas.map((l) => l.escritas), 1);
-  const melhorComp = Math.min(...linhas.map((l) => l.comp));
-  const melhorEsc = Math.min(...linhas.map((l) => l.escritas));
+  const maxComps = Math.max(...rows.map((l) => l.comps), 1);
+  const maxWrites = Math.max(...rows.map((l) => l.writes), 1);
+  const bestComps = Math.min(...rows.map((l) => l.comps));
+  const bestWrites = Math.min(...rows.map((l) => l.writes));
 
   // O piso teórico de comparações de qualquer ordenação por comparação em cima
   // deste array: n - 1 (é preciso ao menos olhar cada vizinho uma vez).
-  const piso = n - 1;
-  const teto = (n * (n - 1)) / 2;
+  const floor = n - 1;
+  const ceiling = (n * (n - 1)) / 2;
 
   return (
     <figure className="viz" style={{ margin: 0 }}>
@@ -62,7 +62,7 @@ export function OrdenacaoBasicaCorrida() {
         </div>
         <div className="viz-head-right">
           <span className="viz-step">
-            {inv} inversões na entrada · piso {piso}, teto {teto} comparações
+            {inv} inversões na entrada · piso {floor}, teto {ceiling} comparações
           </span>
         </div>
       </div>
@@ -76,32 +76,32 @@ export function OrdenacaoBasicaCorrida() {
               onClick={() => setPresetKey(pr.key)}
               aria-pressed={presetKey === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
 
-        <p className="tt-legenda-arvore">{preset.dica}</p>
+        <p className="tt-legenda-arvore">{preset.hint}</p>
 
         <div className="ord-corrida">
-          {linhas.map((l) => (
+          {rows.map((l) => (
             <div className="ord-linha" key={l.algo}>
-              <div className="ord-linha-nome">{NOMES[l.algo]}</div>
+              <div className="ord-linha-nome">{NAMES[l.algo]}</div>
               <div className="ord-medidas">
-                <div className={`ord-medida${l.comp === melhorComp ? " melhor" : ""}`}>
+                <div className={`ord-medida${l.comps === bestComps ? " melhor" : ""}`}>
                   <span className="ord-medida-rot">comparações</span>
                   <div className="bb-barra">
-                    <div className="bb-barra-fill" style={{ width: `${(l.comp / maxComp) * 100}%` }} />
-                    <span className="bb-barra-txt">{l.comp}</span>
+                    <div className="bb-barra-fill" style={{ width: `${(l.comps / maxComps) * 100}%` }} />
+                    <span className="bb-barra-txt">{l.comps}</span>
                   </div>
                 </div>
-                <div className={`ord-medida${l.escritas === melhorEsc ? " melhor" : ""}`}>
+                <div className={`ord-medida${l.writes === bestWrites ? " melhor" : ""}`}>
                   <span className="ord-medida-rot">escritas no array</span>
                   <div className="bb-barra">
-                    <div className="bb-barra-fill esc" style={{ width: `${(l.escritas / maxEsc) * 100}%` }} />
-                    <span className="bb-barra-txt">{l.escritas}</span>
+                    <div className="bb-barra-fill esc" style={{ width: `${(l.writes / maxWrites) * 100}%` }} />
+                    <span className="bb-barra-txt">{l.writes}</span>
                   </div>
-                  <span className="ord-lei">{leiDe(l.algo, inv, n)}</span>
+                  <span className="ord-lei">{lawFor(l.algo, inv, n)}</span>
                 </div>
               </div>
             </div>
@@ -119,8 +119,8 @@ export function OrdenacaoBasicaCorrida() {
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           Troque a entrada e olhe quem ganha cada barra. O selection sort tem sempre as mesmas{" "}
-          {teto} comparações, nos quatro presets, porque a varredura dele não depende dos dados. O insertion
-          sort vai de {teto} comparações no invertido a {piso} no já ordenado. Os três são O(n²) e mesmo assim
+          {ceiling} comparações, nos quatro presets, porque a varredura dele não depende dos dados. O insertion
+          sort vai de {ceiling} comparações no invertido a {floor} no já ordenado. Os três são O(n²) e mesmo assim
           não são intercambiáveis: O(n²) é o teto, não a conta.
         </p>
       </div>
