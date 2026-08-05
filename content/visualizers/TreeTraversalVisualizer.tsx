@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // TreeTraversalVisualizer, os quatro percursos sobre a MESMA árvore.
@@ -18,6 +19,10 @@ import { createPortal } from "react-dom";
 // O gerador é puro: simula a recursão com uma pilha explícita de quadros
 // (nó + fase) em vez de recursão de verdade, porque é isso que permite emitir
 // um passo por evento e navegar para frente e para trás de graça.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
 type TreeNode = { value: number; left: number; right: number };
@@ -132,8 +137,9 @@ const ORDER_LABEL: Record<Order, string> = {
 
 const ORDERS: Order[] = ["pre", "in", "post", "level"];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-const SPEED_LABELS = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+// A marcha inicial era `useState(4)` — 1.5x, e não o 1x padrão do hook. Ela
+// vira `initialSpeed`, senão a peça passa a abrir mais devagar do que abria.
+const INITIAL_SPEED = 4;
 
 // Geometria
 const NODE_R = 17;
@@ -289,14 +295,6 @@ function generateSteps(nodes: TreeNode[], root: number, order: Order): Step[] {
 export function TreeTraversalVisualizer() {
   const [treeKey, setTreeKey] = useState("article");
   const [order, setOrder] = useState<Order>("pre");
-  const [step, setStep] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(4);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   const tree = useMemo(
     () => TREES.find((a) => a.key === treeKey) ?? TREES[0],
@@ -305,35 +303,22 @@ export function TreeTraversalVisualizer() {
   const pos = useMemo(() => placeNodes(tree.nodes, tree.root), [tree]);
   const steps = useMemo(() => generateSteps(tree.nodes, tree.root, order), [tree, order]);
   const total = steps.length;
-  const idx = Math.min(step, total - 1);
+
+  const viz = useVisualizer({
+    title: "Visualizador · os quatro percursos sobre a mesma árvore",
+    total,
+    initialSpeed: INITIAL_SPEED,
+    // O que muda a altura da peça: a ordem (o código vai de 6 a 7 linhas) e a
+    // árvore (a altura do SVG é a PROFUNDIDADE — a degenerada tem 6 níveis
+    // contra 3 das outras duas, e são 186px de diferença).
+    measureOn: [order, treeKey],
+  });
+
+  const idx = viz.step;
   const p = steps[idx];
 
-  const stop = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => stop(), [stop]);
-
-  useEffect(() => {
-    stop();
-    if (!playing) return;
-    timer.current = setInterval(() => setStep((s) => (s >= total - 1 ? s : s + 1)), SPEEDS[speed]);
-    return stop;
-  }, [playing, speed, total, stop]);
-
-  useEffect(() => {
-    if (playing && idx >= total - 1) setPlaying(false);
-  }, [playing, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const restart = () => { stop(); setPlaying(false); setStep(0); };
-  const pickOrder = (o: Order) => { restart(); setOrder(o); };
-  const pickTree = (k: string) => { restart(); setTreeKey(k); };
+  const pickOrder = (o: Order) => { viz.reset(); setOrder(o); };
+  const pickTree = (k: string) => { viz.reset(); setTreeKey(k); };
 
   const maxSlot = pos.reduce((m, q) => Math.max(m, q.x), 0);
   const maxDepth = pos.reduce((m, q) => Math.max(m, q.depth), 0);
@@ -355,7 +340,6 @@ export function TreeTraversalVisualizer() {
 
   const isBfs = order === "level";
   const code = CODE[order];
-  const stepPct = Math.round(((idx + 1) / total) * 100);
   const noteClass = "viz-note" + (p.ok ? " ok" : "");
   const auxPeak = useMemo(() => steps.reduce((m, q) => Math.max(m, q.aux.length), 0), [steps]);
 
@@ -365,22 +349,11 @@ export function TreeTraversalVisualizer() {
     { name: "processados", value: `${p.output.length} de ${tree.nodes.length}`, best: true },
   ];
 
-  const frame = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · os quatro percursos sobre a mesma árvore</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {ORDERS.map((o) => (
             <button
@@ -478,18 +451,22 @@ export function TreeTraversalVisualizer() {
         <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">{isBfs ? "por_nivel.py" : "percorre.py"}</div>
-            <div className="viz-code-body">
-              {code.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* O `.viz-code-slot` é o que recolhe a ALTURA: zerar a trilha da
+              coluna sozinha tira só a largura (contrato §7). */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">{isBfs ? "por_nivel.py" : "percorre.py"}</div>
+              <div className="viz-code-body">
+                {code.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             {vars.map((v) => (
               <div className="viz-var" key={v.name}>
@@ -519,36 +496,13 @@ export function TreeTraversalVisualizer() {
           </div>
         </div>
 
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={restart}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { stop(); setPlaying(false); setStep(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (playing) { setPlaying(false); return; } setStep(idx >= total - 1 ? 0 : idx); setPlaying(true); }}>
-            {playing ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { stop(); setPlaying(false); setStep(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={speed} onChange={(e) => setSpeed(parseInt(e.target.value, 10))} />
-            <span className="val">{SPEED_LABELS[speed]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${stepPct}%` }} /></div>
-
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           Troque a ordem sem reiniciar a cabeça: o caminho pela árvore é sempre o mesmo, o que muda é
           a linha em que <code>processa(no)</code> aparece. No BFS muda a estrutura, e aí muda o caminho.
         </p>
       </div>
+
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {frame}
-      </div>,
-      document.body
-    );
-  }
-  return frame;
 }
