@@ -1,0 +1,23 @@
+# Cabeçalhos do Cloudflare Pages. O arquivo mora em `public/`, que o Next copia
+# inteiro para a raiz do `out/` no export; o Pages lê o `_headers` da raiz do
+# deploy e não serve o arquivo em si.
+#
+# Por que existe: as imagens de Open Graph são as únicas rotas do site que o
+# Next exporta SEM extensão (`out/opengraph-image`, e uma por rota que tem card
+# próprio). O Pages deriva o MIME da extensão, então sem esta regra elas saem
+# como `application/octet-stream` — e junto vai um `x-content-type-options:
+# nosniff`, que proíbe o cliente de adivinhar o tipo. Ou seja: o scraper que
+# respeita o header recebe um binário anônimo que ele não pode tratar como
+# imagem, e o card não renderiza. O `og:image:type` do HTML diz `image/png`,
+# mas quem manda no que chega pela rede é este cabeçalho.
+#
+# A regra da raiz e a de segmento são separadas de propósito: `/*/` exige pelo
+# menos um segmento antes, então não cobriria `/opengraph-image` sozinha. A
+# segunda pega qualquer rota que ganhe card próprio depois, sem precisar voltar
+# aqui.
+
+/opengraph-image
+  Content-Type: image/png
+
+/*/opengraph-image
+  Content-Type: image/png
