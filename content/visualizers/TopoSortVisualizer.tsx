@@ -37,19 +37,19 @@ type Preset = { key: string; label: string; edges: [number, number][]; hint: str
 
 const PRESETS: Preset[] = [
   {
-    key: "curso",
+    key: "course",
     label: "Pré-requisitos de um curso",
     edges: [[0, 1], [1, 2], [0, 3], [1, 3], [2, 4], [4, 5], [6, 5], [3, 4]],
     hint: "Uma aresta A → B quer dizer 'A é pré-requisito de B'. A ordenação topológica é uma ordem válida de fazer as matérias.",
   },
   {
-    key: "paralelo",
+    key: "parallel",
     label: "Muita coisa independente",
     edges: [[0, 1], [6, 3], [1, 2], [4, 5]],
     hint: "Vários vértices com grau de entrada zero desde o começo: existem MUITAS ordens válidas, e a fila mostra os candidatos empatados.",
   },
   {
-    key: "ciclo",
+    key: "cycle",
     label: "Com ciclo (impossível)",
     edges: [[0, 1], [1, 2], [2, 4], [4, 1], [0, 3], [6, 5]],
     hint: "C1 → C2 → Est → C1 é um ciclo: cada um espera o outro. Não existe ordem válida, e o Kahn descobre isso sozinho.",
@@ -149,7 +149,7 @@ function generateSteps(edges: [number, number][]): Step[] {
 const INITIAL_SPEED = 4;
 
 export function TopoSortVisualizer() {
-  const [presetKey, setPresetKey] = useState("curso");
+  const [presetKey, setPresetKey] = useState("course");
 
   const preset = useMemo(() => PRESETS.find((pr) => pr.key === presetKey) ?? PRESETS[0], [presetKey]);
   const steps = useMemo(() => generateSteps(preset.edges), [preset]);
@@ -181,7 +181,7 @@ export function TopoSortVisualizer() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}${pr.key === "ciclo" ? " na" : ""}`} onClick={() => pickPreset(pr.key)} aria-pressed={presetKey === pr.key}>
+            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}${pr.key === "cycle" ? " na" : ""}`} onClick={() => pickPreset(pr.key)} aria-pressed={presetKey === pr.key}>
               {pr.label}
             </button>
           ))}

@@ -40,19 +40,19 @@ const A = (from: number, to: number, weight: number): Edge => ({ from, to, weigh
 
 const PRESETS: Preset[] = [
   {
-    key: "classico",
+    key: "classic",
     label: "Grafo com pesos",
     edges: [A(0, 1, 4), A(0, 2, 2), A(1, 3, 5), A(2, 1, 1), A(2, 4, 8), A(3, 5, 3), A(4, 5, 2), A(3, 4, 2)],
     hint: "Repare no A→B: o caminho direto custa 4, mas passar por C custa 2+1 = 3. É o relaxamento que descobre isso.",
   },
   {
-    key: "armadilha",
+    key: "trap",
     label: "A tentação do caminho direto",
     edges: [A(0, 1, 10), A(0, 2, 1), A(2, 3, 1), A(3, 1, 1), A(1, 5, 1), A(2, 4, 7), A(4, 5, 1)],
     hint: "A aresta A→B custa 10 e parece ruim. O desvio A→C→D→B custa 3. Guloso não quer dizer míope: Dijkstra acha o desvio.",
   },
   {
-    key: "negativo",
+    key: "negative",
     label: "Com peso negativo (quebra)",
     // Montado para FALHAR de verdade: B fecha valendo 1, e só depois o C
     // (que fecha com 2) revela a aresta C→B de peso -2, que daria 0.
@@ -161,7 +161,7 @@ function generateSteps(edges: Edge[], negative: boolean): Step[] {
 const SPEEDS = [0, 1500, 1000, 700, 450, 260];
 
 export function DijkstraVisualizer() {
-  const [presetKey, setPresetKey] = useState("classico");
+  const [presetKey, setPresetKey] = useState("classic");
 
   const preset = useMemo(() => PRESETS.find((pr) => pr.key === presetKey) ?? PRESETS[0], [presetKey]);
   const steps = useMemo(() => generateSteps(preset.edges, !!preset.negative), [preset]);

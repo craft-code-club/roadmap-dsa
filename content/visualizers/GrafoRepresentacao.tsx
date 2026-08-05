@@ -47,13 +47,13 @@ const PRESETS: Preset[] = [
     hint: "O caso mais comum do mundo real: cada vértice tem poucos vizinhos. A matriz fica quase toda em zero.",
   },
   {
-    key: "denso",
+    key: "dense",
     label: "Denso",
     edges: [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 5], [2, 3], [2, 4], [3, 4], [3, 5], [4, 5]],
     hint: "Muitas arestas por vértice. Aqui a matriz para de desperdiçar e passa a ganhar da lista na consulta.",
   },
   {
-    key: "completo",
+    key: "complete",
     label: "Completo",
     edges: (() => {
       const a: [number, number][] = [];
@@ -63,7 +63,7 @@ const PRESETS: Preset[] = [
     hint: "Todo mundo ligado a todo mundo: V(V-1)/2 = 15 arestas. É o teto, e é onde a matriz fica cheia.",
   },
   {
-    key: "caminho",
+    key: "path",
     label: "Caminho (o mínimo conexo)",
     edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
     hint: "V-1 arestas: o mínimo para conectar tudo sem ciclo. Uma árvore é exatamente isto.",
