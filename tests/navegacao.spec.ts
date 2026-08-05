@@ -68,7 +68,7 @@ test("muro de apoiadores: um card por pessoa, contagem batendo e convite no fim"
 
   const plural = quantos === 1 ? "pessoa já apoia" : "pessoas já apoiam";
   await expect(page.locator(".gratidao-titulo")).toHaveText(
-    `${quantos} ${plural} o Craft & Code Club.`
+    `${quantos} ${plural} a comunidade Craft & Code Club.`
   );
 
   // sigla do avatar: primeiro e último nome, sem a partícula do meio

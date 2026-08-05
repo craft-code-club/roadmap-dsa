@@ -65,7 +65,7 @@ export default async function ApoiePage() {
               <p className="gratidao-titulo">
                 <span className="gratidao-n">{supporters.length}</span>{" "}
                 {supporters.length === 1 ? "pessoa já apoia" : "pessoas já apoiam"}{" "}
-                o Craft &amp; Code Club.
+                a comunidade Craft &amp; Code Club.
               </p>
               <p className="gratidao-texto">
                 Cada apoio ajuda a manter o site no ar, os encontros acontecendo e o conteúdo livre e
