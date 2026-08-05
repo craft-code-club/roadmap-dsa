@@ -598,9 +598,12 @@ test("clicar em Próximo volta ao topo de uma vez, não numa animação cancelá
 
   const proximo = page.locator(".prevnext a.next");
   const destino = await proximo.getAttribute("href");
+  expect(destino, "o link do Próximo precisa apontar para um tópico").toBeTruthy();
   const traj = await trajetoriaDaRolagem(page, () => proximo.click());
 
-  await expect(page).toHaveURL(new RegExp(`${destino}$`));
+  // Compara o caminho direto, sem montar RegExp com texto lido da página: um
+  // href nulo viraria `/null$/` e um metacaractere mudaria o que o teste casa.
+  expect(new URL(page.url()).pathname, "não abriu o tópico seguinte").toBe(destino);
   await expect(page.getByRole("heading", { level: 1, name: "Strings" })).toBeVisible();
 
   const posicoes = [...new Set(traj)];
