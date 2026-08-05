@@ -29,6 +29,9 @@ const ALTA = { width: 1512, height: 1600 };
 // medição REALMENTE discordaria de quem abre o código na mão.
 const APERTADA = { width: 1512, height: 700 };
 
+/** Os rótulos das marchas, na ordem do `input[type=range]` (o índice 0 não é usado). */
+const ROTULOS_MARCHA = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+
 const VISUALIZADORES = [
   {
     i: 0,
@@ -42,6 +45,11 @@ const VISUALIZADORES = [
     provaRotulo: "caso base",
     provaValor: "n == 0",
     arquivoDepois: "contagem.py",
+    // A marcha em que a peça ABRE e a seguinte. Não é a mesma nas duas: a
+    // pilha usa a marcha padrão do hook e a árvore abre uma acima, porque ela
+    // desenha dezenas de nós. Deixar o valor esperado aqui, por peça, é o que
+    // faz este teste falhar se alguém tirar a marcha própria de uma delas.
+    marchaInicial: "1x",
     // Recolhida, a pilha volta para dentro do orçamento do artigo: 731px
     // contra 816 em 1512x900 (eram 885 com o código à mostra).
     cabeNoOrcamento: true,
@@ -57,6 +65,9 @@ const VISUALIZADORES = [
     provaRotulo: "acertos no cache",
     provaValor: "0",
     arquivoDepois: "fib_memo.py",
+    // Abre no "1.5x" (`initialSpeed: 4`), não no padrão do hook: a árvore tem
+    // dezenas de nós e no 1x a reprodução inteira fica longa demais.
+    marchaInicial: "1.5x",
     // A árvore NÃO cabe no artigo nem recolhida: 1137px contra 816. O que
     // sobra não é bloco dispensável — é o desenho (440px), a tabela de
     // comparação (196px), as fichas (78px) e o respiro do miolo, que a camada 2
@@ -320,12 +331,19 @@ for (const v of VISUALIZADORES) {
       const marcha = painel.locator(".viz-speed .val");
 
       const total = (await passo.textContent())!.match(/de (\d+)/)![1];
-      await expect(marcha).toHaveText("1x");
+      // A marcha de ABERTURA é da peça, não do hook: a árvore abre uma acima.
+      await expect(marcha).toHaveText(v.marchaInicial);
 
+      // O clique no `input[type=range]` reposiciona a marcha pelo ponto
+      // clicado, então o valor de partida da seta é o de DEPOIS do clique —
+      // não o de abertura. Ler aqui é o que torna a asserção sobre a seta
+      // independente da marcha inicial de cada peça.
       await slider.click();
+      const antes = Number(await slider.inputValue());
       await page.keyboard.press("ArrowRight");
 
-      await expect(marcha).toHaveText("1.5x");
+      await expect(slider).toHaveValue(String(antes + 1));
+      await expect(marcha).toHaveText(ROTULOS_MARCHA[antes + 1]);
       await expect(passo).toHaveText(`passo 1 de ${total}`);
     });
   });

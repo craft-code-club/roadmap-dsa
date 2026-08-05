@@ -231,6 +231,10 @@ export function RecursionArvoreVisualizer() {
     title: "Visualizador · a árvore de chamadas do Fibonacci e o retrabalho",
     total: steps.length,
     speeds: SPEEDS,
+    // A marcha inicial desta peça é a 4 ("1.5x"), não a 3 do hook: a árvore tem
+    // dezenas de nós e no 1x a reprodução inteira fica longa demais para quem
+    // só quer ver a forma do retrabalho. Era o valor que o componente já tinha.
+    initialSpeed: 4,
     // O que muda a altura da peça: `n`, porque a altura do desenho é a
     // PROFUNDIDADE (n − 1) e não o número de nós; e o cache, que troca um
     // código de 4 linhas por um de 9 e acrescenta uma tarja na legenda. Medido:
