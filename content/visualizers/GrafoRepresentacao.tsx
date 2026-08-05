@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // GrafoRepresentacao, matriz e lista de adjacência lado a lado.
@@ -15,10 +15,17 @@ import { createPortal } from "react-dom";
 // vértices, então clicar nela deixa explícito o que a matriz é: um espaço
 // reservado para toda aresta possível, ocupada ou não. Grafo esparso deixa
 // quase tudo em zero, e o desperdício aparece sozinho.
+//
+// Sobre a casca: não há linha do tempo (`total: 1`) nem bloco dispensável para
+// recolher (`collapsible: false`) — o desenho, a matriz e a lista SÃO o
+// conteúdo. Da casca ele usa o que lhe cabe: o painel expandido com o
+// cabeçalho parado enquanto o miolo rola. Os presets e o seletor de tipo
+// continuam sendo controles do miolo, e não do rodapé, porque no rodapé só
+// mora reprodução — e aqui não há rodapé nenhum.
 // ---------------------------------------------------------------------------
 
-const ROT = ["A", "B", "C", "D", "E", "F"];
-const V = ROT.length;
+const LABELS = ["A", "B", "C", "D", "E", "F"];
+const V = LABELS.length;
 
 // Posições fixas: hexágono, para nenhuma aresta passar por cima de vértice.
 const POS: { x: number; y: number }[] = [
@@ -30,132 +37,128 @@ const POS: { x: number; y: number }[] = [
   { x: 36, y: 96 },
 ];
 
-type Preset = { key: string; rotulo: string; arestas: [number, number][]; dica: string };
+type Preset = { key: string; label: string; edges: [number, number][]; hint: string };
 
 const PRESETS: Preset[] = [
   {
     key: "social",
-    rotulo: "Esparso (rede social)",
-    arestas: [[0, 1], [0, 5], [1, 2], [2, 3], [3, 4], [4, 5], [1, 4]],
-    dica: "O caso mais comum do mundo real: cada vértice tem poucos vizinhos. A matriz fica quase toda em zero.",
+    label: "Esparso (rede social)",
+    edges: [[0, 1], [0, 5], [1, 2], [2, 3], [3, 4], [4, 5], [1, 4]],
+    hint: "O caso mais comum do mundo real: cada vértice tem poucos vizinhos. A matriz fica quase toda em zero.",
   },
   {
-    key: "denso",
-    rotulo: "Denso",
-    arestas: [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 5], [2, 3], [2, 4], [3, 4], [3, 5], [4, 5]],
-    dica: "Muitas arestas por vértice. Aqui a matriz para de desperdiçar e passa a ganhar da lista na consulta.",
+    key: "dense",
+    label: "Denso",
+    edges: [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 5], [2, 3], [2, 4], [3, 4], [3, 5], [4, 5]],
+    hint: "Muitas arestas por vértice. Aqui a matriz para de desperdiçar e passa a ganhar da lista na consulta.",
   },
   {
-    key: "completo",
-    rotulo: "Completo",
-    arestas: (() => {
+    key: "complete",
+    label: "Completo",
+    edges: (() => {
       const a: [number, number][] = [];
       for (let i = 0; i < V; i++) for (let j = i + 1; j < V; j++) a.push([i, j]);
       return a;
     })(),
-    dica: "Todo mundo ligado a todo mundo: V(V-1)/2 = 15 arestas. É o teto, e é onde a matriz fica cheia.",
+    hint: "Todo mundo ligado a todo mundo: V(V-1)/2 = 15 arestas. É o teto, e é onde a matriz fica cheia.",
   },
   {
-    key: "caminho",
-    rotulo: "Caminho (o mínimo conexo)",
-    arestas: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
-    dica: "V-1 arestas: o mínimo para conectar tudo sem ciclo. Uma árvore é exatamente isto.",
+    key: "path",
+    label: "Caminho (o mínimo conexo)",
+    edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+    hint: "V-1 arestas: o mínimo para conectar tudo sem ciclo. Uma árvore é exatamente isto.",
   },
 ];
 
-function matrizDe(arestas: [number, number][], dirigido: boolean): number[][] {
+function matrixFrom(edges: [number, number][], directed: boolean): number[][] {
   const m = Array.from({ length: V }, () => new Array(V).fill(0));
-  for (const [a, b] of arestas) {
+  for (const [a, b] of edges) {
     m[a][b] = 1;
-    if (!dirigido) m[b][a] = 1;
+    if (!directed) m[b][a] = 1;
   }
   return m;
 }
 
 export function GrafoRepresentacao() {
   const [presetKey, setPresetKey] = useState("social");
-  const [dirigido, setDirigido] = useState(false);
-  const [m, setM] = useState<number[][]>(() => matrizDe(PRESETS[0].arestas, false));
-  const [foco, setFoco] = useState<number | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [directed, setDirected] = useState(false);
+  const [matrix, setMatrix] = useState<number[][]>(() => matrixFrom(PRESETS[0].edges, false));
+  const [focused, setFocused] = useState<number | null>(null);
 
-  useEffect(() => setMounted(true), []);
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  const viz = useVisualizer({
+    title: "Visualizador · o mesmo grafo em matriz e em lista de adjacência",
+    // Não é uma animação: a matriz é editável e o resultado é imediato. Com
+    // `total: 1` somem o contador de passo, os atalhos e a barra de progresso.
+    total: 1,
+    // Não há bloco dispensável: o desenho, a matriz e a lista SÃO o conteúdo.
+    // Sem isso o cabeçalho prometeria esconder um bloco que não existe.
+    collapsible: false,
+    // `measureOn` fica de fora de propósito: com `collapsible: false` não há
+    // decisão a tomar, e o hook nem espera as fontes. Passar a lista seria
+    // anunciar uma medição que não acontece.
+  });
 
-  const aplicar = (p: Preset, dir = dirigido) => {
+  const applyPreset = (p: Preset, dir = directed) => {
     setPresetKey(p.key);
-    setM(matrizDe(p.arestas, dir));
+    setMatrix(matrixFrom(p.edges, dir));
   };
 
-  const trocarDirigido = (v: boolean) => {
-    setDirigido(v);
-    setM((atual) => {
-      if (v) return atual.map((l) => [...l]);
+  const changeDirected = (v: boolean) => {
+    setDirected(v);
+    setMatrix((current) => {
+      if (v) return current.map((row) => [...row]);
       // ao voltar para não dirigido, espelha para manter a simetria
-      const novo = atual.map((l) => [...l]);
-      for (let i = 0; i < V; i++) for (let j = 0; j < V; j++) if (novo[i][j]) novo[j][i] = 1;
-      return novo;
+      const next = current.map((row) => [...row]);
+      for (let i = 0; i < V; i++) for (let j = 0; j < V; j++) if (next[i][j]) next[j][i] = 1;
+      return next;
     });
   };
 
-  const alternar = (i: number, j: number) => {
+  const toggleEdge = (i: number, j: number) => {
     if (i === j) return; // laço: fora do escopo deste visualizador
     setPresetKey("");
-    setM((atual) => {
-      const novo = atual.map((l) => [...l]);
-      const valor = novo[i][j] ? 0 : 1;
-      novo[i][j] = valor;
-      if (!dirigido) novo[j][i] = valor;
-      return novo;
+    setMatrix((current) => {
+      const next = current.map((row) => [...row]);
+      const value = next[i][j] ? 0 : 1;
+      next[i][j] = value;
+      if (!directed) next[j][i] = value;
+      return next;
     });
   };
 
-  const { arestas, grau } = useMemo(() => {
-    const arestas: [number, number][] = [];
-    const grau = new Array(V).fill(0);
+  const { edges, degree } = useMemo(() => {
+    const edges: [number, number][] = [];
+    const degree = new Array(V).fill(0);
     for (let i = 0; i < V; i++) {
       for (let j = 0; j < V; j++) {
-        if (!m[i][j]) continue;
-        grau[i]++;
-        if (dirigido || i < j) arestas.push([i, j]);
+        if (!matrix[i][j]) continue;
+        degree[i]++;
+        if (directed || i < j) edges.push([i, j]);
       }
     }
-    return { arestas, grau };
-  }, [m, dirigido]);
+    return { edges, degree };
+  }, [matrix, directed]);
 
-  const E = arestas.length;
-  const maxE = dirigido ? V * (V - 1) : (V * (V - 1)) / 2;
-  const densidade = Math.round((E / maxE) * 100);
-  const custoMatriz = V * V;
-  const custoLista = V + (dirigido ? E : 2 * E);
-  const dica = PRESETS.find((p) => p.key === presetKey)?.dica;
+  const E = edges.length;
+  const maxE = directed ? V * (V - 1) : (V * (V - 1)) / 2;
+  const density = Math.round((E / maxE) * 100);
+  const matrixCost = V * V;
+  const listCost = V + (directed ? E : 2 * E);
+  const hint = PRESETS.find((p) => p.key === presetKey)?.hint;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · o mesmo grafo em matriz e em lista de adjacência</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">V = {V} · E = {E} · densidade {densidade}%</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem linha do tempo não há "passo N de M"; o número que resume o
+          estado entra no lugar dele, com o rótulo junto. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">V = {V} · E = {E} · densidade {density}%</span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((p) => (
-            <button key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => aplicar(p)} aria-pressed={presetKey === p.key}>
-              {p.rotulo}
+            <button key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => applyPreset(p)} aria-pressed={presetKey === p.key}>
+              {p.label}
             </button>
           ))}
         </div>
@@ -164,10 +167,10 @@ export function GrafoRepresentacao() {
           <div className="viz-field">
             <span>Tipo</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${dirigido ? "" : " on"}`} onClick={() => trocarDirigido(false)} aria-pressed={!dirigido}>
+              <button className={`sub-modo-btn${directed ? "" : " on"}`} onClick={() => changeDirected(false)} aria-pressed={!directed}>
                 não dirigido
               </button>
-              <button className={`sub-modo-btn${dirigido ? " on" : ""}`} onClick={() => trocarDirigido(true)} aria-pressed={dirigido}>
+              <button className={`sub-modo-btn${directed ? " on" : ""}`} onClick={() => changeDirected(true)} aria-pressed={directed}>
                 dirigido
               </button>
             </div>
@@ -175,7 +178,7 @@ export function GrafoRepresentacao() {
         </div>
 
         <p className="tt-legenda-arvore">
-          {dica ?? "Clique numa célula da matriz para ligar ou desligar a aresta. No modo não dirigido a célula espelhada acompanha, e é essa simetria que faz metade da matriz ser redundante."}
+          {hint ?? "Clique numa célula da matriz para ligar ou desligar a aresta. No modo não dirigido a célula espelhada acompanha, e é essa simetria que faz metade da matriz ser redundante."}
         </p>
 
         <div className="gr-split">
@@ -186,17 +189,17 @@ export function GrafoRepresentacao() {
               height={324}
               viewBox="0 0 300 324"
               role="img"
-              aria-label={`Grafo ${dirigido ? "dirigido" : "não dirigido"} com ${V} vértices e ${E} arestas, densidade ${densidade} por cento.`}
+              aria-label={`Grafo ${directed ? "dirigido" : "não dirigido"} com ${V} vértices e ${E} arestas, densidade ${density} por cento.`}
             >
-              {dirigido && (
+              {directed && (
                 <defs>
                   <marker id="seta-gr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                     <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(59,130,246,0.75)" />
                   </marker>
                 </defs>
               )}
-              {arestas.map(([a, b]) => {
-                const aceso = foco !== null && (a === foco || b === foco);
+              {edges.map(([a, b]) => {
+                const lit = focused !== null && (a === focused || b === focused);
                 // encurta a linha para a ponta da seta não entrar no círculo
                 const dx = POS[b].x - POS[a].x;
                 const dy = POS[b].y - POS[a].y;
@@ -205,24 +208,24 @@ export function GrafoRepresentacao() {
                 return (
                   <line
                     key={`${a}-${b}`}
-                    className={`tt-aresta${aceso ? " on" : ""}`}
+                    className={`tt-aresta${lit ? " on" : ""}`}
                     x1={POS[a].x + (dx / d) * r}
                     y1={POS[a].y + (dy / d) * r}
                     x2={POS[b].x - (dx / d) * r}
                     y2={POS[b].y - (dy / d) * r}
-                    markerEnd={dirigido ? "url(#seta-gr)" : undefined}
+                    markerEnd={directed ? "url(#seta-gr)" : undefined}
                   />
                 );
               })}
-              {ROT.map((r, i) => (
+              {LABELS.map((label, i) => (
                 <g
-                  key={r}
-                  className={`tt-no${foco === i ? " on" : ""}`}
-                  onMouseEnter={() => setFoco(i)}
-                  onMouseLeave={() => setFoco(null)}
+                  key={label}
+                  className={`tt-no${focused === i ? " on" : ""}`}
+                  onMouseEnter={() => setFocused(i)}
+                  onMouseLeave={() => setFocused(null)}
                 >
                   <circle cx={POS[i].x} cy={POS[i].y} r={17} />
-                  <text x={POS[i].x} y={POS[i].y + 4} textAnchor="middle">{r}</text>
+                  <text x={POS[i].x} y={POS[i].y + 4} textAnchor="middle">{label}</text>
                 </g>
               ))}
             </svg>
@@ -234,20 +237,20 @@ export function GrafoRepresentacao() {
               <thead>
                 <tr>
                   <th />
-                  {ROT.map((r) => <th key={r}>{r}</th>)}
+                  {LABELS.map((label) => <th key={label}>{label}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {m.map((linha, i) => (
-                  <tr key={i} className={foco === i ? "on" : undefined}>
-                    <th onMouseEnter={() => setFoco(i)} onMouseLeave={() => setFoco(null)}>{ROT[i]}</th>
-                    {linha.map((v, j) => (
+                {matrix.map((row, i) => (
+                  <tr key={i} className={focused === i ? "on" : undefined}>
+                    <th onMouseEnter={() => setFocused(i)} onMouseLeave={() => setFocused(null)}>{LABELS[i]}</th>
+                    {row.map((v, j) => (
                       <td key={j}>
                         <button
                           className={`gr-cel${v ? " on" : ""}${i === j ? " diag" : ""}`}
-                          onClick={() => alternar(i, j)}
+                          onClick={() => toggleEdge(i, j)}
                           disabled={i === j}
-                          aria-label={`Aresta de ${ROT[i]} para ${ROT[j]}: ${v ? "existe" : "não existe"}`}
+                          aria-label={`Aresta de ${LABELS[i]} para ${LABELS[j]}: ${v ? "existe" : "não existe"}`}
                           aria-pressed={!!v}
                         >
                           {v}
@@ -264,12 +267,12 @@ export function GrafoRepresentacao() {
         <div className="gr-painel" style={{ marginTop: 12 }}>
           <div className="tt-painel-tit">Lista de adjacência <em>só o que existe</em></div>
           <div className="gr-lista">
-            {ROT.map((r, i) => (
-              <div key={r} className={`gr-linha${foco === i ? " on" : ""}`} onMouseEnter={() => setFoco(i)} onMouseLeave={() => setFoco(null)}>
-                <span className="gr-linha-no">{r}</span>
+            {LABELS.map((label, i) => (
+              <div key={label} className={`gr-linha${focused === i ? " on" : ""}`} onMouseEnter={() => setFocused(i)} onMouseLeave={() => setFocused(null)}>
+                <span className="gr-linha-no">{label}</span>
                 <span className="gr-seta">→</span>
-                {m[i].map((v, j) => (v ? <span key={j} className="gr-viz-item">{ROT[j]}</span> : null))}
-                {grau[i] === 0 && <span className="tt-vazio">sem vizinhos</span>}
+                {matrix[i].map((v, j) => (v ? <span key={j} className="gr-viz-item">{LABELS[j]}</span> : null))}
+                {degree[i] === 0 && <span className="tt-vazio">sem vizinhos</span>}
               </div>
             ))}
           </div>
@@ -278,28 +281,20 @@ export function GrafoRepresentacao() {
         <div className="bigo-stats">
           <div className="bigo-stat"><span>vértices (V)</span><strong>{V}</strong></div>
           <div className="bigo-stat"><span>arestas (E)</span><strong>{E} de {maxE}</strong></div>
-          <div className="bigo-stat"><span>memória da matriz</span><strong>{custoMatriz} células</strong></div>
-          <div className="bigo-stat"><span>memória da lista</span><strong>{custoLista} entradas</strong></div>
-          <div className="bigo-stat"><span>células em zero</span><strong>{custoMatriz - (dirigido ? E : 2 * E) - V}</strong></div>
+          <div className="bigo-stat"><span>memória da matriz</span><strong>{matrixCost} células</strong></div>
+          <div className="bigo-stat"><span>memória da lista</span><strong>{listCost} entradas</strong></div>
+          <div className="bigo-stat"><span>células em zero</span><strong>{matrixCost - (directed ? E : 2 * E) - V}</strong></div>
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           A matriz custa V² sempre, ligada ou não a aresta. A lista custa{" "}
-          {dirigido ? "V + E (dirigido: cada aresta aparece uma vez só)" : "V + 2E (não dirigido: cada aresta aparece nos dois vizinhos)"},
+          {directed ? "V + E (dirigido: cada aresta aparece uma vez só)" : "V + 2E (não dirigido: cada aresta aparece nos dois vizinhos)"},
           então ela só perde quando o grafo é quase completo. Com 6 vértices a diferença é pequena;
           com 1 milhão de vértices, a matriz pediria 10¹² células e simplesmente não cabe.
         </p>
       </div>
+
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
 }
