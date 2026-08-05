@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // BacktrackingVisualizer, a árvore que não existe.
@@ -23,28 +23,34 @@ import { createPortal } from "react-dom";
 // vão ficar, e dá para seguir um ramo específico do começo ao fim. Se o layout
 // acompanhasse a exploração, tudo se moveria a cada passo e o aluno leria
 // movimento onde só houve descoberta.
+//
+// A casca (altura que cabe na tela, painel com cabeçalho e controles parados,
+// código recolhível, teclado) vem do `useVisualizer`. Medido: no fluxo do
+// artigo a peça pede 1.369px de um orçamento de 816 a 1512x900, e o pico é o
+// passo 12 de 32 — 107px acima do primeiro passo e 100 acima do último, porque
+// quem cresce é a pilha de chamadas (19 → 120px), que sobe e desce.
 // ---------------------------------------------------------------------------
 
-type Acao = "inicio" | "escolher" | "registrar" | "descer" | "retroceder" | "fim";
+type Action = "inicio" | "escolher" | "registrar" | "descer" | "retroceder" | "fim";
 
-type No = { id: string; rotulo: string; prof: number; filhos: No[]; x: number; y: number };
+type TreeNode = { id: string; label: string; depth: number; children: TreeNode[]; x: number; y: number };
 
-type Passo = {
-  noAtual: string;
-  visitados: string[];
-  registrados: string[];
-  parcial: number[];
-  pilha: string[];
-  solucoes: number[][];
-  acao: Acao;
-  nos: number;
-  retrocessos: number;
-  linha: number;
-  nota: string;
+type Step = {
+  currentNode: string;
+  visited: string[];
+  recorded: string[];
+  partial: number[];
+  stack: string[];
+  solutions: number[][];
+  action: Action;
+  nodeCount: number;
+  backtracks: number;
+  line: number;
+  note: string;
   ok?: boolean;
 };
 
-const CODIGO = [
+const CODE = [
   "def backtrack(parcial, opcoes):",
   "    if completo(parcial):",
   "        solucoes.append(parcial[:])   # cópia, e isso importa",
@@ -56,15 +62,15 @@ const CODIGO = [
   "            parcial.pop()             # 3. desfazer",
 ];
 
-type Modo = "subconjuntos" | "permutacoes" | "combinacoes";
+type Mode = "subconjuntos" | "permutacoes" | "combinacoes";
 
-const NOMES: Record<Modo, string> = {
+const MODE_NAMES: Record<Mode, string> = {
   subconjuntos: "Subconjuntos de 1, 2, 3",
   permutacoes: "Permutações de 1, 2, 3",
   combinacoes: "Combinações de 2 entre 1, 2, 3, 4",
 };
 
-const DICAS: Record<Modo, string> = {
+const MODE_HINTS: Record<Mode, string> = {
   subconjuntos:
     "Todo nó da árvore é uma resposta, inclusive a raiz (o conjunto vazio). Repare que o algoritmo registra a solução na ENTRADA de cada chamada, antes de olhar as opções, e por isso são 2^3 = 8 respostas para 8 nós.",
   permutacoes:
@@ -73,136 +79,135 @@ const DICAS: Record<Modo, string> = {
     "Combinação fixa o tamanho: dois elementos entre quatro, sem repetir e sem ligar para a ordem. Só os nós de profundidade 2 são resposta, e a regra de nunca voltar para trás no array é o que impede 1,2 e 2,1 de aparecerem os dois.",
 };
 
-const MODOS: Modo[] = ["subconjuntos", "permutacoes", "combinacoes"];
+const MODES: Mode[] = ["subconjuntos", "permutacoes", "combinacoes"];
 
-const VELOCIDADES = [0, 1200, 800, 520, 320, 180];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1200, 800, 520, 320, 180];
 
-const rotuloDe = (v: number[]) => (v.length === 0 ? "∅" : v.join(" "));
+const labelOf = (v: number[]) => (v.length === 0 ? "∅" : v.join(" "));
 
 // Gera a árvore inteira e a lista de passos numa passada só. A árvore é o mapa
 // do percurso, e os passos são o percurso: os dois saem do mesmo laço, então
 // não têm como divergir.
-export function gerar(modo: Modo): { raiz: No; passos: Passo[]; folhas: number } {
-  const valores = modo === "combinacoes" ? [1, 2, 3, 4] : [1, 2, 3];
+export function generate(mode: Mode): { root: TreeNode; steps: Step[]; leaves: number } {
+  const values = mode === "combinacoes" ? [1, 2, 3, 4] : [1, 2, 3];
   const k = 2; // tamanho fixo das combinações
-  const passos: Passo[] = [];
-  const parcial: number[] = [];
-  const solucoes: number[][] = [];
-  const visitados: string[] = [];
-  const registrados: string[] = [];
-  const pilha: string[] = [];
-  let contaNos = 0;
-  let retrocessos = 0;
+  const steps: Step[] = [];
+  const partial: number[] = [];
+  const solutions: number[][] = [];
+  const visited: string[] = [];
+  const recorded: string[] = [];
+  const stack: string[] = [];
+  let nodeCount = 0;
+  let backtracks = 0;
 
-  const raiz: No = { id: "r", rotulo: "∅", prof: 0, filhos: [], x: 0, y: 0 };
+  const root: TreeNode = { id: "r", label: "∅", depth: 0, children: [], x: 0, y: 0 };
 
-  const base = (noAtual: string, acao: Acao, linha: number, nota: string, ok?: boolean): Passo => ({
-    noAtual,
-    visitados: [...visitados],
-    registrados: [...registrados],
-    parcial: [...parcial],
-    pilha: [...pilha],
-    solucoes: solucoes.map((s) => [...s]),
-    acao,
-    nos: contaNos,
-    retrocessos,
-    linha,
-    nota,
+  const base = (currentNode: string, action: Action, line: number, note: string, ok?: boolean): Step => ({
+    currentNode,
+    visited: [...visited],
+    recorded: [...recorded],
+    partial: [...partial],
+    stack: [...stack],
+    solutions: solutions.map((s) => [...s]),
+    action,
+    nodeCount,
+    backtracks,
+    line,
+    note,
     ok,
   });
 
-  const completo = () =>
-    modo === "subconjuntos" ? true : modo === "permutacoes" ? parcial.length === valores.length : parcial.length === k;
+  const isComplete = () =>
+    mode === "subconjuntos" ? true : mode === "permutacoes" ? partial.length === values.length : partial.length === k;
 
-  const explorar = (no: No, inicio: number, usados: boolean[]) => {
-    contaNos++;
-    visitados.push(no.id);
-    pilha.push(rotuloDe(parcial));
-    passos.push(
+  const explore = (node: TreeNode, start: number, used: boolean[]) => {
+    nodeCount++;
+    visited.push(node.id);
+    stack.push(labelOf(partial));
+    steps.push(
       base(
-        no.id,
+        node.id,
         "descer",
         0,
-        `Entrei na chamada com a solução parcial [${rotuloDe(parcial)}]. A pilha tem ${pilha.length} chamada${pilha.length === 1 ? "" : "s"} agora.`
+        `Entrei na chamada com a solução parcial [${labelOf(partial)}]. A pilha tem ${stack.length} chamada${stack.length === 1 ? "" : "s"} agora.`
       )
     );
 
-    if (completo()) {
-      solucoes.push([...parcial]);
-      registrados.push(no.id);
-      passos.push(
+    if (isComplete()) {
+      solutions.push([...partial]);
+      recorded.push(node.id);
+      steps.push(
         base(
-          no.id,
+          node.id,
           "registrar",
           2,
-          `[${rotuloDe(parcial)}] é uma solução completa, então guardo. Repare no [:] do código: eu guardo uma CÓPIA. A lista parcial é uma só e vai continuar mudando; sem a cópia, todas as ${solucoes.length} respostas apontariam para ela e terminariam vazias.`,
+          `[${labelOf(partial)}] é uma solução completa, então guardo. Repare no [:] do código: eu guardo uma CÓPIA. A lista parcial é uma só e vai continuar mudando; sem a cópia, todas as ${solutions.length} respostas apontariam para ela e terminariam vazias.`,
           true
         )
       );
-      if (modo !== "subconjuntos") {
-        pilha.pop();
+      if (mode !== "subconjuntos") {
+        stack.pop();
         return;
       }
     }
 
-    for (let i = modo === "permutacoes" ? 0 : inicio; i < valores.length; i++) {
-      if (modo === "permutacoes" && usados[i]) continue;
-      const v = valores[i];
-      if (modo === "combinacoes" && parcial.length + (valores.length - i) < k) break;
+    for (let i = mode === "permutacoes" ? 0 : start; i < values.length; i++) {
+      if (mode === "permutacoes" && used[i]) continue;
+      const v = values[i];
+      if (mode === "combinacoes" && partial.length + (values.length - i) < k) break;
 
-      parcial.push(v);
-      if (modo === "permutacoes") usados[i] = true;
-      const filho: No = { id: `${no.id}-${v}`, rotulo: rotuloDe(parcial), prof: no.prof + 1, filhos: [], x: 0, y: 0 };
-      no.filhos.push(filho);
-      passos.push(
+      partial.push(v);
+      if (mode === "permutacoes") used[i] = true;
+      const child: TreeNode = { id: `${node.id}-${v}`, label: labelOf(partial), depth: node.depth + 1, children: [], x: 0, y: 0 };
+      node.children.push(child);
+      steps.push(
         base(
-          filho.id,
+          child.id,
           "escolher",
           6,
-          `Escolho ${v} e ponho na solução parcial: [${rotuloDe(parcial)}]. ${
-            modo === "subconjuntos"
+          `Escolho ${v} e ponho na solução parcial: [${labelOf(partial)}]. ${
+            mode === "subconjuntos"
               ? `Como só olho do índice ${i + 1} em diante daqui para frente, nunca vou montar um subconjunto fora da ordem original.`
-              : modo === "permutacoes"
+              : mode === "permutacoes"
                 ? `Marco ${v} como usado: numa permutação cada elemento entra uma vez só, mas em qualquer posição.`
                 : `Daqui em diante só olho do índice ${i + 1} para a frente, que é o que impede 1,2 e 2,1 de contarem como combinações diferentes.`
           }`
         )
       );
 
-      explorar(filho, i + 1, usados);
+      explore(child, i + 1, used);
 
-      const removido = parcial.pop();
-      if (modo === "permutacoes") usados[i] = false;
-      retrocessos++;
-      passos.push(
+      const removed = partial.pop();
+      if (mode === "permutacoes") used[i] = false;
+      backtracks++;
+      steps.push(
         base(
-          filho.id,
+          child.id,
           "retroceder",
           8,
-          `Retrocesso: tiro ${removido} da solução parcial, que volta a ser [${rotuloDe(parcial)}]. Repare que a árvore não perdeu nada, porque ela é só o desenho do caminho. Quem encolheu foi a lista, que é a única coisa que existe de verdade na memória.`
+          `Retrocesso: tiro ${removed} da solução parcial, que volta a ser [${labelOf(partial)}]. Repare que a árvore não perdeu nada, porque ela é só o desenho do caminho. Quem encolheu foi a lista, que é a única coisa que existe de verdade na memória.`
         )
       );
     }
 
-    if (!(completo() && modo !== "subconjuntos")) pilha.pop();
+    if (!(isComplete() && mode !== "subconjuntos")) stack.pop();
   };
 
-  passos.push(
+  steps.push(
     base(
       "r",
       "inicio",
       0,
-      `${NOMES[modo]}. A solução parcial começa vazia e o algoritmo vai fazer sempre a mesma coisa: escolher uma opção, explorar tudo que sai dela, e desfazer a escolha para poder tentar a próxima.`
+      `${MODE_NAMES[mode]}. A solução parcial começa vazia e o algoritmo vai fazer sempre a mesma coisa: escolher uma opção, explorar tudo que sai dela, e desfazer a escolha para poder tentar a próxima.`
     )
   );
-  explorar(raiz, 0, new Array(valores.length).fill(false));
-  passos.push(
+  explore(root, 0, new Array(values.length).fill(false));
+  steps.push(
     base(
       "r",
       "fim",
       0,
-      `Acabou: ${solucoes.length} soluções, ${contaNos} nós visitados e ${retrocessos} retrocessos. A solução parcial voltou a ficar vazia, exatamente como começou, porque todo escolher teve o seu desfazer.`,
+      `Acabou: ${solutions.length} soluções, ${nodeCount} nós visitados e ${backtracks} retrocessos. A solução parcial voltou a ficar vazia, exatamente como começou, porque todo escolher teve o seu desfazer.`,
       true
     )
   );
@@ -210,139 +215,100 @@ export function gerar(modo: Modo): { raiz: No; passos: Passo[]; folhas: number }
   // Layout: x por posição de folha, y por profundidade. Calculado sobre a
   // árvore COMPLETA, para o desenho não se mexer durante a animação.
   let slot = 0;
-  const posicionar = (n: No): number => {
-    if (n.filhos.length === 0) {
+  const place = (n: TreeNode): number => {
+    if (n.children.length === 0) {
       n.x = slot++;
       return n.x;
     }
-    const xs = n.filhos.map(posicionar);
+    const xs = n.children.map(place);
     n.x = (xs[0] + xs[xs.length - 1]) / 2;
     return n.x;
   };
-  posicionar(raiz);
-  const marcarY = (n: No) => {
-    n.y = n.prof;
-    n.filhos.forEach(marcarY);
+  place(root);
+  const markY = (n: TreeNode) => {
+    n.y = n.depth;
+    n.children.forEach(markY);
   };
-  marcarY(raiz);
+  markY(root);
 
-  return { raiz, passos, folhas: slot };
+  return { root, steps, leaves: slot };
 }
 
-function achatar(n: No, saida: No[] = []): No[] {
-  saida.push(n);
-  n.filhos.forEach((f) => achatar(f, saida));
-  return saida;
+function flatten(n: TreeNode, out: TreeNode[] = []): TreeNode[] {
+  out.push(n);
+  n.children.forEach((f) => flatten(f, out));
+  return out;
 }
 
-const NO_R = 17;
+const NODE_R = 17;
 
 export function BacktrackingVisualizer() {
-  const [modo, setModo] = useState<Modo>("subconjuntos");
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(4);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [mode, setMode] = useState<Mode>("subconjuntos");
 
-  useEffect(() => setMounted(true), []);
+  const { root, steps, leaves } = useMemo(() => generate(mode), [mode]);
+  const allNodes = useMemo(() => flatten(root), [root]);
 
-  const { raiz, passos, folhas } = useMemo(() => gerar(modo), [modo]);
-  const nos = useMemo(() => achatar(raiz), [raiz]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const viz = useVisualizer({
+    title: "Visualizador · backtracking: escolher, explorar, desfazer",
+    total: steps.length,
+    speeds: SPEEDS,
+    initialSpeed: 4,
+    // O que muda a altura da peça é o modo: ele decide a profundidade da árvore
+    // (o desenho mede 260px com 3 níveis e 198px com 2) e o tamanho da dica.
+    // A pilha de chamadas cresce ao longo da animação e o hook não remede por
+    // passo — não precisa: o passo 0 já pede 1.262px de um orçamento de 816.
+    measureOn: [mode],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  const p = steps[viz.step];
 
-  const reiniciar = () => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  };
-  const trocarModo = (m: Modo) => {
-    reiniciar();
-    setModo(m);
+  const changeMode = (m: Mode) => {
+    viz.reset();
+    setMode(m);
   };
 
-  const profMax = Math.max(...nos.map((n) => n.prof));
-  const passoX = 74;
-  const largura = Math.max(320, folhas * passoX);
-  const W = largura + NO_R * 2;
-  const H = 40 + profMax * 62 + NO_R * 2;
-  const cx = (n: No) => NO_R + ((n.x + 0.5) * largura) / folhas;
-  const cy = (n: No) => 22 + NO_R + n.y * 62;
+  const maxDepth = Math.max(...allNodes.map((n) => n.depth));
+  const stepX = 74;
+  const span = Math.max(320, leaves * stepX);
+  const W = span + NODE_R * 2;
+  const H = 40 + maxDepth * 62 + NODE_R * 2;
+  const cx = (n: TreeNode) => NODE_R + ((n.x + 0.5) * span) / leaves;
+  const cy = (n: TreeNode) => 22 + NODE_R + n.y * 62;
 
-  const vistos = new Set(p.visitados);
-  const registrados = new Set(p.registrados);
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const seen = new Set(p.visited);
+  const recorded = new Set(p.recorded);
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · backtracking: escolher, explorar, desfazer</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {MODOS.map((m) => (
-            <button key={m} className={`bigo-chip${modo === m ? " on" : ""}`} onClick={() => trocarModo(m)} aria-pressed={modo === m}>
-              {NOMES[m]}
+          {MODES.map((m) => (
+            <button key={m} className={`bigo-chip${mode === m ? " on" : ""}`} onClick={() => changeMode(m)} aria-pressed={mode === m}>
+              {MODE_NAMES[m]}
             </button>
           ))}
         </div>
 
-        <p className="tt-legenda-arvore">{DICAS[modo]}</p>
+        <p className="tt-legenda-arvore">{MODE_HINTS[mode]}</p>
 
-        <div className={`hs-fase ${p.acao === "retroceder" ? "f-ordenar" : p.acao === "registrar" ? "f-fim" : ""}`}>
+        {/* `f-ordenar` e `f-fim` são API de CSS (`.hs-fase.f-ordenar`), não
+            identificadores deste arquivo: os nomes ficam em português. */}
+        <div className={`hs-fase ${p.action === "retroceder" ? "f-ordenar" : p.action === "registrar" ? "f-fim" : ""}`}>
           <span className="hs-fase-selo">
-            {p.acao === "escolher"
+            {p.action === "escolher"
               ? "1 · escolher"
-              : p.acao === "descer"
+              : p.action === "descer"
                 ? "2 · explorar"
-                : p.acao === "retroceder"
+                : p.action === "retroceder"
                   ? "3 · desfazer"
-                  : p.acao === "registrar"
+                  : p.action === "registrar"
                     ? "solução completa"
                     : "início"}
           </span>
           <span className="hs-fase-txt">
-            solução parcial: [{rotuloDe(p.parcial)}] · soluções guardadas: {p.solucoes.length}
+            solução parcial: [{labelOf(p.partial)}] · soluções guardadas: {p.solutions.length}
           </span>
         </div>
 
@@ -353,31 +319,31 @@ export function BacktrackingVisualizer() {
             height={H}
             viewBox={`0 0 ${W} ${H}`}
             role="img"
-            aria-label={`Árvore de decisão do backtracking. ${p.nota}`}
+            aria-label={`Árvore de decisão do backtracking. ${p.note}`}
           >
-            {nos.map((n) =>
-              n.filhos.map((f) => (
+            {allNodes.map((n) =>
+              n.children.map((f) => (
                 <line
                   key={`${n.id}->${f.id}`}
-                  className={`tt-aresta${vistos.has(f.id) ? " ativa" : ""}`}
+                  className={`tt-aresta${seen.has(f.id) ? " ativa" : ""}`}
                   x1={cx(n)}
-                  y1={cy(n) + NO_R}
+                  y1={cy(n) + NODE_R}
                   x2={cx(f)}
-                  y2={cy(f) - NO_R}
-                  opacity={vistos.has(f.id) ? 1 : 0.18}
+                  y2={cy(f) - NODE_R}
+                  opacity={seen.has(f.id) ? 1 : 0.18}
                 />
               ))
             )}
-            {nos.map((n) => {
+            {allNodes.map((n) => {
               const cls = ["tt-no", "bt-no"];
-              if (n.id === p.noAtual) cls.push("on");
-              else if (registrados.has(n.id)) cls.push("filho");
-              else if (!vistos.has(n.id)) cls.push("porvir");
+              if (n.id === p.currentNode) cls.push("on");
+              else if (recorded.has(n.id)) cls.push("filho");
+              else if (!seen.has(n.id)) cls.push("porvir");
               return (
                 <g key={n.id} className={cls.join(" ")}>
-                  <circle cx={cx(n)} cy={cy(n)} r={NO_R} />
+                  <circle cx={cx(n)} cy={cy(n)} r={NODE_R} />
                   <text x={cx(n)} y={cy(n) + 4} textAnchor="middle">
-                    {n.rotulo}
+                    {n.label}
                   </text>
                 </g>
               );
@@ -391,11 +357,11 @@ export function BacktrackingVisualizer() {
               A solução parcial <em>a única lista que existe na memória</em>
             </div>
             <div className="hp-arr">
-              {p.parcial.length === 0 ? (
+              {p.partial.length === 0 ? (
                 <span className="bb-array-nota">vazia</span>
               ) : (
-                p.parcial.map((v, k) => (
-                  <span key={k} className={`hp-cel${p.acao === "escolher" && k === p.parcial.length - 1 ? " foco troca" : " fixo"}`}>
+                p.partial.map((v, k) => (
+                  <span key={k} className={`hp-cel${p.action === "escolher" && k === p.partial.length - 1 ? " foco troca" : " fixo"}`}>
                     <i>{k}</i>
                     {v}
                   </span>
@@ -408,15 +374,15 @@ export function BacktrackingVisualizer() {
               A pilha de chamadas <em>o que a recursão guarda de verdade</em>
             </div>
             <div className="bt-pilha">
-              {p.pilha.length === 0 ? (
+              {p.stack.length === 0 ? (
                 <span className="bb-array-nota">vazia</span>
               ) : (
                 // A inversão é só do CSS (column-reverse): o primeiro quadro do
                 // array é a chamada mais antiga e aparece embaixo, o último é o
                 // topo da pilha e aparece em cima. Inverter também aqui era
                 // desfazer o efeito e deixar o destaque no quadro errado.
-                p.pilha.map((t, k) => (
-                  <span key={k} className={`bt-quadro${k === p.pilha.length - 1 ? " topo" : ""}`}>
+                p.stack.map((t, k) => (
+                  <span key={k} className={`bt-quadro${k === p.stack.length - 1 ? " topo" : ""}`}>
                     backtrack([{t}])
                   </span>
                 ))
@@ -430,45 +396,50 @@ export function BacktrackingVisualizer() {
             As soluções guardadas <em>cada uma é uma cópia, tirada no instante em que foi encontrada</em>
           </div>
           <div className="bt-solucoes">
-            {p.solucoes.length === 0 ? (
+            {p.solutions.length === 0 ? (
               <span className="bb-array-nota">nenhuma ainda</span>
             ) : (
-              p.solucoes.map((s, k) => (
-                <span key={k} className={`bt-sol${k === p.solucoes.length - 1 && p.acao === "registrar" ? " nova" : ""}`}>
-                  [{rotuloDe(s)}]
+              p.solutions.map((s, k) => (
+                <span key={k} className={`bt-sol${k === p.solutions.length - 1 && p.action === "registrar" ? " nova" : ""}`}>
+                  [{labelOf(s)}]
                 </span>
               ))
             )}
           </div>
         </div>
 
-        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.nota}</p>
+        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">backtrack.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, k) => (
-                <div key={k} className={`viz-line${k === p.linha ? " on" : ""}`}>
-                  <span className="ln">{k + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com os 281px do
+              código (medido). O `.viz-code-slot` é o truque de grid 1fr→0fr. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">backtrack.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, k) => (
+                  <div key={k} className={`viz-line${k === p.line ? " on" : ""}`}>
+                    <span className="ln">{k + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             <div className="viz-var">
               <span className="viz-var-name">parcial</span>
-              <span className="viz-var-val best">[{rotuloDe(p.parcial)}]</span>
+              <span className="viz-var-val best">[{labelOf(p.partial)}]</span>
             </div>
             <div className="viz-var">
               <span className="viz-var-name">profundidade da pilha</span>
-              <span className="viz-var-val">{p.pilha.length}</span>
+              <span className="viz-var-val">{p.stack.length}</span>
             </div>
             <div className="viz-var">
               <span className="viz-var-name">soluções guardadas</span>
-              <span className="viz-var-val">{p.solucoes.length}</span>
+              <span className="viz-var-val">{p.solutions.length}</span>
             </div>
           </div>
         </div>
@@ -476,69 +447,20 @@ export function BacktrackingVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>nós visitados</span>
-            <strong>{p.nos}</strong>
+            <strong>{p.nodeCount}</strong>
           </div>
           <div className="bigo-stat">
             <span>soluções encontradas</span>
-            <strong>{p.solucoes.length}</strong>
+            <strong>{p.solutions.length}</strong>
           </div>
           <div className="bigo-stat">
             <span>retrocessos</span>
-            <strong>{p.retrocessos}</strong>
+            <strong>{p.backtracks}</strong>
           </div>
           <div className="bigo-stat">
             <span>nós da árvore inteira</span>
-            <strong>{nos.length}</strong>
+            <strong>{allNodes.length}</strong>
           </div>
-        </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso((s) => Math.max(0, s - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso((s) => Math.min(s + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} />
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
@@ -548,21 +470,12 @@ export function BacktrackingVisualizer() {
           retrocessos é sempre igual ao de arestas da árvore: todo escolher tem exatamente um desfazer.
         </p>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
