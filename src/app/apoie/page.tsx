@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LINKS } from "@/lib/links";
-import { fetchSupporters, PARTNERS } from "./apoiadores";
+import { fetchSupporters, initials, PARTNERS } from "./apoiadores";
 
 export const metadata: Metadata = {
   title: "Seja um apoiador da Comunidade",
@@ -58,11 +58,52 @@ export default async function ApoiePage() {
           <span className="wall-sub">Pessoas que bancam o projeto</span>
         </div>
         {supporters.length > 0 ? (
-          <div className="apoiadores-grid">
-            {supporters.map((a) => (
-              <span key={a.name} className="apoiador-chip">{a.name}</span>
-            ))}
-          </div>
+          <>
+            {/* Painel de gratidão: o número vem da lista, não é escrito à mão. */}
+            <div className="gratidao">
+              <span className="gratidao-eyebrow">Gratidão</span>
+              <p className="gratidao-titulo">
+                <span className="gratidao-n">{supporters.length}</span>{" "}
+                {supporters.length === 1 ? "pessoa já apoia" : "pessoas já apoiam"}{" "}
+                a comunidade Craft &amp; Code Club.
+              </p>
+              <p className="gratidao-texto">
+                Cada apoio ajuda a manter o site no ar, os encontros acontecendo e o conteúdo livre e
+                aberto para quem chegar depois.
+              </p>
+              <ul className="gratidao-fatos">
+                <li>
+                  <strong>Conteúdo aberto</strong>
+                  <span>sem paywall e sem anúncios</span>
+                </li>
+                <li>
+                  <strong>Encontros</strong>
+                  <span>gratuitos e abertos a todo mundo</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="apoiadores-grid">
+              {supporters.map((a) => (
+                <div key={a.name} className="apoiador-card">
+                  <span className="apoiador-avatar" aria-hidden="true">{initials(a.name)}</span>
+                  <span className="apoiador-nome">{a.name}</span>
+                </div>
+              ))}
+              <a
+                className="apoiador-card apoiador-card-cta"
+                href={LINKS.apoiar}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="apoiador-avatar" aria-hidden="true">+</span>
+                <span className="apoiador-corpo">
+                  <span className="apoiador-nome">Seu nome aqui</span>
+                  <span className="apoiador-cta-sub">Quero apoiar →</span>
+                </span>
+              </a>
+            </div>
+          </>
         ) : (
           <div className="wall-empty">
             <p>Ainda não há apoiadores por aqui. <strong style={{ color: "#fff" }}>Seja o primeiro</strong> a sustentar o maior guia de Estruturas de Dados e Algoritmos em português.</p>

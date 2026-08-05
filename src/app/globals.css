@@ -1321,16 +1321,75 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .wall-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
 .wall-head h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 .wall-sub { font-size: 13px; color: var(--ccc-muted); }
-.apoiadores-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.apoiador-chip { display: inline-flex; align-items: center; padding: 9px 15px; border: 1px solid var(--ccc-line); border-radius: 99px; background: var(--ccc-surface); color: var(--ccc-text); font-size: 14px; font-weight: 500; text-decoration: none; }
-.apoiador-chip:hover { border-color: rgba(59, 130, 246, 0.45); background: var(--ccc-surface-2); color: #fff; }
+
+/* Muro de apoiadores. Enquanto a API da APOIA.se não libera a lista, os nomes
+   vêm da lista manual em apoiadores.ts; o visual é o mesmo nos dois casos.
+   Âmbar aqui é regra de marca: apoio é âmbar, como o botão Apoiar da barra. */
+.gratidao {
+  position: relative; overflow: hidden;
+  padding: 26px 28px; margin-bottom: 14px;
+  border: 1px solid var(--ccc-line); border-radius: 16px;
+  background: radial-gradient(640px 260px at 6% -40%, rgba(245, 158, 11, 0.14), transparent 62%),
+              var(--ccc-surface);
+}
+.gratidao-eyebrow { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #fbbf24; }
+/* clamp porque o título é longo: em 30px fixos ele vira quatro linhas a 390px. */
+.gratidao-titulo { margin: 12px 0 10px; max-width: 22ch; font-size: clamp(22px, 4.6vw, 30px); font-weight: 600; line-height: 1.2; letter-spacing: -0.025em; color: #fff; text-wrap: balance; }
+.gratidao-n { color: var(--ccc-coffee); }
+.gratidao-texto { margin: 0; max-width: 58ch; font-size: 15px; line-height: 1.6; color: #a9bcd4; text-wrap: pretty; }
+.gratidao-fatos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0 0; padding: 0; list-style: none; }
+.gratidao-fatos li { min-width: 0; padding: 14px 16px; border: 1px solid var(--ccc-line); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
+.gratidao-fatos strong { display: block; font-size: 14.5px; font-weight: 600; color: #fff; }
+.gratidao-fatos span { display: block; margin-top: 3px; font-size: 13px; line-height: 1.5; color: var(--ccc-muted); }
+
+/* 158px cabe quatro por linha na coluna de 820px da página (três apoiadores
+   mais o convite), e quebra sozinho conforme a lista cresce. */
+.apoiadores-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+.apoiador-card {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 16px;
+  min-height: 138px; padding: 18px;
+  border: 1px solid var(--ccc-line); border-radius: 14px; background: var(--ccc-surface);
+  color: var(--ccc-text); text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+/* brilho âmbar que acende no hover, atrás do conteúdo */
+.apoiador-card::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(240px 140px at 100% 0%, rgba(245, 158, 11, 0.12), transparent 70%);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.apoiador-card:hover { border-color: rgba(245, 158, 11, 0.42); background: var(--ccc-surface-2); transform: translateY(-2px); }
+.apoiador-card:hover::after { opacity: 1; }
+.apoiador-avatar {
+  position: relative; z-index: 1;
+  display: grid; place-items: center; width: 46px; height: 46px; flex: none;
+  border-radius: 13px; background: linear-gradient(150deg, #fbbf24, #f59e0b);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.26);
+  font-size: 15px; font-weight: 700; letter-spacing: 0.01em; color: #201400;
+}
+.apoiador-corpo { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.apoiador-nome { position: relative; z-index: 1; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; color: #fff; overflow-wrap: anywhere; }
+/* Último card do muro: o convite para entrar nele. */
+.apoiador-card-cta { border-style: dashed; background: rgba(245, 158, 11, 0.04); }
+.apoiador-card-cta:hover { background: rgba(245, 158, 11, 0.09); }
+.apoiador-card-cta .apoiador-avatar { background: rgba(245, 158, 11, 0.14); border: 1px dashed rgba(245, 158, 11, 0.5); box-shadow: none; font-size: 22px; font-weight: 500; color: #fcd34d; }
+.apoiador-card-cta .apoiador-nome { color: #fcd34d; }
+.apoiador-cta-sub { font-size: 12.5px; font-weight: 500; color: var(--ccc-muted); }
+.apoiador-card-cta:hover .apoiador-cta-sub { color: #dcc9a8; }
 .parceiros-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .parceiro-card { display: grid; place-items: center; min-height: 84px; padding: 18px; border: 1px solid var(--ccc-line); border-radius: 12px; background: var(--ccc-surface); color: var(--ccc-text); font-size: 15px; font-weight: 600; text-decoration: none; text-align: center; }
 .parceiro-card:hover { border-color: rgba(59, 130, 246, 0.45); background: var(--ccc-surface-2); color: #fff; }
 .wall-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 24px 26px; border: 1px dashed var(--ccc-line); border-radius: 14px; background: rgba(255, 255, 255, 0.015); }
 .wall-empty p { margin: 0; font-size: 14.5px; line-height: 1.6; color: #a9bcd4; max-width: 60ch; }
 @media (max-width: 700px) {
-  .parceiros-grid { grid-template-columns: 1fr 1fr; }
+  .parceiros-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .gratidao { padding: 22px 18px; }
+  .gratidao-fatos { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  /* dois cards por linha a 360px: 150px é o menor tamanho em que "Cristiano
+     Cunha" ainda cabe em duas linhas sem apertar o avatar. */
+  .apoiadores-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .apoiador-card { min-height: 124px; padding: 15px; }
 }
 
 /* footer */
