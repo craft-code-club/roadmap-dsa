@@ -43,6 +43,17 @@ jobs:
           # vazia e a página mostra o convite "seja o primeiro".
           APOIASE_TOKEN: ${{ secrets.APOIASE_TOKEN }}
           APOIASE_CAMPAIGN_ID: ${{ secrets.APOIASE_CAMPAIGN_ID }}
+          # Google Analytics só no build da `main`. Este mesmo job roda em PR,
+          # e o deploy de preview do Cloudflare é um site público de verdade:
+          # sem este recorte, cada PR mandaria pageview para a propriedade de
+          # produção. String vazia = o componente devolve null e o gtag.js nem
+          # é pedido. O ID não é segredo (sai no HTML), por isso `vars`; o
+          # fallback em `secrets` é só para não quebrar se alguém cadastrar no
+          # lugar errado.
+          NEXT_PUBLIC_GA_ID: ${{ github.ref == 'refs/heads/main' && (vars.NEXT_PUBLIC_GA_ID || secrets.NEXT_PUBLIC_GA_ID) || '' }}
+          # Só usada se a verificação do Search Console for pela tag HTML em vez
+          # do TXT no DNS. Vale em qualquer branch: é uma meta tag inerte.
+          NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
 
       - name: Upload artifact
         if: github.event.pull_request.head.repo.fork == false
