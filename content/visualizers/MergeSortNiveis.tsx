@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { segmentos } from "./MergeSortVisualizer";
+import { segments } from "./MergeSortVisualizer";
 
 // ---------------------------------------------------------------------------
 // MergeSortNiveis, de onde sai o n log n.
@@ -40,7 +40,7 @@ const ESCALAS = [1_000, 1_000_000, 1_000_000_000];
 
 export function MergeSortNiveis() {
   const [n, setN] = useState(16);
-  const niveis = useMemo(() => segmentos(n), [n]);
+  const niveis = useMemo(() => segments(n), [n]);
   const rodadas = Math.log2(n); // n é sempre potência de 2 aqui
   const movimentos = n * rodadas;
   const quadratico = (n * (n - 1)) / 2;
