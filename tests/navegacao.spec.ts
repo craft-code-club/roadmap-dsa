@@ -691,15 +691,24 @@ test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", a
   // abaixo da dobra do menu — e aí o leitor não vê onde está.
   await page.setViewportSize({ width: 1440, height: 700 });
   await page.goto("/topico/negative-binary/");
-  const dentro = await page.evaluate(() => {
+
+  // Quem rola é um efeito, que roda depois da hidratação: ler uma vez logo após
+  // o `goto` mediria o menu antes de ele existir como React. A espera é sobre a
+  // rolagem em si, e não um `waitForTimeout` torcendo pelo tempo certo.
+  await expect
+    .poll(async () => page.evaluate(() => document.querySelector(".side-scroll")!.scrollTop), {
+      message: "o menu deveria ter rolado para alcançar o tópico",
+    })
+    .toBeGreaterThan(0);
+
+  const visivel = await page.evaluate(() => {
     const lista = document.querySelector(".side-scroll")!;
     const atual = lista.querySelector(".side-item.on")!;
     const a = atual.getBoundingClientRect();
     const c = lista.getBoundingClientRect();
-    return { visivel: a.top >= c.top - 1 && a.bottom <= c.bottom + 1, rolou: lista.scrollTop > 0 };
+    return a.top >= c.top - 1 && a.bottom <= c.bottom + 1;
   });
-  expect(dentro.rolou, "o menu deveria ter rolado para alcançar o tópico").toBe(true);
-  expect(dentro.visivel, "o tópico atual ficou fora da parte visível do menu").toBe(true);
+  expect(visivel, "o tópico atual ficou fora da parte visível do menu").toBe(true);
   // e quem rolou foi o menu, não a página
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });

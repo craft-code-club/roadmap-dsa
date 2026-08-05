@@ -86,8 +86,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const listaRef = useRef<HTMLDivElement>(null);
 
   // Devolve o menu como o leitor deixou, mais o grupo de onde ele está agora —
-  // esse nunca fica fechado. Quem tem histórico não recebe o grupo de abertura
-  // junto: ele é o padrão de quem chega sem nada salvo, não um grupo fixo.
+  // esse entra aberto em toda chegada de página. Fechar na mão continua valendo
+  // (o menu é do leitor, e um grupo que não se fecha é uma gaiola): a regra vale
+  // na chegada, então o grupo volta aberto na próxima visita àquela página.
+  // Quem tem histórico não recebe o grupo de abertura junto: ele é o padrão de
+  // quem chega sem nada salvo, não um grupo fixo.
   // Memória fora da validade conta como não ter nada salvo, e o padrão da rota
   // (que já está no estado inicial) fica de pé.
   // Roda uma vez, na montagem, e por isso lê o `grupoDaRota` da primeira
@@ -105,7 +108,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (restaurado) gravarAbertos(abertos);
   }, [abertos, restaurado]);
 
-  // Abre automaticamente o grupo do tópico aberto.
+  // Abre o grupo do tópico ao chegar nele. Depende do `grupoDaRota`, e não de
+  // `abertos`: só a troca de página reabre, então fechar o grupo na mão para ler
+  // sem a lista atrapalhando continua funcionando enquanto o leitor está ali.
   useEffect(() => {
     if (grupoDaRota) setAbertos((a) => ({ ...a, [grupoDaRota]: true }));
   }, [grupoDaRota]);
