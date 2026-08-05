@@ -209,6 +209,9 @@ foi tentado numa mesma rodada, e nas três por um motivo diferente**:
 | busca da skip list | **0px de diferença** com 14 elementos | a altura vem dos NÍVEIS, que têm teto (`MAX_LEVELS = 4`), e o padrão já batia nele; mais elementos só alargam o SVG, e o wrapper rola na horizontal |
 | reversão da lista | 4 nós = **979px**, 5 nós = 954px | o viewBox tem piso de largura, então menos nós = razão altura/largura maior = mais altura no esticão até a largura do corpo |
 | árvore do Fibonacci | `fib(8)` **com** cache (15 nós) é **81px mais alta** que sem cache (67 nós) | o eixo da altura é a PROFUNDIDADE, `n − 1`, igual nos dois; os nós viram largura. Desligar o cache — o movimento óbvio — dá o caso mais baixo |
+| árvore n-ária | três árvores com **9 nós e grau máximo 3** dão desenhos de 196, 196 e **332px** | o grau vira largura e a profundidade vira altura, então **a mais alta é a mais estreita**. O controle que parece o pior caso (o grau) é justamente o que não mexe na altura |
+| BST | os quatro presets têm **sete nós**, e o SVG vai de 190px a **422px** | não existe campo para encher: o eixo é a ORDEM DE INSERÇÃO. Inserir 1,2,3,4,5… em sequência degenera a árvore em lista, com a mesma contagem de nós |
+| formatos de árvore binária | o preset mais alto é o de **menos nós** (4 nós, 1025px); o de 15 posições é **53px mais baixo** | a profundidade do desenho é fixa nesta peça, então nem a contagem nem a profundidade são o eixo — quem manda é **o tamanho da prosa dos vereditos** |
 
 O que fazer em vez disso, na ordem:
 
@@ -223,6 +226,10 @@ O que fazer em vez disso, na ordem:
    dá metade da altura — 21 linhas em vez de 40.
 4. **Se o pior caso construído der um número MENOR que o padrão, o padrão é o
    pior caso.** Troque o número, não a narrativa.
+5. **Se não houver campo para encher, o pior caso está nos PRESETS** — e aí
+   compare presets do mesmo tamanho, senão você mede a contagem em vez do eixo.
+   Numa BST os quatro presets têm sete nós e a altura do desenho varia 2,2x
+   entre eles.
 
 ### E o estado mais alto não é o último passo: pode ser o do meio
 
@@ -237,6 +244,14 @@ até 85px.
 escreva o teste de rolagem **naquele** passo: a asserção "existe sobra para
 rolar" reprova sozinha no passo 1, onde o miolo ainda não tem o que rolar —
 custou dois testes verdes que não testavam nada.
+
+**Mas confirme que existe pico antes de caçá-lo.** Nem toda peça que empilha
+cresce em altura: se as fichas vivem num eixo horizontal com `flex-wrap`, elas
+só viram altura **depois que a linha quebra**, e o teto é a largura do contêiner,
+não uma constante. Medido no percurso de árvores: 6 fichas cabem numa linha, e a
+amplitude ao longo dos 26 passos é de **20px** — que vêm da nota ter uma ou duas
+linhas, não da pilha. Um relatório que anunciasse "o pico está no meio" ali
+estaria certo por acidente e errado no motivo.
 
 Isso volta na decisão de `measureOn`, com uma segunda pergunta além da do
 `hash-table` ("os dois extremos caem do mesmo lado do orçamento?"): **se a
@@ -624,6 +639,18 @@ camada 2 não alcança o artigo (limite acima). Medido:
 |---|---|---|
 | `HashTableBuscaVisualizer` (`collapsible: false`, com linha do tempo) | 847px | **875px** (+28) |
 | `PrefixSumTradeoff` (`collapsible: false`, `total: 1`, rodapé à mão) | 731px | **741px** (+10) |
+| `SkipListNiveis` (`collapsible: false`, `total: 1`, controles próprios) | 915px | **925px** (+10) |
+| **`BinaryTreeFormatos`** (`collapsible: false`, `total: 1`, **sem rodapé nenhum**) | 915–1025px | **911–1021px (−4)** |
+
+**E a última linha inverte o sinal, o que corrige o enunciado desta seção.** O
+custo não é de adotar a casca: é de **ter um `.viz-foot`**. As três primeiras
+peças pagam porque, mesmo sem linha do tempo, elas têm controles próprios no
+rodapé. A quarta não tem rodapé nenhum — `total: 1` **e** sem `children` fazem o
+`VizFooter` sumir inteiro —, e aí a casca **devolve** 4px, idênticos nos sete
+estados medidos.
+
+Quem citar o `+28` ou o `+10` sem medir a própria peça vai escrever o contrário
+do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*.
 
 Nos dois a adaptação valeu, porque o que ela conserta é outra coisa — e só
 aparece **abaixo** da régua de 1512x900. Na busca da hash table, o `▶ Rodar` era
