@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // NAryTreeVisualizer, o mesmo percurso quando os filhos viram lista.
@@ -20,76 +21,86 @@ import { createPortal } from "react-dom";
 //
 // Gerador puro: monta a lista de passos com uma pilha explícita (DFS) ou uma
 // fila (BFS), sem estado externo, para navegar nos dois sentidos de graça.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
+//
+// Nota de medição, para quem mexer nisto: o eixo que vira ALTURA do desenho é a
+// PROFUNDIDADE da árvore, não o número de nós nem o grau. Aumentar o grau
+// alarga e não sobe — a árvore DOM tem grau 3 e profundidade 4, e é 136px mais
+// alta que a do artigo, que tem grau 3 e profundidade 2. Largura rola sozinha,
+// porque `.tt-arv-wrap` é `overflow-x: auto`.
 // ---------------------------------------------------------------------------
 
-type No = { rot: string; filhos: number[] };
-type Ordem = "pre" | "pos" | "nivel";
+type TreeNode = { label: string; children: number[] };
+type Order = "pre" | "post" | "level";
 
-type Passo = {
-  no: number;
+type Step = {
+  node: number;
   aux: number[];
-  saida: number[];
-  linha: number;
-  nota: string;
+  out: number[];
+  line: number;
+  note: string;
   ok?: boolean;
 };
 
-type Arvore = { key: string; rotulo: string; nos: No[]; legenda: string };
+type Tree = { key: string; label: string; nodes: TreeNode[]; caption: string };
 
 // A árvore do encontro: a raiz com dois filhos, e cada um deles com três.
 // A pré-ordem dela sai 1 a 9 na sequência, que foi como apareceu no quadro.
-const ARVORES: Arvore[] = [
+const TREES: Tree[] = [
   {
-    key: "encontro",
-    rotulo: "A árvore do artigo",
-    legenda: "Pré: 1 2 3 4 5 6 7 8 9 · Pós: 3 4 5 2 7 8 9 6 1 · Nível: 1 2 6 3 4 5 7 8 9",
-    nos: [
-      { rot: "1", filhos: [1, 5] },
-      { rot: "2", filhos: [2, 3, 4] },
-      { rot: "3", filhos: [] },
-      { rot: "4", filhos: [] },
-      { rot: "5", filhos: [] },
-      { rot: "6", filhos: [6, 7, 8] },
-      { rot: "7", filhos: [] },
-      { rot: "8", filhos: [] },
-      { rot: "9", filhos: [] },
+    key: "artigo",
+    label: "A árvore do artigo",
+    caption: "Pré: 1 2 3 4 5 6 7 8 9 · Pós: 3 4 5 2 7 8 9 6 1 · Nível: 1 2 6 3 4 5 7 8 9",
+    nodes: [
+      { label: "1", children: [1, 5] },
+      { label: "2", children: [2, 3, 4] },
+      { label: "3", children: [] },
+      { label: "4", children: [] },
+      { label: "5", children: [] },
+      { label: "6", children: [6, 7, 8] },
+      { label: "7", children: [] },
+      { label: "8", children: [] },
+      { label: "9", children: [] },
     ],
   },
   {
-    key: "arquivos",
-    rotulo: "Uma árvore de diretórios",
-    legenda: "O exemplo mais honesto de árvore n-ária: uma pasta tem quantos filhos quiser.",
-    nos: [
-      { rot: "/projeto", filhos: [1, 5, 8] },
-      { rot: "src", filhos: [2, 3, 4] },
-      { rot: "app.py", filhos: [] },
-      { rot: "util.py", filhos: [] },
-      { rot: "db.py", filhos: [] },
-      { rot: "testes", filhos: [6, 7] },
-      { rot: "test_app.py", filhos: [] },
-      { rot: "test_db.py", filhos: [] },
-      { rot: "README.md", filhos: [] },
+    key: "files",
+    label: "Uma árvore de diretórios",
+    caption: "O exemplo mais honesto de árvore n-ária: uma pasta tem quantos filhos quiser.",
+    nodes: [
+      { label: "/projeto", children: [1, 5, 8] },
+      { label: "src", children: [2, 3, 4] },
+      { label: "app.py", children: [] },
+      { label: "util.py", children: [] },
+      { label: "db.py", children: [] },
+      { label: "testes", children: [6, 7] },
+      { label: "test_app.py", children: [] },
+      { label: "test_db.py", children: [] },
+      { label: "README.md", children: [] },
     ],
   },
   {
     key: "dom",
-    rotulo: "Uma árvore DOM",
-    legenda: "HTML é uma árvore n-ária, e é por isso que querySelector é um percurso.",
-    nos: [
-      { rot: "html", filhos: [1, 2] },
-      { rot: "head", filhos: [] },
-      { rot: "body", filhos: [3, 4] },
-      { rot: "header", filhos: [] },
-      { rot: "main", filhos: [5, 6, 7] },
-      { rot: "h1", filhos: [] },
-      { rot: "p", filhos: [] },
-      { rot: "ul", filhos: [8] },
-      { rot: "li", filhos: [] },
+    label: "Uma árvore DOM",
+    caption: "HTML é uma árvore n-ária, e é por isso que querySelector é um percurso.",
+    nodes: [
+      { label: "html", children: [1, 2] },
+      { label: "head", children: [] },
+      { label: "body", children: [3, 4] },
+      { label: "header", children: [] },
+      { label: "main", children: [5, 6, 7] },
+      { label: "h1", children: [] },
+      { label: "p", children: [] },
+      { label: "ul", children: [8] },
+      { label: "li", children: [] },
     ],
   },
 ];
 
-const CODIGO: Record<Ordem, string[]> = {
+const CODE: Record<Order, string[]> = {
   pre: [
     "def percorre(no):",
     "    if no is None:",
@@ -98,7 +109,7 @@ const CODIGO: Record<Ordem, string[]> = {
     "    for filho in no.filhos:  # era esq e dir",
     "        percorre(filho)",
   ],
-  pos: [
+  post: [
     "def percorre(no):",
     "    if no is None:",
     "        return",
@@ -106,7 +117,7 @@ const CODIGO: Record<Ordem, string[]> = {
     "        percorre(filho)",
     "    processa(no)              # PÓS",
   ],
-  nivel: [
+  level: [
     "def por_nivel(raiz):",
     "    fila = deque([raiz])",
     "    while fila:",
@@ -117,135 +128,134 @@ const CODIGO: Record<Ordem, string[]> = {
   ],
 };
 
-const ROTULO_ORDEM: Record<Ordem, string> = {
+const ORDER_LABEL: Record<Order, string> = {
   pre: "Pré-ordem",
-  pos: "Pós-ordem",
-  nivel: "Por nível (BFS)",
+  post: "Pós-ordem",
+  level: "Por nível (BFS)",
 };
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
-const PASSO_X = 96;
-const PASSO_Y = 68;
-const NO_L = 84;
-const NO_A = 28;
-const MARGEM = 14;
-const TOPO = 16;
+const STEP_X = 96;
+const STEP_Y = 68;
+const NODE_W = 84;
+const NODE_H = 28;
+const MARGIN = 14;
+const TOP = 16;
 
-type Pos = { x: number; prof: number };
+type Pos = { x: number; depth: number };
 
 // Layout n-ário: cada folha ocupa um slot, cada nó interno senta no meio dos
 // filhos. Serve para qualquer grau, ao contrário do layout por posição em
 // ordem que a árvore binária usa (em ordem não existe aqui).
-function posicionar(nos: No[]): Pos[] {
-  const pos: Pos[] = nos.map(() => ({ x: 0, prof: 0 }));
+function place(nodes: TreeNode[]): Pos[] {
+  const pos: Pos[] = nodes.map(() => ({ x: 0, depth: 0 }));
   let slot = 0;
-  const visita = (id: number, prof: number) => {
-    pos[id].prof = prof;
-    const f = nos[id].filhos;
+  const visit = (id: number, depth: number) => {
+    pos[id].depth = depth;
+    const f = nodes[id].children;
     if (f.length === 0) { pos[id].x = slot++; return; }
-    for (const c of f) visita(c, prof + 1);
+    for (const c of f) visit(c, depth + 1);
     pos[id].x = (pos[f[0]].x + pos[f[f.length - 1]].x) / 2;
   };
-  visita(0, 0);
+  visit(0, 0);
   return pos;
 }
 
-function gerarPassos(nos: No[], ordem: Ordem): Passo[] {
-  const out: Passo[] = [];
-  const saida: number[] = [];
-  const rot = (i: number) => nos[i].rot;
+function generateSteps(nodes: TreeNode[], order: Order): Step[] {
+  const steps: Step[] = [];
+  const out: number[] = [];
+  const label = (i: number) => nodes[i].label;
 
-  if (ordem === "nivel") {
-    const fila = [0];
-    out.push({
-      no: 0, aux: [...fila], saida: [], linha: 1,
-      nota: `A fila começa com a raiz. O BFS não muda nada em árvore n-ária: onde a binária enfileirava dois filhos, aqui um for enfileira quantos existirem.`,
+  if (order === "level") {
+    const queue = [0];
+    steps.push({
+      node: 0, aux: [...queue], out: [], line: 1,
+      note: `A fila começa com a raiz. O BFS não muda nada em árvore n-ária: onde a binária enfileirava dois filhos, aqui um for enfileira quantos existirem.`,
     });
-    let guarda = 0;
-    while (fila.length && guarda++ < 300) {
-      const id = fila.shift() as number;
-      saida.push(id);
-      out.push({
-        no: id, aux: [...fila], saida: [...saida], linha: 4,
-        nota: `Processo ${rot(id)}, que estava na frente da fila. ${nos[id].filhos.length === 0 ? "É folha, não acrescenta ninguém." : `Agora enfileiro os ${nos[id].filhos.length} filhos dele, no fim da fila.`}`,
+    let guard = 0;
+    while (queue.length && guard++ < 300) {
+      const id = queue.shift() as number;
+      out.push(id);
+      steps.push({
+        node: id, aux: [...queue], out: [...out], line: 4,
+        note: `Processo ${label(id)}, que estava na frente da fila. ${nodes[id].children.length === 0 ? "É folha, não acrescenta ninguém." : `Agora enfileiro os ${nodes[id].children.length} filhos dele, no fim da fila.`}`,
       });
-      for (const f of nos[id].filhos) {
-        fila.push(f);
-        out.push({
-          no: f, aux: [...fila], saida: [...saida], linha: 6,
-          nota: `${rot(f)} entra no fim da fila. Ele só será processado depois de todo mundo que já estava lá, e é isso que mantém a leitura nível a nível.`,
+      for (const f of nodes[id].children) {
+        queue.push(f);
+        steps.push({
+          node: f, aux: [...queue], out: [...out], line: 6,
+          note: `${label(f)} entra no fim da fila. Ele só será processado depois de todo mundo que já estava lá, e é isso que mantém a leitura nível a nível.`,
         });
       }
     }
-    out.push({
-      no: -1, aux: [], saida: [...saida], linha: 2, ok: true,
-      nota: `Por nível: ${saida.map(rot).join(", ")}. Cada nó entrou e saiu da fila uma vez, então o tempo é O(n) mesmo com grau qualquer.`,
+    steps.push({
+      node: -1, aux: [], out: [...out], line: 2, ok: true,
+      note: `Por nível: ${out.map(label).join(", ")}. Cada nó entrou e saiu da fila uma vez, então o tempo é O(n) mesmo com grau qualquer.`,
     });
-    return out;
+    return steps;
   }
 
-  const linhaProcessa = ordem === "pre" ? 3 : 5;
-  const linhaFor = ordem === "pre" ? 5 : 4;
-  const pilha: { id: number; i: number; processado: boolean }[] = [{ id: 0, i: 0, processado: false }];
-  const idsNaPilha = () => pilha.map((q) => q.id);
+  const processLine = order === "pre" ? 3 : 5;
+  const loopLine = order === "pre" ? 5 : 4;
+  const stack: { id: number; i: number; processed: boolean }[] = [{ id: 0, i: 0, processed: false }];
+  const stackIds = () => stack.map((q) => q.id);
 
-  out.push({
-    no: 0, aux: idsNaPilha(), saida: [], linha: 0,
-    nota: `Entro na raiz. A pilha é a mesma da árvore binária: ela guarda o caminho da raiz até onde estou, nada mais.`,
+  steps.push({
+    node: 0, aux: stackIds(), out: [], line: 0,
+    note: `Entro na raiz. A pilha é a mesma da árvore binária: ela guarda o caminho da raiz até onde estou, nada mais.`,
   });
 
-  let guarda = 0;
-  while (pilha.length && guarda++ < 600) {
-    const topo = pilha[pilha.length - 1];
-    const filhos = nos[topo.id].filhos;
+  let guard = 0;
+  while (stack.length && guard++ < 600) {
+    const top = stack[stack.length - 1];
+    const children = nodes[top.id].children;
 
     // pré processa antes do laço; pós processa quando o laço terminou
-    const naHora = ordem === "pre" ? topo.i === 0 : topo.i >= filhos.length;
-    if (!topo.processado && naHora) {
-      saida.push(topo.id);
-      topo.processado = true;
-      out.push({
-        no: topo.id, aux: idsNaPilha(), saida: [...saida], linha: linhaProcessa,
-        nota: ordem === "pre"
-          ? `Processo ${rot(topo.id)} na chegada, antes de olhar qualquer filho. Com grau qualquer, "antes de todos os filhos" continua fazendo sentido.`
-          : `Os ${filhos.length === 0 ? "zero" : filhos.length} ${filhos.length === 1 ? "filho" : "filhos"} de ${rot(topo.id)} já saíram, então agora processo ele. Pós-ordem é a que mais sobrevive à generalização: "depois de todos os filhos" é sempre bem definido.`,
+    const dueNow = order === "pre" ? top.i === 0 : top.i >= children.length;
+    if (!top.processed && dueNow) {
+      out.push(top.id);
+      top.processed = true;
+      steps.push({
+        node: top.id, aux: stackIds(), out: [...out], line: processLine,
+        note: order === "pre"
+          ? `Processo ${label(top.id)} na chegada, antes de olhar qualquer filho. Com grau qualquer, "antes de todos os filhos" continua fazendo sentido.`
+          : `Os ${children.length === 0 ? "zero" : children.length} ${children.length === 1 ? "filho" : "filhos"} de ${label(top.id)} já saíram, então agora processo ele. Pós-ordem é a que mais sobrevive à generalização: "depois de todos os filhos" é sempre bem definido.`,
       });
       continue;
     }
 
-    if (topo.i < filhos.length) {
-      const filho = filhos[topo.i];
-      const posicao = topo.i + 1;
-      topo.i++;
-      pilha.push({ id: filho, i: 0, processado: false });
-      out.push({
-        no: filho, aux: idsNaPilha(), saida: [...saida], linha: linhaFor,
-        nota: `Desço para o ${posicao}º de ${filhos.length} ${filhos.length === 1 ? "filho" : "filhos"} de ${rot(topo.id)}: entro em ${rot(filho)}. A pilha tem ${pilha.length} ${pilha.length === 1 ? "quadro" : "quadros"}, e continua limitada pela ALTURA, não pelo grau.`,
+    if (top.i < children.length) {
+      const child = children[top.i];
+      const position = top.i + 1;
+      top.i++;
+      stack.push({ id: child, i: 0, processed: false });
+      steps.push({
+        node: child, aux: stackIds(), out: [...out], line: loopLine,
+        note: `Desço para o ${position}º de ${children.length} ${children.length === 1 ? "filho" : "filhos"} de ${label(top.id)}: entro em ${label(child)}. A pilha tem ${stack.length} ${stack.length === 1 ? "quadro" : "quadros"}, e continua limitada pela ALTURA, não pelo grau.`,
       });
       continue;
     }
 
-    pilha.pop();
-    out.push({
-      no: topo.id, aux: idsNaPilha(), saida: [...saida], linha: 5,
-      nota: pilha.length
-        ? `Acabou o for de ${rot(topo.id)}: desempilho e volto para o pai, que retoma o laço dele de onde parou.`
+    stack.pop();
+    steps.push({
+      node: top.id, aux: stackIds(), out: [...out], line: 5,
+      note: stack.length
+        ? `Acabou o for de ${label(top.id)}: desempilho e volto para o pai, que retoma o laço dele de onde parou.`
         : `Desempilho a raiz. Percurso terminado.`,
     });
   }
 
-  out.push({
-    no: -1, aux: [], saida: [...saida], linha: linhaProcessa, ok: true,
-    nota: `${ROTULO_ORDEM[ordem]}: ${saida.map(rot).join(", ")}. São ${saida.length} nós, cada um visitado uma vez: O(n) de tempo e O(altura) de pilha.`,
+  steps.push({
+    node: -1, aux: [], out: [...out], line: processLine, ok: true,
+    note: `${ORDER_LABEL[order]}: ${out.map(label).join(", ")}. São ${out.length} nós, cada um visitado uma vez: O(n) de tempo e O(altura) de pilha.`,
   });
-  return out;
+  return steps;
 }
 
 // Altura mínima de uma árvore de grau k com n nós: log base k de n.
 // É a conta que justifica B-tree, e a razão de índice de banco ter grau alto.
-function alturaPara(n: number, k: number): number {
+function heightFor(n: number, k: number): number {
   if (k < 2) return n;
   return Math.ceil(Math.log(n * (k - 1) + 1) / Math.log(k));
 }
@@ -253,105 +263,78 @@ function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-const GRAUS = [2, 4, 8, 16, 64, 256];
-const N_EXEMPLO = 1_000_000;
+const DEGREES = [2, 4, 8, 16, 64, 256];
+const N_EXAMPLE = 1_000_000;
 
 export function NAryTreeVisualizer() {
-  const [arvoreKey, setArvoreKey] = useState("encontro");
-  const [ordem, setOrdem] = useState<Ordem>("pre");
-  const [semOrdem, setSemOrdem] = useState(false);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(4);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [treeKey, setTreeKey] = useState("artigo");
+  const [order, setOrder] = useState<Order>("pre");
+  const [inOrderNote, setInOrderNote] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  const tree = useMemo(() => TREES.find((a) => a.key === treeKey) ?? TREES[0], [treeKey]);
+  const pos = useMemo(() => place(tree.nodes), [tree]);
+  const steps = useMemo(() => generateSteps(tree.nodes, order), [tree, order]);
 
-  const arvore = useMemo(() => ARVORES.find((a) => a.key === arvoreKey) ?? ARVORES[0], [arvoreKey]);
-  const pos = useMemo(() => posicionar(arvore.nos), [arvore]);
-  const passos = useMemo(() => gerarPassos(arvore.nos, ordem), [arvore, ordem]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const viz = useVisualizer({
+    title: "Visualizador · o mesmo template quando os filhos viram uma lista",
+    total: steps.length,
+    speeds: SPEEDS,
+    // A marcha inicial desta peça é a 4 ("1.5x"), não a 3 do hook: o percurso
+    // mais curto tem 19 passos e o mais longo 28, e no 1x a reprodução inteira
+    // fica longa demais para quem só quer ver a forma do percurso. Era o valor
+    // que o componente já tinha.
+    initialSpeed: 4,
+    // O que muda a altura da peça, medido em 1512x900: a ÁRVORE, porque o
+    // desenho cresce com a PROFUNDIDADE dela (1228px na do artigo contra 1396
+    // na do DOM, que tem dois níveis a mais); a ORDEM, que troca um código de 6
+    // linhas por um de 7 e muda o comprimento das notas; e o chip "Em ordem?",
+    // que acrescenta um parágrafo de 70px sem mexer em nenhum dos outros dois.
+    measureOn: [treeKey, order, inOrderNote],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
-  const trocarOrdem = (o: Ordem) => { reiniciar(); setSemOrdem(false); setOrdem(o); };
+  const pickOrder = (o: Order) => { viz.reset(); setInOrderNote(false); setOrder(o); };
+  const pickTree = (key: string) => { viz.reset(); setTreeKey(key); };
 
   const maxSlot = pos.reduce((m, q) => Math.max(m, q.x), 0);
-  const maxProf = pos.reduce((m, q) => Math.max(m, q.prof), 0);
-  const W = MARGEM * 2 + maxSlot * PASSO_X + NO_L;
-  const H = TOPO * 2 + maxProf * PASSO_Y + NO_A;
-  const cx = (id: number) => MARGEM + NO_L / 2 + pos[id].x * PASSO_X;
-  const cyTopo = (id: number) => TOPO + pos[id].prof * PASSO_Y;
+  const maxDepth = pos.reduce((m, q) => Math.max(m, q.depth), 0);
+  const W = MARGIN * 2 + maxSlot * STEP_X + NODE_W;
+  const H = TOP * 2 + maxDepth * STEP_Y + NODE_H;
+  const cx = (id: number) => MARGIN + NODE_W / 2 + pos[id].x * STEP_X;
+  const cyTop = (id: number) => TOP + pos[id].depth * STEP_Y;
 
-  const jaSaiu = useMemo(() => new Set(p.saida), [p.saida]);
-  const naAux = useMemo(() => new Set(p.aux), [p.aux]);
-  const ehBfs = ordem === "nivel";
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
-  const grauMax = arvore.nos.reduce((m, n) => Math.max(m, n.filhos.length), 0);
+  const done = useMemo(() => new Set(p.out), [p.out]);
+  const inAux = useMemo(() => new Set(p.aux), [p.aux]);
+  const isBfs = order === "level";
+  const maxDegree = tree.nodes.reduce((m, n) => Math.max(m, n.children.length), 0);
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · o mesmo template quando os filhos viram uma lista</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {(["pre", "pos", "nivel"] as Ordem[]).map((o) => (
+          {(["pre", "post", "level"] as Order[]).map((o) => (
             <button
               key={o}
-              className={`bigo-chip${ordem === o && !semOrdem ? " on" : ""}`}
-              onClick={() => trocarOrdem(o)}
-              aria-pressed={ordem === o && !semOrdem}
+              className={`bigo-chip${order === o && !inOrderNote ? " on" : ""}`}
+              onClick={() => pickOrder(o)}
+              aria-pressed={order === o && !inOrderNote}
             >
-              {ROTULO_ORDEM[o]}
+              {ORDER_LABEL[o]}
             </button>
           ))}
           <button
-            className={`bigo-chip na${semOrdem ? " on" : ""}`}
-            onClick={() => setSemOrdem((v) => !v)}
-            aria-pressed={semOrdem}
+            className={`bigo-chip na${inOrderNote ? " on" : ""}`}
+            onClick={() => setInOrderNote((v) => !v)}
+            aria-pressed={inOrderNote}
           >
             Em ordem?
           </button>
         </div>
 
-        {semOrdem && (
+        {inOrderNote && (
           <p className="viz-note invalid" style={{ marginTop: 10 }}>
             Em ordem não existe em árvore n-ária. A definição é "esquerda, eu, direita", e ela depende
             de haver exatamente dois lados. Com três filhos, onde entra o nó: depois do primeiro?
@@ -362,50 +345,55 @@ export function NAryTreeVisualizer() {
         )}
 
         <div className="bigo-chips" style={{ marginTop: 2 }}>
-          {ARVORES.map((a) => (
+          {TREES.map((a) => (
             <button
               key={a.key}
-              className={`bigo-chip${arvoreKey === a.key ? " on" : ""}`}
-              onClick={() => { reiniciar(); setArvoreKey(a.key); }}
-              aria-pressed={arvoreKey === a.key}
+              className={`bigo-chip${treeKey === a.key ? " on" : ""}`}
+              onClick={() => pickTree(a.key)}
+              aria-pressed={treeKey === a.key}
             >
-              {a.rotulo}
+              {a.label}
             </button>
           ))}
         </div>
 
-        <p className="tt-legenda-arvore">{arvore.legenda}</p>
+        <p className="tt-legenda-arvore">{tree.caption}</p>
 
         <div className="tt-arv-wrap">
+          {/* `width`/`height` de atributo, sem `width: 100%` no CSS: o desenho
+              sai no tamanho NATURAL do viewBox (medido: 496x332 renderizado
+              contra 496x332 de viewBox). Não há esticão, então não há vazio a
+              devolver com um teto de altura — ele encolheria o desenho de
+              verdade, texto junto. O que passa da largura rola no wrapper. */}
           <svg
             className="tt-arv"
             width={W}
             height={H}
             viewBox={`0 0 ${W} ${H}`}
             role="img"
-            aria-label={`${ROTULO_ORDEM[ordem]} sobre ${arvore.rotulo}. Passo ${idx + 1} de ${total}. ${p.nota}`}
+            aria-label={`${ORDER_LABEL[order]} sobre ${tree.label}. Passo ${viz.step + 1} de ${viz.total}. ${p.note}`}
           >
-            {arvore.nos.map((no, id) =>
-              no.filhos.map((f) => (
+            {tree.nodes.map((no, id) =>
+              no.children.map((f) => (
                 <line
                   key={`${id}-${f}`}
-                  className={`tt-aresta${jaSaiu.has(f) || naAux.has(f) ? " on" : ""}`}
+                  className={`tt-aresta${done.has(f) || inAux.has(f) ? " on" : ""}`}
                   x1={cx(id)}
-                  y1={cyTopo(id) + NO_A}
+                  y1={cyTop(id) + NODE_H}
                   x2={cx(f)}
-                  y2={cyTopo(f)}
+                  y2={cyTop(f)}
                 />
               ))
             )}
-            {arvore.nos.map((no, id) => {
+            {tree.nodes.map((no, id) => {
               const cls = ["na-no"];
-              if (id === p.no) cls.push("on");
-              else if (jaSaiu.has(id)) cls.push("saiu");
-              else if (naAux.has(id)) cls.push("aux");
+              if (id === p.node) cls.push("on");
+              else if (done.has(id)) cls.push("saiu");
+              else if (inAux.has(id)) cls.push("aux");
               return (
                 <g key={id} className={cls.join(" ")}>
-                  <rect x={cx(id) - NO_L / 2} y={cyTopo(id)} width={NO_L} height={NO_A} rx={7} />
-                  <text x={cx(id)} y={cyTopo(id) + 18} textAnchor="middle">{no.rot}</text>
+                  <rect x={cx(id) - NODE_W / 2} y={cyTop(id)} width={NODE_W} height={NODE_H} rx={7} />
+                  <text x={cx(id)} y={cyTop(id) + 18} textAnchor="middle">{no.label}</text>
                 </g>
               );
             })}
@@ -415,66 +403,75 @@ export function NAryTreeVisualizer() {
         <div className="tt-paineis">
           <div className="tt-painel">
             <div className="tt-painel-tit">
-              {ehBfs ? "Fila" : "Pilha"} <em>{ehBfs ? "FIFO" : "LIFO, altura da árvore"}</em>
+              {isBfs ? "Fila" : "Pilha"} <em>{isBfs ? "FIFO" : "LIFO, altura da árvore"}</em>
             </div>
             <div className="tt-aux">
               {p.aux.length === 0 ? <span className="tt-vazio">vazia</span> : p.aux.map((id, i) => (
-                <span key={`${id}-${i}`} className={`tt-aux-item${(ehBfs ? i === 0 : i === p.aux.length - 1) ? " topo" : ""}`}>
-                  {arvore.nos[id].rot}
+                <span key={`${id}-${i}`} className={`tt-aux-item${(isBfs ? i === 0 : i === p.aux.length - 1) ? " topo" : ""}`}>
+                  {tree.nodes[id].label}
                 </span>
               ))}
             </div>
           </div>
           <div className="tt-painel">
-            <div className="tt-painel-tit">Saída <em>{ROTULO_ORDEM[ordem]}</em></div>
+            <div className="tt-painel-tit">Saída <em>{ORDER_LABEL[order]}</em></div>
             <div className="tt-saida">
-              {p.saida.length === 0 ? <span className="tt-vazio">nada ainda</span> : p.saida.map((id, i) => (
-                <span key={`${id}-${i}`} className={`tt-saida-item${i === p.saida.length - 1 ? " novo" : ""}`}>
-                  {arvore.nos[id].rot}
+              {p.out.length === 0 ? <span className="tt-vazio">nada ainda</span> : p.out.map((id, i) => (
+                <span key={`${id}-${i}`} className={`tt-saida-item${i === p.out.length - 1 ? " novo" : ""}`}>
+                  {tree.nodes[id].label}
                 </span>
               ))}
             </div>
           </div>
         </div>
 
-        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.nota}</p>
+        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">{ehBfs ? "por_nivel.py" : "percorre.py"}</div>
-            <div className="viz-code-body">
-              {CODIGO[ordem].map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* O `.viz-code-slot` recolhe a ALTURA (grid 1fr→0fr); zerar a trilha
+              da coluna só tiraria a largura. O bloco continua no DOM para a
+              medição enxergar o pior caso, com `inert` tirando ele do teclado e
+              dos leitores de tela enquanto está fora de vista. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">{isBfs ? "por_nivel.py" : "percorre.py"}</div>
+              <div className="viz-code-body">
+                {CODE[order].map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             <div className="viz-var">
               <span className="viz-var-name">nó atual</span>
-              <span className="viz-var-val">{p.no >= 0 ? arvore.nos[p.no].rot : "-"}</span>
+              <span className="viz-var-val">{p.node >= 0 ? tree.nodes[p.node].label : "-"}</span>
             </div>
             <div className="viz-var">
-              <span className="viz-var-name">{ehBfs ? "fila" : "pilha"}</span>
+              <span className="viz-var-name">{isBfs ? "fila" : "pilha"}</span>
               <span className="viz-var-val">{p.aux.length}</span>
             </div>
             <div className="viz-var">
               <span className="viz-var-name">processados</span>
-              <span className="viz-var-val best">{p.saida.length} de {arvore.nos.length}</span>
+              <span className="viz-var-val best">{p.out.length} de {tree.nodes.length}</span>
             </div>
             <div className="viz-var">
               <span className="viz-var-name">grau máximo</span>
-              <span className="viz-var-val">{grauMax}</span>
+              <span className="viz-var-val">{maxDegree}</span>
             </div>
           </div>
         </div>
 
+        {/* `.rec-comp` é do bloco temático da Recursão, e é compartilhada com o
+            `RecursionArvoreVisualizer`: a mesma tabela de comparação serve as
+            duas aulas. Renomear a classe aqui quebraria a peça de lá. */}
         <div className="rec-comp-wrap">
           <table className="rec-comp">
-            <caption>Altura mínima para guardar {num(N_EXEMPLO)} nós, por grau</caption>
+            <caption>Altura mínima para guardar {num(N_EXAMPLE)} nós, por grau</caption>
             <thead>
               <tr>
                 <th>Grau (filhos por nó)</th>
@@ -483,31 +480,16 @@ export function NAryTreeVisualizer() {
               </tr>
             </thead>
             <tbody>
-              {GRAUS.map((k) => (
-                <tr key={k} className={k === grauMax ? "on" : undefined}>
-                  <td>{k}{k === grauMax ? " (o desta árvore)" : ""}</td>
-                  <td>{alturaPara(N_EXEMPLO, k)}</td>
-                  <td>~{num(alturaPara(N_EXEMPLO, k) * Math.ceil(Math.log2(k)))}</td>
+              {DEGREES.map((k) => (
+                <tr key={k} className={k === maxDegree ? "on" : undefined}>
+                  <td>{k}{k === maxDegree ? " (o desta árvore)" : ""}</td>
+                  <td>{heightFor(N_EXAMPLE, k)}</td>
+                  <td>~{num(heightFor(N_EXAMPLE, k) * Math.ceil(Math.log2(k)))}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           De grau 2 para grau 256, um milhão de nós sai de 20 níveis para 4. Repare na terceira
@@ -516,16 +498,12 @@ export function NAryTreeVisualizer() {
           banco de dados guarda índice em B-tree, e não em árvore binária.
         </p>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
