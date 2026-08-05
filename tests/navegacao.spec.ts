@@ -737,6 +737,26 @@ const carimboDoMenu = (page: import("@playwright/test").Page) =>
   });
 
 /**
+ * O carimbo foi regravado NESTA carga? Duas condições, e as duas fazem falta:
+ *
+ * - avançou em relação ao de antes da navegação, senão uma recarga aprovaria
+ *   com o carimbo que a carga anterior já tinha deixado fresco;
+ * - é recente, senão o carimbo que o próprio teste semeia (com horas de idade,
+ *   e escrito pelo `addInitScript` antes de qualquer script da página) já
+ *   aprovaria a espera antes da hidratação — que é justamente o flake.
+ */
+const carimboRegravado = (page: import("@playwright/test").Page, antes: number) =>
+  page.evaluate((anterior) => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem("ccc-dsa-menu") ?? "null");
+      const em = typeof salvo?.em === "number" ? salvo.em : 0;
+      return em > anterior && Date.now() - em < 60_000;
+    } catch {
+      return false;
+    }
+  }, antes);
+
+/**
  * Navega (ou recarrega) e só devolve quando o menu terminou de restaurar.
  *
  * O HTML estático chega com o grupo da rota aberto; os grupos que o leitor tinha
@@ -745,8 +765,10 @@ const carimboDoMenu = (page: import("@playwright/test").Page) =>
  * passando na segunda tentativa só porque ela foi mais lenta.
  *
  * O sinal de "já restaurou" é o carimbo: o efeito que salva regrava `em` a cada
- * carga, então esperar o carimbo AVANÇAR em relação ao de antes da navegação é
- * um fato do aplicativo, e não um tempo chutado.
+ * carga, então esperar o carimbo ser REGRAVADO nesta carga é um fato do
+ * aplicativo, e não um tempo chutado. O que conta como regravado está em
+ * `carimboRegravado` — e as duas condições de lá são o que impede a espera de
+ * aprovar o menu de antes da hidratação.
  */
 async function abrirComMenuPronto(
   page: import("@playwright/test").Page,
@@ -756,8 +778,8 @@ async function abrirComMenuPronto(
   if (rota === "recarregar") await page.reload();
   else await page.goto(rota);
   await expect
-    .poll(() => carimboDoMenu(page), { message: "o menu não terminou de restaurar" })
-    .toBeGreaterThan(antes);
+    .poll(() => carimboRegravado(page, antes), { message: "o menu não terminou de restaurar" })
+    .toBe(true);
 }
 
 test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page }) => {
