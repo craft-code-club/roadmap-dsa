@@ -11,14 +11,19 @@ import type { Metadata } from "next";
 // para tópico, mas empurraria os títulos longos destas páginas para muito além
 // dos ~60 caracteres que o Google mostra.
 //
-// `path` precisa da barra final (o site é `trailingSlash: true`), e vira tanto
-// o canonical quanto o `og:url` — os dois têm que apontar para a mesma URL.
+// `path` vira tanto o canonical quanto o `og:url` — os dois têm que apontar para
+// a mesma URL, e o site é `trailingSlash: true`.
+//
+// O tipo cobra a barra final em vez de só pedir por comentário: `/${string}`
+// aceitava "/roadmap" de boa, e um path quase certo aqui vira canonical apontando
+// para uma URL que não existe. Erro de SEO não quebra teste nem build — ou o
+// compilador pega, ou ninguém pega.
 export type PageSeo = {
   title: string;
   description: string;
   ogTitle: string;
   ogDescription: string;
-  path: `/${string}` | "/";
+  path: "/" | `/${string}/`;
 };
 
 export function pageMetadata({ title, description, ogTitle, ogDescription, path }: PageSeo): Metadata {
