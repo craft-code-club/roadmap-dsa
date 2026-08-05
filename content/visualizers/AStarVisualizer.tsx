@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // AStarVisualizer, a heurística em cima de uma grade.
@@ -17,23 +18,27 @@ import { createPortal } from "react-dom";
 //   Guloso    f = h          (ignora o custo já pago, e por isso erra)
 // O modo guloso existe para provar que a soma importa: ele é rápido e às vezes
 // devolve um caminho pior, que é exatamente o preço de jogar fora o g.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-const L = 14; // colunas
-const A = 9;  // linhas
-const CEL = 26;
+const COLS = 14; // colunas
+const ROWS = 9;  // linhas
+const CELL = 26;
 
-type Modo = "astar" | "dijkstra" | "guloso";
+type Mode = "astar" | "dijkstra" | "greedy";
 
-type Preset = { key: string; rotulo: string; paredes: string; dica: string };
+type Preset = { key: string; label: string; walls: string; hint: string };
 
 // Mapas em texto: '#' é parede. Ler assim deixa o mapa editável de olho.
 const PRESETS: Preset[] = [
   {
-    key: "muro",
-    rotulo: "Um muro no meio",
-    dica: "O caso didático: o A* vai direto até o muro, contorna e segue. O Dijkstra explora para trás também, sem motivo.",
-    paredes: [
+    key: "wall",
+    label: "Um muro no meio",
+    hint: "O caso didático: o A* vai direto até o muro, contorna e segue. O Dijkstra explora para trás também, sem motivo.",
+    walls: [
       "..............",
       "..............",
       ".......#......",
@@ -46,10 +51,10 @@ const PRESETS: Preset[] = [
     ].join("\n"),
   },
   {
-    key: "labirinto",
-    rotulo: "Labirinto",
-    dica: "Com becos sem saída, a heurística ainda ajuda, mas menos: ela aponta para o alvo e a parede diz que não dá.",
-    paredes: [
+    key: "maze",
+    label: "Labirinto",
+    hint: "Com becos sem saída, a heurística ainda ajuda, mas menos: ela aponta para o alvo e a parede diz que não dá.",
+    walls: [
       "..............",
       ".####.####....",
       ".#......#.....",
@@ -62,17 +67,20 @@ const PRESETS: Preset[] = [
     ].join("\n"),
   },
   {
-    key: "aberto",
-    rotulo: "Campo aberto",
-    dica: "Sem obstáculo nenhum, o A* praticamente desenha a linha reta e o Dijkstra abre um círculo. É a diferença no estado puro.",
-    paredes: Array(A).fill(".".repeat(L)).join("\n"),
+    key: "open",
+    label: "Campo aberto",
+    hint: "Sem obstáculo nenhum, o A* praticamente desenha a linha reta e o Dijkstra abre um círculo. É a diferença no estado puro.",
+    walls: Array(ROWS).fill(".".repeat(COLS)).join("\n"),
   },
 ];
 
-const INICIO: [number, number] = [4, 1];
-const ALVO: [number, number] = [4, 12];
+const START: [number, number] = [4, 1];
+const GOAL: [number, number] = [4, 12];
 
-const CODIGO = [
+// O Python da tela é CONTEÚDO em português (`inicio`, `alvo`, `vizinhos`,
+// `fila`, `novo`): as notas do passo a passo citam esses nomes. Traduzir aqui
+// desalinha o código da aula que o explica.
+const CODE = [
   "import heapq",
   "",
   "def a_estrela(inicio, alvo, vizinhos, h):",
@@ -89,201 +97,182 @@ const CODIGO = [
   "                heapq.heappush(fila, (novo + h(v), v))",
 ];
 
-type Passo = {
-  atual: [number, number] | null;
-  fechados: string[];
-  fronteira: string[];
+type Step = {
+  current: [number, number] | null;
+  closed: string[];
+  frontier: string[];
   g: Record<string, number>;
-  caminho: string[];
-  nota: string;
+  path: string[];
+  note: string;
   ok?: boolean;
 };
 
-const chave = (r: number, c: number) => `${r},${c}`;
-const manhattan = (r: number, c: number) => Math.abs(r - ALVO[0]) + Math.abs(c - ALVO[1]);
+const cellKey = (r: number, c: number) => `${r},${c}`;
+const manhattan = (r: number, c: number) => Math.abs(r - GOAL[0]) + Math.abs(c - GOAL[1]);
 
-function parseParedes(txt: string): boolean[][] {
-  const linhas = txt.split("\n");
-  return Array.from({ length: A }, (_, r) =>
-    Array.from({ length: L }, (_, c) => (linhas[r]?.[c] ?? ".") === "#")
+function parseWalls(txt: string): boolean[][] {
+  const lines = txt.split("\n");
+  return Array.from({ length: ROWS }, (_, r) =>
+    Array.from({ length: COLS }, (_, c) => (lines[r]?.[c] ?? ".") === "#")
   );
 }
 
-function gerarPassos(paredes: boolean[][], modo: Modo): Passo[] {
-  const out: Passo[] = [];
-  const g: Record<string, number> = { [chave(...INICIO)]: 0 };
-  const pai: Record<string, string> = {};
-  const fechados = new Set<string>();
-  let fila: { f: number; r: number; c: number }[] = [
-    { f: modo === "dijkstra" ? 0 : manhattan(...INICIO), r: INICIO[0], c: INICIO[1] },
+function buildSteps(walls: boolean[][], mode: Mode): Step[] {
+  const out: Step[] = [];
+  const g: Record<string, number> = { [cellKey(...START)]: 0 };
+  const parent: Record<string, string> = {};
+  const closed = new Set<string>();
+  const queue: { f: number; r: number; c: number }[] = [
+    { f: mode === "dijkstra" ? 0 : manhattan(...START), r: START[0], c: START[1] },
   ];
 
-  const prioridade = (custo: number, r: number, c: number) =>
-    modo === "dijkstra" ? custo : modo === "guloso" ? manhattan(r, c) : custo + manhattan(r, c);
+  const priority = (cost: number, r: number, c: number) =>
+    mode === "dijkstra" ? cost : mode === "greedy" ? manhattan(r, c) : cost + manhattan(r, c);
 
-  const snap = (atual: [number, number] | null, nota: string, caminho: string[] = [], ok = false): Passo => ({
-    atual,
-    fechados: [...fechados],
-    fronteira: fila.map((q) => chave(q.r, q.c)),
+  const snap = (current: [number, number] | null, note: string, path: string[] = [], ok = false): Step => ({
+    current,
+    closed: [...closed],
+    frontier: queue.map((q) => cellKey(q.r, q.c)),
     g: { ...g },
-    caminho,
-    nota,
+    path,
+    note,
     ok,
   });
 
-  const nomeModo = modo === "astar" ? "A*" : modo === "dijkstra" ? "Dijkstra" : "Guloso";
-  out.push(snap(INICIO, `${nomeModo}: começo na origem. ${
-    modo === "dijkstra"
+  const modeName = mode === "astar" ? "A*" : mode === "dijkstra" ? "Dijkstra" : "Guloso";
+  out.push(snap(START, `${modeName}: começo na origem. ${
+    mode === "dijkstra"
       ? "A prioridade é só o custo já pago (g). O algoritmo não sabe onde fica o alvo, então explora igualmente em todas as direções."
-      : modo === "guloso"
+      : mode === "greedy"
         ? "A prioridade é só a estimativa até o alvo (h). Rápido, mas ele ignora o quanto já gastou, e por isso pode devolver caminho pior."
         : "A prioridade é g + h: o que já paguei mais o que estimo faltar. É essa soma que mantém o caminho ótimo e ainda aponta para o alvo."
   }`));
 
-  let guarda = 0;
-  let achou = false;
-  while (fila.length && guarda++ < 4000) {
-    fila.sort((x, y) => x.f - y.f);
-    const { r, c } = fila.shift() as { f: number; r: number; c: number };
-    const k = chave(r, c);
-    if (fechados.has(k)) continue;
-    fechados.add(k);
+  let guard = 0;
+  let found = false;
+  while (queue.length && guard++ < 4000) {
+    queue.sort((x, y) => x.f - y.f);
+    const { r, c } = queue.shift() as { f: number; r: number; c: number };
+    const k = cellKey(r, c);
+    if (closed.has(k)) continue;
+    closed.add(k);
 
-    if (r === ALVO[0] && c === ALVO[1]) {
-      const caminho: string[] = [];
+    if (r === GOAL[0] && c === GOAL[1]) {
+      const path: string[] = [];
       let cur = k;
-      while (cur) { caminho.push(cur); cur = pai[cur]; }
-      achou = true;
-      out.push(snap([r, c], `Cheguei ao alvo com custo ${g[k]}, depois de expandir ${fechados.size} células. ${
-        modo === "guloso"
+      while (cur) { path.push(cur); cur = parent[cur]; }
+      found = true;
+      out.push(snap([r, c], `Cheguei ao alvo com custo ${g[k]}, depois de expandir ${closed.size} células. ${
+        mode === "greedy"
           ? "O guloso chegou rápido, mas nada garante que este seja o caminho mais barato: ele nunca olhou para o custo já pago."
           : "Este é o caminho mais barato possível, e os dois algoritmos que somam o g concordam nesse número."
-      }`, caminho.reverse(), true));
+      }`, path.reverse(), true));
       break;
     }
 
     for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       const nr = r + dr, nc = c + dc;
-      if (nr < 0 || nr >= A || nc < 0 || nc >= L || paredes[nr][nc]) continue;
-      const nk = chave(nr, nc);
-      const novo = g[k] + 1;
-      if (g[nk] === undefined || novo < g[nk]) {
-        g[nk] = novo;
-        pai[nk] = k;
-        fila.push({ f: prioridade(novo, nr, nc), r: nr, c: nc });
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || walls[nr][nc]) continue;
+      const nk = cellKey(nr, nc);
+      const tentative = g[k] + 1;
+      if (g[nk] === undefined || tentative < g[nk]) {
+        g[nk] = tentative;
+        parent[nk] = k;
+        queue.push({ f: priority(tentative, nr, nc), r: nr, c: nc });
       }
     }
     // um passo por expansão, para a animação não ficar longa demais
-    out.push(snap([r, c], `Expando (${r}, ${c}): g = ${g[k]}${modo !== "dijkstra" ? `, h = ${manhattan(r, c)}${modo === "astar" ? `, f = ${g[k] + manhattan(r, c)}` : ""}` : ""}. ${fechados.size} ${fechados.size === 1 ? "célula expandida" : "células expandidas"} até aqui.`));
+    out.push(snap([r, c], `Expando (${r}, ${c}): g = ${g[k]}${mode !== "dijkstra" ? `, h = ${manhattan(r, c)}${mode === "astar" ? `, f = ${g[k] + manhattan(r, c)}` : ""}` : ""}. ${closed.size} ${closed.size === 1 ? "célula expandida" : "células expandidas"} até aqui.`));
   }
 
-  if (!achou) {
+  if (!found) {
     out.push(snap(null, `A fronteira esvaziou sem alcançar o alvo: não existe caminho neste mapa.`, [], true));
   }
   return out;
 }
 
-const VELOCIDADES = [0, 400, 240, 140, 80, 40];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+// O ritmo é desta peça: um passo é uma expansão de célula, e a animação chega a
+// 119 passos no preset mais longo. As marchas do hook são lentas demais aqui.
+const SPEEDS = [0, 400, 240, 140, 80, 40];
 
 export function AStarVisualizer() {
-  const [presetKey, setPresetKey] = useState("muro");
-  const [modo, setModo] = useState<Modo>("astar");
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(4);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [presetKey, setPresetKey] = useState("wall");
+  const [mode, setMode] = useState<Mode>("astar");
 
-  useEffect(() => setMounted(true), []);
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
-  const paredes = useMemo(() => parseParedes(preset.paredes), [preset]);
-  const passos = useMemo(() => gerarPassos(paredes, modo), [paredes, modo]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const walls = useMemo(() => parseWalls(preset.walls), [preset]);
+  const steps = useMemo(() => buildSteps(walls, mode), [walls, mode]);
+
+  const viz = useVisualizer({
+    title: "Visualizador · A*, Dijkstra e Guloso no mesmo mapa",
+    total: steps.length,
+    speeds: SPEEDS,
+    // a peça abria em 1.5x antes da casca, e continua abrindo
+    initialSpeed: 4,
+    // O que muda a altura: o preset troca a DICA (uma ou duas linhas) e o modo
+    // troca a NOTA. O desenho tem altura constante — a grade é COLS × ROWS ×
+    // CELL, três constantes deste arquivo, e nada na tela mexe nelas.
+    measureOn: [presetKey, mode],
+  });
+
+  const p = steps[viz.step];
 
   // comparação honesta: roda os três no mesmo mapa e conta expansões
-  const comparacao = useMemo(() => {
-    return (["dijkstra", "astar", "guloso"] as Modo[]).map((m) => {
-      const ps = gerarPassos(paredes, m);
+  const comparison = useMemo(() => {
+    return (["dijkstra", "astar", "greedy"] as Mode[]).map((m) => {
+      const ps = buildSteps(walls, m);
       const f = ps[ps.length - 1];
-      return { modo: m, expandidas: f.fechados.length, custo: f.caminho.length ? f.caminho.length - 1 : null };
+      return { mode: m, expandedCells: f.closed.length, cost: f.path.length ? f.path.length - 1 : null };
     });
-  }, [paredes]);
+  }, [walls]);
 
-  const parar = useCallback(() => { if (timer.current) { clearInterval(timer.current); timer.current = null; } }, []);
-  useEffect(() => () => parar(), [parar]);
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-  useEffect(() => { if (tocando && idx >= total - 1) setTocando(false); }, [tocando, idx, total]);
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  const closedSet = useMemo(() => new Set(p.closed), [p.closed]);
+  const frontierSet = useMemo(() => new Set(p.frontier), [p.frontier]);
+  const pathSet = useMemo(() => new Set(p.path), [p.path]);
 
-  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
-  const fechados = useMemo(() => new Set(p.fechados), [p.fechados]);
-  const fronteira = useMemo(() => new Set(p.fronteira), [p.fronteira]);
-  const caminho = useMemo(() => new Set(p.caminho), [p.caminho]);
-  const pct = Math.round(((idx + 1) / total) * 100);
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* O número que resume o estado vai antes do "passo N de M". */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">{p.closed.length} expandidas</span>
+      </VizHeader>
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · A*, Dijkstra e Guloso no mesmo mapa</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">{p.fechados.length} expandidas · passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>{expanded ? "✕ Fechar" : "⤢ Expandir"}</button>
-        </div>
-      </div>
-
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          <button className={`bigo-chip${modo === "astar" ? " on" : ""}`} onClick={() => { reiniciar(); setModo("astar"); }} aria-pressed={modo === "astar"}>A*: f = g + h</button>
-          <button className={`bigo-chip${modo === "dijkstra" ? " on" : ""}`} onClick={() => { reiniciar(); setModo("dijkstra"); }} aria-pressed={modo === "dijkstra"}>Dijkstra: f = g</button>
-          <button className={`bigo-chip na${modo === "guloso" ? " on" : ""}`} onClick={() => { reiniciar(); setModo("guloso"); }} aria-pressed={modo === "guloso"}>Guloso: f = h</button>
+          <button className={`bigo-chip${mode === "astar" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("astar"); }} aria-pressed={mode === "astar"}>A*: f = g + h</button>
+          <button className={`bigo-chip${mode === "dijkstra" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("dijkstra"); }} aria-pressed={mode === "dijkstra"}>Dijkstra: f = g</button>
+          <button className={`bigo-chip na${mode === "greedy" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("greedy"); }} aria-pressed={mode === "greedy"}>Guloso: f = h</button>
         </div>
         <div className="bigo-chips" style={{ marginTop: 2 }}>
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => { reiniciar(); setPresetKey(pr.key); }} aria-pressed={presetKey === pr.key}>
-              {pr.rotulo}
+            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => { viz.reset(); setPresetKey(pr.key); }} aria-pressed={presetKey === pr.key}>
+              {pr.label}
             </button>
           ))}
         </div>
-        <p className="tt-legenda-arvore">{preset.dica}</p>
+        <p className="tt-legenda-arvore">{preset.hint}</p>
 
         <div className="tt-arv-wrap">
-          <svg className="tt-arv" width={L * CEL + 2} height={A * CEL + 2} viewBox={`0 0 ${L * CEL + 2} ${A * CEL + 2}`}
-            role="img" aria-label={`Grade ${A} por ${L}. ${p.nota}`}>
-            {Array.from({ length: A }, (_, r) =>
-              Array.from({ length: L }, (_, c) => {
-                const k = chave(r, c);
-                const ehInicio = r === INICIO[0] && c === INICIO[1];
-                const ehAlvo = r === ALVO[0] && c === ALVO[1];
+          <svg className="tt-arv" width={COLS * CELL + 2} height={ROWS * CELL + 2} viewBox={`0 0 ${COLS * CELL + 2} ${ROWS * CELL + 2}`}
+            role="img" aria-label={`Grade ${ROWS} por ${COLS}. ${p.note}`}>
+            {Array.from({ length: ROWS }, (_, r) =>
+              Array.from({ length: COLS }, (_, c) => {
+                const k = cellKey(r, c);
+                const isStart = r === START[0] && c === START[1];
+                const isGoal = r === GOAL[0] && c === GOAL[1];
                 let cls = "as-cel";
-                if (paredes[r][c]) cls += " parede";
-                else if (ehInicio) cls += " inicio";
-                else if (ehAlvo) cls += " alvo";
-                else if (caminho.has(k)) cls += " caminho";
-                else if (p.atual && p.atual[0] === r && p.atual[1] === c) cls += " atual";
-                else if (fechados.has(k)) cls += " fechado";
-                else if (fronteira.has(k)) cls += " fronteira";
+                if (walls[r][c]) cls += " parede";
+                else if (isStart) cls += " inicio";
+                else if (isGoal) cls += " alvo";
+                else if (pathSet.has(k)) cls += " caminho";
+                else if (p.current && p.current[0] === r && p.current[1] === c) cls += " atual";
+                else if (closedSet.has(k)) cls += " fechado";
+                else if (frontierSet.has(k)) cls += " fronteira";
                 return (
                   <g key={k} className={cls}>
-                    <rect x={c * CEL + 1} y={r * CEL + 1} width={CEL - 2} height={CEL - 2} rx={4} />
-                    {(ehInicio || ehAlvo) && (
-                      <text x={c * CEL + CEL / 2} y={r * CEL + CEL / 2 + 4} textAnchor="middle">{ehInicio ? "I" : "F"}</text>
+                    <rect x={c * CELL + 1} y={r * CELL + 1} width={CELL - 2} height={CELL - 2} rx={4} />
+                    {(isStart || isGoal) && (
+                      <text x={c * CELL + CELL / 2} y={r * CELL + CELL / 2 + 4} textAnchor="middle">{isStart ? "I" : "F"}</text>
                     )}
                   </g>
                 );
@@ -299,44 +288,31 @@ export function AStarVisualizer() {
           <span><i className="as-i parede" />parede</span>
         </div>
 
-        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.nota}</p>
+        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">a_estrela.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${i === (modo === "astar" ? 13 : 6) ? " on" : ""}`}><span className="ln">{i + 1}</span>{txt}</div>
-              ))}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">a_estrela.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === (mode === "astar" ? 13 : 6) ? " on" : ""}`}><span className="ln">{i + 1}</span>{txt}</div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">No mapa atual</div>
-            {comparacao.map((c) => (
-              <div className="viz-var" key={c.modo}>
-                <span className="viz-var-name">{c.modo === "astar" ? "A*" : c.modo === "dijkstra" ? "Dijkstra" : "Guloso"}</span>
-                <span className={`viz-var-val${c.modo === modo ? " best" : ""}`}>
-                  {c.expandidas} células · custo {c.custo ?? "-"}
+            {comparison.map((c) => (
+              <div className="viz-var" key={c.mode}>
+                <span className="viz-var-name">{c.mode === "astar" ? "A*" : c.mode === "dijkstra" ? "Dijkstra" : "Guloso"}</span>
+                <span className={`viz-var-val${c.mode === mode ? " best" : ""}`}>
+                  {c.expandedCells} células · custo {c.cost ?? "-"}
                 </span>
               </div>
             ))}
           </div>
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pct}%` }} /></div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           O painel da direita roda os três no mesmo mapa e conta. Compare duas colunas: A* e Dijkstra
@@ -344,14 +320,8 @@ export function AStarVisualizer() {
           único que pode devolver um caminho mais caro.
         </p>
       </div>
+
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>{viz}</div>,
-      document.body
-    );
-  }
-  return viz;
 }
