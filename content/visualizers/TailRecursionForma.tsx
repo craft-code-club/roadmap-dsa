@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // TailRecursionForma, o classificador: "esta chamada está em posição de cauda?"
@@ -20,114 +21,123 @@ import { createPortal } from "react-dom";
 //
 // O painel de código usa .tr-code em vez de .viz-code de propósito: o .viz-code
 // some abaixo de 760px por design, e aqui o código É o conteúdo.
+//
+// Por isso mesmo, `collapsible: false`: o bloco de código não é dispensável,
+// ele é o objeto da classificação — no modo treino a própria nota manda "leia o
+// código acima". A casca entra com o painel de cabeçalho e controles parados, e
+// nada mais. Medido a 1512x900: o pior caso (busca em BST) pede 737px de um
+// orçamento de 816, então não há o que recolher; e a 1440x600 nem recolher o
+// código resolveria (533px de um orçamento de 516).
+//
+// A casca vem do `useVisualizer`. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Caso = {
+type Case = {
   key: string;
-  rotulo: string;
-  arquivo: string;
-  codigo: string[];
-  alvos: number[]; // linhas da última instrução executada em cada caminho
-  cauda: boolean;
-  recursiva: boolean;
-  pendente: string;
-  leitura: string;
-  conserto: string;
-  pilha: string;
+  label: string;
+  file: string;
+  code: string[];
+  targets: number[]; // linhas da última instrução executada em cada caminho
+  tail: boolean;
+  recursive: boolean;
+  pending: string;
+  reading: string;
+  fix: string;
+  stack: string;
 };
 
-const CASOS: Caso[] = [
+const CASES: Case[] = [
   {
     key: "comum",
-    rotulo: "soma comum",
-    arquivo: "soma.py",
-    codigo: [
+    label: "soma comum",
+    file: "soma.py",
+    code: [
       "def soma(nums):",
       "    if not nums:",
       "        return 0",
       "    return nums[0] + soma(nums[1:])",
     ],
-    alvos: [3],
-    cauda: false,
-    recursiva: true,
-    pendente: "nums[0] + ?",
-    leitura:
+    targets: [3],
+    tail: false,
+    recursive: true,
+    pending: "nums[0] + ?",
+    reading:
       "A última coisa que a função faz não é chamar soma, é somar. A chamada precisa voltar com um número para o + acontecer, e por isso este frame fica vivo esperando, com o nums[0] guardado dentro dele.",
-    conserto: "Empurre a soma para dentro do argumento: soma(nums[1:], acc + nums[0]).",
-    pilha: "O(n) sempre",
+    fix: "Empurre a soma para dentro do argumento: soma(nums[1:], acc + nums[0]).",
+    stack: "O(n) sempre",
   },
   {
     key: "cauda",
-    rotulo: "soma de cauda",
-    arquivo: "soma_cauda.py",
-    codigo: [
+    label: "soma de cauda",
+    file: "soma_cauda.py",
+    code: [
       "def soma(nums, acc=0):",
       "    if not nums:",
       "        return acc",
       "    return soma(nums[1:], acc + nums[0])",
     ],
-    alvos: [3],
-    cauda: true,
-    recursiva: true,
-    pendente: "nada",
-    leitura:
+    targets: [3],
+    tail: true,
+    recursive: true,
+    pending: "nada",
+    reading:
       "acc + nums[0] é avaliado antes da chamada, na hora de montar o argumento. Quando soma é chamada, este frame já não tem mais nada a fazer: o valor que ela devolver é, sem tocar em nada, o valor que ele devolve.",
-    conserto: "Já está pronta. Numa linguagem com TCO este frame é reescrito no lugar e a pilha fica em 1.",
-    pilha: "O(1) com TCO, O(n) sem",
+    fix: "Já está pronta. Numa linguagem com TCO este frame é reescrito no lugar e a pilha fica em 1.",
+    stack: "O(1) com TCO, O(n) sem",
   },
   {
     key: "elixir",
-    rotulo: "a mesma soma em Elixir",
-    arquivo: "soma.ex",
-    codigo: [
+    label: "a mesma soma em Elixir",
+    file: "soma.ex",
+    code: [
       "def soma([], acc), do: acc",
       "",
       "def soma([head | tail], acc) do",
       "  soma(tail, acc + head)",
       "end",
     ],
-    alvos: [3],
-    cauda: true,
-    recursiva: true,
-    pendente: "nada",
-    leitura:
+    targets: [3],
+    tail: true,
+    recursive: true,
+    pending: "nada",
+    reading:
       "É a função do encontro. O caso base virou uma cláusula separada por pattern matching, e [head | tail] decompõe a lista sem copiar nada: tail é um ponteiro para o resto, não uma cópia como o nums[1:] do Python.",
-    conserto: "A BEAM aplica a otimização sozinha, sem anotação nenhuma: lista de 1.000 elementos, 1 frame.",
-    pilha: "O(1), a BEAM otimiza",
+    fix: "A BEAM aplica a otimização sozinha, sem anotação nenhuma: lista de 1.000 elementos, 1 frame.",
+    stack: "O(1), a BEAM otimiza",
   },
   {
     key: "outra",
-    rotulo: "chama outra função",
-    arquivo: "validar.py",
-    codigo: ["def validar(texto):", "    return checar(list(texto), [])"],
-    alvos: [1],
-    cauda: true,
-    recursiva: false,
-    pendente: "nada",
-    leitura:
+    label: "chama outra função",
+    file: "validar.py",
+    code: ["def validar(texto):", "    return checar(list(texto), [])"],
+    targets: [1],
+    tail: true,
+    recursive: false,
+    pending: "nada",
+    reading:
       "Chamada de cauda não precisa ser recursiva. Aqui a última instrução chama outra função, e o frame de validar também não serve mais para nada depois disso. Foi exatamente a pergunta do Giovani no encontro, e a resposta é sim: a otimização vale igual.",
-    conserto: "Nada a consertar. Só repare no vocabulário: isto é tail call, e tail recursion é o caso em que a função chamada é ela mesma.",
-    pilha: "O(1) com TCO",
+    fix: "Nada a consertar. Só repare no vocabulário: isto é tail call, e tail recursion é o caso em que a função chamada é ela mesma.",
+    stack: "O(1) com TCO",
   },
   {
     key: "fib",
-    rotulo: "fibonacci ingênuo",
-    arquivo: "fib.py",
-    codigo: ["def fib(n):", "    if n < 2:", "        return n", "    return fib(n - 1) + fib(n - 2)"],
-    alvos: [3],
-    cauda: false,
-    recursiva: true,
-    pendente: "fib(n - 1) + ?",
-    leitura:
+    label: "fibonacci ingênuo",
+    file: "fib.py",
+    code: ["def fib(n):", "    if n < 2:", "        return n", "    return fib(n - 1) + fib(n - 2)"],
+    targets: [3],
+    tail: false,
+    recursive: true,
+    pending: "fib(n - 1) + ?",
+    reading:
       "Duas chamadas e um +. Nenhuma das duas está em posição de cauda: fib(n - 1) tem que voltar para o + acontecer, e o + tem que acontecer para existir um return. Não existe otimização de linguagem que salve esta forma.",
-    conserto: "Vire o problema de cabeça para baixo: fib(n, a=0, b=1) carrega os dois últimos valores e a chamada passa a ser a última instrução.",
-    pilha: "O(n) de pilha, O(2ⁿ) de tempo",
+    fix: "Vire o problema de cabeça para baixo: fib(n, a=0, b=1) carrega os dois últimos valores e a chamada passa a ser a última instrução.",
+    stack: "O(n) de pilha, O(2ⁿ) de tempo",
   },
   {
     key: "bst",
-    rotulo: "busca em BST",
-    arquivo: "bst.py",
-    codigo: [
+    label: "busca em BST",
+    file: "bst.py",
+    code: [
       "def buscar(no, alvo):",
       "    if no is None or no.val == alvo:",
       "        return no",
@@ -135,167 +145,128 @@ const CASOS: Caso[] = [
       "        return buscar(no.esq, alvo)",
       "    return buscar(no.dir, alvo)",
     ],
-    alvos: [4, 5],
-    cauda: true,
-    recursiva: true,
-    pendente: "nada",
-    leitura:
+    targets: [4, 5],
+    tail: true,
+    recursive: true,
+    pending: "nada",
+    reading:
       "Os ifs antes não atrapalham: o que conta é a última instrução executada em cada caminho. Aqui os dois returns recursivos são só a chamada, sem nenhuma conta pendurada em cima dela.",
-    conserto: "Já é de cauda, e é por isso que a busca em BST vira um while de três linhas sem nenhum esforço.",
-    pilha: "O(1) com TCO, O(altura) sem",
+    fix: "Já é de cauda, e é por isso que a busca em BST vira um while de três linhas sem nenhum esforço.",
+    stack: "O(1) com TCO, O(altura) sem",
   },
   {
     key: "map",
-    rotulo: "dobrar os valores",
-    arquivo: "dobrar.py",
-    codigo: [
+    label: "dobrar os valores",
+    file: "dobrar.py",
+    code: [
       "def dobrar(nums):",
       "    if not nums:",
       "        return []",
       "    return [nums[0] * 2] + dobrar(nums[1:])",
     ],
-    alvos: [3],
-    cauda: false,
-    recursiva: true,
-    pendente: "[nums[0] * 2] + ?",
-    leitura:
+    targets: [3],
+    tail: false,
+    recursive: true,
+    pending: "[nums[0] * 2] + ?",
+    reading:
       "Mesmo formato da soma comum, só que juntando listas em vez de números. E é o caso que o Tiago mediu no encontro: aqui a versão de cauda saiu mais lenta, porque ela monta a lista ao contrário e precisa de um reverse no fim.",
-    conserto: "Dá para transformar (acc=[] e reverse no fim), só que o conserto custa uma passada extra. Nem toda recursão quer virar de cauda.",
-    pilha: "O(n) sempre",
+    fix: "Dá para transformar (acc=[] e reverse no fim), só que o conserto custa uma passada extra. Nem toda recursão quer virar de cauda.",
+    stack: "O(n) sempre",
   },
 ];
 
-const VELOCIDADES = [0, 3200, 2400, 1800, 1300, 900];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+// Ritmo próprio, bem mais lento que o padrão: cada passo aqui é um caso inteiro
+// para ler, não uma troca de posição num array.
+const SPEEDS = [0, 3200, 2400, 1800, 1300, 900];
 
 export function TailRecursionForma() {
-  const [i, setI] = useState(0);
   // Modo treino: esconde o veredito e a leitura, deixando só o código na tela.
   // É o exercício que o artigo pede (decidir antes de olhar o selo).
-  const [treino, setTreino] = useState(false);
-  const [revelado, setRevelado] = useState(false);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [training, setTraining] = useState(false);
+  // Qual caso está revelado, e não um booleano solto: trocar de caso tem que
+  // esconder o veredito de novo, e agora o caso também muda pelas setas e pelo
+  // ▶ Rodar, que são da casca e não passam por nenhum handler daqui.
+  const [revealedFor, setRevealedFor] = useState<number | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  const viz = useVisualizer({
+    title: "Visualizador · esta chamada está em posição de cauda?",
+    total: CASES.length,
+    speeds: SPEEDS,
+    // Sem bloco dispensável: o código É o conteúdo que se classifica aqui.
+    collapsible: false,
+  });
 
-  const total = CASOS.length;
-  const c = CASOS[Math.min(i, total - 1)];
+  const c = CASES[viz.step];
+  const revealed = revealedFor === viz.step;
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
-
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setI((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && i >= total - 1) setTocando(false);
-  }, [tocando, i, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const escolher = (k: number) => {
-    parar();
-    setTocando(false);
-    setI(k);
-    setRevelado(false);
+  const pick = (k: number) => {
+    viz.setStep(k);
+    setRevealedFor(null);
   };
 
   // Fora do modo treino tudo aparece de uma vez, como antes.
-  const mostra = !treino || revelado;
+  const shows = !training || revealed;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · esta chamada está em posição de cauda?</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            caso {i + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {CASOS.map((caso, k) => (
+          {CASES.map((item, k) => (
             <button
-              key={caso.key}
-              className={`bigo-chip${k === i ? " on" : ""}`}
-              aria-pressed={k === i}
-              onClick={() => escolher(k)}
+              key={item.key}
+              className={`bigo-chip${k === viz.step ? " on" : ""}`}
+              aria-pressed={k === viz.step}
+              onClick={() => pick(k)}
             >
               <span
                 className="sw"
-                style={{ background: k === i && mostra ? (caso.cauda ? "#34d399" : "#f87171") : "#3a4a60" }}
+                style={{ background: k === viz.step && shows ? (item.tail ? "#34d399" : "#f87171") : "#3a4a60" }}
               />
-              {caso.rotulo}
+              {item.label}
             </button>
           ))}
         </div>
 
         <div className="bigo-chips">
           <button
-            className={`bigo-chip${treino ? " on" : ""}`}
-            aria-pressed={treino}
+            className={`bigo-chip${training ? " on" : ""}`}
+            aria-pressed={training}
             onClick={() => {
-              setTreino((t) => !t);
-              setRevelado(false);
+              setTraining((t) => !t);
+              setRevealedFor(null);
             }}
           >
-            <span className="sw" style={{ background: treino ? "#fbbf24" : "#3a4a60" }} />
+            <span className="sw" style={{ background: training ? "#fbbf24" : "#3a4a60" }} />
             Modo treino: esconder o veredito
           </button>
         </div>
 
         <div className="tr-verd">
-          {mostra ? (
+          {shows ? (
             <>
-              <span className={`tr-selo ${c.cauda ? "sim" : "nao"}`}>
-                {c.cauda ? "✓ está em posição de cauda" : "✗ não está em posição de cauda"}
+              <span className={`tr-selo ${c.tail ? "sim" : "nao"}`}>
+                {c.tail ? "✓ está em posição de cauda" : "✗ não está em posição de cauda"}
               </span>
-              <span className="tr-selo">{c.recursiva ? "chama a si mesma" : "chama outra função"}</span>
+              <span className="tr-selo">{c.recursive ? "chama a si mesma" : "chama outra função"}</span>
             </>
           ) : (
             <>
               <span className="tr-selo">? decida antes de revelar</span>
-              <button className="viz-btn" onClick={() => setRevelado(true)}>
+              <button className="viz-btn" onClick={() => setRevealedFor(viz.step)}>
                 Revelar veredito
               </button>
             </>
           )}
-          <span className="tr-lang">{c.arquivo}</span>
+          <span className="tr-lang">{c.file}</span>
         </div>
 
         <div className="tr-code">
           <div className="tr-code-head">a linha destacada é a última instrução executada</div>
           <div className="tr-code-body">
-            {c.codigo.map((txt, k) => (
-              <div key={k} className={`viz-line${c.alvos.includes(k) ? " tr-alvo" : ""}`}>
+            {c.code.map((txt, k) => (
+              <div key={k} className={`viz-line${c.targets.includes(k) ? " tr-alvo" : ""}`}>
                 <span className="ln">{k + 1}</span>
                 {txt || " "}
               </div>
@@ -303,22 +274,22 @@ export function TailRecursionForma() {
           </div>
         </div>
 
-        {mostra ? (
+        {shows ? (
           <>
-            <p className={`viz-note${c.cauda ? " ok" : " invalid"}`}>{c.leitura}</p>
+            <p className={`viz-note${c.tail ? " ok" : " invalid"}`}>{c.reading}</p>
 
             <div className="tr-fatos">
               <div className="tr-fato">
                 <span className="tr-fato-rot">o que fica pendente</span>
-                <p className="tr-fato-txt tr-mono">{c.pendente}</p>
+                <p className="tr-fato-txt tr-mono">{c.pending}</p>
               </div>
               <div className="tr-fato">
                 <span className="tr-fato-rot">espaço na pilha</span>
-                <p className="tr-fato-txt tr-mono">{c.pilha}</p>
+                <p className="tr-fato-txt tr-mono">{c.stack}</p>
               </div>
               <div className="tr-fato">
-                <span className="tr-fato-rot">{c.cauda ? "o que isso te dá" : "como vira de cauda"}</span>
-                <p className="tr-fato-txt">{c.conserto}</p>
+                <span className="tr-fato-rot">{c.tail ? "o que isso te dá" : "como vira de cauda"}</span>
+                <p className="tr-fato-txt">{c.fix}</p>
               </div>
             </div>
           </>
@@ -328,62 +299,11 @@ export function TailRecursionForma() {
             Se sobra, não é posição de cauda.
           </p>
         )}
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Voltar ao primeiro caso" onClick={() => escolher(0)}>
-            ↺
-          </button>
-          <button className="viz-btn" disabled={i === 0} onClick={() => escolher(Math.max(0, i - 1))}>
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setI(i >= total - 1 ? 0 : i);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar os 7 casos"}
-          </button>
-          <button className="viz-btn" disabled={i === total - 1} onClick={() => escolher(Math.min(i + 1, total - 1))}>
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${Math.round(((i + 1) / total) * 100)}%` }} />
-        </div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
 }
