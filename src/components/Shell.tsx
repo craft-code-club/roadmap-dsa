@@ -11,6 +11,14 @@ import { useProgress } from "@/components/ProgressProvider";
 // sem login, sem servidor).
 const KEY_MENU = "ccc-dsa-menu";
 
+// A memória do menu vale por um dia. Ela é contexto da sessão de estudo, e não
+// preferência: quem volta três dias depois não lembra por que aqueles grupos
+// estavam abertos, e o menu no estado da rota é mais útil do que o menu de
+// terça-feira. O carimbo é regravado a cada visita, então quem estuda todos os
+// dias nunca perde o que deixou aberto — o prazo conta da última visita, não da
+// primeira vez que o menu foi salvo.
+const VALIDADE_MENU_MS = 24 * 60 * 60 * 1000;
+
 /** Ids válidos hoje. Grupo renomeado ou removido sai do que estava salvo. */
 const IDS_DE_GRUPO = new Set(GROUPS.map((g) => g.id));
 
@@ -18,10 +26,14 @@ function lerAbertos(): Record<string, boolean> | null {
   try {
     const raw = localStorage.getItem(KEY_MENU);
     if (!raw) return null;
-    const lista = JSON.parse(raw);
-    if (!Array.isArray(lista)) return null;
+    const salvo = JSON.parse(raw);
+    if (!salvo || !Array.isArray(salvo.abertos) || typeof salvo.em !== "number") return null;
+    // Idade negativa é o relógio do aparelho tendo andado para trás desde a
+    // última visita: sem prazo confiável, o padrão da rota é a resposta segura.
+    const idade = Date.now() - salvo.em;
+    if (idade < 0 || idade > VALIDADE_MENU_MS) return null;
     const mapa: Record<string, boolean> = {};
-    for (const id of lista) if (typeof id === "string" && IDS_DE_GRUPO.has(id)) mapa[id] = true;
+    for (const id of salvo.abertos) if (typeof id === "string" && IDS_DE_GRUPO.has(id)) mapa[id] = true;
     return mapa;
   } catch {
     return null;
@@ -30,7 +42,11 @@ function lerAbertos(): Record<string, boolean> | null {
 
 function gravarAbertos(abertos: Record<string, boolean>) {
   try {
-    localStorage.setItem(KEY_MENU, JSON.stringify(GROUPS.filter((g) => abertos[g.id]).map((g) => g.id)));
+    const salvo = {
+      abertos: GROUPS.filter((g) => abertos[g.id]).map((g) => g.id),
+      em: Date.now(),
+    };
+    localStorage.setItem(KEY_MENU, JSON.stringify(salvo));
   } catch {
     /* modo privado / storage cheio, só ignora */
   }
@@ -72,6 +88,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // Devolve o menu como o leitor deixou, mais o grupo de onde ele está agora —
   // esse nunca fica fechado. Quem tem histórico não recebe o grupo de abertura
   // junto: ele é o padrão de quem chega sem nada salvo, não um grupo fixo.
+  // Memória fora da validade conta como não ter nada salvo, e o padrão da rota
+  // (que já está no estado inicial) fica de pé.
   // Roda uma vez, na montagem, e por isso lê o `grupoDaRota` da primeira
   // renderização; a partir daí quem cuida da troca de rota é o efeito abaixo.
   useEffect(() => {

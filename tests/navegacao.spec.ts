@@ -619,9 +619,54 @@ test("o menu lembra os grupos que o leitor abriu, e o da página abre junto", as
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 });
 
+// A memória do menu vale por um dia. Estes três testes cobrem os dois lados do
+// prazo e o detalhe que faz ele valer a pena: o carimbo é da ÚLTIMA visita, e
+// não da primeira gravação, senão quem estuda todo dia perderia o menu no
+// segundo dia sem nunca ter ficado longe.
+const memoriaDoMenu = (page: import("@playwright/test").Page, ids: string[], horasAtras: number) =>
+  page.addInitScript(
+    ([ids, horas]) => {
+      localStorage.setItem(
+        "ccc-dsa-menu",
+        JSON.stringify({ abertos: ids, em: Date.now() - (horas as number) * 60 * 60 * 1000 })
+      );
+    },
+    [ids, horasAtras] as [string[], number]
+  );
+
+test("dentro do dia, o menu devolve o que o leitor tinha aberto", async ({ page }) => {
+  await memoriaDoMenu(page, ["grafos"], 23);
+  await page.goto("/topico/arrays/");
+  expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
+});
+
+test("passado um dia, o menu volta ao padrão da página", async ({ page }) => {
+  // Quem some por três dias não lembra por que aqueles grupos estavam abertos.
+  await memoriaDoMenu(page, ["grafos", "heaps"], 25);
+  await page.goto("/topico/arrays/");
+  expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
+
+  // E em página sem grupo próprio sobra o grupo de abertura, não o menu vazio.
+  await page.goto("/");
+  expect(await gruposAbertos(page)).toEqual(["Introdução"]);
+});
+
+test("o prazo conta da última visita: voltar hoje renova a memória", async ({ page }) => {
+  await memoriaDoMenu(page, ["grafos"], 20);
+  await page.goto("/topico/arrays/");
+  expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
+
+  // O carimbo que ficou gravado é de agora, e não o de 20 horas atrás: amanhã
+  // esta mesma pessoa ainda encontra o menu como deixou.
+  const idadeEmMinutos = await page.evaluate(
+    () => (Date.now() - JSON.parse(localStorage.getItem("ccc-dsa-menu")!).em) / 60000
+  );
+  expect(idadeEmMinutos, "o carimbo não foi renovado na visita").toBeLessThan(1);
+});
+
 test("o grupo da página atual abre mesmo que estivesse fechado", async ({ page }) => {
   // Cenário do leitor que fechou tudo e depois abriu um tópico de outro grupo.
-  await page.addInitScript(() => localStorage.setItem("ccc-dsa-menu", JSON.stringify(["hashing"])));
+  await memoriaDoMenu(page, ["hashing"], 1);
   await page.goto("/topico/dijkstra/");
   expect(await gruposAbertos(page)).toEqual(["Hashing", "Grafos"]);
   await expect(page.locator(".side-item.on")).toHaveText(/Dijkstra/);
@@ -634,7 +679,9 @@ test("quem chega sem histórico vê o primeiro grupo aberto, e só ele", async (
   // E o grupo de abertura é só o padrão de quem não tem nada salvo: em página
   // sem grupo próprio (home, roadmap, apoiar), quem já escolheu vê a escolha
   // dele, e não a dele mais a Introdução de brinde.
-  await page.evaluate(() => localStorage.setItem("ccc-dsa-menu", JSON.stringify(["grafos"])));
+  await page.evaluate(() =>
+    localStorage.setItem("ccc-dsa-menu", JSON.stringify({ abertos: ["grafos"], em: Date.now() }))
+  );
   await page.goto("/");
   expect(await gruposAbertos(page)).toEqual(["Grafos"]);
 });
