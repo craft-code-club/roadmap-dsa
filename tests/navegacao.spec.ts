@@ -574,6 +574,100 @@ test("código Python sai colorido do build, com selo discreto da linguagem", asy
   await expect(semSelo.locator(".code-lang")).toHaveCount(0);
 });
 
+// ---------------------------------------------------------------------------
+// Menu lateral: quais grupos abrem.
+//
+// Antes, o estado inicial era `{ introducao: true, "arrays-strings": true }`
+// escrito no componente: toda recarga reabria esse par, em qualquer página, e o
+// que o leitor tinha aberto ou fechado se perdia. Agora o menu abre o grupo de
+// onde o leitor está (regra que não muda) e devolve o que ele mesmo escolheu.
+// ---------------------------------------------------------------------------
+
+/** Nomes dos grupos com o triângulo aberto, na ordem do menu. */
+const gruposAbertos = (page: import("@playwright/test").Page) =>
+  page.locator(".side-group").evaluateAll((gs) =>
+    gs
+      .filter((g) => g.querySelector(".side-caret.open"))
+      .map((g) => g.querySelector(".side-group-btn span:nth-child(2)")?.textContent ?? "")
+  );
+
+test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page }) => {
+  await page.goto("/topico/arrays/");
+  // Arrays e Strings porque é onde o leitor está; Introdução não entra de carona.
+  expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
+
+  // Em um tópico do fim da lista, o mesmo: só o grupo dele. O storage é limpo
+  // porque a visita acima já virou histórico — e histórico o menu devolve de
+  // propósito (é o outro teste); aqui o que se mede é a primeira visita.
+  await page.evaluate(() => localStorage.clear());
+  await page.goto("/topico/backtracking/");
+  expect(await gruposAbertos(page)).toEqual(["Backtracking"]);
+});
+
+test("o menu lembra os grupos que o leitor abriu, e o da página abre junto", async ({ page }) => {
+  await page.goto("/topico/arrays/");
+  await page.locator(".side-group-btn", { hasText: "Grafos" }).click();
+  await expect(page.locator(".side-item[href='/topico/dijkstra/']")).toBeVisible();
+
+  // F5 na mesma página: a escolha volta, e o grupo da rota continua aberto.
+  await page.reload();
+  expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
+
+  // Fechar também é escolha: o grupo fica fechado depois da recarga.
+  await page.locator(".side-group-btn", { hasText: "Grafos" }).click();
+  await page.reload();
+  expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
+});
+
+test("o grupo da página atual abre mesmo que estivesse fechado", async ({ page }) => {
+  // Cenário do leitor que fechou tudo e depois abriu um tópico de outro grupo.
+  await page.addInitScript(() => localStorage.setItem("ccc-dsa-menu", JSON.stringify(["hashing"])));
+  await page.goto("/topico/dijkstra/");
+  expect(await gruposAbertos(page)).toEqual(["Hashing", "Grafos"]);
+  await expect(page.locator(".side-item.on")).toHaveText(/Dijkstra/);
+});
+
+test("quem chega sem histórico vê o primeiro grupo aberto, e só ele", async ({ page }) => {
+  await page.goto("/");
+  expect(await gruposAbertos(page)).toEqual(["Introdução"]);
+
+  // E o grupo de abertura é só o padrão de quem não tem nada salvo: em página
+  // sem grupo próprio (home, roadmap, apoiar), quem já escolheu vê a escolha
+  // dele, e não a dele mais a Introdução de brinde.
+  await page.evaluate(() => localStorage.setItem("ccc-dsa-menu", JSON.stringify(["grafos"])));
+  await page.goto("/");
+  expect(await gruposAbertos(page)).toEqual(["Grafos"]);
+});
+
+test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", async ({ page }) => {
+  // Com os outros grupos fechados, um tópico do fim da lista ainda pode cair
+  // abaixo da dobra do menu — e aí o leitor não vê onde está.
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.goto("/topico/negative-binary/");
+  const dentro = await page.evaluate(() => {
+    const lista = document.querySelector(".side-scroll")!;
+    const atual = lista.querySelector(".side-item.on")!;
+    const a = atual.getBoundingClientRect();
+    const c = lista.getBoundingClientRect();
+    return { visivel: a.top >= c.top - 1 && a.bottom <= c.bottom + 1, rolou: lista.scrollTop > 0 };
+  });
+  expect(dentro.rolou, "o menu deveria ter rolado para alcançar o tópico").toBe(true);
+  expect(dentro.visivel, "o tópico atual ficou fora da parte visível do menu").toBe(true);
+  // e quem rolou foi o menu, não a página
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test("Roadmap, Apoiar e Introdução mostram onde o leitor está", async ({ page }) => {
+  // Regressão: com `trailingSlash: true` a rota chega como "/roadmap/", e a
+  // comparação crua com o href deixava a barra do topo sempre apagada.
+  await page.goto("/roadmap/");
+  await expect(page.locator(".nav-left a.on")).toHaveText("Roadmap");
+  await page.goto("/apoie/");
+  await expect(page.locator(".nav-right a.on")).toContainText("Apoiar");
+  await page.goto("/introducao/");
+  await expect(page.locator(".side-item.on")).toHaveText(/Introdução/);
+});
+
 test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({ page }) => {
   const marcados = ALL_TOPICS.filter((t) => t.isNew);
   await page.goto("/topico/big-o/");
@@ -1356,6 +1450,13 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
   // O menu lateral só renderiza o grupo aberto, então a conferência é por grupo.
   // Ler de ALL_TOPICS em vez de fixar uma lista faz o teste sobreviver ao dia
   // em que qualquer um destes tópicos for publicado.
+  //
+  // O menu lembra os grupos abertos entre visitas, e este teste passa por vários
+  // grupos: sem zerar essa memória a cada carga, os selos dos grupos anteriores
+  // continuariam na tela e entrariam na conta. Aqui o assunto é o selo, não a
+  // memória do menu (que tem testes próprios).
+  await page.addInitScript(() => localStorage.removeItem("ccc-dsa-menu"));
+
   const conferirGrupo = async (slug: string) => {
     await page.goto(`/topico/${slug}/`);
     const grupo = ALL_TOPICS.find((t) => t.slug === slug)!.group;

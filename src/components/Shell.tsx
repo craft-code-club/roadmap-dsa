@@ -2,28 +2,115 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GROUPS, TOTAL_TOPICS, isEmptyTopic } from "@content/roadmap";
 import { LINKS } from "@/lib/links";
 import { useProgress } from "@/components/ProgressProvider";
+
+// Grupos abertos no menu lateral, salvos no navegador (mesma ideia do progresso:
+// sem login, sem servidor).
+const KEY_MENU = "ccc-dsa-menu";
+
+/** Ids válidos hoje. Grupo renomeado ou removido sai do que estava salvo. */
+const IDS_DE_GRUPO = new Set(GROUPS.map((g) => g.id));
+
+function lerAbertos(): Record<string, boolean> | null {
+  try {
+    const raw = localStorage.getItem(KEY_MENU);
+    if (!raw) return null;
+    const lista = JSON.parse(raw);
+    if (!Array.isArray(lista)) return null;
+    const mapa: Record<string, boolean> = {};
+    for (const id of lista) if (typeof id === "string" && IDS_DE_GRUPO.has(id)) mapa[id] = true;
+    return mapa;
+  } catch {
+    return null;
+  }
+}
+
+function gravarAbertos(abertos: Record<string, boolean>) {
+  try {
+    localStorage.setItem(KEY_MENU, JSON.stringify(GROUPS.filter((g) => abertos[g.id]).map((g) => g.id)));
+  } catch {
+    /* modo privado / storage cheio, só ignora */
+  }
+}
+
+/** Compara rotas ignorando a barra final (`trailingSlash: true` no next.config). */
+const mesmaRota = (a: string | null | undefined, b: string) =>
+  !!a && a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
 
+  const slugAtivo = pathname?.startsWith("/topico/") ? pathname.split("/")[2] : null;
+
+  // Onde o leitor está: o grupo do tópico aberto ou o grupo da página de
+  // introdução dele. É o único grupo que o menu abre por conta própria.
+  const grupoDaRota = useMemo(() => {
+    const porTopico = slugAtivo && GROUPS.find((g) => g.topics.some((t) => t.slug === slugAtivo));
+    if (porTopico) return porTopico.id;
+    const porIntro = GROUPS.find((g) => g.intro && mesmaRota(pathname, g.intro.href));
+    return porIntro?.id ?? null;
+  }, [slugAtivo, pathname]);
+
   const [busca, setBusca] = useState("");
-  const [abertos, setAbertos] = useState<Record<string, boolean>>({ introducao: true, "arrays-strings": true });
+  // Primeira renderização (a mesma no HTML estático e na hidratação): o grupo da
+  // rota, ou o primeiro grupo em páginas que não são de tópico (home, roadmap,
+  // apoiar), para o menu nunca abrir todo fechado para quem chega agora. O que
+  // estava salvo entra logo depois, no efeito — ler o localStorage aqui daria
+  // divergência de hidratação.
+  const [abertos, setAbertos] = useState<Record<string, boolean>>(() => ({
+    [grupoDaRota ?? GROUPS[0].id]: true,
+  }));
   const [mobileNav, setMobileNav] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [restaurado, setRestaurado] = useState(false);
+  const listaRef = useRef<HTMLDivElement>(null);
 
-  const slugAtivo = pathname?.startsWith("/topico/") ? pathname.split("/")[2] : null;
+  // Devolve o menu como o leitor deixou, mais o grupo de onde ele está agora —
+  // esse nunca fica fechado. Quem tem histórico não recebe o grupo de abertura
+  // junto: ele é o padrão de quem chega sem nada salvo, não um grupo fixo.
+  // Roda uma vez, na montagem, e por isso lê o `grupoDaRota` da primeira
+  // renderização; a partir daí quem cuida da troca de rota é o efeito abaixo.
+  useEffect(() => {
+    const salvos = lerAbertos();
+    if (salvos) setAbertos(grupoDaRota ? { ...salvos, [grupoDaRota]: true } : salvos);
+    setRestaurado(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Salva depois de restaurar, nunca antes: gravar o estado inicial apagaria a
+  // escolha do leitor com o padrão da rota antes mesmo de ele ver o menu.
+  useEffect(() => {
+    if (restaurado) gravarAbertos(abertos);
+  }, [abertos, restaurado]);
 
   // Abre automaticamente o grupo do tópico aberto.
   useEffect(() => {
-    if (!slugAtivo) return;
-    const g = GROUPS.find((grp) => grp.topics.some((t) => t.slug === slugAtivo));
-    if (g) setAbertos((a) => ({ ...a, [g.id]: true }));
-  }, [slugAtivo]);
+    if (grupoDaRota) setAbertos((a) => ({ ...a, [grupoDaRota]: true }));
+  }, [grupoDaRota]);
+
+  // Com os outros grupos fechados, o tópico atual pode ficar fora da parte
+  // visível do menu — e aí o leitor não vê onde está. Rola só o container do
+  // menu (nunca a página, que o `scrollIntoView` levaria junto) e só quando
+  // precisa. `block: nearest` na mão: distância mínima, sem centralizar nada.
+  useEffect(() => {
+    const lista = listaRef.current;
+    const atual = lista?.querySelector<HTMLElement>(".side-item.on");
+    if (!lista || !atual) return;
+    const item = atual.getBoundingClientRect();
+    const caixa = lista.getBoundingClientRect();
+    if (item.top < caixa.top) lista.scrollTop -= caixa.top - item.top + 8;
+    else if (item.bottom > caixa.bottom) lista.scrollTop += item.bottom - caixa.bottom + 8;
+    // `restaurado` está nas dependências porque os grupos salvos entram depois
+    // da primeira pintura: eles empurram o tópico atual para baixo, e sem uma
+    // segunda passada a conta acima teria sido feita sobre o menu errado.
+    // `mobileNav` porque no celular o menu é uma gaveta com `display: none`: ao
+    // carregar a página ele não tem medida nenhuma, e a conta só vale quando o
+    // leitor abre a gaveta.
+  }, [grupoDaRota, slugAtivo, pathname, restaurado, mobileNav]);
 
   // Fecha o menu lateral ao navegar (mobile).
   useEffect(() => setMobileNav(false), [pathname]);
@@ -42,7 +129,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
     [b, abertos]
   );
 
-  const navOn = (href: string) => pathname === href;
+  // Com `trailingSlash: true`, a rota chega como "/roadmap/": comparar com o
+  // href cru deixava Roadmap, Apoiar e Introdução sem o destaque de "você está aqui".
+  const navOn = (href: string) => mesmaRota(pathname, href);
 
   return (
     <div className="shell">
@@ -137,20 +226,31 @@ export function Shell({ children }: { children: React.ReactNode }) {
           />
         </div>
 
-        <div className="side-scroll">
+        <div className="side-scroll" ref={listaRef}>
           {grupos.map((g) => {
             const feitos = contarTopicos(g.topics.map((t) => t.slug));
             return (
               <div className="side-group" key={g.id}>
-                <button className="side-group-btn" onClick={() => setAbertos((a) => ({ ...a, [g.id]: !a[g.id] }))}>
-                  <span className={`side-caret${g.aberto ? " open" : ""}`}>▸</span>
+                {/* `aria-expanded` porque o triângulo é a única pista de aberto/fechado,
+                    e ele é decoração: sem o atributo, quem usa leitor de tela ouve só
+                    "Grafos, botão" e não sabe se está abrindo ou fechando o grupo. */}
+                <button
+                  className="side-group-btn"
+                  aria-expanded={g.aberto}
+                  onClick={() => setAbertos((a) => ({ ...a, [g.id]: !a[g.id] }))}
+                >
+                  <span className={`side-caret${g.aberto ? " open" : ""}`} aria-hidden="true">▸</span>
                   <span style={{ flex: 1 }}>{g.name}</span>
                   <span className="side-count">{feitos}/{g.topics.length}</span>
                 </button>
                 {g.aberto && (
                   <div className="side-items">
                     {g.intro && (
-                      <Link href={g.intro.href} className={`side-item${navOn(g.intro.href) ? " on" : ""}`}>
+                      <Link
+                        href={g.intro.href}
+                        className={`side-item${navOn(g.intro.href) ? " on" : ""}`}
+                        aria-current={navOn(g.intro.href) ? "page" : undefined}
+                      >
                         <span className="side-intro-ico" aria-hidden="true">✦</span>
                         <span className="side-item-name">{g.intro.name}</span>
                       </Link>
@@ -162,7 +262,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       // artigo ou visualização, o tópico é navegável como qualquer outro.
                       const vazio = isEmptyTopic(t);
                       return (
-                        <Link key={t.slug} href={`/topico/${t.slug}`} className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}>
+                        <Link
+                          key={t.slug}
+                          href={`/topico/${t.slug}`}
+                          className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
+                          aria-current={ativo ? "page" : undefined}
+                        >
                           <span
                             className={`side-check${feito ? " done" : ""}`}
                             role="checkbox"
