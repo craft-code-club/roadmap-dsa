@@ -618,6 +618,12 @@ test("clicar em Próximo volta ao topo de uma vez, não numa animação cancelá
 test("a âncora do índice 'Nesta página' continua rolando suave", async ({ page }) => {
   // O atributo no `<html>` não pode custar o `scroll-behavior: smooth` do site:
   // ele existe para as âncoras do índice, que ficam ásperas sem a animação.
+  //
+  // A preferência é declarada, e não herdada da máquina: o `globals.css` desliga
+  // a animação em `prefers-reduced-motion: reduce`, então numa máquina (ou num
+  // runner) com movimento reduzido ligado este teste reprovaria por um motivo
+  // que não é o dele. O caso do movimento reduzido tem teste próprio, logo abaixo.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/topico/pilhas/");
   // A terceira âncora, e não a primeira: ela fica longe o bastante do topo para
   // a rolagem ter trajetória para medir. Confiro a contagem antes porque, se o
@@ -630,6 +636,25 @@ test("a âncora do índice 'Nesta página' continua rolando suave", async ({ pag
   const posicoes = [...new Set(traj)];
   expect(posicoes.length, "a âncora saltou em vez de rolar suave").toBeGreaterThan(5);
   expect(traj[traj.length - 1], "a âncora não saiu do topo").toBeGreaterThan(0);
+});
+
+test("com movimento reduzido, nada anima — e o destino é o mesmo", async ({ page }) => {
+  // Quem pediu menos movimento no sistema não perde navegação nenhuma: a âncora
+  // vai direto ao título e a troca de tópico abre no topo, sem animação para
+  // ser cancelada no meio do caminho.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/topico/pilhas/");
+  const ancoras = page.locator(".toc-links a");
+  expect(await ancoras.count(), "o índice encolheu: escolha outra âncora").toBeGreaterThanOrEqual(3);
+  const traj = await trajetoriaDaRolagem(page, () => ancoras.nth(2).click());
+
+  expect([...new Set(traj)].length, "animou mesmo com movimento reduzido").toBeLessThanOrEqual(3);
+  expect(traj[traj.length - 1], "a âncora não chegou ao título").toBeGreaterThan(0);
+
+  await irParaOFimDaPagina(page);
+  await page.locator(".prevnext a.next").click();
+  await expect(page.locator(".topic-h1")).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
