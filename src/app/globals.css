@@ -232,7 +232,10 @@ html { scroll-behavior: smooth; }
 /* ------ roadmap ------ */
 .roadmap-wrap { padding: 48px 56px 72px; max-width: 1080px; }
 .roadmap-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ccc-muted); }
-.roadmap-wrap h1 { margin: 10px 0 8px; font-size: 40px; font-weight: 600; letter-spacing: -0.03em; }
+/* O `clamp` entrou quando o H1 virou "Roadmap de Algoritmos e Estruturas de
+   Dados": em 40px fixos ele quebrava em quatro linhas a 390px e empurrava o
+   primeiro grupo para fora da tela. Título curto não sente diferença. */
+.roadmap-wrap h1 { margin: 10px 0 8px; font-size: clamp(28px, 7vw, 40px); font-weight: 600; letter-spacing: -0.03em; }
 .roadmap-intro { margin: 0 0 36px; max-width: 62ch; font-size: 16px; line-height: 1.6; color: #a3b6cf; }
 .rgroup { margin-bottom: 34px; }
 .rgroup-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }

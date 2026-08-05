@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LINKS } from "@/lib/links";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Introdução",
-  description:
-    "Como o Roadmap DSA funciona: aprenda algoritmos vendo cada um rodar passo a passo, com o código em Python, artigo, vídeo e uma lista de problemas para praticar.",
-};
+export function generateMetadata(): Metadata {
+  return pageMetadata({
+    title: "Por onde começar em Algoritmos e Estruturas de Dados",
+    description:
+      "Guia para quem está começando em algoritmos e estruturas de dados: o que estudar primeiro, em que ordem e como se preparar para entrevistas técnicas.",
+    ogTitle: "Por onde começar em Algoritmos e Estruturas de Dados",
+    ogDescription:
+      "O que estudar primeiro, em que ordem, e como usar o roadmap para se preparar para entrevistas.",
+    path: "/introducao/",
+  });
+}
 
 export const dynamic = "force-static";
 
 export default function IntroducaoPage() {
   return (
     <div className="intro-wrap">
-      <span className="hero-badge">Comece por aqui</span>
-      <h1>Introdução</h1>
+      <span className="hero-badge">Introdução</span>
+      <h1>Por onde começar</h1>
       <p className="lead">
         Boas-vindas ao <strong style={{ color: "#fff" }}>Roadmap DSA</strong>, o maior guia visual e
         gratuito de Estruturas de Dados e Algoritmos em português, feito pela comunidade Craft &amp;

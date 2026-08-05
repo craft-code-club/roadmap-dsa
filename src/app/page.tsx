@@ -1,13 +1,28 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   FEATURED,
   getTopic,
+  TOTAL_LEETCODE_PROBLEMS,
   TOTAL_PROBLEMS,
   TOTAL_TOPICS,
   TOTAL_VISUALIZERS,
 } from "@content/roadmap";
 import { LINKS } from "@/lib/links";
+import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
+
+// Os números saem do roadmap.ts (fonte única) em vez de escritos à mão: tópico
+// novo já entra no título e no card sem ninguém lembrar de atualizar o SEO.
+export function generateMetadata(): Metadata {
+  return pageMetadata({
+    title: `Algoritmos e Estruturas de Dados: Guia Visual com ${TOTAL_TOPICS} Tópicos`,
+    description: `O guia mais completo de algoritmos e estruturas de dados em português: ${TOTAL_TOPICS} tópicos com visualização passo a passo, código Python e problemas do LeetCode para entrevistas. Grátis.`,
+    ogTitle: "O maior guia visual de Algoritmos e Estruturas de Dados",
+    ogDescription: `${TOTAL_TOPICS} tópicos com o algoritmo rodando passo a passo, código em Python, vídeo e ${TOTAL_LEETCODE_PROBLEMS} problemas do LeetCode. Grátis, para sempre.`,
+    path: "/",
+  });
+}
 
 const FEATURES = [
   { icone: "▶", titulo: "O algoritmo rodando", texto: "Passo a passo, no seu ritmo, com o seu próprio array de entrada e o código Python acompanhando linha a linha." },
@@ -30,7 +45,7 @@ export default function Home() {
         <span className="hero-badge">Feito pela comunidade Craft &amp; Code Club · 100% grátis · open source</span>
         <h1><span className="accent">Visualização</span> e aprofundamento em cada estrutura</h1>
         <p>
-          O maior guia visual de algoritmos em português. Cada tópico traz o texto, o algoritmo
+          O maior guia visual de algoritmos e estruturas de dados em português. Cada tópico traz o texto, o algoritmo
           animado passo a passo com o código sincronizado, vídeo e uma lista de problemas do
           LeetCode e do GeeksforGeeks.
         </p>

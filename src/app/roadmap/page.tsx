@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
+import { TOTAL_TOPICS } from "@content/roadmap";
 import { RoadmapGroups } from "@/components/RoadmapGroups";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Do zero à entrevista",
-  description: "O roadmap completo de Algoritmos e Estruturas de Dados da comunidade Craft & Code Club, do básico ao avançado.",
-};
+export function generateMetadata(): Metadata {
+  return pageMetadata({
+    title: "Roadmap de Algoritmos e Estruturas de Dados: trilha completa",
+    description: `Trilha completa de algoritmos e estruturas de dados em português, do Big O aos grafos: ${TOTAL_TOPICS} tópicos na ordem certa, com visualização, vídeo e problemas do LeetCode.`,
+    ogTitle: "Roadmap de Algoritmos e Estruturas de Dados",
+    ogDescription: `${TOTAL_TOPICS} tópicos na ordem certa de estudo, do Big O aos grafos. Trilha completa, visual e gratuita.`,
+    path: "/roadmap/",
+  });
+}
 
 export default function RoadmapPage() {
   return (
     <div className="roadmap-wrap">
-      <span className="roadmap-eyebrow">Roadmap</span>
-      <h1>Do zero à entrevista</h1>
+      <span className="roadmap-eyebrow">Do zero à entrevista</span>
+      <h1>Roadmap de Algoritmos e Estruturas de Dados</h1>
       <p className="roadmap-intro">
         Siga na ordem ou pule direto para o que você precisa. Seu progresso fica salvo neste
         navegador, sem login, sem conta.
