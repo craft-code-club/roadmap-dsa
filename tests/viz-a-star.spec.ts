@@ -312,9 +312,13 @@ test.describe("a-star · casca adaptativa", () => {
 
     await andarAte(fig, 27);
     await expect(passo(fig)).toHaveText("passo 27 de 27");
+    // O `·` do fim é do CHILDREN, não do hook: com linha do tempo os dois viram
+    // `.viz-step` irmãos separados só pelo gap, e sem ele o cabeçalho perde o
+    // separador que o componente tinha (contrato §9). Asserir o texto exato faz
+    // este teste guardar as duas coisas — a contagem e o separador.
     await expect(
       expandidas(fig),
-      "no fim o cabeçalho conta as mesmas expansões que o painel credita ao modo"
-    ).toHaveText(`${totalDoModo} expandidas`);
+      "no fim o cabeçalho conta as mesmas expansões que o painel credita ao modo, com o separador"
+    ).toHaveText(`${totalDoModo} expandidas ·`);
   });
 });

@@ -234,7 +234,11 @@ export function AStarVisualizer() {
     <figure {...viz.figureProps} style={{ margin: 0 }}>
       {/* O número que resume o estado vai antes do "passo N de M". */}
       <VizHeader viz={viz}>
-        <span className="viz-step">{p.closed.length} expandidas</span>
+        {/* O `·` fica AQUI porque o `VizHeader` não tem como prefixar o
+            contador: os dois viram `.viz-step` irmãos, separados só pelo gap.
+            Sem ele o cabeçalho perde o separador que o componente tinha —
+            medido no diff do build. Mesma solução do Bellman-Ford e do MST. */}
+        <span className="viz-step">{p.closed.length} expandidas ·</span>
       </VizHeader>
 
       <div {...viz.bodyProps}>
