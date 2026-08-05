@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // StackVisualizer, a pilha em ação resolvendo parênteses balanceados.
 //
-// Mesmo padrão do TwoPointersVisualizer: um gerador PURO de passos + a mesma
-// casca (fita de caracteres, código sincronizado, variáveis, controles,
-// Expandir). O que muda é o desenho central: aqui a estrela é a TORRE, a pilha
-// crescendo e encolhendo com o topo sempre na primeira linha, que é como todo
-// mundo desenha pilha no quadro.
+// Gerador PURO de passos + a casca adaptativa do `useVisualizer`. O que muda
+// em relação aos outros: o desenho central é a TORRE, a pilha crescendo e
+// encolhendo com o topo sempre na primeira linha, que é como todo mundo
+// desenha pilha no quadro.
 //
 // A única coisa que o aluno precisa ver acontecendo: cada abertura empurra um
 // item para o topo, cada fechamento só pode consumir QUEM ESTÁ NO TOPO, e o
@@ -22,24 +21,24 @@ import { createPortal } from "react-dom";
 
 type Item = { c: string; i: number };
 
-type Passo = {
+type Step = {
   i: number; // caractere atual, -1 no passo de preparação
-  pilha: Item[];
-  linha: number;
-  parA?: number; // abertura que acabou de casar
-  parB?: number; // fechamento que acabou de casar
-  erroEm?: number;
-  empilhados: number;
-  desempilhados: number;
-  alturaMax: number;
+  stack: Item[];
+  line: number;
+  pairA?: number; // abertura que acabou de casar
+  pairB?: number; // fechamento que acabou de casar
+  errorAt?: number;
+  pushed: number;
+  popped: number;
+  maxHeight: number;
   ok?: boolean;
-  fim?: boolean;
-  nota: string;
+  done?: boolean;
+  note: string;
 };
 
-// As linhas mapeiam 1:1 com o campo `linha` de cada passo, então a ordem e a
+// As linhas mapeiam 1:1 com o campo `line` de cada passo, então a ordem e a
 // quantidade de linhas não podem mudar sem ajustar o gerador junto.
-const CODIGO = [
+const CODE = [
   "def valida(s):",
   "    pilha = []",
   '    pares = {")": "(", "]": "[", "}": "{"}',
@@ -53,268 +52,230 @@ const CODIGO = [
   "    return not pilha",
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
-
-const FECHA: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
-const VALIDOS = "()[]{}";
+const CLOSERS: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+const VALID = "()[]{}";
 const MAX_CHARS = 24;
 
-function limpar(v: string): string {
+function clean(v: string): string {
   return Array.from(v)
-    .filter((c) => VALIDOS.includes(c))
+    .filter((c) => VALID.includes(c))
     .slice(0, MAX_CHARS)
     .join("");
 }
 
-function gerarPassos(expr: string): Passo[] {
-  const out: Passo[] = [];
-  const pilha: Item[] = [];
-  let emp = 0;
-  let des = 0;
-  let alturaMax = 0;
+function generateSteps(expr: string): Step[] {
+  const out: Step[] = [];
+  const stack: Item[] = [];
+  let pushed = 0;
+  let popped = 0;
+  let maxHeight = 0;
 
-  const registrar = (p: Omit<Passo, "empilhados" | "desempilhados" | "alturaMax">) => {
-    out.push({ ...p, empilhados: emp, desempilhados: des, alturaMax });
+  const record = (p: Omit<Step, "pushed" | "popped" | "maxHeight">) => {
+    out.push({ ...p, pushed, popped, maxHeight });
   };
 
-  registrar({
+  record({
     i: -1,
-    pilha: [],
-    linha: 1,
-    nota: expr.length
+    stack: [],
+    line: 1,
+    note: expr.length
       ? `Começo com a pilha vazia e ${expr.length} ${expr.length === 1 ? "caractere" : "caracteres"} para ler, da esquerda para a direita.`
       : "Expressão vazia: o laço não roda nenhuma vez e a pilha continua vazia.",
   });
 
-  let guarda = 0;
-  for (let i = 0; i < expr.length && guarda++ < 100; i++) {
+  let guard = 0;
+  for (let i = 0; i < expr.length && guard++ < 100; i++) {
     const c = expr[i];
-    const abertura = FECHA[c];
+    const opener = CLOSERS[c];
 
-    if (!abertura) {
-      pilha.push({ c, i });
-      emp++;
-      alturaMax = Math.max(alturaMax, pilha.length);
-      registrar({
+    if (!opener) {
+      stack.push({ c, i });
+      pushed++;
+      maxHeight = Math.max(maxHeight, stack.length);
+      record({
         i,
-        pilha: [...pilha],
-        linha: 9,
-        nota: `'${c}' é abertura: empilho e sigo em frente. A pilha fica com ${pilha.length} ${pilha.length === 1 ? "item" : "itens"} e o topo agora é '${c}'.`,
+        stack: [...stack],
+        line: 9,
+        note: `'${c}' é abertura: empilho e sigo em frente. A pilha fica com ${stack.length} ${stack.length === 1 ? "item" : "itens"} e o topo agora é '${c}'.`,
       });
       continue;
     }
 
-    if (!pilha.length) {
-      registrar({
+    if (!stack.length) {
+      record({
         i,
-        pilha: [],
-        linha: 6,
-        erroEm: i,
-        fim: true,
-        nota: `'${c}' é fechamento, mas a pilha está vazia: esse '${c}' fecha o quê? Todo fechamento precisa de uma abertura antes dele. Inválida.`,
+        stack: [],
+        line: 6,
+        errorAt: i,
+        done: true,
+        note: `'${c}' é fechamento, mas a pilha está vazia: esse '${c}' fecha o quê? Todo fechamento precisa de uma abertura antes dele. Inválida.`,
       });
       return out;
     }
 
-    const topo = pilha[pilha.length - 1];
-    if (topo.c !== abertura) {
-      registrar({
+    const top = stack[stack.length - 1];
+    if (top.c !== opener) {
+      record({
         i,
-        pilha: [...pilha],
-        linha: 6,
-        erroEm: i,
-        fim: true,
-        nota: `'${c}' pede '${abertura}' no topo, mas o topo é '${topo.c}' (posição ${topo.i}). Tipo trocado: paro aqui e devolvo inválida.`,
+        stack: [...stack],
+        line: 6,
+        errorAt: i,
+        done: true,
+        note: `'${c}' pede '${opener}' no topo, mas o topo é '${top.c}' (posição ${top.i}). Tipo trocado: paro aqui e devolvo inválida.`,
       });
       return out;
     }
 
-    pilha.pop();
-    des++;
-    registrar({
+    stack.pop();
+    popped++;
+    record({
       i,
-      pilha: [...pilha],
-      linha: 7,
-      parA: topo.i,
-      parB: i,
-      nota: `'${c}' pede '${abertura}', e o topo é exatamente o '${topo.c}' da posição ${topo.i}: par fechado, desempilho. Sobra${pilha.length === 1 ? "" : "m"} ${pilha.length} na pilha.`,
+      stack: [...stack],
+      line: 7,
+      pairA: top.i,
+      pairB: i,
+      note: `'${c}' pede '${opener}', e o topo é exatamente o '${top.c}' da posição ${top.i}: par fechado, desempilho. Sobra${stack.length === 1 ? "" : "m"} ${stack.length} na pilha.`,
     });
   }
 
-  if (pilha.length) {
-    const sobrando = pilha.map((it) => `'${it.c}' na posição ${it.i}`).join(", ");
-    registrar({
+  if (stack.length) {
+    const leftover = stack.map((it) => `'${it.c}' na posição ${it.i}`).join(", ");
+    record({
       i: expr.length,
-      pilha: [...pilha],
-      linha: 10,
-      fim: true,
-      nota: `Acabaram os caracteres, mas a pilha não esvaziou: ${sobrando} ${pilha.length === 1 ? "ficou" : "ficaram"} sem fechamento. Inválida.`,
+      stack: [...stack],
+      line: 10,
+      done: true,
+      note: `Acabaram os caracteres, mas a pilha não esvaziou: ${leftover} ${stack.length === 1 ? "ficou" : "ficaram"} sem fechamento. Inválida.`,
     });
     return out;
   }
 
-  registrar({
+  record({
     i: expr.length,
-    pilha: [],
-    linha: 10,
+    stack: [],
+    line: 10,
     ok: true,
-    fim: true,
-    nota: expr.length
-      ? `Fim da expressão com a pilha vazia: todo fechamento achou a abertura dele, na ordem certa. Válida, com ${emp} push e ${des} pop.`
+    done: true,
+    note: expr.length
+      ? `Fim da expressão com a pilha vazia: todo fechamento achou a abertura dele, na ordem certa. Válida, com ${pushed} push e ${popped} pop.`
       : "Pilha vazia no fim, porque nunca teve nada nela. Uma expressão vazia é válida por definição.",
   });
   return out;
 }
 
-const PADRAO = "{[()]}";
+const DEFAULT_EXPR = "{[()]}";
 
 // Casos escolhidos a dedo: o aninhado, o lado a lado, o cruzado (que é o que
 // separa pilha de contador), a sobra de abertura e o fechamento órfão.
-type Preset = { key: string; rotulo: string; expr: string };
+type Preset = { key: string; label: string; expr: string };
 const PRESETS: Preset[] = [
-  { key: "aninhado", rotulo: "Aninhado: {[()]}", expr: "{[()]}" },
-  { key: "lado", rotulo: "Lado a lado: ()[]{}", expr: "()[]{}" },
-  { key: "cruzado", rotulo: "Cruzado: ([)]", expr: "([)]" },
-  { key: "sobra", rotulo: "Sobra aberto: ([]", expr: "([]" },
-  { key: "orfao", rotulo: "Fecha sem abrir: )(", expr: ")(" },
+  { key: "aninhado", label: "Aninhado: {[()]}", expr: "{[()]}" },
+  { key: "lado", label: "Lado a lado: ()[]{}", expr: "()[]{}" },
+  { key: "cruzado", label: "Cruzado: ([)]", expr: "([)]" },
+  { key: "sobra", label: "Sobra aberto: ([]", expr: "([]" },
+  { key: "orfao", label: "Fecha sem abrir: )(", expr: ")(" },
 ];
 
-const SORTEIO_ABRE = ["(", "[", "{"];
+const RANDOM_OPENERS = ["(", "[", "{"];
 
 export function StackVisualizer() {
-  const [expr, setExpr] = useState(PADRAO);
+  const [expr, setExpr] = useState(DEFAULT_EXPR);
   const [preset, setPreset] = useState("aninhado");
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  const steps = useMemo(() => generateSteps(expr), [expr]);
 
-  const passos = useMemo(() => gerarPassos(expr), [expr]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const viz = useVisualizer({
+    title: "Visualizador · a pilha em ação: parênteses balanceados",
+    total: steps.length,
+    // O que muda a altura da peça: o tamanho da expressão, que decide quantas
+    // células a fita tem e quão alta a torre pode ficar.
+    measureOn: [expr.length],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = () => { parar(); setTocando(false); setPasso(0); };
-
-  const aoMudarExpr = (v: string) => {
-    parar(); setTocando(false); setPasso(0); setPreset("");
-    setExpr(limpar(v));
+  const onExprChange = (v: string) => {
+    viz.reset();
+    setPreset("");
+    setExpr(clean(v));
   };
-  const aplicarPreset = (pr: Preset) => {
-    parar(); setTocando(false); setPasso(0); setPreset(pr.key);
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
+    setPreset(pr.key);
     setExpr(pr.expr);
   };
-  const sortear = () => {
-    const abertas: string[] = [];
-    let out = "";
-    const alvo = 6 + Math.floor(Math.random() * 5);
-    while (out.length < alvo) {
-      const podeFechar = abertas.length > 0;
-      if (podeFechar && (Math.random() < 0.5 || out.length + abertas.length >= alvo)) {
-        const a = abertas.pop() as string;
-        out += a === "(" ? ")" : a === "[" ? "]" : "}";
+  const shuffle = () => {
+    const openers: string[] = [];
+    let text = "";
+    const target = 6 + Math.floor(Math.random() * 5);
+    while (text.length < target) {
+      const canClose = openers.length > 0;
+      if (canClose && (Math.random() < 0.5 || text.length + openers.length >= target)) {
+        const a = openers.pop() as string;
+        text += a === "(" ? ")" : a === "[" ? "]" : "}";
       } else {
-        const a = SORTEIO_ABRE[Math.floor(Math.random() * 3)];
-        abertas.push(a);
-        out += a;
+        const a = RANDOM_OPENERS[Math.floor(Math.random() * 3)];
+        openers.push(a);
+        text += a;
       }
     }
-    while (abertas.length) {
-      const a = abertas.pop() as string;
-      out += a === "(" ? ")" : a === "[" ? "]" : "}";
+    while (openers.length) {
+      const a = openers.pop() as string;
+      text += a === "(" ? ")" : a === "[" ? "]" : "}";
     }
-    parar(); setTocando(false); setPasso(0); setPreset("");
-    setExpr(limpar(out));
+    viz.reset();
+    setPreset("");
+    setExpr(clean(text));
   };
 
-  const naPilha = new Set(p.pilha.map((it) => it.i));
-  const topoIdx = p.pilha.length ? p.pilha[p.pilha.length - 1].i : -1;
+  const inStack = new Set(p.stack.map((it) => it.i));
+  const topIdx = p.stack.length ? p.stack[p.stack.length - 1].i : -1;
 
   const cells = Array.from(expr).map((c, i) => {
     let cls = "viz-cell";
     if (i === p.i) cls += " in";
-    else if (i < p.i && !naPilha.has(i)) cls += " drop";
-    if (p.parA === i || p.parB === i) cls += " entra";
-    if (p.erroEm === i) cls += " sai";
-    let marca = "";
-    if (i === topoIdx) marca = "topo";
-    else if (naPilha.has(i)) marca = "•";
-    return { i, c, cls, marca };
+    else if (i < p.i && !inStack.has(i)) cls += " drop";
+    if (p.pairA === i || p.pairB === i) cls += " entra";
+    if (p.errorAt === i) cls += " sai";
+    let mark = "";
+    if (i === topIdx) mark = "topo";
+    else if (inStack.has(i)) mark = "•";
+    return { i, c, cls, mark };
   });
 
   // A torre desenha o topo em cima, então a pilha é percorrida ao contrário.
-  const torre = [...p.pilha].reverse();
+  const tower = [...p.stack].reverse();
 
-  const variaveis = [
-    { nome: "c", valor: p.i >= 0 && p.i < expr.length ? `'${expr[p.i]}'` : "-" },
-    { nome: "pilha[-1]", valor: p.pilha.length ? `'${p.pilha[p.pilha.length - 1].c}'` : "vazia" },
-    { nome: "len(pilha)", valor: `${p.pilha.length}` },
-    { nome: "veredito", valor: p.ok ? "válida" : p.fim ? "inválida" : "…", best: !!p.ok },
+  const variables = [
+    { name: "c", value: p.i >= 0 && p.i < expr.length ? `'${expr[p.i]}'` : "-" },
+    { name: "pilha[-1]", value: p.stack.length ? `'${p.stack[p.stack.length - 1].c}'` : "vazia" },
+    { name: "len(pilha)", value: `${p.stack.length}` },
+    { name: "veredito", value: p.ok ? "válida" : p.done ? "inválida" : "…", best: !!p.ok },
   ];
 
-  const estatisticas = [
-    { k: "n", rot: "caracteres (n)", val: `${expr.length}` },
-    { k: "push", rot: "empilhados (push)", val: `${p.empilhados}` },
-    { k: "pop", rot: "desempilhados (pop)", val: `${p.desempilhados}` },
-    { k: "alt", rot: "altura máxima", val: `${p.alturaMax}` },
+  const stats = [
+    { k: "n", label: "caracteres (n)", value: `${expr.length}` },
+    { k: "push", label: "empilhados (push)", value: `${p.pushed}` },
+    { k: "pop", label: "desempilhados (pop)", value: `${p.popped}` },
+    { k: "alt", label: "altura máxima", value: `${p.maxHeight}` },
   ];
 
-  const notaCls = "viz-note" + (p.ok ? " ok" : p.fim ? " invalid" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const noteClass = "viz-note" + (p.ok ? " ok" : p.done ? " invalid" : "");
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a pilha em ação: parênteses balanceados</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">passo {idx + 1} de {total}</span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
-              onClick={() => aplicarPreset(pr)}
+              onClick={() => applyPreset(pr)}
               aria-pressed={preset === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
@@ -322,9 +283,9 @@ export function StackVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Expressão (só ( ) [ ] {"{"} {"}"} )</span>
-            <input className="viz-input" value={expr} onChange={(e) => aoMudarExpr(e.target.value)} />
+            <input className="viz-input" value={expr} onChange={(e) => onExprChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={sortear}>Sortear válida</button>
+          <button className="viz-btn" onClick={shuffle}>Sortear válida</button>
         </div>
 
         <div className="pl-arena">
@@ -336,24 +297,24 @@ export function StackVisualizer() {
                   <div className="viz-cell-wrap" key={c.i}>
                     <span className="viz-cell-idx">{c.i}</span>
                     <div className={c.cls}>{c.c}</div>
-                    <span className={`viz-mark${c.marca ? " show" : ""}`}>{c.marca || "·"}</span>
+                    <span className={`viz-mark${c.mark ? " show" : ""}`}>{c.mark || "·"}</span>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="pl-vazia">expressão vazia</p>
             )}
-            <p className={notaCls}>{p.nota}</p>
+            <p className={noteClass}>{p.note}</p>
           </div>
 
           <div className="pl-col">
             <span className="pl-lbl">Pilha (topo em cima)</span>
             <div className="pl-torre">
-              {torre.length ? (
-                torre.map((it, k) => (
+              {tower.length ? (
+                tower.map((it, k) => (
                   <div
                     key={`${it.i}-${it.c}`}
-                    className={`pl-item${k === 0 ? " topo" : ""}${k === 0 && p.linha === 9 ? " entra" : ""}`}
+                    className={`pl-item${k === 0 ? " topo" : ""}${k === 0 && p.line === 9 ? " entra" : ""}`}
                   >
                     <span>{it.c}</span>
                     <span className="pl-meta">{k === 0 ? "topo · " : ""}pos {it.i}</span>
@@ -368,62 +329,41 @@ export function StackVisualizer() {
         </div>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">solucao.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">solucao.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {variables.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bigo-stats">
-          {estatisticas.map((s) => (
+          {stats.map((s) => (
             <div className="bigo-stat" key={s.k}>
-              <span>{s.rot}</span>
-              <strong>{s.val}</strong>
+              <span>{s.label}</span>
+              <strong>{s.value}</strong>
             </div>
           ))}
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>↺</button>
-          <button className="viz-btn" disabled={idx === 0} onClick={() => { parar(); setTocando(false); setPasso(Math.max(0, idx - 1)); }}>‹ Anterior</button>
-          <button className="viz-play" onClick={() => { if (tocando) { setTocando(false); return; } setPasso(idx >= total - 1 ? 0 : idx); setTocando(true); }}>
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button className="viz-btn" disabled={idx === total - 1} onClick={() => { parar(); setTocando(false); setPasso(Math.min(idx + 1, total - 1)); }}>Próximo ›</button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress"><div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} /></div>
       </div>
+
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div className="viz-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
 }
