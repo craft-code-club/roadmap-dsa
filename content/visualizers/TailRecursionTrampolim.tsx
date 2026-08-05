@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // TailRecursionTrampolim, a recursão de cauda rodando numa linguagem que não
@@ -19,25 +20,29 @@ import { createPortal } from "react-dom";
 // A lista padrão [1, 2, 3, 4] e o rastro do acumulador (1, 3, 6, 10) são os
 // mesmos do encontro, para o aluno reconhecer a conta de um visualizador para
 // o outro.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Estado = "espera" | "ativo" | "base" | "pronto";
-type Frame = { chamada: string; pend: string; estado: Estado };
-type Passo = {
+type State = "espera" | "ativo" | "base" | "pronto";
+type Frame = { call: string; pending: string; state: State };
+type Step = {
   frames: Frame[];
-  linha: number;
+  line: number;
   acc: number;
-  saltos: number;
-  consumidos: number;
+  hops: number;
+  consumed: number;
   thunk: string | null;
-  nota: string;
-  fim: boolean;
+  note: string;
+  done: boolean;
   ok: boolean;
 };
 
-// As linhas mapeiam 1:1 com o campo `linha` de cada passo, então a ordem e a
+// As linhas mapeiam 1:1 com o campo `line` de cada passo, então a ordem e a
 // quantidade de linhas não podem mudar sem ajustar o gerador junto.
-const CODIGO = [
+const CODE = [
   "def soma_passo(nums, acc=0):",
   "    if not nums:",
   "        return acc",
@@ -50,132 +55,131 @@ const CODIGO = [
   "    return r",
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
 // Formatação determinística de milhar (nada de Intl no caminho de render, senão
 // o HTML do build diverge do cliente na hidratação).
-function milhar(v: number): string {
+function thousands(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function lista(v: number[]): string {
+function listOf(v: number[]): string {
   return `[${v.join(", ")}]`;
 }
 
-function gerarPassos(nums: number[]): Passo[] {
-  const out: Passo[] = [];
+function generateSteps(nums: number[]): Step[] {
+  const out: Step[] = [];
   const n = nums.length;
-  const chao = (pend: string, estado: Estado = "ativo"): Frame => ({
-    chamada: "trampolim(soma_passo, nums)",
-    pend,
-    estado,
+  const floor = (pending: string, state: State = "ativo"): Frame => ({
+    call: "trampolim(soma_passo, nums)",
+    pending,
+    state,
   });
 
   out.push({
     frames: [
-      chao("r = f(*args)"),
-      { chamada: `soma_passo(${lista(nums)}, 0)`, pend: "primeira chamada", estado: "espera" },
+      floor("r = f(*args)"),
+      { call: `soma_passo(${listOf(nums)}, 0)`, pending: "primeira chamada", state: "espera" },
     ],
-    linha: 6,
+    line: 6,
     acc: 0,
-    saltos: 0,
-    consumidos: 0,
+    hops: 0,
+    consumed: 0,
     thunk: null,
-    nota:
+    note:
       n === 0
         ? "Chamo soma_passo uma única vez, de dentro do trampolim. Com a lista vazia ela já cai no caso base."
         : "Chamo soma_passo uma única vez, de dentro do trampolim. Ela não vai recursionar: vai devolver um thunk, que é a próxima chamada embrulhada numa função sem argumentos.",
-    fim: false,
+    done: false,
     ok: false,
   });
 
   let acc = 0;
-  let guarda = 0;
-  for (let i = 0; i < n && guarda++ < 100; i++) {
-    const novo = acc + nums[i];
-    const resto = nums.slice(i + 1);
+  let guard = 0;
+  for (let i = 0; i < n && guard++ < 100; i++) {
+    const next = acc + nums[i];
+    const rest = nums.slice(i + 1);
     out.push({
-      frames: [chao(`r = thunk`)],
-      linha: 3,
-      acc: novo,
-      saltos: i,
-      consumidos: i + 1,
-      thunk: `soma_passo(${lista(resto)}, ${novo})`,
-      nota: `A conta acontece agora, na ida: acc ${acc} + ${nums[i]} = ${novo}. Em vez de se chamar, soma_passo embrulha a próxima chamada num thunk e retorna. O frame dela sai da pilha na hora: sobra só o trampolim.`,
-      fim: false,
+      frames: [floor(`r = thunk`)],
+      line: 3,
+      acc: next,
+      hops: i,
+      consumed: i + 1,
+      thunk: `soma_passo(${listOf(rest)}, ${next})`,
+      note: `A conta acontece agora, na ida: acc ${acc} + ${nums[i]} = ${next}. Em vez de se chamar, soma_passo embrulha a próxima chamada num thunk e retorna. O frame dela sai da pilha na hora: sobra só o trampolim.`,
+      done: false,
       ok: false,
     });
     out.push({
       frames: [
-        chao("r = r()"),
+        floor("r = r()"),
         {
-          chamada: `soma_passo(${lista(resto)}, ${novo})`,
-          pend: "pendente: nada",
-          estado: i + 1 === n ? "pronto" : "espera",
+          call: `soma_passo(${listOf(rest)}, ${next})`,
+          pending: "pendente: nada",
+          state: i + 1 === n ? "pronto" : "espera",
         },
       ],
-      linha: 8,
-      acc: novo,
-      saltos: i + 1,
-      consumidos: i + 1,
+      line: 8,
+      acc: next,
+      hops: i + 1,
+      consumed: i + 1,
       thunk: null,
-      nota: `O while vê que r ainda é uma função e chama r(). soma_passo volta para a pilha no mesmo lugar de onde a anterior saiu. Salto ${i + 1}: a pilha vai a 2 frames e desce de novo.`,
-      fim: false,
+      note: `O while vê que r ainda é uma função e chama r(). soma_passo volta para a pilha no mesmo lugar de onde a anterior saiu. Salto ${i + 1}: a pilha vai a 2 frames e desce de novo.`,
+      done: false,
       ok: false,
     });
-    acc = novo;
+    acc = next;
   }
 
   out.push({
     frames: [
-      chao("r = ..."),
-      { chamada: `soma_passo([], ${acc})`, pend: `caso base: retorna ${acc}`, estado: "base" },
+      floor("r = ..."),
+      { call: `soma_passo([], ${acc})`, pending: `caso base: retorna ${acc}`, state: "base" },
     ],
-    linha: 2,
+    line: 2,
     acc,
-    saltos: n,
-    consumidos: n,
+    hops: n,
+    consumed: n,
     thunk: null,
-    nota:
+    note:
       n === 0
         ? "A lista já chegou vazia: o primeiro retorno já é o acumulador 0, e o while nem chega a girar."
         : `Lista vazia: devolvo o acumulador ${acc}. Desta vez o retorno é um número, não uma função.`,
-    fim: false,
+    done: false,
     ok: false,
   });
 
   out.push({
-    frames: [chao(`devolve ${acc}`, "pronto")],
-    linha: 9,
+    frames: [floor(`devolve ${acc}`, "pronto")],
+    line: 9,
     acc,
-    saltos: n,
-    consumidos: n,
+    hops: n,
+    consumed: n,
     thunk: null,
-    nota: `callable(${acc}) é falso, o while para e o trampolim devolve ${acc} depois de ${n} ${n === 1 ? "salto" : "saltos"}. A pilha nunca passou de 2 frames, e não passaria nem com 4 milhões de números.`,
-    fim: true,
+    note: `callable(${acc}) é falso, o while para e o trampolim devolve ${acc} depois de ${n} ${n === 1 ? "salto" : "saltos"}. A pilha nunca passou de 2 frames, e não passaria nem com 4 milhões de números.`,
+    done: true,
     ok: true,
   });
 
   return out;
 }
 
-const PADRAO = [1, 2, 3, 4];
+const DEFAULT_LIST = [1, 2, 3, 4];
 
-type Preset = { key: string; rotulo: string; nums: number[] };
+type Preset = { key: string; label: string; nums: number[] };
 const PRESETS: Preset[] = [
-  { key: "encontro", rotulo: "Do encontro: [1, 2, 3, 4]", nums: PADRAO },
-  { key: "sete", rotulo: "Sete números", nums: [5, 3, 8, 1, 9, 2, 7] },
-  { key: "um", rotulo: "Um elemento só", nums: [7] },
-  { key: "vazia", rotulo: "Lista vazia", nums: [] },
+  { key: "encontro", label: "Do encontro: [1, 2, 3, 4]", nums: DEFAULT_LIST },
+  { key: "sete", label: "Sete números", nums: [5, 3, 8, 1, 9, 2, 7] },
+  { key: "um", label: "Um elemento só", nums: [7] },
+  { key: "vazia", label: "Lista vazia", nums: [] },
 ];
 
 // Tamanhos hipotéticos da régua, do "cabe na pilha" ao "nem sonhando".
-const HIPOTESES = [10, 100, 500, 999, 5000, 100000];
-const LIMITE_PYTHON = 1000;
+const HYPOTHESES = [10, 100, 500, 999, 5000, 100000];
+const PYTHON_LIMIT = 1000;
 
-function lerLista(texto: string): number[] {
-  return texto
+function parseList(text: string): number[] {
+  return text
     .split(",")
     .map((x) => parseInt(x.trim(), 10))
     .filter((x) => !isNaN(x))
@@ -183,132 +187,85 @@ function lerLista(texto: string): number[] {
 }
 
 export function TailRecursionTrampolim() {
-  const [entrada, setEntrada] = useState(PADRAO.join(", "));
-  const [nums, setNums] = useState<number[]>(PADRAO);
+  const [input, setInput] = useState(DEFAULT_LIST.join(", "));
+  const [nums, setNums] = useState<number[]>(DEFAULT_LIST);
   const [preset, setPreset] = useState("encontro");
-  const [iHip, setIHip] = useState(3); // 999, coladinho no limite
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [iHyp, setIHyp] = useState(3); // 999, coladinho no limite
 
-  useEffect(() => setMounted(true), []);
+  const steps = useMemo(() => generateSteps(nums), [nums]);
+  const n = nums.length;
 
-  const passos = useMemo(() => gerarPassos(nums), [nums]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const viz = useVisualizer({
+    title: "Visualizador · trampolim: recursão de cauda sem ajuda da linguagem",
+    total: steps.length,
+    speeds: SPEEDS,
+    // Só o tamanho da lista muda a altura: a pilha tem teto de 2 frames, e a
+    // régua de hipótese só troca dígitos (medido: 0px entre n = 10 e n = 100.000).
+    measureOn: [n],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = useCallback(() => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  }, [parar]);
-
-  const aoMudarEntrada = (v: string) => {
-    reiniciar();
+  const onInputChange = (v: string) => {
+    viz.reset();
     setPreset("");
-    setEntrada(v);
-    setNums(lerLista(v));
+    setInput(v);
+    setNums(parseList(v));
   };
-  const aplicar = (pr: Preset) => {
-    reiniciar();
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
     setPreset(pr.key);
-    setEntrada(pr.nums.join(", "));
+    setInput(pr.nums.join(", "));
     setNums(pr.nums);
   };
   // Math.random só em handler de clique: no render quebraria a hidratação.
-  const sortear = () => {
-    const tam = 3 + Math.floor(Math.random() * 4);
-    const arr = Array.from({ length: tam }, () => 1 + Math.floor(Math.random() * 12));
-    reiniciar();
+  const randomize = () => {
+    const size = 3 + Math.floor(Math.random() * 4);
+    const arr = Array.from({ length: size }, () => 1 + Math.floor(Math.random() * 12));
+    viz.reset();
     setPreset("");
-    setEntrada(arr.join(", "));
+    setInput(arr.join(", "));
     setNums(arr);
   };
 
-  const n = nums.length;
-  const nHip = HIPOTESES[iHip];
-  const estoura = nHip + 1 > LIMITE_PYTHON;
+  const nHyp = HYPOTHESES[iHyp];
+  const overflows = nHyp + 1 > PYTHON_LIMIT;
 
   const cells = nums.map((v, i) => {
     let cls = "viz-cell";
-    if (i < p.consumidos) cls += " drop";
-    if (i === p.consumidos) cls += " in";
+    if (i < p.consumed) cls += " drop";
+    if (i === p.consumed) cls += " in";
     return { i, v, cls };
   });
 
-  const variaveis = [
-    { nome: "acc", valor: `${p.acc}`, best: true },
-    { nome: "saltos", valor: `${p.saltos}` },
-    { nome: "frames", valor: `${p.frames.length}` },
-    { nome: "r", valor: p.thunk ? "thunk" : p.fim ? `${p.acc}` : "chamando", best: p.fim },
+  const vars = [
+    { name: "acc", value: `${p.acc}`, best: true },
+    { name: "saltos", value: `${p.hops}` },
+    { name: "frames", value: `${p.frames.length}` },
+    { name: "r", value: p.thunk ? "thunk" : p.done ? `${p.acc}` : "chamando", best: p.done },
   ];
 
-  const estatisticas = [
-    { k: "pico", rot: "pilha máxima · trampolim", val: "2", cls: "tr-bom" },
-    { k: "dir", rot: "pilha · recursão direta", val: `${n + 1}`, cls: "" },
-    { k: "saltos", rot: "saltos até aqui", val: `${p.saltos}`, cls: "" },
-    { k: "espaco", rot: "espaço extra", val: "O(1)", cls: "tr-bom" },
+  const stats = [
+    { k: "pico", label: "pilha máxima · trampolim", value: "2", cls: "tr-bom" },
+    { k: "dir", label: "pilha · recursão direta", value: `${n + 1}`, cls: "" },
+    { k: "saltos", label: "saltos até aqui", value: `${p.hops}`, cls: "" },
+    { k: "espaco", label: "espaço extra", value: "O(1)", cls: "tr-bom" },
   ];
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · trampolim: recursão de cauda sem ajuda da linguagem</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               aria-pressed={preset === pr.key}
-              onClick={() => aplicar(pr)}
+              onClick={() => applyPreset(pr)}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
@@ -316,9 +273,9 @@ export function TailRecursionTrampolim() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Lista de números</span>
-            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+            <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={sortear}>
+          <button className="viz-btn" onClick={randomize}>
             Sortear
           </button>
         </div>
@@ -329,8 +286,8 @@ export function TailRecursionTrampolim() {
               <div className="viz-cell-wrap" key={c.i}>
                 <span className="viz-cell-idx">{c.i}</span>
                 <div className={c.cls}>{c.v}</div>
-                <span className={`viz-mark${c.i === p.consumidos ? " show" : ""}`}>
-                  {c.i === p.consumidos ? "head" : "·"}
+                <span className={`viz-mark${c.i === p.consumed ? " show" : ""}`}>
+                  {c.i === p.consumed ? "head" : "·"}
                 </span>
               </div>
             ))}
@@ -345,9 +302,9 @@ export function TailRecursionTrampolim() {
             </div>
             <div className="tr-pilha">
               {p.frames.map((f, i) => (
-                <div className={`tr-frame ${f.estado}`} key={`${f.chamada}-${i}`}>
-                  <div className="tr-frame-chamada">{f.chamada}</div>
-                  <div className="tr-frame-pend">{f.pend}</div>
+                <div className={`tr-frame ${f.state}`} key={`${f.call}-${i}`}>
+                  <div className="tr-frame-chamada">{f.call}</div>
+                  <div className="tr-frame-pend">{f.pending}</div>
                 </div>
               ))}
             </div>
@@ -357,13 +314,13 @@ export function TailRecursionTrampolim() {
           <div className="tr-painel">
             <div className="tr-painel-tit">
               <span>O thunk na mão do laço</span>
-              <em>salto {p.saltos}</em>
+              <em>salto {p.hops}</em>
             </div>
             <div className="tr-pilha">
               <div className={`tr-frame ${p.thunk ? "ativo" : "livre"}`}>
-                <div className="tr-frame-chamada">{p.thunk ?? (p.fim ? `r = ${p.acc}` : "r ainda não é um thunk")}</div>
+                <div className="tr-frame-chamada">{p.thunk ?? (p.done ? `r = ${p.acc}` : "r ainda não é um thunk")}</div>
                 <div className="tr-frame-pend">
-                  {p.thunk ? "uma função esperando ser chamada" : p.fim ? "não é função, o while parou" : "o laço está no meio de uma chamada"}
+                  {p.thunk ? "uma função esperando ser chamada" : p.done ? "não é função, o while parou" : "o laço está no meio de uma chamada"}
                 </div>
               </div>
             </div>
@@ -371,50 +328,58 @@ export function TailRecursionTrampolim() {
           </div>
         </div>
 
-        <p className={`viz-note${p.ok ? " ok" : ""}`}>{p.nota}</p>
+        <p className={`viz-note${p.ok ? " ok" : ""}`}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">trampolim.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt || " "}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuava com a altura inteira
+              do código. O `.viz-code-slot` é o truque de grid 1fr→0fr, a única
+              forma de animar altura automática em CSS puro. O código fica no
+              DOM mesmo recolhido, e é isso que permite medir o pior caso de
+              altura; `inert` tira ele do teclado e dos leitores de tela. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">trampolim.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt || " "}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bigo-stats">
-          {estatisticas.map((s) => (
+          {stats.map((s) => (
             <div className="bigo-stat" key={s.k}>
-              <span>{s.rot}</span>
-              <strong className={s.cls}>{s.val}</strong>
+              <span>{s.label}</span>
+              <strong className={s.cls}>{s.value}</strong>
             </div>
           ))}
         </div>
 
         <div className="viz-controls">
           <div className="viz-field grow">
-            <span>E se a lista tivesse n = {milhar(nHip)}?</span>
+            <span>E se a lista tivesse n = {thousands(nHyp)}?</span>
             <input
               type="range"
               min={0}
-              max={HIPOTESES.length - 1}
+              max={HYPOTHESES.length - 1}
               step={1}
-              value={iHip}
-              onChange={(e) => setIHip(parseInt(e.target.value, 10))}
+              value={iHyp}
+              onChange={(e) => setIHyp(parseInt(e.target.value, 10))}
               style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
             />
           </div>
@@ -423,11 +388,11 @@ export function TailRecursionTrampolim() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>recursão direta · frames</span>
-            <strong className={estoura ? "tr-ruim" : ""}>{milhar(nHip + 1)}</strong>
+            <strong className={overflows ? "tr-ruim" : ""}>{thousands(nHyp + 1)}</strong>
           </div>
           <div className="bigo-stat">
             <span>recursão direta · em Python</span>
-            <strong className={estoura ? "tr-ruim" : "tr-bom"}>{estoura ? "RecursionError" : "passa"}</strong>
+            <strong className={overflows ? "tr-ruim" : "tr-bom"}>{overflows ? "RecursionError" : "passa"}</strong>
           </div>
           <div className="bigo-stat">
             <span>trampolim · frames</span>
@@ -435,87 +400,20 @@ export function TailRecursionTrampolim() {
           </div>
           <div className="bigo-stat">
             <span>trampolim · saltos</span>
-            <strong>{milhar(nHip)}</strong>
+            <strong>{thousands(nHyp)}</strong>
           </div>
         </div>
 
         <p className="viz-note">
-          O limite padrão do Python é {milhar(LIMITE_PYTHON)} chamadas empilhadas. Com n = {milhar(nHip)}, a recursão de
-          cauda escrita direto {estoura ? "estoura antes de terminar" : "ainda passa, mas está andando na beira"}; o
-          trampolim faz {milhar(nHip)} {nHip === 1 ? "salto" : "saltos"} com os mesmos 2 frames.
+          O limite padrão do Python é {thousands(PYTHON_LIMIT)} chamadas empilhadas. Com n = {thousands(nHyp)}, a
+          recursão de cauda escrita direto {overflows ? "estoura antes de terminar" : "ainda passa, mas está andando na beira"}; o
+          trampolim faz {thousands(nHyp)} {nHyp === 1 ? "salto" : "saltos"} com os mesmos 2 frames.
         </p>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${Math.round(((idx + 1) / total) * 100)}%` }} />
-        </div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
 }

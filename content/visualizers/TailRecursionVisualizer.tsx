@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // TailRecursionVisualizer, a MESMA soma nas duas formas, lado a lado.
@@ -24,18 +25,22 @@ import { createPortal } from "react-dom";
 // mesmo contador de passos: quem termina primeiro fica parado (com o resultado
 // na tela) enquanto o outro continua. É essa imagem, a pilha da esquerda ainda
 // desempilhando enquanto a direita já respondeu, que ensina o tópico.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Estado = "espera" | "ativo" | "base" | "pronto";
-type Frame = { chamada: string; pend: string; estado: Estado };
-// `somas` é o contador de operações: ele existe para mostrar que o número de
+type State = "espera" | "ativo" | "base" | "pronto";
+type Frame = { call: string; pending: string; state: State };
+// `sums` é o contador de operações: ele existe para mostrar que o número de
 // somas é o MESMO nos dois lados (uma por elemento). O que muda de forma é
 // quando elas acontecem, e é o espaço, não o tempo, que a de cauda economiza.
-type Lado = { frames: Frame[]; linha: number; nota: string; somas: number; fim: boolean; ok: boolean };
+type Side = { frames: Frame[]; line: number; note: string; sums: number; done: boolean; ok: boolean };
 
-// As linhas mapeiam 1:1 com os campos `linha` dos dois geradores, então a ordem
+// As linhas mapeiam 1:1 com os campos `line` dos dois geradores, então a ordem
 // e a quantidade de linhas não podem mudar sem ajustar os geradores junto.
-const CODIGO = [
+const CODE = [
   "def soma(nums):                       # comum",
   "    if not nums:",
   "        return 0",
@@ -47,101 +52,101 @@ const CODIGO = [
   "    return soma_cauda(nums[1:], acc + nums[0])",
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
-function lista(v: number[]): string {
+function listOf(v: number[]): string {
   return `[${v.join(", ")}]`;
 }
 
-function prefixo(v: number[], ate: number): number {
+function prefix(v: number[], upTo: number): number {
   let s = 0;
-  for (let i = 0; i < ate; i++) s += v[i];
+  for (let i = 0; i < upTo; i++) s += v[i];
   return s;
 }
 
-function sufixo(v: number[], de: number): number {
+function suffix(v: number[], from: number): number {
   let s = 0;
-  for (let i = de; i < v.length; i++) s += v[i];
+  for (let i = from; i < v.length; i++) s += v[i];
   return s;
 }
 
 // Formatação determinística de milhar (nada de Intl no caminho de render, senão
 // o HTML do build diverge do cliente na hidratação).
-function milhar(v: number): string {
+function thousands(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function frames(v: number): string {
+// Rótulo de tela, em português: "1 frame" / "3 frames".
+function framesLabel(v: number): string {
   return `${v} ${v === 1 ? "frame" : "frames"}`;
 }
 
 // --- recursão comum: empilha n + 1 frames e só depois faz as n somas ---------
-function gerarComum(nums: number[]): Lado[] {
-  const out: Lado[] = [];
+function generatePlain(nums: number[]): Side[] {
+  const out: Side[] = [];
   const n = nums.length;
 
   for (let i = 0; i < n; i++) {
-    const pilha: Frame[] = [];
+    const stack: Frame[] = [];
     for (let j = 0; j <= i; j++) {
-      pilha.push({
-        chamada: `soma(${lista(nums.slice(j))})`,
-        pend: `pendente: ${nums[j]} + ?`,
-        estado: j === i ? "ativo" : "espera",
+      stack.push({
+        call: `soma(${listOf(nums.slice(j))})`,
+        pending: `pendente: ${nums[j]} + ?`,
+        state: j === i ? "ativo" : "espera",
       });
     }
     out.push({
-      frames: pilha,
-      linha: 3,
-      somas: 0,
-      fim: false,
+      frames: stack,
+      line: 3,
+      sums: 0,
+      done: false,
       ok: false,
-      nota: `A lista não está vazia, então guardo "${nums[i]} +" pendente aqui e desço para soma(${lista(nums.slice(i + 1))}). ${frames(i + 1)} na pilha, ${i + 1 === 1 ? "parado" : "parados"}, esperando uma resposta que ainda não existe.`,
+      note: `A lista não está vazia, então guardo "${nums[i]} +" pendente aqui e desço para soma(${listOf(nums.slice(i + 1))}). ${framesLabel(i + 1)} na pilha, ${i + 1 === 1 ? "parado" : "parados"}, esperando uma resposta que ainda não existe.`,
     });
   }
 
   const base: Frame[] = [];
   for (let j = 0; j < n; j++) {
     base.push({
-      chamada: `soma(${lista(nums.slice(j))})`,
-      pend: `pendente: ${nums[j]} + ?`,
-      estado: "espera",
+      call: `soma(${listOf(nums.slice(j))})`,
+      pending: `pendente: ${nums[j]} + ?`,
+      state: "espera",
     });
   }
-  base.push({ chamada: "soma([])", pend: "caso base: retorna 0", estado: "base" });
+  base.push({ call: "soma([])", pending: "caso base: retorna 0", state: "base" });
   out.push({
     frames: base,
-    linha: 2,
-    somas: 0,
-    fim: n === 0,
+    line: 2,
+    sums: 0,
+    done: n === 0,
     ok: n === 0,
-    nota:
+    note:
       n === 0
         ? "A lista já chegou vazia: caí direto no caso base, retorno 0 e nem cheguei a empilhar nada."
-        : `Cheguei na lista vazia com ${frames(n + 1)} empilhados. Retorno 0, e só agora a volta começa: nenhuma das ${n} somas foi feita ainda.`,
+        : `Cheguei na lista vazia com ${framesLabel(n + 1)} empilhados. Retorno 0, e só agora a volta começa: nenhuma das ${n} somas foi feita ainda.`,
   });
 
   for (let k = n - 1; k >= 0; k--) {
-    const anterior = sufixo(nums, k + 1);
-    const valor = anterior + nums[k];
-    const pilha: Frame[] = [];
+    const previous = suffix(nums, k + 1);
+    const value = previous + nums[k];
+    const stack: Frame[] = [];
     for (let j = 0; j <= k; j++) {
-      pilha.push({
-        chamada: `soma(${lista(nums.slice(j))})`,
-        pend: j === k ? `${nums[k]} + ${anterior} = ${valor}` : `pendente: ${nums[j]} + ?`,
-        estado: j === k ? "pronto" : "espera",
+      stack.push({
+        call: `soma(${listOf(nums.slice(j))})`,
+        pending: j === k ? `${nums[k]} + ${previous} = ${value}` : `pendente: ${nums[j]} + ?`,
+        state: j === k ? "pronto" : "espera",
       });
     }
     out.push({
-      frames: pilha,
-      linha: 3,
-      somas: n - k,
-      fim: k === 0,
+      frames: stack,
+      line: 3,
+      sums: n - k,
+      done: k === 0,
       ok: k === 0,
-      nota: `Desempilho e agora sim faço a conta que estava presa aqui: ${nums[k]} + ${anterior} = ${valor}. ${
+      note: `Desempilho e agora sim faço a conta que estava presa aqui: ${nums[k]} + ${previous} = ${value}. ${
         k === 0
-          ? `Pilha vazia, resposta final: ${valor}.`
-          : `Devolvo ${valor} para o frame de baixo. Ainda ${frames(k)} para desempilhar.`
+          ? `Pilha vazia, resposta final: ${value}.`
+          : `Devolvo ${value} para o frame de baixo. Ainda ${framesLabel(k)} para desempilhar.`
       }`,
     });
   }
@@ -149,66 +154,66 @@ function gerarComum(nums: number[]): Lado[] {
 }
 
 // --- recursão de cauda: com TCO o frame é reescrito, sem TCO empilha igual ---
-function gerarCauda(nums: number[], tco: boolean): Lado[] {
-  const out: Lado[] = [];
+function generateTail(nums: number[], tco: boolean): Side[] {
+  const out: Side[] = [];
   const n = nums.length;
-  const total = prefixo(nums, n);
+  const total = prefix(nums, n);
 
-  const frameEm = (i: number, estado: Estado): Frame => ({
-    chamada: `soma_cauda(${lista(nums.slice(i))}, ${prefixo(nums, i)})`,
-    pend: "pendente: nada",
-    estado,
+  const frameAt = (i: number, state: State): Frame => ({
+    call: `soma_cauda(${listOf(nums.slice(i))}, ${prefix(nums, i)})`,
+    pending: "pendente: nada",
+    state,
   });
 
   for (let i = 0; i < n; i++) {
-    const acc = prefixo(nums, i);
-    const novo = acc + nums[i];
-    const pilha: Frame[] = tco
-      ? [frameEm(i, "ativo")]
-      : Array.from({ length: i + 1 }, (_, j) => frameEm(j, j === i ? "ativo" : "espera"));
+    const acc = prefix(nums, i);
+    const next = acc + nums[i];
+    const stack: Frame[] = tco
+      ? [frameAt(i, "ativo")]
+      : Array.from({ length: i + 1 }, (_, j) => frameAt(j, j === i ? "ativo" : "espera"));
     out.push({
-      frames: pilha,
-      linha: 8,
-      somas: i + 1,
-      fim: false,
+      frames: stack,
+      line: 8,
+      sums: i + 1,
+      done: false,
       ok: false,
-      nota: tco
-        ? `acc vale ${acc}. Faço a conta agora, ${acc} + ${nums[i]} = ${novo}, e passo o resultado adiante. Como não sobrou nada para fazer aqui, o compilador reescreve ESTE frame com os parâmetros novos: a pilha continua com 1.`
-        : `acc vale ${acc}. Faço a conta agora, ${acc} + ${nums[i]} = ${novo}, e passo adiante. Só que sem TCO a chamada empilha do mesmo jeito: já são ${frames(i + 1)}.`,
+      note: tco
+        ? `acc vale ${acc}. Faço a conta agora, ${acc} + ${nums[i]} = ${next}, e passo o resultado adiante. Como não sobrou nada para fazer aqui, o compilador reescreve ESTE frame com os parâmetros novos: a pilha continua com 1.`
+        : `acc vale ${acc}. Faço a conta agora, ${acc} + ${nums[i]} = ${next}, e passo adiante. Só que sem TCO a chamada empilha do mesmo jeito: já são ${framesLabel(i + 1)}.`,
     });
   }
 
   const base: Frame[] = tco
-    ? [{ chamada: `soma_cauda([], ${total})`, pend: `caso base: retorna acc = ${total}`, estado: "base" }]
+    ? [{ call: `soma_cauda([], ${total})`, pending: `caso base: retorna acc = ${total}`, state: "base" }]
     : [
-        ...Array.from({ length: n }, (_, j) => frameEm(j, "espera")),
-        { chamada: `soma_cauda([], ${total})`, pend: `caso base: retorna acc = ${total}`, estado: "base" },
+        ...Array.from({ length: n }, (_, j) => frameAt(j, "espera")),
+        { call: `soma_cauda([], ${total})`, pending: `caso base: retorna acc = ${total}`, state: "base" },
       ];
   out.push({
     frames: base,
-    linha: 7,
-    somas: n,
-    fim: tco || n === 0,
+    line: 7,
+    sums: n,
+    done: tco || n === 0,
     ok: tco || n === 0,
-    nota: tco
+    note: tco
       ? `Lista vazia: devolvo o acumulador, ${total}. Não existe volta para fazer, a resposta já estava pronta na mão, e a pilha nunca passou de 1 frame.`
       : n === 0
         ? "A lista já chegou vazia: devolvo o acumulador 0 na primeira chamada."
-        : `Lista vazia: o acumulador já vale ${total}, a resposta está pronta. Mas ainda ${frames(n)} embaixo para desempilhar, um por um.`,
+        : `Lista vazia: o acumulador já vale ${total}, a resposta está pronta. Mas ainda ${framesLabel(n)} embaixo para desempilhar, um por um.`,
   });
 
   if (!tco) {
     for (let k = n - 1; k >= 0; k--) {
-      const pilha = Array.from({ length: k + 1 }, (_, j) => frameEm(j, j === k ? "pronto" : "espera"));
-      pilha[k] = { ...pilha[k], pend: `só repassa ${total}`, estado: "pronto" };
+      const stack = Array.from({ length: k + 1 }, (_, j) => frameAt(j, j === k ? "pronto" : "espera"));
+      stack[k] = { ...stack[k], pending: `só repassa ${total}`, state: "pronto" };
       out.push({
-        frames: pilha,
-        linha: 8,
-        somas: n,
-        fim: k === 0,
+        frames: stack,
+        line: 8,
+        sums: n,
+        done: k === 0,
         ok: k === 0,
-        nota: `Desempilho sem fazer conta nenhuma: só repasso o ${total} para baixo. ${
-          k === 0 ? "Fim." : `Restam ${frames(k)}.`
+        note: `Desempilho sem fazer conta nenhuma: só repasso o ${total} para baixo. ${
+          k === 0 ? "Fim." : `Restam ${framesLabel(k)}.`
         } A recursão de cauda arrumou a conta, mas sem otimização da linguagem a memória continua O(n).`,
       });
     }
@@ -216,25 +221,25 @@ function gerarCauda(nums: number[], tco: boolean): Lado[] {
   return out;
 }
 
-const PADRAO = [1, 2, 3, 4];
+const DEFAULT_LIST = [1, 2, 3, 4];
 
-type Preset = { key: string; rotulo: string; nums: number[] };
+type Preset = { key: string; label: string; nums: number[] };
 const PRESETS: Preset[] = [
-  { key: "encontro", rotulo: "Do encontro: [1, 2, 3, 4]", nums: PADRAO },
-  { key: "sete", rotulo: "Sete números", nums: [5, 3, 8, 1, 9, 2, 7] },
-  { key: "um", rotulo: "Um elemento só", nums: [7] },
-  { key: "vazia", rotulo: "Lista vazia", nums: [] },
+  { key: "encontro", label: "Do encontro: [1, 2, 3, 4]", nums: DEFAULT_LIST },
+  { key: "sete", label: "Sete números", nums: [5, 3, 8, 1, 9, 2, 7] },
+  { key: "um", label: "Um elemento só", nums: [7] },
+  { key: "vazia", label: "Lista vazia", nums: [] },
 ];
 
-function lerLista(texto: string): number[] {
-  return texto
+function parseList(text: string): number[] {
+  return text
     .split(",")
     .map((x) => parseInt(x.trim(), 10))
     .filter((x) => !isNaN(x))
     .slice(0, 9);
 }
 
-function Pilha({ frames: fs, rotulo }: { frames: Frame[]; rotulo: string }) {
+function Stack({ frames: fs, label }: { frames: Frame[]; label: string }) {
   return (
     <>
       <div className="tr-pilha">
@@ -244,155 +249,110 @@ function Pilha({ frames: fs, rotulo }: { frames: Frame[]; rotulo: string }) {
           </div>
         ) : (
           fs.map((f, i) => (
-            <div className={`tr-frame ${f.estado}`} key={`${f.chamada}-${i}`}>
-              <div className="tr-frame-chamada">{f.chamada}</div>
-              <div className="tr-frame-pend">{f.pend}</div>
+            <div className={`tr-frame ${f.state}`} key={`${f.call}-${i}`}>
+              <div className="tr-frame-chamada">{f.call}</div>
+              <div className="tr-frame-pend">{f.pending}</div>
             </div>
           ))
         )}
       </div>
-      <div className="tr-chao">{rotulo}</div>
+      <div className="tr-chao">{label}</div>
     </>
   );
 }
 
 export function TailRecursionVisualizer() {
-  const [entrada, setEntrada] = useState(PADRAO.join(", "));
-  const [nums, setNums] = useState<number[]>(PADRAO);
+  const [input, setInput] = useState(DEFAULT_LIST.join(", "));
+  const [nums, setNums] = useState<number[]>(DEFAULT_LIST);
   const [preset, setPreset] = useState("encontro");
   const [tco, setTco] = useState(true);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  const stepsA = useMemo(() => generatePlain(nums), [nums]);
+  const stepsB = useMemo(() => generateTail(nums, tco), [nums, tco]);
 
-  const passosA = useMemo(() => gerarComum(nums), [nums]);
-  const passosB = useMemo(() => gerarCauda(nums, tco), [nums, tco]);
+  const total = Math.max(stepsA.length, stepsB.length);
+  const n = nums.length;
 
-  const total = Math.max(passosA.length, passosB.length);
-  const idx = Math.min(passo, total - 1);
-  const iA = Math.min(idx, passosA.length - 1);
-  const iB = Math.min(idx, passosB.length - 1);
-  const a = passosA[iA];
-  const b = passosB[iB];
+  const viz = useVisualizer({
+    title: "Visualizador · a mesma soma nas duas formas: a pilha que cresce e a que não cresce",
+    total,
+    speeds: SPEEDS,
+    // O que muda a altura: o tamanho da lista e o TCO (sem ele o lado direito
+    // empilha igual ao esquerdo). E `total`, que com a lista vazia cai para 1 e
+    // apaga contador, rodapé e atalhos de uma vez — cerca de 90px de peça.
+    measureOn: [n, tco, total],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const iA = Math.min(viz.step, stepsA.length - 1);
+  const iB = Math.min(viz.step, stepsB.length - 1);
+  const a = stepsA[iA];
+  const b = stepsB[iB];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = useCallback(() => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  }, [parar]);
-
-  const aoMudarEntrada = (v: string) => {
-    reiniciar();
+  const onInputChange = (v: string) => {
+    viz.reset();
     setPreset("");
-    setEntrada(v);
-    setNums(lerLista(v));
+    setInput(v);
+    setNums(parseList(v));
   };
-  const aplicar = (pr: Preset) => {
-    reiniciar();
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
     setPreset(pr.key);
-    setEntrada(pr.nums.join(", "));
+    setInput(pr.nums.join(", "));
     setNums(pr.nums);
   };
   // Math.random só em handler de clique: no render quebraria a hidratação.
-  const sortear = () => {
-    const n = 3 + Math.floor(Math.random() * 4);
-    const arr = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * 12));
-    reiniciar();
+  const randomize = () => {
+    const size = 3 + Math.floor(Math.random() * 4);
+    const arr = Array.from({ length: size }, () => 1 + Math.floor(Math.random() * 12));
+    viz.reset();
     setPreset("");
-    setEntrada(arr.join(", "));
+    setInput(arr.join(", "));
     setNums(arr);
   };
 
-  const n = nums.length;
-  const totalSoma = prefixo(nums, n);
-  const picoA = n + 1;
-  const picoB = tco ? 1 : n + 1;
+  const sum = prefix(nums, n);
+  const peakPlain = n + 1;
+  const peakTail = tco ? 1 : n + 1;
 
   // Rastro do acumulador: 0, 1, 3, 6, 10 na lista do encontro. O passo atual do
   // lado direito manda, e na volta (sem TCO) ele fica travado no último.
-  const trilha = Array.from({ length: n + 1 }, (_, i) => prefixo(nums, i));
-  const trilhaIdx = Math.min(iB, n);
+  const trail = Array.from({ length: n + 1 }, (_, i) => prefix(nums, i));
+  const trailIdx = Math.min(iB, n);
 
-  const variaveis = [
-    { nome: "acc (cauda)", valor: `${trilha[trilhaIdx]}`, best: true },
-    { nome: "frames · comum", valor: `${a.frames.length}` },
-    { nome: "frames · cauda", valor: `${b.frames.length}` },
-    { nome: "somas · comum", valor: `${a.somas} de ${n}` },
-    { nome: "somas · cauda", valor: `${b.somas} de ${n}` },
-    { nome: "soma(nums)", valor: a.ok ? `${totalSoma}` : "...", best: a.ok },
+  const vars = [
+    { name: "acc (cauda)", value: `${trail[trailIdx]}`, best: true },
+    { name: "frames · comum", value: `${a.frames.length}` },
+    { name: "frames · cauda", value: `${b.frames.length}` },
+    { name: "somas · comum", value: `${a.sums} de ${n}` },
+    { name: "somas · cauda", value: `${b.sums} de ${n}` },
+    { name: "soma(nums)", value: a.ok ? `${sum}` : "...", best: a.ok },
   ];
 
-  const estatisticas = [
-    { k: "pa", rot: "pico de frames · comum", val: `${picoA}` },
-    { k: "pb", rot: "pico de frames · de cauda", val: `${picoB}` },
-    { k: "ea", rot: "espaço extra · comum", val: "O(n)" },
-    { k: "eb", rot: "espaço extra · de cauda", val: tco ? "O(1)" : "O(n)" },
+  const stats = [
+    { k: "pa", label: "pico de frames · comum", value: `${peakPlain}` },
+    { k: "pb", label: "pico de frames · de cauda", value: `${peakTail}` },
+    { k: "ea", label: "espaço extra · comum", value: "O(n)" },
+    { k: "eb", label: "espaço extra · de cauda", value: tco ? "O(1)" : "O(n)" },
   ];
 
-  const resumo = tco
-    ? `A recursão comum chegou a ${frames(picoA)}; a de cauda ficou em 1 do começo ao fim. Com uma lista de 1.000 números seriam ${milhar(1001)} frames de um lado e 1 do outro, e o Python nem chegaria lá: ele para com RecursionError, porque o limite padrão é 1.000 chamadas.`
-    : `Sem otimização da linguagem os dois lados empilham ${frames(picoA)}. A recursão de cauda continua valendo a pena para pensar, e é ela que vira laço na hora de reescrever, mas em Python, Java ou C# ela sozinha não economiza um byte de pilha.`;
+  const summary = tco
+    ? `A recursão comum chegou a ${framesLabel(peakPlain)}; a de cauda ficou em 1 do começo ao fim. Com uma lista de 1.000 números seriam ${thousands(1001)} frames de um lado e 1 do outro, e o Python nem chegaria lá: ele para com RecursionError, porque o limite padrão é 1.000 chamadas.`
+    : `Sem otimização da linguagem os dois lados empilham ${framesLabel(peakPlain)}. A recursão de cauda continua valendo a pena para pensar, e é ela que vira laço na hora de reescrever, mas em Python, Java ou C# ela sozinha não economiza um byte de pilha.`;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a mesma soma nas duas formas: a pilha que cresce e a que não cresce</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               aria-pressed={preset === pr.key}
-              onClick={() => aplicar(pr)}
+              onClick={() => applyPreset(pr)}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
@@ -400,9 +360,9 @@ export function TailRecursionVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Lista de números</span>
-            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+            <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={sortear}>
+          <button className="viz-btn" onClick={randomize}>
             Sortear
           </button>
         </div>
@@ -412,7 +372,7 @@ export function TailRecursionVisualizer() {
             className={`bigo-chip${tco ? " on" : ""}`}
             aria-pressed={tco}
             onClick={() => {
-              reiniciar();
+              viz.reset();
               setTco(true);
             }}
           >
@@ -423,7 +383,7 @@ export function TailRecursionVisualizer() {
             className={`bigo-chip${!tco ? " on" : ""}`}
             aria-pressed={!tco}
             onClick={() => {
-              reiniciar();
+              viz.reset();
               setTco(false);
             }}
           >
@@ -436,140 +396,81 @@ export function TailRecursionVisualizer() {
           <div className="tr-painel">
             <div className="tr-painel-tit">
               <span>1. Recursão comum</span>
-              <em>{frames(a.frames.length)}</em>
+              <em>{framesLabel(a.frames.length)}</em>
             </div>
-            <Pilha frames={a.frames} rotulo="base da pilha" />
-            <p className={`viz-note${a.ok ? " ok" : ""}`}>{a.nota}</p>
+            <Stack frames={a.frames} label="base da pilha" />
+            <p className={`viz-note${a.ok ? " ok" : ""}`}>{a.note}</p>
           </div>
 
           <div className="tr-painel cauda">
             <div className="tr-painel-tit">
               <span>2. Recursão de cauda</span>
-              <em>{frames(b.frames.length)}</em>
+              <em>{framesLabel(b.frames.length)}</em>
             </div>
-            <Pilha frames={b.frames} rotulo="base da pilha" />
+            <Stack frames={b.frames} label="base da pilha" />
             <div className="tr-trilha" aria-label="rastro do acumulador">
-              {trilha.map((v, i) => (
+              {trail.map((v, i) => (
                 <span key={i}>
                   {i > 0 ? <span className="tr-seta">→</span> : null}
-                  <span className={`tr-acc${i === trilhaIdx ? " on" : ""}`}>acc {v}</span>
+                  <span className={`tr-acc${i === trailIdx ? " on" : ""}`}>acc {v}</span>
                 </span>
               ))}
             </div>
-            <p className={`viz-note${b.ok ? " ok" : ""}`}>{b.nota}</p>
+            <p className={`viz-note${b.ok ? " ok" : ""}`}>{b.note}</p>
           </div>
         </div>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">soma.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => {
-                let cls = "viz-line";
-                if (i === a.linha) cls += " on";
-                if (i === b.linha) cls += " tr-on-b";
-                return (
-                  <div key={i} className={cls}>
-                    <span className="ln">{i + 1}</span>
-                    {txt}
-                  </div>
-                );
-              })}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuava com a altura inteira
+              do código. O `.viz-code-slot` é o truque de grid 1fr→0fr, a única
+              forma de animar altura automática em CSS puro. O código fica no
+              DOM mesmo recolhido, e é isso que permite medir o pior caso de
+              altura; `inert` tira ele do teclado e dos leitores de tela. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">soma.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, i) => {
+                  let cls = "viz-line";
+                  if (i === a.line) cls += " on";
+                  if (i === b.line) cls += " tr-on-b";
+                  return (
+                    <div key={i} className={cls}>
+                      <span className="ln">{i + 1}</span>
+                      {txt}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bigo-stats">
-          {estatisticas.map((s) => (
+          {stats.map((s) => (
             <div className="bigo-stat" key={s.k}>
-              <span>{s.rot}</span>
-              <strong>{s.val}</strong>
+              <span>{s.label}</span>
+              <strong>{s.value}</strong>
             </div>
           ))}
         </div>
 
-        <p className="viz-note">{resumo}</p>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${Math.round(((idx + 1) / total) * 100)}%` }} />
-        </div>
+        <p className="viz-note">{summary}</p>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
 }
