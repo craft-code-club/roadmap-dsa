@@ -552,6 +552,113 @@ test("índice 'Nesta página' fica grudado ao rolar o artigo", async ({ page }) 
   expect(depois.height).toBeLessThanOrEqual(page.viewportSize()!.height);
 });
 
+// ---------------------------------------------------------------------------
+// Rolagem ao trocar de página.
+//
+// O Next só desliga a rolagem suave durante a troca de rota se o `<html>` levar
+// `data-scroll-behavior="smooth"` (é assim que ele sabe que o CSS do site pediu
+// `scroll-behavior: smooth`). Sem o atributo, o "volta pro topo" saía do fim de
+// um artigo de ~18000px ANIMADO, levava mais de um segundo — e qualquer toque no
+// trackpad no meio do caminho cancelava a animação, deixando o leitor parado no
+// meio do artigo novo. Era a rolagem que "às vezes vai, às vezes não".
+//
+// Por isso os dois testes medem a TRAJETÓRIA, e não a posição final: com a
+// animação, o fim também é o topo — só que um segundo depois e cancelável.
+// ---------------------------------------------------------------------------
+
+/** Todas as posições de rolagem por quadro enquanto `acao` acontece. */
+async function trajetoriaDaRolagem(
+  page: import("@playwright/test").Page,
+  acao: () => Promise<void>,
+  ms = 1600
+) {
+  await page.evaluate((limite) => {
+    const w = window as unknown as { __traj: number[] };
+    w.__traj = [];
+    const t0 = performance.now();
+    const tick = () => {
+      w.__traj.push(Math.round(window.scrollY));
+      if (performance.now() - t0 < limite) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, ms);
+  await acao();
+  await page.waitForTimeout(ms + 200);
+  return page.evaluate(() => (window as unknown as { __traj: number[] }).__traj);
+}
+
+const irParaOFimDaPagina = async (page: import("@playwright/test").Page) => {
+  await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
+  await page.waitForFunction(() => window.scrollY > 1000);
+};
+
+test("clicar em Próximo volta ao topo de uma vez, não numa animação cancelável", async ({ page }) => {
+  await page.goto("/topico/arrays/");
+  await irParaOFimDaPagina(page);
+
+  const proximo = page.locator(".prevnext a.next");
+  const destino = await proximo.getAttribute("href");
+  expect(destino, "o link do Próximo precisa apontar para um tópico").toBeTruthy();
+  const traj = await trajetoriaDaRolagem(page, () => proximo.click());
+
+  // Compara o caminho direto, sem montar RegExp com texto lido da página: um
+  // href nulo viraria `/null$/` e um metacaractere mudaria o que o teste casa.
+  expect(new URL(page.url()).pathname, "não abriu o tópico seguinte").toBe(destino);
+  // O título vem do `href`, e não fixado no teste: quem é o tópico seguinte é
+  // decisão do roadmap e pode mudar sem que este comportamento mude.
+  await expect(page.locator(".topic-h1")).toBeVisible();
+
+  const posicoes = [...new Set(traj)];
+  expect(traj[traj.length - 1], "a página nova não abriu no topo").toBe(0);
+  // Salto: fim → topo. Uma animação passaria por dezenas de posições no meio
+  // (medido antes da correção: mais de 60), e é nesse meio que o trackpad do
+  // leitor cancelava a rolagem. A folga cobre o ajuste do navegador quando a
+  // página nova é mais curta e a rolagem é limitada antes do salto.
+  expect(posicoes.length, `rolagem animada: passou por ${posicoes.length} posições`).toBeLessThanOrEqual(3);
+});
+
+test("a âncora do índice 'Nesta página' continua rolando suave", async ({ page }) => {
+  // O atributo no `<html>` não pode custar o `scroll-behavior: smooth` do site:
+  // ele existe para as âncoras do índice, que ficam ásperas sem a animação.
+  //
+  // A preferência é declarada, e não herdada da máquina: o `globals.css` desliga
+  // a animação em `prefers-reduced-motion: reduce`, então numa máquina (ou num
+  // runner) com movimento reduzido ligado este teste reprovaria por um motivo
+  // que não é o dele. O caso do movimento reduzido tem teste próprio, logo abaixo.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/topico/pilhas/");
+  // A terceira âncora, e não a primeira: ela fica longe o bastante do topo para
+  // a rolagem ter trajetória para medir. Confiro a contagem antes porque, se o
+  // artigo encolher, a falha honesta é "o índice tem 2 âncoras" e não um erro
+  // de clique em elemento que não existe.
+  const ancoras = page.locator(".toc-links a");
+  expect(await ancoras.count(), "o índice encolheu: escolha outra âncora").toBeGreaterThanOrEqual(3);
+  const traj = await trajetoriaDaRolagem(page, () => ancoras.nth(2).click());
+
+  const posicoes = [...new Set(traj)];
+  expect(posicoes.length, "a âncora saltou em vez de rolar suave").toBeGreaterThan(5);
+  expect(traj[traj.length - 1], "a âncora não saiu do topo").toBeGreaterThan(0);
+});
+
+test("com movimento reduzido, nada anima — e o destino é o mesmo", async ({ page }) => {
+  // Quem pediu menos movimento no sistema não perde navegação nenhuma: a âncora
+  // vai direto ao título e a troca de tópico abre no topo, sem animação para
+  // ser cancelada no meio do caminho.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/topico/pilhas/");
+  const ancoras = page.locator(".toc-links a");
+  expect(await ancoras.count(), "o índice encolheu: escolha outra âncora").toBeGreaterThanOrEqual(3);
+  const traj = await trajetoriaDaRolagem(page, () => ancoras.nth(2).click());
+
+  expect([...new Set(traj)].length, "animou mesmo com movimento reduzido").toBeLessThanOrEqual(3);
+  expect(traj[traj.length - 1], "a âncora não chegou ao título").toBeGreaterThan(0);
+
+  await irParaOFimDaPagina(page);
+  await page.locator(".prevnext a.next").click();
+  await expect(page.locator(".topic-h1")).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
   await page.goto("/topico/prefix-sum/");
   // pega o bloco Python pelo conteúdo, não pela ordem: um bloco de outra

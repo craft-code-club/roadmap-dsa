@@ -46,11 +46,16 @@ a:hover { color: #93bbfd; }
   0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45); }
   50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
 }
+/* A rolagem suave vem ANTES do bloco de movimento reduzido, e não depois: as duas
+   regras têm a mesma especificidade (seletor de elemento), então quem vem por
+   último vence. Com o `smooth` embaixo, o `auto` de quem pediu menos movimento
+   era letra morta — medido: a âncora do índice animava por 97 quadros mesmo com
+   `prefers-reduced-motion: reduce`. Não inverta a ordem. */
+html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   html { scroll-behavior: auto; }
 }
-html { scroll-behavior: smooth; }
 /* Compensa o header fixo ao pular via âncoras do índice "Nesta página". */
 .prose-h2, .prose-h3, .topic-h1 { scroll-margin-top: 80px; }
 
