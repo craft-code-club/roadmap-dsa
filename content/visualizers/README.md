@@ -116,7 +116,15 @@ Três notas de execução, todas medidas:
 - **chave de tipo escrita como literal é código**, e qualquer ferramenta que
   protege literais a deixa para trás: em `Omit<Step, "slots" | "desloc">` o
   `"desloc"` precisava virar `"shifts"` junto com o campo. Aqui só o `tsc`
-  pegou — o guarda de idioma, por construção, nunca vai pegar.
+  pegou — o guarda de idioma, por construção, nunca vai pegar;
+- **valor de união que vira SUFIXO DE CLASSE é contrato com o CSS**, e esse
+  ninguém guarda. No `HeapSortVisualizer` a união `"construir" | "ordenar" |
+  "fim"` entra em `` `hs-fase f-${fase}` ``, e o `globals.css` compartilhado
+  define `.hs-fase.f-ordenar` e `.hs-fase.f-fim`. Traduzir a união apagaria a
+  cor de duas fases **sem nada acusar**: o `tsc` continua coerente, o guarda não
+  vê (não é texto de tela) e o teste não pega (é cor). Antes de renomear uma
+  união, **faça `grep` do valor no `globals.css`**; se ele estiver lá, use um
+  mapa (`PHASE_CLASS`) em vez de interpolar o valor cru.
 
 Depois de tudo isso, confira no navegador: contador, botões, notas, rótulos e o
 bloco de código.
@@ -328,6 +336,43 @@ pergunta certa é:
 
 Se o aluno não consegue mudar a dimensão por nenhum controle, ela não é eixo, e
 procurar pior caso ali é procurar no lugar errado.
+
+### Eixo alcançável ainda pode ser eixo com DEGRAUS
+
+A pergunta acima tem um segundo tempo, e sem ele ela leva à conclusão errada:
+**o caminho existe, mas ele chega a atravessar um degrau?**
+
+A altura de uma árvore é `⌊log₂ n⌋`, uma função **degrau**. Um controle que muda
+a contagem pode variar bastante e **não mover a altura um pixel**, porque os
+valores que ele alcança caem todos no mesmo patamar. Medido em dois tópicos
+independentes na mesma rodada:
+
+| peça | o que o controle alcança | o que a altura faz |
+|---|---|---|
+| `HeapSortVisualizer` | presets de 8 e de 10 elementos | `depth()` devolve **3 nos dois**; os quatro presets desenham **242px nos 289 estados** |
+| `BinaryHeapVisualizer` | presets de 6, 8 e 9 valores | 8 e 9 dão o **mesmo desenho ao pixel** (252px); 6 dá 192. Os 50% a mais compram um nível, o elemento seguinte compra **zero** |
+
+**Varrer os presets pode medir dois pontos achando que mediu quatro.** Antes de
+concluir "não tem pior caso", calcule em que valores o degrau muda e veja se
+algum controle chega lá. E quando o eixo satura, diga isso com o número — no
+heap binário, dos 327px entre o estado mais alto e o mais baixo, **só 60 são o
+desenho**; o resto é a operação escolhida.
+
+### A §3 se responde POR PEÇA, não por tópico
+
+Duas peças do mesmo tópico, desenhando a mesma coisa, podem ter eixos
+diferentes. Medido em `busca-binaria`, onde as duas mostram uma fita de células
+com `flex-wrap` e **sem** `overflow-x`:
+
+- **`BuscaBinariaVisualizer`** tem campo de array até 16 valores, e a fita quebra
+  linha a partir da 14ª célula: 8 → 16 posições custam **+99px**. A largura vira
+  altura, e o eixo é real;
+- **`BuscaBinariaFronteira`** usa uma constante de 9 posições, sem campo:
+  `linhasFita = 1` nos 15 estados e nas 3 réguas. Ali o eixo é o **código** (9 vs
+  12 linhas, 77px) e a prosa (37px entre dicas).
+
+Elas saíram com `measureOn` diferentes — `[n, presetKey]` e `[mode, presetKey]`.
+**Desenho igual não é eixo igual**: o que decide é o controle, não a aparência.
 
 ### O corolário que fecha a §3
 
@@ -623,6 +668,19 @@ os dois passando contra a quebra antes de serem consertados:
   "sobrevive" sem que nada a tenha ameaçado. Escolha um estado que muda mesmo a
   entrada da medição, **confirme a troca na tela** antes de concluir, e deixe a
   janela apertada o bastante para a medição querer recolher.
+- **`toBeInViewport()` sozinho não prova a camada 1.** Com o rodapé de volta
+  dentro do miolo — que é a quebra canônica desta camada — ele passa nas **duas**
+  pontas da rolagem: no fim porque é lá que o rodapé foi parar, e no começo
+  porque o botão ainda cruza a área visível, e a asserção aceita **qualquer**
+  interseção. Medido: uma quebra assim saiu `0 failed / 2 passed` com a quebra
+  confirmada no HTML do build.
+
+  A asserção que carrega o sentido é **a posição comparada com ela mesma** — o
+  `boundingBox().y` do controle antes e depois de o miolo rolar — e o
+  `toBeInViewport({ ratio: 1 })` entra como complemento, não como prova. É o que
+  os testes bons deste repo já fazem: `headMoveu === 0`, `footMoveu === 0`,
+  `sobraFigura <= 8`. Se o seu teste de camada 1 não tem um desses, ele está
+  aprovando a quebra.
 
 ---
 
