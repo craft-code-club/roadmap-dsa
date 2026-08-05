@@ -51,7 +51,7 @@ type Tree = { key: string; label: string; nodes: TreeNode[]; caption: string };
 // A pré-ordem dela sai 1 a 9 na sequência, que foi como apareceu no quadro.
 const TREES: Tree[] = [
   {
-    key: "artigo",
+    key: "article",
     label: "A árvore do artigo",
     caption: "Pré: 1 2 3 4 5 6 7 8 9 · Pós: 3 4 5 2 7 8 9 6 1 · Nível: 1 2 6 3 4 5 7 8 9",
     nodes: [
@@ -267,7 +267,7 @@ const DEGREES = [2, 4, 8, 16, 64, 256];
 const N_EXAMPLE = 1_000_000;
 
 export function NAryTreeVisualizer() {
-  const [treeKey, setTreeKey] = useState("artigo");
+  const [treeKey, setTreeKey] = useState("article");
   const [order, setOrder] = useState<Order>("pre");
   const [inOrderNote, setInOrderNote] = useState(false);
 
