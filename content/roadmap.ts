@@ -1208,6 +1208,12 @@ export const TOTAL_TOPICS = ALL_TOPICS.length;
 // (um tópico pode embutir vários, como Big O e Sliding Window).
 export const TOTAL_VISUALIZERS = ALL_TOPICS.filter((t) => t.viz).length;
 export const TOTAL_PROBLEMS = ALL_TOPICS.reduce((n, t) => n + (t.problems?.length ?? 0), 0);
+// Só os do LeetCode. Os textos de SEO citam "problemas do LeetCode" nominalmente,
+// e prometer o total (que inclui GeeksforGeeks) seria contar duas fontes como uma.
+export const TOTAL_LEETCODE_PROBLEMS = ALL_TOPICS.reduce(
+  (n, t) => n + (t.problems?.filter((p) => p.source === "LeetCode").length ?? 0),
+  0
+);
 
 export function getTopic(slug: string): Topic | undefined {
   return ALL_TOPICS.find((t) => t.slug === slug);

@@ -13,7 +13,9 @@ test("nav do topo abre o roadmap e um tópico", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Roadmap", exact: true }).click();
   await expect(page).toHaveURL(/\/roadmap/);
-  await expect(page.getByRole("heading", { name: "Do zero à entrevista" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Roadmap de Algoritmos e Estruturas de Dados" })
+  ).toBeVisible();
   await page.getByRole("link", { name: /Two Pointers/ }).first().click();
   await expect(page).toHaveURL(/topico\/two-pointers/);
 });
@@ -591,7 +593,7 @@ test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({
 
 test("página de introdução explica o guia e leva ao primeiro tópico", async ({ page }) => {
   await page.goto("/introducao/");
-  await expect(page.getByRole("heading", { level: 1, name: "Introdução" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Por onde começar" })).toBeVisible();
   await page.getByRole("link", { name: "Começar por Big O" }).click();
   await expect(page).toHaveURL(/topico\/big-o/);
 });

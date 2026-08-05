@@ -4,6 +4,14 @@ import { ProgressProvider } from "@/components/ProgressProvider";
 import { Shell } from "@/components/Shell";
 import { SITE_URL } from "@/lib/links";
 
+// Só o que é global de verdade mora aqui. Título, descrição e Open Graph são de
+// cada rota (ver `src/lib/seo.ts`): quando `openGraph.title`/`description` eram
+// fixados aqui, o valor do layout vencia o da página e TODA rota compartilhava o
+// card da home no LinkedIn e no Facebook.
+//
+// O `template` continua sendo o fallback das rotas que não definem OG próprio
+// (os /topico/*): o Next preenche `og:title`/`og:description` a partir do
+// `title`/`description` resolvidos da página quando o layout não os impõe.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -12,12 +20,13 @@ export const metadata: Metadata = {
   },
   description:
     "O maior guia visual e gratuito de Algoritmos e Estruturas de Dados em português. Cada tópico com o algoritmo rodando passo a passo, artigo, vídeo e problemas do LeetCode e GeeksforGeeks. Feito pela comunidade Craft & Code Club.",
-  keywords: ["DSA", "algoritmos", "estruturas de dados", "LeetCode", "roadmap", "português", "Craft & Code Club"],
   openGraph: {
-    title: "Roadmap DSA · Craft & Code Club",
-    description: "Visualização e aprofundamento em cada estrutura. Guia visual, gratuito e open source de DSA em português.",
     type: "website",
     locale: "pt_BR",
+    siteName: "Roadmap DSA",
+  },
+  twitter: {
+    card: "summary_large_image",
   },
 };
 
