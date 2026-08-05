@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // SkipListVisualizer, a busca descendo em escada pelos níveis.
@@ -18,27 +19,31 @@ import { createPortal } from "react-dom";
 //      mesma busca feita só no nível 0, que é uma lista encadeada comum.
 //
 // As alturas padrão dão a pirâmide de livro (12 / 6 / 3 / 1 nós por nível) e o
-// botão "Sortear alturas" mostra o que o encontro repetiu o tempo todo: a mesma
-// entrada gera estruturas diferentes, mas o resultado da busca não muda.
+// botão "Sortear alturas" mostra que a mesma entrada gera estruturas
+// diferentes, mas o resultado da busca não muda.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type No = { valor: number; altura: number };
+type SkipNode = { value: number; height: number };
 
-type Passo = {
-  nivel: number;
-  atual: number; // índice do nó atual, -1 = head (o sentinela)
-  olhando: number | null; // nó comparado neste passo
-  comparacoes: number;
-  visitados: string[]; // "nivel:indice", na ordem em que a busca passou
-  linha: number;
-  encontrou?: boolean;
-  fim?: boolean;
-  nota: string;
+type Step = {
+  level: number;
+  current: number; // índice do nó atual, -1 = head (o sentinela)
+  looking: number | null; // nó comparado neste passo
+  comparisons: number;
+  visited: string[]; // "nivel:indice", na ordem em que a busca passou
+  line: number;
+  found?: boolean;
+  done?: boolean;
+  note: string;
 };
 
-// As linhas mapeiam 1:1 com o campo `linha` de cada passo, então a ordem e a
+// As linhas mapeiam 1:1 com o campo `line` de cada passo, então a ordem e a
 // quantidade de linhas não podem mudar sem ajustar o gerador junto.
-const CODIGO = [
+const CODE = [
   "def buscar(self, alvo):",
   "    atual = self.head",
   "    for nivel in range(self.nivel_max, -1, -1):",
@@ -50,205 +55,202 @@ const CODIGO = [
   "    return atual is not None and atual.valor == alvo",
 ];
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
-
-const MAX_NIVEIS = 4; // altura máxima de um nó, o `MAX_NIVEL` da implementação
+const MAX_LEVELS = 4; // altura máxima de um nó, o `MAX_NIVEL` da implementação
 
 // Doze elementos com a pirâmide exata da teoria: 12 nós no nível 0, 6 no
-// nível 1, 3 no nível 2 e 1 no nível 3. São os números do desenho do encontro.
-const VALORES_PADRAO = [3, 9, 17, 23, 31, 42, 50, 59, 73, 80, 92, 98];
-const CICLO_PADRAO = [1, 3, 1, 2, 1, 4, 1, 2, 3, 1, 2, 1];
+// nível 1, 3 no nível 2 e 1 no nível 3.
+const DEFAULT_VALUES = [3, 9, 17, 23, 31, 42, 50, 59, 73, 80, 92, 98];
+const DEFAULT_CYCLE = [1, 3, 1, 2, 1, 4, 1, 2, 3, 1, 2, 1];
 
-// Alturas determinísticas: o mesmo padrão do encontro, repetido em ciclo quando
-// o aluno digita um array maior. Nada de Math.random no caminho de render.
-function alturasPadrao(n: number): number[] {
-  return Array.from({ length: n }, (_, i) => CICLO_PADRAO[i % CICLO_PADRAO.length]);
+// Alturas determinísticas: o mesmo padrão, repetido em ciclo quando o aluno
+// digita um array maior. Nada de Math.random no caminho de render.
+function defaultHeights(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => DEFAULT_CYCLE[i % DEFAULT_CYCLE.length]);
 }
 
-function limpar(texto: string): number[] {
-  const vistos = new Set<number>();
-  const saida: number[] = [];
-  for (const bruto of texto.split(",")) {
-    const v = parseInt(bruto.trim(), 10);
-    if (isNaN(v) || vistos.has(v)) continue;
-    vistos.add(v);
-    saida.push(v);
+function parseValues(text: string): number[] {
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const raw of text.split(",")) {
+    const v = parseInt(raw.trim(), 10);
+    if (isNaN(v) || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
   }
-  return saida.sort((a, b) => a - b).slice(0, 14);
+  return out.sort((a, b) => a - b).slice(0, 14);
 }
 
-// O próximo nó de `i` no nível `nivel`: o primeiro à direita que chega lá.
+// O próximo nó de `i` no nível `level`: o primeiro à direita que chega lá.
 // Com i = -1 a busca começa no head, que participa de todos os níveis.
-function forwardDe(nos: No[], i: number, nivel: number): number | null {
-  for (let j = i + 1; j < nos.length; j++) {
-    if (nos[j].altura > nivel) return j;
+function forwardFrom(nodes: SkipNode[], i: number, level: number): number | null {
+  for (let j = i + 1; j < nodes.length; j++) {
+    if (nodes[j].height > level) return j;
   }
   return null;
 }
 
-function nomeDe(nos: No[], i: number): string {
-  return i < 0 ? "o head" : `o ${nos[i].valor}`;
+function nameOf(nodes: SkipNode[], i: number): string {
+  return i < 0 ? "o head" : `o ${nodes[i].value}`;
 }
 
 // A mesma busca, mas andando só pelo nível 0: é exatamente o que uma lista
 // encadeada comum faria. Conta do mesmo jeito (cada `<` avaliado, mais a
 // comparação final de igualdade) para os dois números serem comparáveis.
-function comparacoesLista(nos: No[], alvo: number): number {
+function listComparisons(nodes: SkipNode[], target: number): number {
   let c = 0;
   let i = 0;
-  while (i < nos.length && nos[i].valor < alvo) {
+  while (i < nodes.length && nodes[i].value < target) {
     c++;
     i++;
   }
-  if (i < nos.length) c += 2; // o `<` que deu falso + o `==` do final
+  if (i < nodes.length) c += 2; // o `<` que deu falso + o `==` do final
   return c;
 }
 
-function gerarPassos(nos: No[], alvo: number): Passo[] {
-  const out: Passo[] = [];
-  if (!nos.length) return out;
-  const topo = Math.max(1, ...nos.map((n) => n.altura)) - 1;
-  let nivel = topo;
-  let atual = -1;
-  let comparacoes = 0;
-  const visitados: string[] = [`${topo}:-1`];
-  const base = () => ({ nivel, atual, comparacoes, visitados: [...visitados] });
+function generateSteps(nodes: SkipNode[], target: number): Step[] {
+  const out: Step[] = [];
+  if (!nodes.length) return out;
+  const top = Math.max(1, ...nodes.map((n) => n.height)) - 1;
+  let level = top;
+  let current = -1;
+  let comparisons = 0;
+  const visited: string[] = [`${top}:-1`];
+  const base = () => ({ level, current, comparisons, visited: [...visited] });
 
   out.push({
     ...base(),
-    olhando: null,
-    linha: 1,
-    nota: `Começo no head, no nível ${topo}, o mais alto que esta lista tem. É de lá que saem os maiores saltos, e por isso toda busca começa no topo, à esquerda.`,
+    looking: null,
+    line: 1,
+    note: `Começo no head, no nível ${top}, o mais alto que esta lista tem. É de lá que saem os maiores saltos, e por isso toda busca começa no topo, à esquerda.`,
   });
 
-  let guarda = 0;
-  while (nivel >= 0 && guarda++ < 300) {
-    const prox = forwardDe(nos, atual, nivel);
-    if (prox === null) {
+  let guard = 0;
+  while (level >= 0 && guard++ < 300) {
+    const next = forwardFrom(nodes, current, level);
+    if (next === null) {
       out.push({
         ...base(),
-        olhando: null,
-        linha: 3,
-        nota: `No nível ${nivel} não existe ninguém depois de ${nomeDe(nos, atual)}: o ponteiro aponta para None. Não dá para avançar, então só me resta descer.`,
+        looking: null,
+        line: 3,
+        note: `No nível ${level} não existe ninguém depois de ${nameOf(nodes, current)}: o ponteiro aponta para None. Não dá para avançar, então só me resta descer.`,
       });
     } else {
-      const v = nos[prox].valor;
-      comparacoes++;
-      if (v < alvo) {
-        const pulados = prox - atual - 1;
+      const v = nodes[next].value;
+      comparisons++;
+      if (v < target) {
+        const skipped = next - current - 1;
         out.push({
           ...base(),
-          olhando: prox,
-          linha: 4,
-          nota: `${v} < ${alvo}: o próximo do nível ${nivel} ainda é menor que o alvo, então dá para pular até ele sem risco de passar do ponto.`,
+          looking: next,
+          line: 4,
+          note: `${v} < ${target}: o próximo do nível ${level} ainda é menor que o alvo, então dá para pular até ele sem risco de passar do ponto.`,
         });
-        atual = prox;
-        visitados.push(`${nivel}:${atual}`);
+        current = next;
+        visited.push(`${level}:${current}`);
         out.push({
           ...base(),
-          olhando: null,
-          linha: 5,
-          nota:
-            pulados === 0
-              ? `Avancei para o ${v}. Neste salto não pulei ninguém: no nível ${nivel} ele já era o vizinho imediato.`
-              : `Avancei para o ${v} de uma vez só, sem nem olhar ${pulados === 1 ? "o elemento que ficou" : `os ${pulados} elementos que ficaram`} para trás no nível 0. É isso que o atalho compra.`,
+          looking: null,
+          line: 5,
+          note:
+            skipped === 0
+              ? `Avancei para o ${v}. Neste salto não pulei ninguém: no nível ${level} ele já era o vizinho imediato.`
+              : `Avancei para o ${v} de uma vez só, sem nem olhar ${skipped === 1 ? "o elemento que ficou" : `os ${skipped} elementos que ficaram`} para trás no nível 0. É isso que o atalho compra.`,
         });
         continue;
       }
       out.push({
         ...base(),
-        olhando: prox,
-        linha: 4,
-        nota: `${v} não é menor que ${alvo}: se eu avançasse, passaria do ponto. Paro de andar no nível ${nivel}.`,
+        looking: next,
+        line: 4,
+        note: `${v} não é menor que ${target}: se eu avançasse, passaria do ponto. Paro de andar no nível ${level}.`,
       });
     }
 
-    if (nivel === 0) break;
-    nivel--;
-    visitados.push(`${nivel}:${atual}`);
+    if (level === 0) break;
+    level--;
+    visited.push(`${level}:${current}`);
     out.push({
       ...base(),
-      olhando: null,
-      linha: 2,
-      nota: `Desço um degrau, para o nível ${nivel}, sem sair de ${nomeDe(nos, atual)}. Tudo que ficou à esquerda está descartado de vez: já sei que é menor que ${alvo}.`,
+      looking: null,
+      line: 2,
+      note: `Desço um degrau, para o nível ${level}, sem sair de ${nameOf(nodes, current)}. Tudo que ficou à esquerda está descartado de vez: já sei que é menor que ${target}.`,
     });
   }
 
-  const candidato = forwardDe(nos, atual, 0);
-  if (candidato !== null) visitados.push(`0:${candidato}`);
+  const candidate = forwardFrom(nodes, current, 0);
+  if (candidate !== null) visited.push(`0:${candidate}`);
   out.push({
     ...base(),
-    olhando: candidato,
-    linha: 7,
-    nota:
-      candidato === null
-        ? `Saí do laço em ${nomeDe(nos, atual)}, e depois dele não há mais nada no nível 0. O ${alvo} não está na lista.`
-        : `Saí do laço em ${nomeDe(nos, atual)}. O único candidato possível é o vizinho dele no nível 0, o ${nos[candidato].valor}: se o ${alvo} existisse, estaria exatamente aí.`,
+    looking: candidate,
+    line: 7,
+    note:
+      candidate === null
+        ? `Saí do laço em ${nameOf(nodes, current)}, e depois dele não há mais nada no nível 0. O ${target} não está na lista.`
+        : `Saí do laço em ${nameOf(nodes, current)}. O único candidato possível é o vizinho dele no nível 0, o ${nodes[candidate].value}: se o ${target} existisse, estaria exatamente aí.`,
   });
 
-  if (candidato !== null) comparacoes++;
-  const achou = candidato !== null && nos[candidato].valor === alvo;
-  const naLista = comparacoesLista(nos, alvo);
+  if (candidate !== null) comparisons++;
+  const hit = candidate !== null && nodes[candidate].value === target;
+  const inPlainList = listComparisons(nodes, target);
   out.push({
     ...base(),
-    olhando: candidato,
-    linha: 8,
-    encontrou: achou,
-    fim: true,
-    nota: achou
-      ? `Achei o ${alvo} com ${comparacoes} ${comparacoes === 1 ? "comparação" : "comparações"}. A mesma busca andando só pelo nível 0, que é uma lista encadeada comum, gastaria ${naLista}.`
-      : `O ${alvo} não está na lista, e para saber disso bastaram ${comparacoes} ${comparacoes === 1 ? "comparação" : "comparações"}. Percorrendo só o nível 0 seriam ${naLista}.`,
+    looking: candidate,
+    line: 8,
+    found: hit,
+    done: true,
+    note: hit
+      ? `Achei o ${target} com ${comparisons} ${comparisons === 1 ? "comparação" : "comparações"}. A mesma busca andando só pelo nível 0, que é uma lista encadeada comum, gastaria ${inPlainList}.`
+      : `O ${target} não está na lista, e para saber disso bastaram ${comparisons} ${comparisons === 1 ? "comparação" : "comparações"}. Percorrendo só o nível 0 seriam ${inPlainList}.`,
   });
   return out;
 }
 
-type Preset = { key: string; rotulo: string; alvo: number; valores: number[]; alturas: number[] };
+type Preset = { key: string; label: string; target: number; values: number[]; heights: number[] };
 const PRESETS: Preset[] = [
   {
     key: "encontro",
-    rotulo: "Do encontro: procurar o 73",
-    alvo: 73,
-    valores: VALORES_PADRAO,
-    alturas: alturasPadrao(VALORES_PADRAO.length),
+    label: "Do encontro: procurar o 73",
+    target: 73,
+    values: DEFAULT_VALUES,
+    heights: defaultHeights(DEFAULT_VALUES.length),
   },
   {
     key: "longe",
-    rotulo: "Lá no fim: procurar o 92",
-    alvo: 92,
-    valores: VALORES_PADRAO,
-    alturas: alturasPadrao(VALORES_PADRAO.length),
+    label: "Lá no fim: procurar o 92",
+    target: 92,
+    values: DEFAULT_VALUES,
+    heights: defaultHeights(DEFAULT_VALUES.length),
   },
   {
     key: "ausente",
-    rotulo: "Não existe: procurar o 44",
-    alvo: 44,
-    valores: VALORES_PADRAO,
-    alturas: alturasPadrao(VALORES_PADRAO.length),
+    label: "Não existe: procurar o 44",
+    target: 44,
+    values: DEFAULT_VALUES,
+    heights: defaultHeights(DEFAULT_VALUES.length),
   },
   {
     key: "plano",
-    rotulo: "Azar total: ninguém passou do nível 0",
-    alvo: 92,
-    valores: VALORES_PADRAO,
-    alturas: VALORES_PADRAO.map(() => 1),
+    label: "Azar total: ninguém passou do nível 0",
+    target: 92,
+    values: DEFAULT_VALUES,
+    heights: DEFAULT_VALUES.map(() => 1),
   },
   // Os dois casos de borda que o artigo manda prever antes de rodar. O "antes
   // de todos" é o único em que a skip list perde para a lista comum, e é por
   // isso que ele merece um botão em vez de ficar escondido no texto.
   {
     key: "antes",
-    rotulo: "Antes de todos: procurar o 1",
-    alvo: 1,
-    valores: VALORES_PADRAO,
-    alturas: alturasPadrao(VALORES_PADRAO.length),
+    label: "Antes de todos: procurar o 1",
+    target: 1,
+    values: DEFAULT_VALUES,
+    heights: defaultHeights(DEFAULT_VALUES.length),
   },
   {
     key: "unico",
-    rotulo: "Um elemento só: procurar o 42",
-    alvo: 42,
-    valores: [42],
-    alturas: [1],
+    label: "Um elemento só: procurar o 42",
+    target: 42,
+    values: [42],
+    heights: [1],
   },
 ];
 
@@ -263,196 +265,151 @@ const RH = 38; // distância entre níveis
 const TOP = 12;
 
 export function SkipListVisualizer() {
-  const [valores, setValores] = useState<number[]>(VALORES_PADRAO);
-  const [entrada, setEntrada] = useState(VALORES_PADRAO.join(", "));
-  const [alturas, setAlturas] = useState<number[]>(alturasPadrao(VALORES_PADRAO.length));
-  const [alvo, setAlvo] = useState(73);
+  const [values, setValues] = useState<number[]>(DEFAULT_VALUES);
+  const [input, setInput] = useState(DEFAULT_VALUES.join(", "));
+  const [heights, setHeights] = useState<number[]>(defaultHeights(DEFAULT_VALUES.length));
+  const [target, setTarget] = useState(73);
   const [preset, setPreset] = useState("encontro");
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => setMounted(true), []);
-
-  const nos = useMemo<No[]>(
-    () => valores.map((valor, i) => ({ valor, altura: Math.min(MAX_NIVEIS, alturas[i] ?? 1) })),
-    [valores, alturas]
+  const nodes = useMemo<SkipNode[]>(
+    () => values.map((value, i) => ({ value, height: Math.min(MAX_LEVELS, heights[i] ?? 1) })),
+    [values, heights]
   );
-  const passos = useMemo(() => gerarPassos(nos, alvo), [nos, alvo]);
-  const total = Math.max(1, passos.length);
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const steps = useMemo(() => generateSteps(nodes, target), [nodes, target]);
+  const total = Math.max(1, steps.length);
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  // --- desenho -------------------------------------------------------------
+  const top = Math.max(1, ...nodes.map((n) => n.height)) - 1;
+  const levels = top + 1;
+  const n = nodes.length;
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
+  const viz = useVisualizer({
+    title: "Visualizador · a busca descendo em escada pelos níveis",
+    total,
+    // O que MAIS muda a altura da peça: o número de níveis (cada um é uma
+    // linha do SVG e uma ficha a mais na linha de ocupação) e o tamanho da
+    // linha do tempo, que liga e desliga o rodapé inteiro.
+    measureOn: [levels, total],
+  });
 
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = () => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  };
-  const aoMudarAlvo = (v: string) => {
-    reiniciar();
+  const onTargetChange = (v: string) => {
+    viz.reset();
     setPreset("");
-    setAlvo(parseInt(v, 10) || 0);
+    setTarget(parseInt(v, 10) || 0);
   };
-  const aoMudarEntrada = (v: string) => {
-    const novos = limpar(v);
-    reiniciar();
+  const onInputChange = (v: string) => {
+    const parsed = parseValues(v);
+    viz.reset();
     setPreset("");
-    setEntrada(v);
-    setValores(novos.length ? novos : [1]);
-    setAlturas(alturasPadrao(Math.max(1, novos.length)));
+    setInput(v);
+    setValues(parsed.length ? parsed : [1]);
+    setHeights(defaultHeights(Math.max(1, parsed.length)));
   };
-  const aplicarPreset = (pr: Preset) => {
-    reiniciar();
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
     setPreset(pr.key);
-    setValores(pr.valores);
-    setEntrada(pr.valores.join(", "));
-    setAlturas(pr.alturas);
-    setAlvo(pr.alvo);
+    setValues(pr.values);
+    setInput(pr.values.join(", "));
+    setHeights(pr.heights);
+    setTarget(pr.target);
   };
   // Math.random só aqui, num handler de clique: no caminho de render ele faria
   // o HTML do build divergir do cliente e quebrar a hidratação.
-  const sortear = () => {
-    const novas = valores.map(() => {
+  const shuffleHeights = () => {
+    const rolled = values.map(() => {
       let h = 1;
-      while (Math.random() < 0.5 && h < MAX_NIVEIS) h++;
+      while (Math.random() < 0.5 && h < MAX_LEVELS) h++;
       return h;
     });
-    reiniciar();
+    viz.reset();
     setPreset("");
-    setAlturas(novas);
+    setHeights(rolled);
   };
 
-  // --- desenho -------------------------------------------------------------
-  const topo = Math.max(1, ...nos.map((n) => n.altura)) - 1;
-  const niveis = topo + 1;
-  const n = nos.length;
-  const larguraSvg = X0 + n * COL + 44;
-  const alturaSvg = TOP + topo * RH + H + 14;
+  const svgWidth = X0 + n * COL + 44;
+  const svgHeight = TOP + top * RH + H + 14;
 
-  const yDe = (nivel: number) => TOP + (topo - nivel) * RH;
-  const cyDe = (nivel: number) => yDe(nivel) + H / 2;
-  const xDe = (i: number) => (i < 0 ? GUT : X0 + i * COL);
-  const larDe = (i: number) => (i < 0 ? HEAD_W : W);
-  const cxDe = (i: number) => xDe(i) + larDe(i) / 2;
+  const yOf = (level: number) => TOP + (top - level) * RH;
+  const cyOf = (level: number) => yOf(level) + H / 2;
+  const xOf = (i: number) => (i < 0 ? GUT : X0 + i * COL);
+  const widthOf = (i: number) => (i < 0 ? HEAD_W : W);
+  const cxOf = (i: number) => xOf(i) + widthOf(i) / 2;
 
-  const visitadosSet = useMemo(() => new Set(p ? p.visitados : []), [p]);
+  const visitedSet = useMemo(() => new Set(p ? p.visited : []), [p]);
 
   // A escada: uma polilinha ligando, na ordem, cada posição por onde o ponteiro
   // `atual` passou. Trechos horizontais são saltos, trechos verticais são
   // descidas de nível.
-  const escada = (p ? p.visitados : [])
+  const ladder = (p ? p.visited : [])
     .map((k) => {
-      const [nv, ix] = k.split(":").map((s) => parseInt(s, 10));
-      return `${cxDe(ix).toFixed(1)},${cyDe(nv).toFixed(1)}`;
+      const [lv, ix] = k.split(":").map((s) => parseInt(s, 10));
+      return `${cxOf(ix).toFixed(1)},${cyOf(lv).toFixed(1)}`;
     })
     .join(" ");
 
   // Setas de cada nível: head -> nós daquele nível -> None. A última seta de
   // cada linha morre no rótulo None, que é o `forward[nivel] is None` do código.
-  type Seta = { k: string; x1: number; x2: number; y: number };
-  const setas: Seta[] = [];
+  type Arrow = { k: string; x1: number; x2: number; y: number };
+  const arrows: Arrow[] = [];
   const nones: { k: string; x: number; y: number }[] = [];
-  const ocupacao: number[] = [];
-  for (let nv = 0; nv <= topo; nv++) {
-    const participantes = nos.map((no, i) => ({ no, i })).filter((c) => c.no.altura > nv);
-    ocupacao.push(participantes.length);
-    let anterior = -1;
-    const y = cyDe(nv);
-    for (const c of participantes) {
-      setas.push({ k: `s${nv}-${c.i}`, x1: xDe(anterior) + larDe(anterior), x2: xDe(c.i) - 5, y });
-      anterior = c.i;
+  const occupancy: number[] = [];
+  for (let lv = 0; lv <= top; lv++) {
+    const members = nodes.map((node, i) => ({ node, i })).filter((c) => c.node.height > lv);
+    occupancy.push(members.length);
+    let previous = -1;
+    const y = cyOf(lv);
+    for (const c of members) {
+      arrows.push({ k: `s${lv}-${c.i}`, x1: xOf(previous) + widthOf(previous), x2: xOf(c.i) - 5, y });
+      previous = c.i;
     }
-    const fim = xDe(anterior) + larDe(anterior);
-    setas.push({ k: `n${nv}`, x1: fim, x2: fim + 14, y });
-    nones.push({ k: `none${nv}`, x: fim + 18, y });
+    const end = xOf(previous) + widthOf(previous);
+    arrows.push({ k: `n${lv}`, x1: end, x2: end + 14, y });
+    nones.push({ k: `none${lv}`, x: end + 18, y });
   }
 
-  const corDoNo = (i: number, nv: number) => {
+  const nodeColor = (i: number, lv: number) => {
     if (!p) return { fill: "#0f1826", stroke: "rgba(255,255,255,0.13)", txt: "#8ba0bb" };
-    if (p.encontrou && p.olhando === i) return { fill: "rgba(52,211,153,0.26)", stroke: "#34d399", txt: "#eafff5" };
-    if (p.olhando === i && p.atual !== i) return { fill: "rgba(245,158,11,0.22)", stroke: "#f59e0b", txt: "#fff" };
-    if (p.atual === i && p.nivel === nv) return { fill: "rgba(59,130,246,0.3)", stroke: "#3b82f6", txt: "#fff" };
-    if (visitadosSet.has(`${nv}:${i}`)) return { fill: "rgba(59,130,246,0.12)", stroke: "rgba(59,130,246,0.55)", txt: "#cbd9ea" };
+    if (p.found && p.looking === i) return { fill: "rgba(52,211,153,0.26)", stroke: "#34d399", txt: "#eafff5" };
+    if (p.looking === i && p.current !== i) return { fill: "rgba(245,158,11,0.22)", stroke: "#f59e0b", txt: "#fff" };
+    if (p.current === i && p.level === lv) return { fill: "rgba(59,130,246,0.3)", stroke: "#3b82f6", txt: "#fff" };
+    if (visitedSet.has(`${lv}:${i}`)) return { fill: "rgba(59,130,246,0.12)", stroke: "rgba(59,130,246,0.55)", txt: "#cbd9ea" };
     return { fill: "#0f1826", stroke: "rgba(255,255,255,0.13)", txt: "#8ba0bb" };
   };
 
-  const variaveis = [
-    { nome: "nivel", valor: p ? `${p.nivel}` : "-" },
-    { nome: "atual", valor: !p || p.atual < 0 ? "head" : `${nos[p.atual].valor}` },
-    { nome: "prox", valor: !p || p.olhando === null ? "None" : `${nos[p.olhando].valor}` },
-    { nome: "alvo", valor: `${alvo}`, best: true },
+  const variables = [
+    { name: "nivel", value: p ? `${p.level}` : "-" },
+    { name: "atual", value: !p || p.current < 0 ? "head" : `${nodes[p.current].value}` },
+    { name: "prox", value: !p || p.looking === null ? "None" : `${nodes[p.looking].value}` },
+    { name: "alvo", value: `${target}`, best: true },
   ];
 
-  const naLista = comparacoesLista(nos, alvo);
-  const estatisticas = [
-    { k: "n", rot: "elementos (n)", val: `${n}` },
-    { k: "niv", rot: "níveis", val: `${niveis}` },
-    { k: "cmp", rot: "comparações na skip list", val: p ? `${p.comparacoes}` : "0" },
-    { k: "lst", rot: "comparações numa lista comum", val: `${naLista}` },
+  const inPlainList = listComparisons(nodes, target);
+  const stats = [
+    { k: "n", label: "elementos (n)", value: `${n}` },
+    { k: "niv", label: "níveis", value: `${levels}` },
+    { k: "cmp", label: "comparações na skip list", value: p ? `${p.comparisons}` : "0" },
+    { k: "lst", label: "comparações numa lista comum", value: `${inPlainList}` },
   ];
 
-  const notaCls = "viz-note" + (p && p.encontrou ? " ok" : p && p.fim ? " invalid" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
-  const descricao = `Skip list com ${n} elementos e ${niveis} ${niveis === 1 ? "nível" : "níveis"}, procurando o ${alvo}. A busca está no nível ${p ? p.nivel : 0}, em ${!p || p.atual < 0 ? "head" : nos[p.atual].valor}, com ${p ? p.comparacoes : 0} comparações feitas.`;
+  const noteClass = "viz-note" + (p && p.found ? " ok" : p && p.done ? " invalid" : "");
+  const description = `Skip list com ${n} elementos e ${levels} ${levels === 1 ? "nível" : "níveis"}, procurando o ${target}. A busca está no nível ${p ? p.level : 0}, em ${!p || p.current < 0 ? "head" : nodes[p.current].value}, com ${p ? p.comparisons : 0} comparações feitas.`;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a busca descendo em escada pelos níveis</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
-              onClick={() => aplicarPreset(pr)}
+              onClick={() => applyPreset(pr)}
               aria-pressed={preset === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
@@ -460,13 +417,13 @@ export function SkipListVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Lista (ordenada sozinha, sem repetidos)</span>
-            <input className="viz-input" value={entrada} onChange={(e) => aoMudarEntrada(e.target.value)} />
+            <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
           <label className="viz-field">
             <span>procurar</span>
-            <input className="viz-input k" type="number" value={alvo} onChange={(e) => aoMudarAlvo(e.target.value)} />
+            <input className="viz-input k" type="number" value={target} onChange={(e) => onTargetChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={sortear}>
+          <button className="viz-btn" onClick={shuffleHeights}>
             Sortear alturas
           </button>
         </div>
@@ -474,11 +431,11 @@ export function SkipListVisualizer() {
         <div className="sl-wrap">
           <svg
             className="sl-svg"
-            width={Math.round(larguraSvg)}
-            height={Math.round(alturaSvg)}
-            viewBox={`0 0 ${Math.round(larguraSvg)} ${Math.round(alturaSvg)}`}
+            width={Math.round(svgWidth)}
+            height={Math.round(svgHeight)}
+            viewBox={`0 0 ${Math.round(svgWidth)} ${Math.round(svgHeight)}`}
             role="img"
-            aria-label={descricao}
+            aria-label={description}
           >
             <defs>
               <marker id="sl-seta" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
@@ -486,7 +443,7 @@ export function SkipListVisualizer() {
               </marker>
             </defs>
 
-            {setas.map((s) => (
+            {arrows.map((s) => (
               <line
                 key={s.k}
                 x1={s.x1}
@@ -513,39 +470,39 @@ export function SkipListVisualizer() {
               </text>
             ))}
 
-            {Array.from({ length: niveis }, (_, k) => {
-              const nv = topo - k;
+            {Array.from({ length: levels }, (_, k) => {
+              const lv = top - k;
               return (
                 <text
-                  key={`r${nv}`}
+                  key={`r${lv}`}
                   x={GUT - 9}
-                  y={cyDe(nv)}
+                  y={cyOf(lv)}
                   fill="#61748c"
                   fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
                   fontSize={10.5}
                   textAnchor="end"
                   dominantBaseline="central"
                 >
-                  nível {nv}
+                  nível {lv}
                 </text>
               );
             })}
 
             {/* head: um nó só, com um ponteiro por nível. É o sentinela. */}
             <rect
-              x={xDe(-1)}
-              y={yDe(topo)}
+              x={xOf(-1)}
+              y={yOf(top)}
               width={HEAD_W}
-              height={topo * RH + H}
+              height={top * RH + H}
               rx={7}
-              fill={p && p.atual < 0 ? "rgba(59,130,246,0.22)" : "#111c2b"}
-              stroke={p && p.atual < 0 ? "#3b82f6" : "rgba(255,255,255,0.16)"}
+              fill={p && p.current < 0 ? "rgba(59,130,246,0.22)" : "#111c2b"}
+              stroke={p && p.current < 0 ? "#3b82f6" : "rgba(255,255,255,0.16)"}
               strokeWidth={1.6}
             />
             <text
-              x={cxDe(-1)}
-              y={cyDe(topo) + (topo * RH) / 2}
-              fill={p && p.atual < 0 ? "#fff" : "#7d8fa8"}
+              x={cxOf(-1)}
+              y={cyOf(top) + (top * RH) / 2}
+              fill={p && p.current < 0 ? "#fff" : "#7d8fa8"}
               fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
               fontSize={10.5}
               fontWeight={700}
@@ -555,14 +512,14 @@ export function SkipListVisualizer() {
               head
             </text>
 
-            {nos.map((no, i) =>
-              Array.from({ length: no.altura }, (_, nv) => {
-                const c = corDoNo(i, nv);
+            {nodes.map((node, i) =>
+              Array.from({ length: node.height }, (_, lv) => {
+                const c = nodeColor(i, lv);
                 return (
-                  <g key={`${i}-${nv}`}>
+                  <g key={`${i}-${lv}`}>
                     <rect
-                      x={xDe(i)}
-                      y={yDe(nv)}
+                      x={xOf(i)}
+                      y={yOf(lv)}
                       width={W}
                       height={H}
                       rx={6}
@@ -571,8 +528,8 @@ export function SkipListVisualizer() {
                       strokeWidth={1.6}
                     />
                     <text
-                      x={cxDe(i)}
-                      y={cyDe(nv)}
+                      x={cxOf(i)}
+                      y={cyOf(lv)}
                       fill={c.txt}
                       fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
                       fontSize={12.5}
@@ -580,7 +537,7 @@ export function SkipListVisualizer() {
                       textAnchor="middle"
                       dominantBaseline="central"
                     >
-                      {no.valor}
+                      {node.value}
                     </text>
                   </g>
                 );
@@ -589,7 +546,7 @@ export function SkipListVisualizer() {
 
             {/* a escada: o caminho que o ponteiro `atual` já percorreu */}
             <polyline
-              points={escada}
+              points={ladder}
               fill="none"
               stroke="#60a5fa"
               strokeWidth={2.4}
@@ -601,9 +558,9 @@ export function SkipListVisualizer() {
         </div>
 
         <p className="sl-ocupacao">
-          {ocupacao.map((q, nv) => (
-            <span key={nv}>
-              nível {nv}: <strong>{q}</strong> {q === 1 ? "nó" : "nós"}
+          {occupancy.map((q, lv) => (
+            <span key={lv}>
+              nível {lv}: <strong>{q}</strong> {q === 1 ? "nó" : "nós"}
             </span>
           ))}
         </p>
@@ -623,111 +580,46 @@ export function SkipListVisualizer() {
           </span>
         </p>
 
-        <p className={notaCls}>{p ? p.nota : ""}</p>
+        <p className={noteClass}>{p ? p.note : ""}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">skip_list.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, i) => (
-                <div key={i} className={`viz-line${p && i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">skip_list.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, i) => (
+                  <div key={i} className={`viz-line${p && i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {variables.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bigo-stats">
-          {estatisticas.map((s) => (
+          {stats.map((s) => (
             <div className="bigo-stat" key={s.k}>
-              <span>{s.rot}</span>
-              <strong>{s.val}</strong>
+              <span>{s.label}</span>
+              <strong>{s.value}</strong>
             </div>
           ))}
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} />
-        </div>
       </div>
+
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }

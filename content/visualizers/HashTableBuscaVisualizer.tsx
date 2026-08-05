@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Fragment, useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // HashTableBuscaVisualizer, a corrida entre busca linear e busca por hash.
@@ -11,174 +12,178 @@ import { createPortal } from "react-dom";
 // (o contador da esquerda subindo sozinho) que ensina a diferença entre O(n) e
 // O(1) melhor do que qualquer parágrafo.
 //
-// O botão "hash ruim" troca a função por uma que devolve 0 para qualquer chave,
-// que é exatamente o acidente do encontro (sobrescrever o hash code sem
-// pensar). Aí os dois contadores empatam e o O(n) do pior caso aparece.
+// A casca vem do `useVisualizer`, com `collapsible: false`: esta peça não tem
+// bloco dispensável — os dois painéis, a fita de buckets e os cartões de pior
+// caso são todos conteúdo, e o contrato é explícito em não inventar um bloco só
+// para ganhar o botão. Ela leva as camadas 1 e 2 (cabeçalho e controles parados
+// no painel, respiro comprimido em tela baixa) e nada mais.
 //
-// Capacidade fixa em 11 de propósito: número primo, como a técnica que apareceu
-// no encontro para espalhar melhor os restos.
+// O botão "hash ruim" troca a função por uma que devolve 0 para qualquer chave,
+// que é o acidente clássico de sobrescrever o hash code sem pensar. Aí os dois
+// contadores empatam e o O(n) do pior caso aparece.
+//
+// Capacidade fixa em 11 de propósito: número primo espalha melhor os restos.
 // ---------------------------------------------------------------------------
 
-type No = { chave: string; soma: number };
+type Entry = { key: string; sum: number };
 
-type PassoLista = {
+type ListStep = {
   pos: number;
-  comparacoes: number;
-  achou: boolean;
-  fim: boolean;
-  nota: string;
+  comparisons: number;
+  found: boolean;
+  done: boolean;
+  note: string;
 };
 
-type PassoHash = {
-  indice: number | null;
+type HashStep = {
+  index: number | null;
   pos: number | null;
-  comparacoes: number;
-  achou: boolean;
-  fim: boolean;
-  nota: string;
+  comparisons: number;
+  found: boolean;
+  done: boolean;
+  note: string;
 };
 
 const CAP = 11;
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
-function somaAscii(s: string): number {
+function asciiSum(s: string): number {
   let t = 0;
   for (const c of s) t += c.codePointAt(0) ?? 0;
   return t;
 }
 
-function detalheAscii(s: string): string {
-  const partes: string[] = [];
-  for (const c of s) partes.push(String(c.codePointAt(0) ?? 0));
-  return partes.join(" + ");
+function asciiDetail(s: string): string {
+  const parts: string[] = [];
+  for (const c of s) parts.push(String(c.codePointAt(0) ?? 0));
+  return parts.join(" + ");
 }
 
 // Formatação determinística de milhar (nada de Intl no render).
-function milhar(v: number): string {
+function thousands(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function plural(v: number, um: string, muitos: string): string {
-  return `${v} ${v === 1 ? um : muitos}`;
+function plural(v: number, one: string, many: string): string {
+  return `${v} ${v === 1 ? one : many}`;
 }
 
-function construir(nomes: string[], ruim: boolean): No[][] {
-  const buckets: No[][] = Array.from({ length: CAP }, () => [] as No[]);
-  for (const nome of nomes) {
-    const soma = somaAscii(nome);
-    buckets[ruim ? 0 : soma % CAP].push({ chave: nome, soma });
+function build(names: string[], bad: boolean): Entry[][] {
+  const buckets: Entry[][] = Array.from({ length: CAP }, () => [] as Entry[]);
+  for (const name of names) {
+    const sum = asciiSum(name);
+    buckets[bad ? 0 : sum % CAP].push({ key: name, sum });
   }
   return buckets;
 }
 
-function gerarLista(nomes: string[], alvo: string): PassoLista[] {
-  const out: PassoLista[] = [];
+function generateListSteps(names: string[], target: string): ListStep[] {
+  const out: ListStep[] = [];
   out.push({
     pos: -1,
-    comparacoes: 0,
-    achou: false,
-    fim: false,
-    nota: `${plural(nomes.length, "nome guardado", "nomes guardados")} e nenhuma ordem que me ajude: não dá para cortar nada. Vou comparar "${alvo}" com a posição 0, depois a 1, e assim por diante.`,
+    comparisons: 0,
+    found: false,
+    done: false,
+    note: `${plural(names.length, "nome guardado", "nomes guardados")} e nenhuma ordem que me ajude: não dá para cortar nada. Vou comparar "${target}" com a posição 0, depois a 1, e assim por diante.`,
   });
-  for (let j = 0; j < nomes.length; j++) {
-    const igual = nomes[j] === alvo;
+  for (let j = 0; j < names.length; j++) {
+    const same = names[j] === target;
     out.push({
       pos: j,
-      comparacoes: j + 1,
-      achou: igual,
-      fim: igual,
-      nota: igual
-        ? `Posição ${j}: "${nomes[j]}" é o alvo. Achei, depois de ${plural(j + 1, "comparação", "comparações")}.`
-        : `Posição ${j}: "${nomes[j]}" não é "${alvo}". Passo para a próxima.`,
+      comparisons: j + 1,
+      found: same,
+      done: same,
+      note: same
+        ? `Posição ${j}: "${names[j]}" é o alvo. Achei, depois de ${plural(j + 1, "comparação", "comparações")}.`
+        : `Posição ${j}: "${names[j]}" não é "${target}". Passo para a próxima.`,
     });
-    if (igual) return out;
+    if (same) return out;
   }
   out.push({
-    pos: nomes.length,
-    comparacoes: nomes.length,
-    achou: false,
-    fim: true,
-    nota: `Cheguei ao fim da lista: "${alvo}" não está aqui. Só que precisei de ${plural(nomes.length, "comparação", "comparações")} para ter certeza disso.`,
+    pos: names.length,
+    comparisons: names.length,
+    found: false,
+    done: true,
+    note: `Cheguei ao fim da lista: "${target}" não está aqui. Só que precisei de ${plural(names.length, "comparação", "comparações")} para ter certeza disso.`,
   });
   return out;
 }
 
-function gerarHash(buckets: No[][], alvo: string, ruim: boolean): PassoHash[] {
-  const out: PassoHash[] = [];
-  const soma = somaAscii(alvo);
+function generateHashSteps(buckets: Entry[][], target: string, bad: boolean): HashStep[] {
+  const out: HashStep[] = [];
+  const sum = asciiSum(target);
   out.push({
-    indice: null,
+    index: null,
     pos: null,
-    comparacoes: 0,
-    achou: false,
-    fim: false,
-    nota: ruim
-      ? `A função ruim ignora a chave e devolve 0 para tudo, inclusive para "${alvo}".`
-      : `Somo os códigos ASCII de "${alvo}": ${detalheAscii(alvo)} = ${soma}.`,
+    comparisons: 0,
+    found: false,
+    done: false,
+    note: bad
+      ? `A função ruim ignora a chave e devolve 0 para tudo, inclusive para "${target}".`
+      : `Somo os códigos ASCII de "${target}": ${asciiDetail(target)} = ${sum}.`,
   });
-  const i = ruim ? 0 : soma % CAP;
+  const i = bad ? 0 : sum % CAP;
   out.push({
-    indice: i,
+    index: i,
     pos: null,
-    comparacoes: 0,
-    achou: false,
-    fim: false,
-    nota: ruim
+    comparisons: 0,
+    found: false,
+    done: false,
+    note: bad
       ? `Endereço 0, igual a todas as outras chaves: ${plural(buckets[0].length, "chave está amontoada", "chaves estão amontoadas")} no bucket 0 e os outros ${CAP - 1} estão vazios.`
-      : `${soma} % ${CAP} = ${i}. Salto direto para o bucket ${i} e nem olho os outros ${CAP - 1}.`,
+      : `${sum} % ${CAP} = ${i}. Salto direto para o bucket ${i} e nem olho os outros ${CAP - 1}.`,
   });
-  const corrente = buckets[i];
-  if (corrente.length === 0) {
+  const chain = buckets[i];
+  if (chain.length === 0) {
     out.push({
-      indice: i,
+      index: i,
       pos: null,
-      comparacoes: 0,
-      achou: false,
-      fim: true,
-      nota: `O bucket ${i} está vazio. Sem comparar nenhuma chave, eu já sei que "${alvo}" não está na tabela.`,
+      comparisons: 0,
+      found: false,
+      done: true,
+      note: `O bucket ${i} está vazio. Sem comparar nenhuma chave, eu já sei que "${target}" não está na tabela.`,
     });
     return out;
   }
-  for (let k = 0; k < corrente.length; k++) {
-    const igual = corrente[k].chave === alvo;
+  for (let k = 0; k < chain.length; k++) {
+    const same = chain[k].key === target;
     out.push({
-      indice: i,
+      index: i,
       pos: k,
-      comparacoes: k + 1,
-      achou: igual,
-      fim: igual,
-      nota: igual
-        ? `"${corrente[k].chave}" bate com o alvo. ${plural(k + 1, "comparação", "comparações")} e acabou.`
-        : `"${corrente[k].chave}" caiu no mesmo bucket, mas não é "${alvo}". Ando um nó na corrente.`,
+      comparisons: k + 1,
+      found: same,
+      done: same,
+      note: same
+        ? `"${chain[k].key}" bate com o alvo. ${plural(k + 1, "comparação", "comparações")} e acabou.`
+        : `"${chain[k].key}" caiu no mesmo bucket, mas não é "${target}". Ando um nó na corrente.`,
     });
-    if (igual) return out;
+    if (same) return out;
   }
   out.push({
-    indice: i,
+    index: i,
     pos: null,
-    comparacoes: corrente.length,
-    achou: false,
-    fim: true,
-    nota: `A corrente do bucket ${i} acabou e "${alvo}" não estava nela. Não está na tabela.`,
+    comparisons: chain.length,
+    found: false,
+    done: true,
+    note: `A corrente do bucket ${i} acabou e "${target}" não estava nela. Não está na tabela.`,
   });
   return out;
 }
 
-const NOMES_PADRAO = "Ana, Bob, Lia, Leo, Eva, Kim, Ben, Mia";
+const DEFAULT_NAMES = "Ana, Bob, Lia, Leo, Eva, Kim, Ben, Mia";
 const POOL = ["Ana", "Bob", "Lia", "Leo", "Eva", "Kim", "Ben", "Mia", "Rui", "Zoe", "Ivo", "Gil", "Tom", "Nina"];
 
-type Preset = { rotulo: string; nomes: string; alvo: string; ruim: boolean };
+type Preset = { label: string; names: string; target: string; bad: boolean };
 
 const PRESETS: Preset[] = [
-  { rotulo: "Alvo no fim da lista", nomes: NOMES_PADRAO, alvo: "Mia", ruim: false },
-  { rotulo: "Alvo na primeira posição", nomes: NOMES_PADRAO, alvo: "Ana", ruim: false },
-  { rotulo: "Chave que não existe", nomes: NOMES_PADRAO, alvo: "Zoe", ruim: false },
-  { rotulo: "Com hash ruim", nomes: NOMES_PADRAO, alvo: "Mia", ruim: true },
+  { label: "Alvo no fim da lista", names: DEFAULT_NAMES, target: "Mia", bad: false },
+  { label: "Alvo na primeira posição", names: DEFAULT_NAMES, target: "Ana", bad: false },
+  { label: "Chave que não existe", names: DEFAULT_NAMES, target: "Zoe", bad: false },
+  { label: "Com hash ruim", names: DEFAULT_NAMES, target: "Mia", bad: true },
 ];
 
-function lerNomes(texto: string): string[] {
-  return texto
+function readNames(text: string): string[] {
+  return text
     .split(",")
     .map((x) => x.trim().slice(0, 12))
     .filter((x) => x.length > 0)
@@ -186,121 +191,73 @@ function lerNomes(texto: string): string[] {
 }
 
 export function HashTableBuscaVisualizer() {
-  const [entrada, setEntrada] = useState(NOMES_PADRAO);
-  const [alvo, setAlvo] = useState("Mia");
-  const [ruim, setRuim] = useState(false);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [input, setInput] = useState(DEFAULT_NAMES);
+  const [target, setTarget] = useState("Mia");
+  const [bad, setBad] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  const names = useMemo(() => {
+    const read = readNames(input);
+    return read.length ? read : ["Ana"];
+  }, [input]);
+  const cleanTarget = target.trim().slice(0, 12) || names[names.length - 1];
+  const buckets = useMemo(() => build(names, bad), [names, bad]);
+  const listSteps = useMemo(() => generateListSteps(names, cleanTarget), [names, cleanTarget]);
+  const hashSteps = useMemo(() => generateHashSteps(buckets, cleanTarget, bad), [buckets, cleanTarget, bad]);
 
-  const nomes = useMemo(() => {
-    const lidos = lerNomes(entrada);
-    return lidos.length ? lidos : ["Ana"];
-  }, [entrada]);
-  const alvoLimpo = alvo.trim().slice(0, 12) || nomes[nomes.length - 1];
-  const buckets = useMemo(() => construir(nomes, ruim), [nomes, ruim]);
-  const passosLista = useMemo(() => gerarLista(nomes, alvoLimpo), [nomes, alvoLimpo]);
-  const passosHash = useMemo(() => gerarHash(buckets, alvoLimpo, ruim), [buckets, alvoLimpo, ruim]);
+  const viz = useVisualizer({
+    title: "Visualizador · busca linear x busca por hash",
+    total: Math.max(listSteps.length, hashSteps.length),
+    speeds: SPEEDS,
+    // Sem `measureOn`: com `collapsible: false` não há bloco para recolher, o
+    // hook não toma decisão nenhuma e a lista seria ruído sugerindo uma medição
+    // que não acontece (contrato §6).
+    collapsible: false,
+  });
 
-  const total = Math.max(passosLista.length, passosHash.length);
-  const idx = Math.min(passo, total - 1);
-  const pl = passosLista[Math.min(idx, passosLista.length - 1)];
-  const ph = passosHash[Math.min(idx, passosHash.length - 1)];
+  const pl = listSteps[Math.min(viz.step, listSteps.length - 1)];
+  const ph = hashSteps[Math.min(viz.step, hashSteps.length - 1)];
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
-
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = useCallback(() => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  }, [parar]);
-
-  const aplicar = (pr: Preset) => {
-    reiniciar();
-    setEntrada(pr.nomes);
-    setAlvo(pr.alvo);
-    setRuim(pr.ruim);
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
+    setInput(pr.names);
+    setTarget(pr.target);
+    setBad(pr.bad);
   };
 
   // Math.random só aqui, num handler de clique. No caminho de render ele
   // quebraria a hidratação (o HTML do build divergiria do cliente).
-  const sortear = () => {
-    const restantes = [...POOL];
-    const escolhidas: string[] = [];
-    const quantas = 6 + Math.floor(Math.random() * 3);
-    for (let k = 0; k < quantas && restantes.length; k++) {
-      escolhidas.push(restantes.splice(Math.floor(Math.random() * restantes.length), 1)[0]);
+  const shuffle = () => {
+    const remaining = [...POOL];
+    const picked: string[] = [];
+    const howMany = 6 + Math.floor(Math.random() * 3);
+    for (let k = 0; k < howMany && remaining.length; k++) {
+      picked.push(remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0]);
     }
-    reiniciar();
-    setEntrada(escolhidas.join(", "));
-    setAlvo(escolhidas[escolhidas.length - 1]);
+    viz.reset();
+    setInput(picked.join(", "));
+    setTarget(picked[picked.length - 1]);
   };
 
-  const corrente = ph.indice == null ? [] : buckets[ph.indice];
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const chain = ph.index == null ? [] : buckets[ph.index];
 
-  const resumo = ruim
-    ? `Com todas as chaves no mesmo bucket, a tabela hash faz ${plural(ph.comparacoes, "comparação", "comparações")}, o mesmo trabalho da lista. Esse é o O(n) do pior caso, e ele não vem de azar: vem de uma função de hash que não distribui.`
-    : `A lista gastou ${plural(pl.comparacoes, "comparação", "comparações")} e a tabela hash gastou ${plural(ph.comparacoes, "comparação", "comparações")}. O que importa não é a diferença aqui, é o que acontece quando a entrada cresce: a lista acompanha n, a tabela hash não se mexe.`;
+  const summary = bad
+    ? `Com todas as chaves no mesmo bucket, a tabela hash faz ${plural(ph.comparisons, "comparação", "comparações")}, o mesmo trabalho da lista. Esse é o O(n) do pior caso, e ele não vem de azar: vem de uma função de hash que não distribui.`
+    : `A lista gastou ${plural(pl.comparisons, "comparação", "comparações")} e a tabela hash gastou ${plural(ph.comparisons, "comparação", "comparações")}. O que importa não é a diferença aqui, é o que acontece quando a entrada cresce: a lista acompanha n, a tabela hash não se mexe.`;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · busca linear x busca por hash</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="viz-inputs">
           <label className="viz-field grow">
             <span>Nomes guardados</span>
             <input
               className="viz-input"
-              value={entrada}
+              value={input}
               onChange={(e) => {
-                reiniciar();
-                setEntrada(e.target.value);
+                viz.reset();
+                setInput(e.target.value);
               }}
             />
           </label>
@@ -308,39 +265,39 @@ export function HashTableBuscaVisualizer() {
             <span>Procurar por</span>
             <input
               className="viz-input ht-sel"
-              value={alvo}
+              value={target}
               onChange={(e) => {
-                reiniciar();
-                setAlvo(e.target.value);
+                viz.reset();
+                setTarget(e.target.value);
               }}
             />
           </label>
-          <button className="viz-btn" onClick={sortear}>
+          <button className="viz-btn" onClick={shuffle}>
             Sortear
           </button>
         </div>
 
         <div className="bigo-chips">
           <button
-            className={`bigo-chip${!ruim ? " on" : ""}`}
-            aria-pressed={!ruim}
+            className={`bigo-chip${!bad ? " on" : ""}`}
+            aria-pressed={!bad}
             onClick={() => {
-              reiniciar();
-              setRuim(false);
+              viz.reset();
+              setBad(false);
             }}
           >
-            <span className="sw" style={{ background: !ruim ? "#34d399" : "#3a4a60" }} />
+            <span className="sw" style={{ background: !bad ? "#34d399" : "#3a4a60" }} />
             Hash que distribui
           </button>
           <button
-            className={`bigo-chip${ruim ? " on" : ""}`}
-            aria-pressed={ruim}
+            className={`bigo-chip${bad ? " on" : ""}`}
+            aria-pressed={bad}
             onClick={() => {
-              reiniciar();
-              setRuim(true);
+              viz.reset();
+              setBad(true);
             }}
           >
-            <span className="sw" style={{ background: ruim ? "#f87171" : "#3a4a60" }} />
+            <span className="sw" style={{ background: bad ? "#f87171" : "#3a4a60" }} />
             Hash ruim (devolve 0 sempre)
           </button>
         </div>
@@ -348,8 +305,8 @@ export function HashTableBuscaVisualizer() {
         <div className="ht-presets">
           <span>Cenários</span>
           {PRESETS.map((pr) => (
-            <button className="viz-btn" key={pr.rotulo} onClick={() => aplicar(pr)}>
-              {pr.rotulo}
+            <button className="viz-btn" key={pr.label} onClick={() => applyPreset(pr)}>
+              {pr.label}
             </button>
           ))}
         </div>
@@ -357,34 +314,34 @@ export function HashTableBuscaVisualizer() {
         <div className="ht-painel">
           <div className="ht-painel-tit">
             <span>1. Busca linear na lista</span>
-            <em>{plural(pl.comparacoes, "comparação", "comparações")}</em>
+            <em>{plural(pl.comparisons, "comparação", "comparações")}</em>
           </div>
           <div className="ht-lista">
-            {nomes.map((nome, j) => {
+            {names.map((name, j) => {
               let cls = "ht-nome";
-              if (pl.pos === j) cls += pl.achou ? " achou" : " on";
+              if (pl.pos === j) cls += pl.found ? " achou" : " on";
               else if (j < pl.pos) cls += " passou";
               return (
-                <span className={cls} key={`${nome}-${j}`}>
+                <span className={cls} key={`${name}-${j}`}>
                   <span className="ord">{j}</span>
-                  {nome}
+                  {name}
                 </span>
               );
             })}
           </div>
-          <p className={`viz-note${pl.achou ? " ok" : pl.fim ? " invalid" : ""}`}>{pl.nota}</p>
+          <p className={`viz-note${pl.found ? " ok" : pl.done ? " invalid" : ""}`}>{pl.note}</p>
         </div>
 
         <div className="ht-painel">
           <div className="ht-painel-tit">
             <span>2. Busca na tabela hash ({CAP} buckets)</span>
-            <em>{plural(ph.comparacoes, "comparação", "comparações")}</em>
+            <em>{plural(ph.comparisons, "comparação", "comparações")}</em>
           </div>
           <div className="ht-strip">
             {buckets.map((b, i) => (
               <div
                 key={i}
-                className={`ht-bucket${b.length ? " cheio" : ""}${ph.indice === i ? " alvo" : ""}`}
+                className={`ht-bucket${b.length ? " cheio" : ""}${ph.index === i ? " alvo" : ""}`}
               >
                 {i}
                 <b>{b.length}</b>
@@ -392,121 +349,56 @@ export function HashTableBuscaVisualizer() {
             ))}
           </div>
           <div className="ht-row">
-            <span className="ht-idx">{ph.indice == null ? "?" : ph.indice}</span>
-            <div className={`ht-slot${ph.indice == null ? "" : " alvo"}`}>
-              {ph.indice == null ? (
+            <span className="ht-idx">{ph.index == null ? "?" : ph.index}</span>
+            <div className={`ht-slot${ph.index == null ? "" : " alvo"}`}>
+              {ph.index == null ? (
                 <span className="ht-vazio">ainda calculando o hash</span>
-              ) : corrente.length === 0 ? (
+              ) : chain.length === 0 ? (
                 <span className="ht-vazio">vazio</span>
               ) : (
-                corrente.map((no, k) => {
-                  let ncls = "ht-no";
-                  if (ph.pos === k) ncls += ph.achou ? " achou" : " compara";
+                chain.map((entry, k) => {
+                  let nodeClass = "ht-no";
+                  if (ph.pos === k) nodeClass += ph.found ? " achou" : " compara";
                   return (
-                    <Fragment key={`${no.chave}-${k}`}>
+                    <Fragment key={`${entry.key}-${k}`}>
                       {k > 0 ? <span className="ht-seta">→</span> : null}
-                      <span className={ncls}>{no.chave}</span>
+                      <span className={nodeClass}>{entry.key}</span>
                     </Fragment>
                   );
                 })
               )}
             </div>
           </div>
-          <p className={`viz-note${ph.achou ? " ok" : ph.fim ? " invalid" : ""}`}>{ph.nota}</p>
+          <p className={`viz-note${ph.found ? " ok" : ph.done ? " invalid" : ""}`}>{ph.note}</p>
         </div>
 
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>comparações · lista</span>
-            <strong>{pl.comparacoes}</strong>
+            <strong>{pl.comparisons}</strong>
           </div>
           <div className="bigo-stat">
             <span>comparações · hash</span>
-            <strong>{ph.comparacoes}</strong>
+            <strong>{ph.comparisons}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso · lista com 1 milhão</span>
-            <strong>{milhar(1000000)}</strong>
+            <strong>{thousands(1000000)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso · hash com 1 milhão</span>
-            <strong>{ruim ? milhar(1000000) : "1"}</strong>
+            <strong>{bad ? thousands(1000000) : "1"}</strong>
           </div>
         </div>
 
-        <p className="viz-note">{resumo}</p>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={velocidade}
-              onChange={(e) => setVelocidade(parseInt(e.target.value, 10))}
-            />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} />
-        </div>
+        <p className="viz-note">{summary}</p>
       </div>
+
+      {/* Fora do `.viz-body` de propósito: no expandido é ele que fica parado no
+          pé da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }

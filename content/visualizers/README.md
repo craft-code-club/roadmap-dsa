@@ -69,6 +69,21 @@ Os dois da 2ª versão não são casos exóticos: o Prettier quebra a linha de
 qualquer elemento cujos atributos não cabem, e ternário dentro de interpolação
 é como metade das notas deste repo escolhe entre singular e plural.
 
+**Mais dois buracos, medidos no `listas-ligadas`, e os dois continuam
+abertos** — porque tapá-los é reescrever o guarda com um analisador de verdade,
+e isso é PR de plataforma, não carona numa adaptação de tópico:
+
+| o que não olha | o que passa |
+|---|---|
+| **template dentro de `${...}`**: o casamento da crase é regex, então uma crase aninhada tira o pareamento de sincronia | o `LinkedListFloyd` tem 6 delas (``` `… ${cycle > 0 ? `, e ${cycle}…` : ""}` ```), e daí em diante o guarda compara **código** como se fosse tela: dezenas de linhas de ruído, e uma troca de rótulo de verdade some no meio |
+| **texto de tela que divide a linha com uma interpolação**: o padrão exige `>texto<`, e um `{` no meio corta o casamento | `<span>Nós no ciclo: {cycle === 0 ? … }</span>` — "Nós no ciclo: " não está em string nenhuma, não é visto pelo guarda, e um rename cego o estragaria **sem nenhum aviso** |
+
+O segundo é o mais perigoso dos dois, porque é silencioso: o primeiro pelo
+menos grita. E os dois têm a mesma consequência prática — **quando o arquivo
+tiver crase aninhada ou rótulo colado numa interpolação, o guarda não é prova;
+a prova é comparar o texto renderizado dos ESTADOS** (§8), que é o que pegou
+os dois aqui.
+
 **E um buraco continua aberto, por construção: ele compara o CONJUNTO de textos,
 não onde cada um aparece.** Trocar dois campos de lugar num rename (o subtítulo
 de um cartão indo para o corpo e vice-versa) mantém o conjunto idêntico e passa
@@ -167,6 +182,39 @@ Três regras que só apareceram medindo:
   que abrir o painel é "um pedido novo" — e estava errado: quem clica em
   "Mostrar código" e expande espera continuar vendo o código. Se não couber, o
   miolo rola, que é para isso que o cabeçalho e o rodapé ficam parados.
+
+### O estado mais alto não é "encher a entrada até o máximo"
+
+Você mede a peça no pior caso para saber se ela cabe. O jeito óbvio de achar
+esse pior caso — encher todo campo até o limite — **errou nas três peças em que
+foi tentado numa mesma rodada, e nas três por um motivo diferente**:
+
+| peça | o que "encher tudo" deu | por quê |
+|---|---|---|
+| busca da hash table | **833px, menos** que os 847 do padrão | a corrente longa cabe numa linha que já existia, e a nota que explica o estado padrão é mais comprida |
+| busca da skip list | **0px de diferença** com 14 elementos | a altura vem dos NÍVEIS, que têm teto (`MAX_LEVELS = 4`), e o padrão já batia nele; mais elementos só alargam o SVG, e o wrapper rola na horizontal |
+| reversão da lista | 4 nós = **979px**, 5 nós = 954px | o viewBox tem piso de largura, então menos nós = razão altura/largura maior = mais altura no esticão até a largura do corpo |
+
+O que fazer em vez disso, na ordem:
+
+1. **Ache o que gera as LINHAS do desenho** — o `while`, o `Array.from`, o
+   `map` sobre buckets ou níveis. É esse eixo que vira altura; os outros viram
+   largura, e largura rola sozinha quando o wrapper tem `overflow-x: auto`.
+2. **Verifique se ele tem teto.** Um eixo com limite já pode estar no máximo no
+   estado padrão, e aí encher devolve o mesmo número e você conclui "não tem
+   pior caso" com uma medição que não confirmou nada.
+3. **Cheque se o extremo é combinação.** Na pirâmide de níveis o pior caso exige
+   dois controles no máximo **ao mesmo tempo** (o `n` e o `p`); mexer só num deles
+   dá metade da altura — 21 linhas em vez de 40.
+4. **Se o pior caso construído der um número MENOR que o padrão, o padrão é o
+   pior caso.** Troque o número, não a narrativa.
+
+E o corolário que fecha a §3: **a régua de 1512x900 responde "a camada 3 é
+necessária?", não "a camada 1 é necessária?"**. Peça que parece sadia nela pode
+estar desenhando o botão de reprodução fora da janela em 1440x700 — foi o caso
+da busca da hash table (104px abaixo do pé visível) e do trade-off do prefix sum
+(135px). Meça também abaixo de 900 antes de dizer que uma peça não precisa de
+nada.
 
 ## 4. A API de CSS
 
@@ -281,14 +329,18 @@ Reprodução, quando você precisa mexer nela de fora: `viz.step` (já limitado 
 | ritmo próprio | `speeds: [...]` — um passo de sudoku e uma troca de array não pedem o mesmo tempo |
 | só passo a passo, sem animação contínua | `<VizFooter noSpeed />` |
 | botões extras nos controles | `<VizFooter>{seus botões}</VizFooter>` |
-| **sem linha do tempo E com botões extras** | escreva o rodapé à mão (abaixo) |
+| **sem linha do tempo E com botões extras** | `<VizFooter>{seus botões}</VizFooter>` também: o rodapé sai com os seus botões e sem nada de reprodução |
 
-A linha do `total: 1` e a dos **botões extras** se contradizem, e a contradição é
-real: **`VizFooter` é o rodapé de REPRODUÇÃO e retorna `null` quando
-`total <= 1`, descartando os `children` em silêncio.** Um classificador com
-presets — que é o caso do `SubTypesVisualizer` — cai exatamente aí, e passar os
-botões para o `VizFooter` some com eles sem erro nenhum. Nesse caso os controles
-são seus e o `.viz-foot` também:
+A última linha já foi a contradição desta tabela, e **não é mais**: `VizFooter`
+retornava `null` sempre que `total <= 1`, **descartando os `children` em
+silêncio**, e dois visualizadores (`SubTypesVisualizer` e `PrefixSumTradeoff`)
+escreveram o rodapé à mão por causa disso. O hook foi consertado: com
+`total <= 1` ele descarta os controles de reprodução — que um visualizador sem
+linha do tempo não tem —, mas desenha o `.viz-foot` com os seus `children`. Só
+quando não há `children` é que ele some inteiro.
+
+Escrever o rodapé à mão continua sendo API pública, e é o que você usa quando
+precisa de um `.viz-foot` que o hook não monta:
 
 ```tsx
 {/* Fora do `.viz-body` de propósito: é o que os deixa parados no pé do
@@ -307,12 +359,12 @@ um visualizador sem linha do tempo não tem.
 não há decisão a tomar e o hook nem espera as fontes. Passar a lista ali é ruído
 que sugere uma medição que não acontece.
 
-**`total` que vem da entrada do aluno pode cair para 1, e aí o rodapé some
-inteiro** — com ele, os `children` que você pôs lá dentro. No visualizador de
+**`total` que vem da entrada do aluno pode cair para 1, e aí somem o contador, os
+atalhos, a barra de progresso e os botões de reprodução** — os seus `children`
+ficam, mas sozinhos numa linha que era de outra coisa. No visualizador de
 memória contígua o passo É o índice, então um array de um elemento zera a linha
-do tempo; se o preset "20 inteiros" morasse no rodapé, o aluno que digitasse um
-número só ficaria sem o caminho de volta. Preset e botão de estado ficam no
-miolo; no rodapé só o que é reprodução.
+do tempo. Preset e botão de estado ficam no miolo; no rodapé só o que é
+reprodução — assim a linha não muda de sentido quando a linha do tempo some.
 
 E o `↺` do `VizFooter` é `viz.reset()`: ele volta ao passo 0 e **não** desfaz o
 estado que o aluno montou (array, modo, parâmetros). Se o seu visualizador tinha
@@ -445,12 +497,12 @@ os dois passando contra a quebra antes de serem consertados:
 
 ---
 
-## 9. Dois limites medidos da casca
+## 9. Limites medidos da casca
 
-Ambos apareceram adaptando o tópico `intervals`, e ambos são do comportamento
-da casca — não do componente. Estão aqui porque um explica um número que o
-relatório de qualquer adaptação vai encontrar, e o outro é um recurso que o hook
-não tem.
+Todos são do comportamento da casca — não do componente — e estão aqui porque
+explicam números que o relatório de qualquer adaptação vai encontrar, ou
+recursos que o hook não tem. A seção cresce: acrescente no fim em vez de
+renumerar.
 
 ### A compressão da camada 2 não alcança o fluxo do artigo
 
@@ -494,3 +546,29 @@ o `out/` congela o passo 1 e só o cliente corrige — conferido no HTML do buil
 Uma consequência a assumir: o `↺` do `VizFooter` é `viz.reset()`, que volta ao
 passo **0**, e não ao passo inicial escolhido. Se o estado de partida for para
 valer, ele precisa de um botão próprio — ver a nota do `↺` na §6.
+
+### Adotar a casca deixa a peça mais ALTA no artigo, e quem não tem bloco paga
+
+O `.viz-foot` sai do `.viz-body` — é isso que o deixa parado no pé do painel — e
+traz o respiro dele: uma linha divisória e o padding dos controles. No painel
+expandido isso não custa nada, porque lá a régua é a janela e o miolo rola. **No
+fluxo do artigo custa altura**, e quem tem bloco recolhível paga com o bloco.
+
+Quem não tem, não paga: com `collapsible: false` não existe a camada 3, e a
+camada 2 não alcança o artigo (limite acima). Medido:
+
+| peça | artigo antes | artigo depois |
+|---|---|---|
+| `HashTableBuscaVisualizer` (`collapsible: false`, com linha do tempo) | 847px | **875px** (+28) |
+| `PrefixSumTradeoff` (`collapsible: false`, `total: 1`, rodapé à mão) | 731px | **741px** (+10) |
+
+Nos dois a adaptação valeu, porque o que ela conserta é outra coisa — e só
+aparece **abaixo** da régua de 1512x900. Na busca da hash table, o `▶ Rodar` era
+desenhado 104px (1440x700) e 204px (1440x600) abaixo do pé visível da peça; no
+trade-off, o `↺ Reiniciar` ficava 135px e 235px abaixo. Nos quatro casos o
+controle voltou para dentro da janela e o cabeçalho parou de subir.
+
+Mas o número no artigo piora, e o relatório tem que dizer isso **com o
+número**, não arredondar para "sem mudança". A pergunta certa ao decidir o
+escopo de uma peça sem bloco não é "quanto ela encolhe", é "onde ficam os
+controles quando ela rola".
