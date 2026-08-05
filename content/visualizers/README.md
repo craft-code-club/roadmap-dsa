@@ -157,6 +157,20 @@ A camada 3 é a única condicional. Visualizador sem bloco de código — um SVG
 árvore, um canvas, uma tabela — recebe 1 e 2 e para por aí. Não invente um bloco
 para recolher só para ter a camada 3.
 
+E o inverso também acontece: **existir um bloco não quer dizer que ele seja
+dispensável.** Antes de ligar a camada 3, procure no componente uma frase de tela
+que fale do bloco **na segunda pessoa** — «Leia o código acima», «compare com a
+tabela ao lado». Se existe, o bloco é o conteúdo, e recolhê-lo transforma essa
+frase em mentira toda vez que a medição decidir esconder. Medido no classificador
+de posição de cauda (`TailRecursionForma`): a nota do modo treino manda ler o
+código, a medição recolheria a 1440x700, e mesmo recolhido ele pediria 533px de
+um orçamento de 516 a 1440x600 — esconderia o conteúdo e continuaria sem caber.
+Ele saiu com `collapsible: false`.
+
+O `inventario.sh` responde `code = sim` para esse arquivo, e responde certo: a
+pergunta dele é *existe um bloco?*, não *o bloco é dispensável?*. A segunda é
+sua.
+
 ## 3. Quem decide é a medição, não um breakpoint
 
 O hook mede se a peça cabe e decide. Nada de `if (largura < 768)`. Você não
@@ -194,6 +208,7 @@ foi tentado numa mesma rodada, e nas três por um motivo diferente**:
 | busca da hash table | **833px, menos** que os 847 do padrão | a corrente longa cabe numa linha que já existia, e a nota que explica o estado padrão é mais comprida |
 | busca da skip list | **0px de diferença** com 14 elementos | a altura vem dos NÍVEIS, que têm teto (`MAX_LEVELS = 4`), e o padrão já batia nele; mais elementos só alargam o SVG, e o wrapper rola na horizontal |
 | reversão da lista | 4 nós = **979px**, 5 nós = 954px | o viewBox tem piso de largura, então menos nós = razão altura/largura maior = mais altura no esticão até a largura do corpo |
+| árvore do Fibonacci | `fib(8)` **com** cache (15 nós) é **81px mais alta** que sem cache (67 nós) | o eixo da altura é a PROFUNDIDADE, `n − 1`, igual nos dois; os nós viram largura. Desligar o cache — o movimento óbvio — dá o caso mais baixo |
 
 O que fazer em vez disso, na ordem:
 
@@ -209,12 +224,53 @@ O que fazer em vez disso, na ordem:
 4. **Se o pior caso construído der um número MENOR que o padrão, o padrão é o
    pior caso.** Troque o número, não a narrativa.
 
-E o corolário que fecha a §3: **a régua de 1512x900 responde "a camada 3 é
-necessária?", não "a camada 1 é necessária?"**. Peça que parece sadia nela pode
-estar desenhando o botão de reprodução fora da janela em 1440x700 — foi o caso
-da busca da hash table (104px abaixo do pé visível) e do trade-off do prefix sum
-(135px). Meça também abaixo de 900 antes de dizer que uma peça não precisa de
-nada.
+### E o estado mais alto não é o último passo: pode ser o do meio
+
+Quando o desenho cresce e depois desfaz — uma torre de pilha, uma recursão que
+desce e volta —, a altura máxima acontece **no pico**, e tanto o passo 0 quanto o
+passo final mostram a peça vazia. Medido nas três peças de `pilhas`: os máximos
+estão nos passos 13 de 26, 15 de 24 e 37 de 38, e ler o passo 0 com a entrada já
+cheia erra por **218, 301 e 87px para baixo**. Na recursão, o passo 0 mente por
+até 85px.
+
+**Ande a animação inteira registrando a altura de cada passo** e use o maior. E
+escreva o teste de rolagem **naquele** passo: a asserção "existe sobra para
+rolar" reprova sozinha no passo 1, onde o miolo ainda não tem o que rolar —
+custou dois testes verdes que não testavam nada.
+
+Isso volta na decisão de `measureOn`, com uma segunda pergunta além da do
+`hash-table` ("os dois extremos caem do mesmo lado do orçamento?"): **se a
+decisão mudasse, a peça passaria a CABER?** Na pilha de chamadas não passaria — o
+passo mais alto pede 1.060px com o código aberto e 896 recolhido, contra 816 de
+orçamento —, então medir por passo trocaria 164px por um bloco de código abrindo
+e fechando durante a reprodução.
+
+### "O desenho é grande" não é "o desenho está esticado"
+
+A receita de devolver altura com um `max-height` no bloco temático (§7) só
+recupera **vazio**, e só existe vazio quando o tamanho **renderizado é maior que
+o natural do `viewBox`**. Isso vale para SVG com `width: 100%` e `height: auto`,
+onde o esticão até a largura do corpo infla o espaço entre os elementos.
+
+Fora desse caso o teto **destrói**, porque o `preserveAspectRatio` escala tudo,
+texto junto. Dois desenhos grandes desta série pareciam o mesmo caso e não eram:
+
+| desenho | renderizado | natural (`viewBox`) | o que um teto faria |
+|---|---|---|---|
+| anel do `QueueVisualizer` | 320px (`max-width: 320px`) | 340px | encolheria conteúdo: já está **abaixo** do natural |
+| árvore do `RecursionArvore` | 426px (`width`/`height` de atributo) | 426px | levaria a fonte dos nós de 10,5px para **6,5px** |
+
+**Compare os dois números antes de escrever o teto.** Se forem iguais, ou se o
+renderizado for menor, não há vazio a devolver — o caminho é outro.
+
+### O corolário que fecha a §3
+
+**A régua de 1512x900 responde "a camada 3 é necessária?", não "a camada 1 é
+necessária?"**. Peça que parece sadia nela pode estar desenhando o botão de
+reprodução fora da janela em 1440x700 — foi o caso da busca da hash table (104px
+abaixo do pé visível), do trade-off do prefix sum (135px) e do classificador de
+cauda (94px de figura rolando a 1440x600, com o cabeçalho subindo junto). Meça
+também abaixo de 900 antes de dizer que uma peça não precisa de nada.
 
 ## 4. A API de CSS
 
@@ -423,6 +479,13 @@ resolveu foi `measureOn: [n, steps.length]`.
   rola, e o painel existe justamente para ver o desenho maior; deixe a regra do
   painel ganhar por especificidade, não por ordem de arquivo.
 
+  **Mas confirme que existe esticão antes de escrever o teto.** Esta receita só
+  devolve **vazio**, e só há vazio quando o renderizado é maior que o natural do
+  `viewBox`. Dois desenhos grandes desta série pareciam o mesmo caso e não eram
+  — o teto teria encolhido conteúdo num e a fonte no outro. Os números e o
+  critério estão na §3, em *"O desenho é grande" não é "o desenho está
+  esticado"*.
+
 ## 8. Como provar que funcionou
 
 Contar elemento não testa nada — já passaram por uma suíte verde um visualizador
@@ -572,3 +635,20 @@ Mas o número no artigo piora, e o relatório tem que dizer isso **com o
 número**, não arredondar para "sem mudança". A pergunta certa ao decidir o
 escopo de uma peça sem bloco não é "quanto ela encolhe", é "onde ficam os
 controles quando ela rola".
+
+### `measureOn` não enxerga o passo, e há peça cujo bloco mais alto cresce com ele
+
+A medição roda ao expandir, ao redimensionar e quando `measureOn` muda — **nunca
+a cada passo**, e isso é deliberado: remedir por passo abriria e fecharia o bloco
+enquanto o aluno assiste.
+
+A consequência a assumir é que uma peça cujo bloco mais alto cresce ao longo da
+animação é medida no seu estado mais **baixo**. Medido na pilha de chamadas da
+recursão: a fileira de frames vai de 168px (um frame, o `min-height`) a 662px
+(treze frames) na mesma execução, e a peça de 885px no passo 0 chega a 970px no
+passo 12.
+
+Quando o passo 0 já estoura o orçamento, a peça recolhe de saída e o problema não
+aparece. Quando ele cabe por pouco, o código fica aberto e a peça passa do
+orçamento no meio da animação. **Não tente resolver pelo componente** — pôr o
+passo em `measureOn` é o remédio pior que a doença, pelo critério da §3.
