@@ -619,7 +619,13 @@ test("a âncora do índice 'Nesta página' continua rolando suave", async ({ pag
   // O atributo no `<html>` não pode custar o `scroll-behavior: smooth` do site:
   // ele existe para as âncoras do índice, que ficam ásperas sem a animação.
   await page.goto("/topico/pilhas/");
-  const traj = await trajetoriaDaRolagem(page, () => page.locator(".toc-links a").nth(2).click());
+  // A terceira âncora, e não a primeira: ela fica longe o bastante do topo para
+  // a rolagem ter trajetória para medir. Confiro a contagem antes porque, se o
+  // artigo encolher, a falha honesta é "o índice tem 2 âncoras" e não um erro
+  // de clique em elemento que não existe.
+  const ancoras = page.locator(".toc-links a");
+  expect(await ancoras.count(), "o índice encolheu: escolha outra âncora").toBeGreaterThanOrEqual(3);
+  const traj = await trajetoriaDaRolagem(page, () => ancoras.nth(2).click());
 
   const posicoes = [...new Set(traj)];
   expect(posicoes.length, "a âncora saltou em vez de rolar suave").toBeGreaterThan(5);

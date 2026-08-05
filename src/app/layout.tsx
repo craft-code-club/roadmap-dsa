@@ -38,6 +38,10 @@ export const metadata: Metadata = {
 // leitor parado no meio do artigo novo — a rolagem que "às vezes vai, às vezes
 // não". Com o atributo, o Next zera a rolagem na hora e devolve o `smooth` logo em
 // seguida, então as âncoras do índice "Nesta página" continuam suaves.
+//
+// Quem pediu menos movimento no sistema já tem `scroll-behavior: auto` pela regra
+// de `prefers-reduced-motion: reduce` do `globals.css`: para essa pessoa não há
+// animação nenhuma para desligar, nem nas âncoras, e o atributo não muda nada.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" data-scroll-behavior="smooth">
