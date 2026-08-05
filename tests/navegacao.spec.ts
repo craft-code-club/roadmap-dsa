@@ -725,8 +725,43 @@ const gruposAbertos = (page: import("@playwright/test").Page) =>
       .map((g) => g.querySelector(".side-group-btn span:nth-child(2)")?.textContent ?? "")
   );
 
+/** Carimbo da memória do menu (0 quando ainda não há nada salvo). */
+const carimboDoMenu = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem("ccc-dsa-menu") ?? "null");
+      return typeof salvo?.em === "number" ? salvo.em : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+/**
+ * Navega (ou recarrega) e só devolve quando o menu terminou de restaurar.
+ *
+ * O HTML estático chega com o grupo da rota aberto; os grupos que o leitor tinha
+ * deixado abertos entram depois, num efeito. Conferir logo após o `goto` lê o
+ * menu de antes da hidratação — foi assim que este bloco ficou instável no CI,
+ * passando na segunda tentativa só porque ela foi mais lenta.
+ *
+ * O sinal de "já restaurou" é o carimbo: o efeito que salva regrava `em` a cada
+ * carga, então esperar o carimbo AVANÇAR em relação ao de antes da navegação é
+ * um fato do aplicativo, e não um tempo chutado.
+ */
+async function abrirComMenuPronto(
+  page: import("@playwright/test").Page,
+  rota: string | "recarregar"
+) {
+  const antes = await carimboDoMenu(page);
+  if (rota === "recarregar") await page.reload();
+  else await page.goto(rota);
+  await expect
+    .poll(() => carimboDoMenu(page), { message: "o menu não terminou de restaurar" })
+    .toBeGreaterThan(antes);
+}
+
 test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page }) => {
-  await page.goto("/topico/arrays/");
+  await abrirComMenuPronto(page, "/topico/arrays/");
   // Arrays e Strings porque é onde o leitor está; Introdução não entra de carona.
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 
@@ -734,22 +769,22 @@ test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page
   // porque a visita acima já virou histórico — e histórico o menu devolve de
   // propósito (é o outro teste); aqui o que se mede é a primeira visita.
   await page.evaluate(() => localStorage.clear());
-  await page.goto("/topico/backtracking/");
+  await abrirComMenuPronto(page, "/topico/backtracking/");
   expect(await gruposAbertos(page)).toEqual(["Backtracking"]);
 });
 
 test("o menu lembra os grupos que o leitor abriu, e o da página abre junto", async ({ page }) => {
-  await page.goto("/topico/arrays/");
+  await abrirComMenuPronto(page, "/topico/arrays/");
   await page.locator(".side-group-btn", { hasText: "Grafos" }).click();
   await expect(page.locator(".side-item[href='/topico/dijkstra/']")).toBeVisible();
 
   // F5 na mesma página: a escolha volta, e o grupo da rota continua aberto.
-  await page.reload();
+  await abrirComMenuPronto(page, "recarregar");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 
   // Fechar também é escolha: o grupo fica fechado depois da recarga.
   await page.locator(".side-group-btn", { hasText: "Grafos" }).click();
-  await page.reload();
+  await abrirComMenuPronto(page, "recarregar");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 });
 
@@ -770,24 +805,24 @@ const memoriaDoMenu = (page: import("@playwright/test").Page, ids: string[], hor
 
 test("dentro do dia, o menu devolve o que o leitor tinha aberto", async ({ page }) => {
   await memoriaDoMenu(page, ["grafos"], 23);
-  await page.goto("/topico/arrays/");
+  await abrirComMenuPronto(page, "/topico/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 });
 
 test("passado um dia, o menu volta ao padrão da página", async ({ page }) => {
   // Quem some por três dias não lembra por que aqueles grupos estavam abertos.
   await memoriaDoMenu(page, ["grafos", "heaps"], 25);
-  await page.goto("/topico/arrays/");
+  await abrirComMenuPronto(page, "/topico/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 
   // E em página sem grupo próprio sobra o grupo de abertura, não o menu vazio.
-  await page.goto("/");
+  await abrirComMenuPronto(page, "/");
   expect(await gruposAbertos(page)).toEqual(["Introdução"]);
 });
 
 test("o prazo conta da última visita: voltar hoje renova a memória", async ({ page }) => {
   await memoriaDoMenu(page, ["grafos"], 20);
-  await page.goto("/topico/arrays/");
+  await abrirComMenuPronto(page, "/topico/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 
   // O carimbo que ficou gravado é de agora, e não o de 20 horas atrás: amanhã
@@ -801,22 +836,22 @@ test("o prazo conta da última visita: voltar hoje renova a memória", async ({ 
 test("o grupo da página atual abre mesmo que estivesse fechado", async ({ page }) => {
   // Cenário do leitor que fechou tudo e depois abriu um tópico de outro grupo.
   await memoriaDoMenu(page, ["hashing"], 1);
-  await page.goto("/topico/dijkstra/");
+  await abrirComMenuPronto(page, "/topico/dijkstra/");
   expect(await gruposAbertos(page)).toEqual(["Hashing", "Grafos"]);
   await expect(page.locator(".side-item.on")).toHaveText(/Dijkstra/);
 });
 
 test("quem chega sem histórico vê o primeiro grupo aberto, e só ele", async ({ page }) => {
-  await page.goto("/");
+  await abrirComMenuPronto(page, "/");
   expect(await gruposAbertos(page)).toEqual(["Introdução"]);
 
   // E o grupo de abertura é só o padrão de quem não tem nada salvo: em página
   // sem grupo próprio (home, roadmap, apoiar), quem já escolheu vê a escolha
-  // dele, e não a dele mais a Introdução de brinde.
-  await page.evaluate(() =>
-    localStorage.setItem("ccc-dsa-menu", JSON.stringify({ abertos: ["grafos"], em: Date.now() }))
-  );
-  await page.goto("/");
+  // dele, e não a dele mais a Introdução de brinde. A memória entra com algumas
+  // horas de idade (e não com o carimbo de agora) para a espera continuar tendo
+  // o que esperar: o carimbo novo é o que prova que o menu já restaurou.
+  await memoriaDoMenu(page, ["grafos"], 2);
+  await abrirComMenuPronto(page, "/");
   expect(await gruposAbertos(page)).toEqual(["Grafos"]);
 });
 
