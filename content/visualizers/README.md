@@ -230,6 +230,21 @@ O que fazer em vez disso, na ordem:
    compare presets do mesmo tamanho, senão você mede a contagem em vez do eixo.
    Numa BST os quatro presets têm sete nós e a altura do desenho varia 2,2x
    entre eles.
+6. **E ele pode estar na AUSÊNCIA de preset.** Se a peça deixa o aluno montar a
+   entrada à mão, esse estado não é alcançado por botão nenhum e escapa da
+   varredura. Medido no `GrafoRepresentacao`: os oito estados de preset dão a
+   **mesma altura ao pixel**, e o mais alto é o grafo editado, onde a dica cai
+   num fallback de 171 caracteres contra 100 do maior `hint`.
+7. **O pior caso pode ser a SOMA de dois blocos com sinais trocados**, e aí
+   nenhum deles sozinho aponta para o estado certo. No `TopoSortVisualizer` o
+   preset mais alto é o de **menos arestas**, por 2px: a dica dele é 19px mais
+   curta e a nota final 21px mais alta.
+8. **O que cresce AO LADO de algo constante e mais alto não é altura.** Numa
+   linha de `.gr-split` a altura é o **máximo** dos dois lados, então uma coluna
+   que cresce ainda tem folga até alcançar a vizinha. Medido no
+   `BellmanFordVisualizer`: a tabela cresce 88px (2→6 linhas) e **para 61px
+   antes** do desenho; no `MstVisualizer`, a lista de arestas cresce 32px e para
+   69px antes. **Meça a distância até o vizinho, não a taxa de crescimento.**
 
 ### E o estado mais alto não é o último passo: pode ser o do meio
 
@@ -252,6 +267,14 @@ não uma constante. Medido no percurso de árvores: 6 fichas cabem numa linha, e
 amplitude ao longo dos 26 passos é de **20px** — que vêm da nota ter uma ou duas
 linhas, não da pilha. Um relatório que anunciasse "o pico está no meio" ali
 estaria certo por acidente e errado no motivo.
+
+**E o passo do pico pode mudar com a LARGURA da janela**, porque a nota quebra em
+outro lugar: no `BellmanFordVisualizer` o pico é o passo 1 a 1512px e o passo 10
+a 1440px. **Mas isso só vale se a coluna do artigo ainda não estiver no
+`max-width`** — quando ela está, 1512 e 1440 são a **mesma** régua para a peça, e
+só o orçamento muda. Medido no `MstVisualizer`: 18 combinações com alturas
+idênticas ao pixel nas duas larguras. Confira qual dos dois casos é o seu antes
+de multiplicar o número de medições por três.
 
 Isso volta na decisão de `measureOn`, com uma segunda pergunta além da do
 `hash-table` ("os dois extremos caem do mesmo lado do orçamento?"): **se a
@@ -277,6 +300,34 @@ texto junto. Dois desenhos grandes desta série pareciam o mesmo caso e não era
 
 **Compare os dois números antes de escrever o teto.** Se forem iguais, ou se o
 renderizado for menor, não há vazio a devolver — o caminho é outro.
+
+### O perfil de altura de um visualizador de grafo
+
+Os sete tópicos de Grafos foram adaptados por sete agentes independentes, e os
+sete mediram a mesma coisa. Vale como atalho — não para pular a medição, mas
+para saber onde ela vai dar:
+
+| o que se mediu | resultado, em 7 de 7 |
+|---|---|
+| altura do desenho ao trocar preset | **constante**, ao pixel (189px em 756 amostras no `TopoSort`; 366x236 em 514 estados no `AStar`) |
+| esticão do SVG (renderizado × `viewBox`) | **0px**. Nenhum teto de altura, **nenhuma linha de CSS** nos sete |
+| estruturas auxiliares (fila, pilha, tabela, união) | **34px** ou parecido, sempre — chegam a 3 ou 4 fichas e o `flex-wrap` nunca quebra |
+| o que de fato move a peça | **a prosa**: a nota do passo e a dica do preset |
+
+O motivo é estrutural: **o grafo tem um número fixo de vértices declarado no
+arquivo**, e os presets trocam as arestas, não a contagem. Onde há grade, a
+mesma coisa por outro caminho — no `AStarVisualizer`, `COLS = 14`, `ROWS = 9` e
+`CELL = 26` são constantes, e os presets mudam *quais* células são parede, nunca
+*quantas* existem.
+
+**E o critério não é "posicionado à mão ou gerado por código".** Uma grade
+gerada por laço tem altura tão fixa quanto sete vértices numa constante. A
+pergunta certa é:
+
+> **Existe caminho da tela até o número que gera as linhas?**
+
+Se o aluno não consegue mudar a dimensão por nenhum controle, ela não é eixo, e
+procurar pior caso ali é procurar no lugar errado.
 
 ### O corolário que fecha a §3
 
@@ -641,13 +692,18 @@ camada 2 não alcança o artigo (limite acima). Medido:
 | `PrefixSumTradeoff` (`collapsible: false`, `total: 1`, rodapé à mão) | 731px | **741px** (+10) |
 | `SkipListNiveis` (`collapsible: false`, `total: 1`, controles próprios) | 915px | **925px** (+10) |
 | **`BinaryTreeFormatos`** (`collapsible: false`, `total: 1`, **sem rodapé nenhum**) | 915–1025px | **911–1021px (−4)** |
+| **`GrafoRepresentacao`** (idem, peça sem parentesco com a anterior) | 1021–1069px | **1017–1065px (−4)** |
 
-**E a última linha inverte o sinal, o que corrige o enunciado desta seção.** O
-custo não é de adotar a casca: é de **ter um `.viz-foot`**. As três primeiras
-peças pagam porque, mesmo sem linha do tempo, elas têm controles próprios no
-rodapé. A quarta não tem rodapé nenhum — `total: 1` **e** sem `children` fazem o
-`VizFooter` sumir inteiro —, e aí a casca **devolve** 4px, idênticos nos sete
-estados medidos.
+**E as duas últimas linhas invertem o sinal, o que corrige o enunciado desta
+seção.** O custo não é de adotar a casca: é de **ter um `.viz-foot`**. As três
+primeiras peças pagam porque, mesmo sem linha do tempo, elas têm controles
+próprios no rodapé. As duas últimas não têm rodapé nenhum — `total: 1` **e** sem
+`children` fazem o `VizFooter` sumir inteiro —, e aí a casca **devolve** 4px.
+
+**São 4px nas duas, em peças sem nenhum parentesco**, em todos os estados e em
+todas as réguas: 10 estados × 3 réguas numa, 7 estados na outra. Repetir o
+mesmo número em dois lugares independentes confirma o **mecanismo** (o
+`padding-bottom` que passa de 18 para 14) e não só a medição.
 
 Quem citar o `+28` ou o `+10` sem medir a própria peça vai escrever o contrário
 do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*.
@@ -679,3 +735,34 @@ Quando o passo 0 já estoura o orçamento, a peça recolhe de saída e o problem
 aparece. Quando ele cabe por pouco, o código fica aberto e a peça passa do
 orçamento no meio da animação. **Não tente resolver pelo componente** — pôr o
 passo em `measureOn` é o remédio pior que a doença, pelo critério da §3.
+
+### A casca cria um eixo de altura próprio: a linha do cabeçalho
+
+`.viz-fit .viz-head-right` é `flex-wrap: wrap`, e a adaptação põe mais um botão
+ali (o de mostrar/ocultar o bloco). Quando o conteúdo do cabeçalho cresce o
+bastante, a linha **quebra** e o `.viz-head` dobra de altura.
+
+Medido no `AStarVisualizer`: 53 → **81px** em 19 dos 514 estados — os passos 101
+a 119, onde o contador ganha um dígito, e **só a 1440px de largura**. É pouco, e
+é um eixo que não existia antes da casca: o componente não tem controle nenhum
+sobre ele.
+
+Duas consequências práticas: **inclua na varredura um estado com o contador de
+três dígitos**, se a sua peça chegar lá; e, se a peça passar do orçamento por
+menos de 30px, confira se não é isto antes de procurar no miolo.
+
+### `children` do `VizHeader` numa peça COM linha do tempo
+
+O contrato §6 já diz que um número que resume o estado entra como `children` do
+`VizHeader`, no lugar do "passo N de M". Os cinco visualizadores que faziam isso
+tinham todos `total: 1` — o número **substituía** o contador.
+
+Numa peça com linha do tempo os dois coexistem, e aí eles viram **dois
+`.viz-step` irmãos**, separados pelo `gap` do `.viz-head-right` em vez do
+separador que o componente escrevia à mão. Medido no `AStarVisualizer`: o `·`
+entre "N expandidas" e "passo N de M" **desaparece** do texto renderizado — é a
+única diferença em 514 estados comparados campo a campo.
+
+Não há como o `VizHeader` prefixar o contador. **Se o separador for para valer,
+termine os seus `children` com ele** (`rodada {s.round} ·`), que é o que o
+`BellmanFordVisualizer` faz. E declare a mudança no relatório: é texto de tela.
