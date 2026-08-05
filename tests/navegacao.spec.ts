@@ -56,6 +56,33 @@ test("página de apoio mostra apoiadores, parceiros e o link de doação", async
   await expect(page.getByRole("link", { name: /Quero apoiar/ }).first()).toHaveAttribute("href", /apoia\.se\/craftcodeclub/);
 });
 
+// O muro é montado da lista manual em apoiadores.ts enquanto a API da APOIA.se
+// não libera os nomes. O que o teste prende é o contrato do muro, não os nomes:
+// um card por apoiador, mais o card-convite, e a contagem do painel batendo com
+// a quantidade de cards (já saiu "3 pessoas" com quatro nomes na lista).
+test("muro de apoiadores: um card por pessoa, contagem batendo e convite no fim", async ({ page }) => {
+  await page.goto("/apoie/");
+  const cards = page.locator(".apoiador-card:not(.apoiador-card-cta)");
+  const quantos = await cards.count();
+  expect(quantos).toBeGreaterThan(0);
+
+  const plural = quantos === 1 ? "pessoa já apoia" : "pessoas já apoiam";
+  await expect(page.locator(".gratidao-titulo")).toHaveText(
+    `${quantos} ${plural} o Craft & Code Club.`
+  );
+
+  // sigla do avatar: primeiro e último nome, sem a partícula do meio
+  const primeiro = cards.first();
+  const nome = (await primeiro.locator(".apoiador-nome").innerText()).trim();
+  const partes = nome.split(/\s+/).filter((p) => !["de", "da", "do", "das", "dos", "e"].includes(p.toLowerCase()));
+  const sigla = (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
+  await expect(primeiro.locator(".apoiador-avatar")).toHaveText(sigla);
+
+  const convite = page.locator(".apoiador-card-cta");
+  await expect(convite).toHaveAttribute("href", /apoia\.se\/craftcodeclub/);
+  await expect(convite).toContainText("Seu nome aqui");
+});
+
 test("Two Pointers é uma página completa com os três visualizadores e problemas", async ({ page }) => {
   await page.goto("/topico/two-pointers/");
   // um visualizador por sabor da técnica: convergente, ritmos diferentes e Floyd

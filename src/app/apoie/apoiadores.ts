@@ -2,10 +2,13 @@
 //
 // PARCEIROS são mantidos à mão nesta lista (poucos, empresas).
 //
-// APOIADORES vêm da APOIA.se em tempo de build, via fetchSupporters(). Mostramos
-// só o nome, do apoio mais recente para o mais antigo. Sem as variáveis de
-// ambiente configuradas, ou sem ninguém apoiando ainda, a página /apoie cai no
-// convite "seja o primeiro" automaticamente. Nada aqui quebra o build.
+// APOIADORES: por enquanto também são mantidos à mão, em MANUAL_SUPPORTERS.
+// A integração com a APOIA.se ainda não foi aprovada por eles, então quem
+// publica um apoio novo adiciona o nome na lista abaixo, no mesmo PR (o mais
+// recente primeiro). O código da API continua aqui e liga sozinho quando as
+// variáveis de ambiente existirem: fetchSupporters() junta as duas fontes, a
+// manual primeiro, sem repetir nome. Lista vazia e API muda cai no convite
+// "seja o primeiro" automaticamente. Nada aqui quebra o build.
 //
 // Configuração (env local e secret no GitHub):
 //   APOIASE_TOKEN        token Bearer do painel da APOIA.se (dashboard)
@@ -23,8 +26,45 @@ export const PARTNERS: Partner[] = [
   // { name: "Empresa X", url: "https://empresa.com" },
 ];
 
-// Apoiadores que não vêm da APOIA.se (opcional). Aparecem primeiro na lista.
-const EXTRA_SUPPORTERS: Supporter[] = [];
+// Apoiadores mantidos à mão, do apoio mais recente para o mais antigo.
+// Aparecem antes de qualquer nome que venha da API.
+const MANUAL_SUPPORTERS: Supporter[] = [
+  { name: "Cristiano Cunha" },
+  { name: "Wilson Neto" },
+  { name: "Eduarda Martins" },
+];
+
+// Partículas de nome ("Maria da Silva") não valem como inicial: a sigla sai de
+// primeiro + último nome de verdade.
+const NAME_PARTICLES = new Set([
+  "de", "da", "do", "das", "dos", "e", "di", "du", "del", "della", "la", "van", "von",
+]);
+
+// Sigla do avatar do card: "Cristiano Cunha" vira "CC", "Ana" vira "A".
+// Espalha (`[...]`) em vez de indexar para não cortar caractere fora do BMP.
+export function initials(name: string): string {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter((p) => p.length > 0 && !NAME_PARTICLES.has(p.toLowerCase()));
+  if (parts.length === 0) return "?";
+  const first = [...parts[0]][0] ?? "";
+  const last = parts.length > 1 ? ([...parts[parts.length - 1]][0] ?? "") : "";
+  return (first + last).toUpperCase();
+}
+
+// Remove nomes repetidos preservando a ordem (o primeiro a aparecer prevalece).
+function dedupeByName(list: Supporter[]): Supporter[] {
+  const seen = new Set<string>();
+  const out: Supporter[] = [];
+  for (const s of list) {
+    const key = s.name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
 
 const API_BASE = "https://dashboard-api-v1.apoia.se/api/reports/backers";
 
@@ -88,7 +128,7 @@ function toList(json: unknown): Raw[] {
 export async function fetchSupporters(): Promise<Supporter[]> {
   const token = process.env.APOIASE_TOKEN;
   const campaign = process.env.APOIASE_CAMPAIGN_ID;
-  if (!token || !campaign) return [...EXTRA_SUPPORTERS];
+  if (!token || !campaign) return dedupeByName(MANUAL_SUPPORTERS);
 
   try {
     const res = await fetch(`${API_BASE}/${encodeURIComponent(campaign)}`, {
@@ -96,35 +136,28 @@ export async function fetchSupporters(): Promise<Supporter[]> {
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
-      console.warn(`[apoia.se] resposta HTTP ${res.status}. Mostrando placeholder de apoiadores.`);
-      return [...EXTRA_SUPPORTERS];
+      console.warn(`[apoia.se] resposta HTTP ${res.status}. Mostrando só a lista manual de apoiadores.`);
+      return dedupeByName(MANUAL_SUPPORTERS);
     }
 
     const raw = toList(await res.json());
-    const parsed = raw
+    const names = raw
       .filter(isActive)
       .map((b) => ({ name: pickName(b), t: pickTime(b) }))
       .filter((b): b is { name: string; t: number } => b.name !== null)
-      .sort((a, b) => b.t - a.t); // mais recente primeiro
-
-    // Remove nomes repetidos, preservando a ordem (o mais recente prevalece).
-    const seen = new Set<string>();
-    const names: Supporter[] = [];
-    for (const b of parsed) {
-      const key = b.name.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      names.push({ name: b.name });
-    }
+      .sort((a, b) => b.t - a.t) // mais recente primeiro
+      .map((b) => ({ name: b.name }));
 
     // Diagnóstico: veio gente mas não reconhecemos o campo do nome. Sinaliza que
     // o formato da API mudou e o mapeamento em pickName precisa de ajuste.
     if (raw.length > 0 && names.length === 0) {
       console.warn(`[apoia.se] recebeu ${raw.length} apoios mas não reconheceu os campos de nome. Ajuste pickName().`);
     }
-    return [...EXTRA_SUPPORTERS, ...names];
+    // A lista manual vem primeiro e vence o desempate: quem já está aqui não
+    // aparece duas vezes quando a API passar a devolver o mesmo nome.
+    return dedupeByName([...MANUAL_SUPPORTERS, ...names]);
   } catch (err) {
-    console.warn("[apoia.se] falha ao buscar apoiadores. Mostrando placeholder.", err);
-    return [...EXTRA_SUPPORTERS];
+    console.warn("[apoia.se] falha ao buscar apoiadores. Mostrando só a lista manual.", err);
+    return dedupeByName(MANUAL_SUPPORTERS);
   }
 }
