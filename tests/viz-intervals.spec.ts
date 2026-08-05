@@ -63,15 +63,27 @@ async function abrirCodigo(alvo: Locator) {
 
 /**
  * Rola o miolo até uma fração da sobra e só volta quando o navegador aplicou a
- * rolagem e pintou o quadro seguinte. O retorno é o `scrollTop` REAL: se a
- * rolagem não acontecer, "o cabeçalho não se mexeu" vira verdade à toa.
+ * rolagem e pintou o quadro seguinte.
+ *
+ * Devolve o alvo E o `scrollTop` real, os dois lidos no MESMO instante. Quem
+ * compara o real contra uma sobra medida antes do laço mede outra coisa: a
+ * sobra pode mudar entre as duas leituras (uma linha que requebra quando a
+ * fonte assenta muda o `scrollHeight`), e aí a asserção reprova por uma
+ * diferença que não é de rolagem nenhuma. Foi o que derrubou este teste no CI,
+ * com 1,5 e 2,5px, enquanto localmente a sobra ficava estável.
+ *
+ * O real continua sendo o que importa: se a rolagem não acontecer, "o cabeçalho
+ * não se mexeu" vira verdade à toa.
  */
-async function rolarMiolo(miolo: Locator, fracao: number): Promise<number> {
+async function rolarMiolo(miolo: Locator, fracao: number): Promise<{ alvo: number; real: number }> {
   return miolo.evaluate(
     (el, f) =>
-      new Promise<number>((resolve) => {
-        el.scrollTop = (el.scrollHeight - el.clientHeight) * f;
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve(el.scrollTop)));
+      new Promise<{ alvo: number; real: number }>((resolve) => {
+        const alvo = (el.scrollHeight - el.clientHeight) * f;
+        el.scrollTop = alvo;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => resolve({ alvo, real: el.scrollTop }))
+        );
       }),
     fracao
   );
@@ -119,8 +131,13 @@ test("sweep expandido: cabeçalho e rodapé não se mexem quando o miolo rola at
   // "Está parado agora" não é "continua parado": amostra ao longo da rolagem.
   const desvios: number[] = [];
   for (const destino of [0.25, 0.5, 0.75, 1]) {
-    const real = await rolarMiolo(miolo, destino);
-    expect(Math.abs(real - sobra * destino)).toBeLessThanOrEqual(1);
+    const { alvo, real } = await rolarMiolo(miolo, destino);
+    // Alvo e real do mesmo instante: a tolerância de 1px é para o arredondamento
+    // sub-pixel do `scrollTop`, não para a sobra ter mudado no meio do caminho.
+    expect(Math.abs(real - alvo)).toBeLessThanOrEqual(1);
+    // E a rolagem aconteceu de verdade: sem isto, "o cabeçalho não se mexeu"
+    // seria verdade à toa num miolo parado no topo.
+    expect(real).toBeGreaterThan(sobra * destino * 0.5);
     desvios.push(
       Math.abs((await cabeca.boundingBox())!.y - antes.cabeca),
       Math.abs((await rodape.boundingBox())!.y - antes.rodape),

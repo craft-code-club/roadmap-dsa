@@ -1,17 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // QueueVisualizer, a fila sobre array nas duas versões: a ingênua e o buffer
 // circular. É o "aha" do tópico.
 //
-// Mesmo padrão do TwoPointersVisualizer: um gerador PURO de passos + a mesma
-// casca (células, código sincronizado, variáveis, controles, Expandir). O que
-// muda é que aqui existem DOIS códigos, um por implementação, e o campo `linha`
-// aponta para o código do modo atual (as duas listas têm 19 linhas e só diferem
-// no laço do desenfileirar, que é justamente o assunto).
+// Gerador PURO de passos + a casca compartilhada. O que muda em relação aos
+// outros é que aqui existem DOIS códigos, um por implementação, e o campo
+// `line` aponta para o código do modo atual (as duas listas têm 19 linhas e só
+// diferem no laço do desenfileirar, que é justamente o assunto).
 //
 // A única coisa que o aluno precisa ver acontecendo: na fila ingênua QUEM ANDA
 // SÃO OS ELEMENTOS (o shift left, O(n)); no buffer circular quem anda são os
@@ -23,30 +23,34 @@ import { createPortal } from "react-dom";
 // fita de cima. Ele existe para o momento em que o fim passa da última posição
 // e reaparece no zero, que no desenho linear parece um pulo e no anel é só o
 // próximo passo. A legenda usa .tp-legenda, que já é genérica no globals.css.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Op = { tipo: "enq"; valor: string } | { tipo: "deq" };
-type Modo = "ingenua" | "circular";
+type Op = { kind: "enq"; value: string } | { kind: "deq" };
+type Mode = "ingenua" | "circular";
 
-type Passo = {
+type Step = {
   slots: (string | null)[];
-  inicio: number;
-  fim: number;
-  tamanho: number;
-  linha: number;
+  start: number;
+  end: number;
+  size: number;
+  line: number;
   op: number; // índice da operação no roteiro, -1 no passo de preparação
-  foco: number | null; // posição que acabou de ser escrita
-  saiu: number | null; // posição que acabou de ser lida
-  movidos: number[]; // posições que receberam valor no shift left
-  movs: number; // movimentações de elementos acumuladas
-  ultimo: string | null; // último valor devolvido pelo desenfileirar
-  alerta?: boolean;
-  nota: string;
+  wroteAt: number | null; // posição que acabou de ser escrita
+  readAt: number | null; // posição que acabou de ser lida
+  moved: number[]; // posições que receberam valor no shift left
+  moves: number; // movimentações de elementos acumuladas
+  last: string | null; // último valor devolvido pelo desenfileirar
+  warn?: boolean;
+  note: string;
 };
 
-// As duas listas mapeiam 1:1 com o campo `linha` de cada passo, então a ordem e
+// As duas listas mapeiam 1:1 com o campo `line` de cada passo, então a ordem e
 // a quantidade de linhas não podem mudar sem ajustar o gerador junto.
-const CODIGO: Record<Modo, string[]> = {
+const CODE: Record<Mode, string[]> = {
   ingenua: [
     "class FilaIngenua:",
     "    def __init__(self, cap):",
@@ -93,188 +97,187 @@ const CODIGO: Record<Modo, string[]> = {
 
 // Linhas de interesse, por modo (as duas implementações desencontram a partir
 // do desenfileirar, que é onde uma tem o laço e a outra não).
-const L: Record<Modo, Record<string, number>> = {
-  ingenua: { init: 3, guardCheia: 6, cheia: 7, escrita: 8, mais: 9, guardVazia: 12, vazia: 13, leitura: 14, shift: 16, menos: 17 },
-  circular: { init: 3, guardCheia: 6, cheia: 7, escrita: 8, mais: 10, guardVazia: 13, vazia: 14, leitura: 15, andaInicio: 16, menos: 17 },
+const L: Record<Mode, Record<string, number>> = {
+  ingenua: { init: 3, guardFull: 6, full: 7, write: 8, inc: 9, guardEmpty: 12, empty: 13, read: 14, shift: 16, dec: 17 },
+  circular: { init: 3, guardFull: 6, full: 7, write: 8, inc: 10, guardEmpty: 13, empty: 14, read: 15, moveStart: 16, dec: 17 },
 };
 
-const VELOCIDADES = [0, 1400, 950, 650, 420, 250];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
-const LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Roteiro compacto: cada letra é um enfileirar, cada "-" é um desenfileirar.
-function roteiroDe(s: string): Op[] {
-  return Array.from(s).map((c) => (c === "-" ? { tipo: "deq" } : { tipo: "enq", valor: c }));
+function scriptOf(s: string): Op[] {
+  return Array.from(s).map((c) => (c === "-" ? { kind: "deq" } : { kind: "enq", value: c }));
 }
 
-function proximaLetra(roteiro: Op[]): string {
+function nextLetter(script: Op[]): string {
   let n = 0;
-  for (const o of roteiro) if (o.tipo === "enq") n++;
-  return LETRAS[n % LETRAS.length];
+  for (const o of script) if (o.kind === "enq") n++;
+  return LETTERS[n % LETTERS.length];
 }
 
-function gerarPassos(roteiro: Op[], cap: number, modo: Modo): Passo[] {
-  const out: Passo[] = [];
+function generateSteps(script: Op[], cap: number, mode: Mode): Step[] {
+  const out: Step[] = [];
   const slots: (string | null)[] = new Array(cap).fill(null);
-  const ln = L[modo];
-  let inicio = 0;
-  let fim = 0;
-  let tamanho = 0;
-  let movs = 0;
-  let ultimo: string | null = null;
+  const ln = L[mode];
+  let start = 0;
+  let end = 0;
+  let size = 0;
+  let moves = 0;
+  let last: string | null = null;
 
-  const reg = (p: { linha: number; op: number; nota: string; foco?: number; saiu?: number; movidos?: number[]; alerta?: boolean }) => {
+  const reg = (p: { line: number; op: number; note: string; wroteAt?: number; readAt?: number; moved?: number[]; warn?: boolean }) => {
     out.push({
       slots: [...slots],
-      inicio,
-      fim,
-      tamanho,
-      movs,
-      ultimo,
-      foco: p.foco ?? null,
-      saiu: p.saiu ?? null,
-      movidos: p.movidos ?? [],
-      linha: p.linha,
+      start,
+      end,
+      size,
+      moves,
+      last,
+      wroteAt: p.wroteAt ?? null,
+      readAt: p.readAt ?? null,
+      moved: p.moved ?? [],
+      line: p.line,
       op: p.op,
-      nota: p.nota,
-      alerta: p.alerta,
+      note: p.note,
+      warn: p.warn,
     });
   };
 
   reg({
-    linha: ln.init,
+    line: ln.init,
     op: -1,
-    nota: `Array de ${cap} posições, nenhuma ocupada: início, fim e tamanho começam todos em 0.`,
+    note: `Array de ${cap} posições, nenhuma ocupada: início, fim e tamanho começam todos em 0.`,
   });
 
-  let guarda = 0;
-  for (let k = 0; k < roteiro.length && guarda++ < 60; k++) {
-    const op = roteiro[k];
+  let guard = 0;
+  for (let k = 0; k < script.length && guard++ < 60; k++) {
+    const op = script[k];
 
-    if (op.tipo === "enq") {
-      if (tamanho === cap) {
+    if (op.kind === "enq") {
+      if (size === cap) {
         reg({
-          linha: ln.cheia,
+          line: ln.full,
           op: k,
-          alerta: true,
-          nota: `Chegou ${op.valor}, mas tamanho (${tamanho}) já bateu na capacidade (${cap}): a fila está cheia. Aqui o guard rail recusa; as outras saídas seriam descartar o mais antigo ou dobrar o array.`,
+          warn: true,
+          note: `Chegou ${op.value}, mas tamanho (${size}) já bateu na capacidade (${cap}): a fila está cheia. Aqui o guard rail recusa; as outras saídas seriam descartar o mais antigo ou dobrar o array.`,
         });
         continue;
       }
       reg({
-        linha: ln.guardCheia,
+        line: ln.guardFull,
         op: k,
-        nota: `Chegou ${op.valor}. tamanho (${tamanho}) ainda é menor que a capacidade (${cap}), então cabe mais um.`,
+        note: `Chegou ${op.value}. tamanho (${size}) ainda é menor que a capacidade (${cap}), então cabe mais um.`,
       });
 
-      const pos = modo === "circular" ? fim : tamanho;
-      const reaproveita = slots[pos] !== null;
-      slots[pos] = op.valor;
+      const pos = mode === "circular" ? end : size;
+      const reused = slots[pos] !== null;
+      slots[pos] = op.value;
       reg({
-        linha: ln.escrita,
+        line: ln.write,
         op: k,
-        foco: pos,
-        nota:
-          modo === "circular"
-            ? `Escrevo ${op.valor} na posição ${pos}, que é exatamente para onde o fim aponta.${
-                reaproveita ? " Essa posição já tinha sido usada e ficou livre, então foi reaproveitada." : ""
+        wroteAt: pos,
+        note:
+          mode === "circular"
+            ? `Escrevo ${op.value} na posição ${pos}, que é exatamente para onde o fim aponta.${
+                reused ? " Essa posição já tinha sido usada e ficou livre, então foi reaproveitada." : ""
               }`
-            : `Escrevo ${op.valor} na posição ${pos}. Na ingênua o fim da fila é sempre o próprio tamanho, então nem preciso de um ponteiro para ele.`,
+            : `Escrevo ${op.value} na posição ${pos}. Na ingênua o fim da fila é sempre o próprio tamanho, então nem preciso de um ponteiro para ele.`,
       });
 
-      if (modo === "circular") {
-        const antigo = fim;
-        fim = (fim + 1) % cap;
-        tamanho++;
+      if (mode === "circular") {
+        const previous = end;
+        end = (end + 1) % cap;
+        size++;
         reg({
-          linha: ln.mais,
+          line: ln.inc,
           op: k,
-          foco: pos,
-          nota: `fim = (${antigo} + 1) % ${cap} = ${fim}${
-            fim === 0 ? ": dei a volta, o fim reaparece na posição 0" : ""
-          }. O tamanho vai para ${tamanho}${tamanho === cap ? " e a fila está cheia" : ""}.`,
+          wroteAt: pos,
+          note: `fim = (${previous} + 1) % ${cap} = ${end}${
+            end === 0 ? ": dei a volta, o fim reaparece na posição 0" : ""
+          }. O tamanho vai para ${size}${size === cap ? " e a fila está cheia" : ""}.`,
         });
       } else {
-        tamanho++;
+        size++;
         reg({
-          linha: ln.mais,
+          line: ln.inc,
           op: k,
-          foco: pos,
-          nota: `O tamanho vai para ${tamanho}${tamanho === cap ? " e a fila está cheia" : ""}. Nenhum elemento se mexeu: enfileirar é O(1) nas duas implementações.`,
+          wroteAt: pos,
+          note: `O tamanho vai para ${size}${size === cap ? " e a fila está cheia" : ""}. Nenhum elemento se mexeu: enfileirar é O(1) nas duas implementações.`,
         });
       }
       continue;
     }
 
     // desenfileirar
-    if (tamanho === 0) {
+    if (size === 0) {
       reg({
-        linha: ln.vazia,
+        line: ln.empty,
         op: k,
-        alerta: true,
-        nota: `Pedi para desenfileirar com tamanho 0: não tem ninguém na fila. Sem esse guard rail eu devolveria lixo de uma posição que nunca foi escrita.`,
+        warn: true,
+        note: `Pedi para desenfileirar com tamanho 0: não tem ninguém na fila. Sem esse guard rail eu devolveria lixo de uma posição que nunca foi escrita.`,
       });
       continue;
     }
     reg({
-      linha: ln.guardVazia,
+      line: ln.guardEmpty,
       op: k,
-      nota: `Vou desenfileirar. tamanho é ${tamanho}, então tem gente na fila e a operação pode acontecer.`,
+      note: `Vou desenfileirar. tamanho é ${size}, então tem gente na fila e a operação pode acontecer.`,
     });
 
-    const lido = modo === "circular" ? inicio : 0;
-    const valor = slots[lido];
+    const readPos = mode === "circular" ? start : 0;
+    const value = slots[readPos];
     reg({
-      linha: ln.leitura,
+      line: ln.read,
       op: k,
-      saiu: lido,
-      nota:
-        modo === "circular"
-          ? `Leio ${valor} da posição ${lido}, onde o início está parado. É o mais antigo da fila, o primeiro que entrou.`
-          : `Leio ${valor} da posição 0. Na ingênua o primeiro da fila é sempre a posição 0, e é isso que vai custar caro daqui a pouco.`,
+      readAt: readPos,
+      note:
+        mode === "circular"
+          ? `Leio ${value} da posição ${readPos}, onde o início está parado. É o mais antigo da fila, o primeiro que entrou.`
+          : `Leio ${value} da posição 0. Na ingênua o primeiro da fila é sempre a posição 0, e é isso que vai custar caro daqui a pouco.`,
     });
 
-    if (modo === "circular") {
-      const antigo = inicio;
-      inicio = (inicio + 1) % cap;
-      tamanho--;
-      ultimo = valor;
+    if (mode === "circular") {
+      const previous = start;
+      start = (start + 1) % cap;
+      size--;
+      last = value;
       reg({
-        linha: ln.andaInicio,
+        line: ln.moveStart,
         op: k,
-        nota: `início = (${antigo} + 1) % ${cap} = ${inicio}${
-          inicio === 0 ? ": o início também dá a volta" : ""
+        note: `início = (${previous} + 1) % ${cap} = ${start}${
+          start === 0 ? ": o início também dá a volta" : ""
         }. Zero elemento se mexeu, só o ponteiro andou.`,
       });
       reg({
-        linha: ln.menos,
+        line: ln.dec,
         op: k,
-        nota: `O tamanho volta para ${tamanho} e eu devolvo ${valor}. Custo do desenfileirar: uma leitura, uma soma e um resto. O(1).`,
+        note: `O tamanho volta para ${size} e eu devolvo ${value}. Custo do desenfileirar: uma leitura, uma soma e um resto. O(1).`,
       });
     } else {
-      const movidos: number[] = [];
-      for (let i = 1; i < tamanho; i++) {
+      const moved: number[] = [];
+      for (let i = 1; i < size; i++) {
         slots[i - 1] = slots[i];
-        movidos.push(i - 1);
+        moved.push(i - 1);
       }
-      movs += Math.max(0, tamanho - 1);
+      moves += Math.max(0, size - 1);
       reg({
-        linha: ln.shift,
+        line: ln.shift,
         op: k,
-        movidos,
-        nota: movidos.length
-          ? `Agora o pedágio: empurro os ${movidos.length} que sobraram uma casa para a esquerda (${movidos
+        moved,
+        note: moved.length
+          ? `Agora o pedágio: empurro os ${moved.length} que sobraram uma casa para a esquerda (${moved
               .map((i) => `${slots[i]} para ${i}`)
-              .join(", ")}). Foram ${movidos.length} movimentações só para tirar um elemento.`
+              .join(", ")}). Foram ${moved.length} movimentações só para tirar um elemento.`
           : `A fila tinha um só, então não sobrou ninguém para empurrar. Esse é o único caso em que o shift sai de graça.`,
       });
-      tamanho--;
-      ultimo = valor;
+      size--;
+      last = value;
       reg({
-        linha: ln.menos,
+        line: ln.dec,
         op: k,
-        nota: `O tamanho volta para ${tamanho} e eu devolvo ${valor}. Repare no resíduo: a última posição ainda guarda uma cópia, e só some quando alguém escrever por cima.`,
+        note: `O tamanho volta para ${size} e eu devolvo ${value}. Repare no resíduo: a última posição ainda guarda uma cópia, e só some quando alguém escrever por cima.`,
       });
     }
   }
@@ -282,232 +285,186 @@ function gerarPassos(roteiro: Op[], cap: number, modo: Modo): Passo[] {
   return out;
 }
 
-type Preset = { key: string; rotulo: string; cap: number; roteiro: string };
+type Preset = { key: string; label: string; cap: number; script: string };
 const PRESETS: Preset[] = [
-  { key: "volta", rotulo: "Dá a volta", cap: 5, roteiro: "ABCD-EF-" },
-  { key: "duas", rotulo: "Duas voltas", cap: 4, roteiro: "ABC-D-E-F-G-" },
-  { key: "cheia", rotulo: "Enche e recusa", cap: 4, roteiro: "ABCDE" },
-  { key: "vazia", rotulo: "Esvazia demais", cap: 4, roteiro: "AB---" },
+  { key: "volta", label: "Dá a volta", cap: 5, script: "ABCD-EF-" },
+  { key: "duas", label: "Duas voltas", cap: 4, script: "ABC-D-E-F-G-" },
+  { key: "cheia", label: "Enche e recusa", cap: 4, script: "ABCDE" },
+  { key: "vazia", label: "Esvazia demais", cap: 4, script: "AB---" },
 ];
 
-const PADRAO = PRESETS[0];
+const DEFAULT_PRESET = PRESETS[0];
 
 // Geometria do anel: cada posição do array vira um ponto da circunferência,
 // com o zero no topo e o índice crescendo no sentido horário.
 const CX = 170;
 const CY = 170;
 const R_SLOT = 108;
-const R_CELULA = 26;
+const R_CELL = 26;
 
-function ponto(i: number, cap: number, raio: number, desvioGraus = 0): [number, number] {
-  const ang = ((-90 + (360 * i) / cap + desvioGraus) * Math.PI) / 180;
-  return [CX + raio * Math.cos(ang), CY + raio * Math.sin(ang)];
+function point(i: number, cap: number, radius: number, offsetDeg = 0): [number, number] {
+  const angle = ((-90 + (360 * i) / cap + offsetDeg) * Math.PI) / 180;
+  return [CX + radius * Math.cos(angle), CY + radius * Math.sin(angle)];
 }
 
 export function QueueVisualizer() {
   // Abre na ingênua de propósito: é a ordem em que o artigo apresenta as duas,
   // e o contador de movimentações só faz sentido depois de ver o shift left.
-  const [modo, setModo] = useState<Modo>("ingenua");
-  const [cap, setCap] = useState(PADRAO.cap);
-  const [roteiro, setRoteiro] = useState<Op[]>(roteiroDe(PADRAO.roteiro));
-  const [preset, setPreset] = useState(PADRAO.key);
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(3);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [mode, setMode] = useState<Mode>("ingenua");
+  const [cap, setCap] = useState(DEFAULT_PRESET.cap);
+  const [script, setScript] = useState<Op[]>(scriptOf(DEFAULT_PRESET.script));
+  const [preset, setPreset] = useState(DEFAULT_PRESET.key);
 
-  useEffect(() => setMounted(true), []);
+  const steps = useMemo(() => generateSteps(script, cap, mode), [script, cap, mode]);
 
-  const passos = useMemo(() => gerarPassos(roteiro, cap, modo), [roteiro, cap, modo]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
+  const viz = useVisualizer({
+    title: "Visualizador · a fila no array: ingênua x buffer circular",
+    total: steps.length,
+    speeds: SPEEDS,
+    // O que muda a altura da peça: o modo (o circular ganha uma quinta ficha de
+    // estatística), a capacidade (as células da fita), o tamanho do roteiro (as
+    // fichas quebram linha) e o número de passos, porque um roteiro vazio gera
+    // UM passo só e aí o rodapé inteiro some.
+    measureOn: [mode, cap, script.length, steps.length],
+  });
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
+  const p = steps[viz.step];
 
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  const reiniciar = useCallback(() => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  }, [parar]);
-
-  const aplicarPreset = (pr: Preset) => {
-    reiniciar();
+  const applyPreset = (pr: Preset) => {
+    viz.reset();
     setPreset(pr.key);
     setCap(pr.cap);
-    setRoteiro(roteiroDe(pr.roteiro));
+    setScript(scriptOf(pr.script));
   };
-  const acrescentar = (op: Op) => {
-    reiniciar();
+  const append = (op: Op) => {
+    viz.reset();
     setPreset("");
-    setRoteiro((r) => (r.length >= 16 ? r : [...r, op]));
+    setScript((r) => (r.length >= 16 ? r : [...r, op]));
   };
-  const desfazer = () => {
-    reiniciar();
+  const undo = () => {
+    viz.reset();
     setPreset("");
-    setRoteiro((r) => r.slice(0, -1));
+    setScript((r) => r.slice(0, -1));
   };
-  const limpar = () => {
-    reiniciar();
+  const clear = () => {
+    viz.reset();
     setPreset("");
-    setRoteiro([]);
+    setScript([]);
   };
-  const trocarCap = (v: string) => {
+  const changeCap = (v: string) => {
     const n = parseInt(v, 10);
     if (isNaN(n)) return;
-    reiniciar();
+    viz.reset();
     setPreset("");
     setCap(Math.min(8, Math.max(3, n)));
   };
-  const trocarModo = (m: Modo) => {
-    reiniciar();
-    setModo(m);
+  const changeMode = (m: Mode) => {
+    viz.reset();
+    setMode(m);
   };
 
   // Uma posição está OCUPADA se pertence à fila lógica agora. Fora disso ela
   // pode estar vazia (nunca escrita) ou guardar um resíduo, um valor que já foi
   // consumido e continua gravado até alguém escrever por cima.
-  const ocupada = (i: number): boolean => {
-    if (p.tamanho === 0) return false;
-    if (modo === "ingenua") return i < p.tamanho;
-    const rel = (i - p.inicio + cap) % cap;
-    return rel < p.tamanho;
+  const occupied = (i: number): boolean => {
+    if (p.size === 0) return false;
+    if (mode === "ingenua") return i < p.size;
+    const rel = (i - p.start + cap) % cap;
+    return rel < p.size;
   };
 
-  const classeDe = (i: number): string => {
+  const classOf = (i: number): string => {
     let cls = "viz-cell";
-    if (ocupada(i)) cls += " in";
+    if (occupied(i)) cls += " in";
     else if (p.slots[i] !== null) cls += " drop fila-fantasma";
     else cls += " fila-vaga";
-    if (p.saiu === i) cls += " sai";
-    if (p.foco === i || p.movidos.includes(i)) cls += " entra";
+    if (p.readAt === i) cls += " sai";
+    if (p.wroteAt === i || p.moved.includes(i)) cls += " entra";
     return cls;
   };
 
-  const marcaDe = (i: number): string => {
-    const ehInicio = i === (modo === "ingenua" ? 0 : p.inicio);
-    const ehFim = i === (modo === "ingenua" ? p.tamanho : p.fim);
-    if (ehInicio && ehFim) return "iní fim";
-    if (ehInicio) return "iní";
-    if (ehFim) return "fim";
+  const markOf = (i: number): string => {
+    const isStart = i === (mode === "ingenua" ? 0 : p.start);
+    const isEnd = i === (mode === "ingenua" ? p.size : p.end);
+    if (isStart && isEnd) return "iní fim";
+    if (isStart) return "iní";
+    if (isEnd) return "fim";
     return "";
   };
 
-  const codigo = CODIGO[modo];
+  const code = CODE[mode];
 
-  const variaveis = [
-    { nome: "inicio", valor: modo === "ingenua" ? "0 (fixo)" : `${p.inicio}` },
-    { nome: "fim", valor: modo === "ingenua" ? `${p.tamanho} (= tamanho)` : `${p.fim}` },
-    { nome: "tamanho", valor: `${p.tamanho} / ${cap}` },
-    { nome: "devolvido", valor: p.ultimo ?? "-", best: true },
+  const vars = [
+    { name: "inicio", value: mode === "ingenua" ? "0 (fixo)" : `${p.start}` },
+    { name: "fim", value: mode === "ingenua" ? `${p.size} (= tamanho)` : `${p.end}` },
+    { name: "tamanho", value: `${p.size} / ${cap}` },
+    { name: "devolvido", value: p.last ?? "-", best: true },
   ];
 
-  const enfileirados = roteiro.filter((o) => o.tipo === "enq").length;
-  const desenfileirados = roteiro.length - enfileirados;
-  const estatisticas = [
-    { k: "cap", rot: "capacidade", val: `${cap}` },
-    { k: "ocup", rot: "ocupadas agora", val: `${p.tamanho}` },
-    { k: "movs", rot: "movimentações de elementos", val: `${p.movs}` },
-    { k: "custo", rot: "custo do desenfileirar", val: modo === "ingenua" ? "O(n)" : "O(1)" },
+  const enqueued = script.filter((o) => o.kind === "enq").length;
+  const dequeued = script.length - enqueued;
+  const stats = [
+    { k: "cap", label: "capacidade", value: `${cap}` },
+    { k: "ocup", label: "ocupadas agora", value: `${p.size}` },
+    { k: "movs", label: "movimentações de elementos", value: `${p.moves}` },
+    { k: "custo", label: "custo do desenfileirar", value: mode === "ingenua" ? "O(n)" : "O(1)" },
   ];
   // No circular, início e fim caindo na mesma posição é o estado ambíguo da
   // seção "cheia ou vazia": só o tamanho desempata, e este card mostra isso
   // acontecendo (no anel, as duas mãos se separam alguns graus para aparecer).
-  if (modo === "circular") {
-    estatisticas.push({
+  if (mode === "circular") {
+    stats.push({
       k: "ambiguo",
-      rot: "início == fim?",
-      val: p.inicio === p.fim ? (p.tamanho === cap ? "sim, e cheia" : "sim, e vazia") : "não",
+      label: "início == fim?",
+      value: p.start === p.end ? (p.size === cap ? "sim, e cheia" : "sim, e vazia") : "não",
     });
   }
 
-  const notaCls = "viz-note" + (p.alerta ? " invalid" : idx === total - 1 ? " ok" : "");
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
+  const noteClass = "viz-note" + (p.warn ? " invalid" : viz.step === steps.length - 1 ? " ok" : "");
 
   // O anel: o mesmo array, dobrado. Quando início e fim caem na mesma posição
   // as duas mãos são desviadas alguns graus para nenhuma sumir atrás da outra.
-  const juntos = modo === "circular" && p.inicio === p.fim;
-  const mao = (i: number, cor: string, desvio: number) => {
-    const [x, y] = ponto(i, cap, R_SLOT - R_CELULA - 3, desvio);
-    const [bx, by] = ponto(i, cap, 30, desvio);
-    const [px, py] = ponto(i, cap, R_SLOT - R_CELULA - 17, desvio);
-    const ang = ((-90 + (360 * i) / cap + desvio) * Math.PI) / 180;
-    const nx = -Math.sin(ang) * 6;
-    const ny = Math.cos(ang) * 6;
+  const together = mode === "circular" && p.start === p.end;
+  const hand = (i: number, color: string, offset: number) => {
+    const [x, y] = point(i, cap, R_SLOT - R_CELL - 3, offset);
+    const [bx, by] = point(i, cap, 30, offset);
+    const [px, py] = point(i, cap, R_SLOT - R_CELL - 17, offset);
+    const angle = ((-90 + (360 * i) / cap + offset) * Math.PI) / 180;
+    const nx = -Math.sin(angle) * 6;
+    const ny = Math.cos(angle) * 6;
     return (
-      <g key={cor}>
-        <line x1={bx} y1={by} x2={px} y2={py} stroke={cor} strokeWidth={2.5} strokeLinecap="round" />
-        <polygon points={`${x},${y} ${px + nx},${py + ny} ${px - nx},${py - ny}`} fill={cor} />
+      <g key={color}>
+        <line x1={bx} y1={by} x2={px} y2={py} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+        <polygon points={`${x},${y} ${px + nx},${py + ny} ${px - nx},${py - ny}`} fill={color} />
       </g>
     );
   };
 
-  const descricaoAnel =
-    modo === "circular"
-      ? `Anel de ${cap} posições. Início na posição ${p.inicio}, fim na posição ${p.fim}, ${p.tamanho} de ${cap} ocupadas.`
-      : `Array de ${cap} posições. O início fica preso na posição 0 e o fim está na posição ${p.tamanho}, com ${p.tamanho} de ${cap} ocupadas.`;
+  const ringDescription =
+    mode === "circular"
+      ? `Anel de ${cap} posições. Início na posição ${p.start}, fim na posição ${p.end}, ${p.size} de ${cap} ocupadas.`
+      : `Array de ${cap} posições. O início fica preso na posição 0 e o fim está na posição ${p.size}, com ${p.size} de ${cap} ocupadas.`;
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a fila no array: ingênua x buffer circular</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  const frame = (
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           <button
-            className={`bigo-chip${modo === "ingenua" ? " on" : ""}`}
-            onClick={() => trocarModo("ingenua")}
-            aria-pressed={modo === "ingenua"}
+            className={`bigo-chip${mode === "ingenua" ? " on" : ""}`}
+            onClick={() => changeMode("ingenua")}
+            aria-pressed={mode === "ingenua"}
           >
-            <span className="sw" style={{ background: modo === "ingenua" ? "#fbbf24" : "#3a4a60" }} />
+            <span className="sw" style={{ background: mode === "ingenua" ? "#fbbf24" : "#3a4a60" }} />
             fila ingênua
           </button>
           <button
-            className={`bigo-chip${modo === "circular" ? " on" : ""}`}
-            onClick={() => trocarModo("circular")}
-            aria-pressed={modo === "circular"}
+            className={`bigo-chip${mode === "circular" ? " on" : ""}`}
+            onClick={() => changeMode("circular")}
+            aria-pressed={mode === "circular"}
           >
-            <span className="sw" style={{ background: modo === "circular" ? "#34d399" : "#3a4a60" }} />
+            <span className="sw" style={{ background: mode === "circular" ? "#34d399" : "#3a4a60" }} />
             buffer circular
           </button>
         </div>
@@ -517,10 +474,10 @@ export function QueueVisualizer() {
             <button
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
-              onClick={() => aplicarPreset(pr)}
+              onClick={() => applyPreset(pr)}
               aria-pressed={preset === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
@@ -528,21 +485,21 @@ export function QueueVisualizer() {
         <div className="viz-inputs">
           <label className="viz-field">
             <span>capacidade</span>
-            <input className="viz-input k" type="number" min={3} max={8} value={cap} onChange={(e) => trocarCap(e.target.value)} />
+            <input className="viz-input k" type="number" min={3} max={8} value={cap} onChange={(e) => changeCap(e.target.value)} />
           </label>
           <div className="viz-field grow">
             <span>roteiro de operações</span>
             <div className="fila-botoes">
-              <button className="viz-btn" onClick={() => acrescentar({ tipo: "enq", valor: proximaLetra(roteiro) })}>
-                + enfileirar {proximaLetra(roteiro)}
+              <button className="viz-btn" onClick={() => append({ kind: "enq", value: nextLetter(script) })}>
+                + enfileirar {nextLetter(script)}
               </button>
-              <button className="viz-btn" onClick={() => acrescentar({ tipo: "deq" })}>
+              <button className="viz-btn" onClick={() => append({ kind: "deq" })}>
                 + desenfileirar
               </button>
-              <button className="viz-btn" disabled={!roteiro.length} onClick={desfazer}>
+              <button className="viz-btn" disabled={!script.length} onClick={undo}>
                 ← desfazer
               </button>
-              <button className="viz-btn" disabled={!roteiro.length} onClick={limpar}>
+              <button className="viz-btn" disabled={!script.length} onClick={clear}>
                 limpar
               </button>
             </div>
@@ -550,57 +507,57 @@ export function QueueVisualizer() {
         </div>
 
         <div className="fila-roteiro">
-          {roteiro.length === 0 && <span className="fila-vazio">roteiro vazio: use os botões acima para montar a sequência</span>}
-          {roteiro.map((o, i) => (
+          {script.length === 0 && <span className="fila-vazio">roteiro vazio: use os botões acima para montar a sequência</span>}
+          {script.map((o, i) => (
             <span key={i} className={`fila-op${i === p.op ? " on" : ""}${i < p.op ? " feito" : ""}`}>
-              {o.tipo === "enq" ? `↓ ${o.valor}` : "↑ deq"}
+              {o.kind === "enq" ? `↓ ${o.value}` : "↑ deq"}
             </span>
           ))}
         </div>
 
         <div className="viz-cells">
           {p.slots.map((v, i) => {
-            const marca = marcaDe(i);
+            const mark = markOf(i);
             return (
               <div className="viz-cell-wrap" key={i}>
                 <span className="viz-cell-idx">{i}</span>
-                <div className={classeDe(i)}>{v ?? "·"}</div>
-                <span className={`viz-mark${marca ? " show" : ""}`}>{marca || "·"}</span>
+                <div className={classOf(i)}>{v ?? "·"}</div>
+                <span className={`viz-mark${mark ? " show" : ""}`}>{mark || "·"}</span>
               </div>
             );
           })}
         </div>
 
         <div className="fila-anel-wrap">
-          <svg className="fila-anel" viewBox="0 0 340 340" role="img" aria-label={descricaoAnel}>
+          <svg className="fila-anel" viewBox="0 0 340 340" role="img" aria-label={ringDescription}>
             <circle cx={CX} cy={CY} r={R_SLOT} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
             {p.slots.map((v, i) => {
-              const [x, y] = ponto(i, cap, R_SLOT);
-              const [ix, iy] = ponto(i, cap, R_SLOT + R_CELULA + 12);
-              const dentro = ocupada(i);
-              const residuo = !dentro && v !== null;
+              const [x, y] = point(i, cap, R_SLOT);
+              const [ix, iy] = point(i, cap, R_SLOT + R_CELL + 12);
+              const inside = occupied(i);
+              const residue = !inside && v !== null;
               return (
                 <g key={i}>
                   <circle
                     cx={x}
                     cy={y}
-                    r={R_CELULA}
-                    fill={dentro ? "rgba(59,130,246,0.18)" : "#0f1826"}
-                    stroke={dentro ? "#3b82f6" : "rgba(255,255,255,0.12)"}
+                    r={R_CELL}
+                    fill={inside ? "rgba(59,130,246,0.18)" : "#0f1826"}
+                    stroke={inside ? "#3b82f6" : "rgba(255,255,255,0.12)"}
                     strokeWidth={1.5}
-                    strokeDasharray={dentro ? undefined : "4 3"}
-                    opacity={residuo ? 0.6 : 1}
+                    strokeDasharray={inside ? undefined : "4 3"}
+                    opacity={residue ? 0.6 : 1}
                   />
                   <text
                     x={x}
                     y={y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    fill={dentro ? "#ffffff" : "#61748c"}
+                    fill={inside ? "#ffffff" : "#61748c"}
                     fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
                     fontSize={17}
                     fontWeight={600}
-                    opacity={residuo ? 0.7 : 1}
+                    opacity={residue ? 0.7 : 1}
                   >
                     {v ?? "·"}
                   </text>
@@ -618,8 +575,8 @@ export function QueueVisualizer() {
                 </g>
               );
             })}
-            {mao(modo === "ingenua" ? 0 : p.inicio, "#3b82f6", juntos ? -7 : 0)}
-            {(modo === "circular" || p.tamanho < cap) && mao(modo === "ingenua" ? p.tamanho : p.fim, "#fbbf24", juntos ? 7 : 0)}
+            {hand(mode === "ingenua" ? 0 : p.start, "#3b82f6", together ? -7 : 0)}
+            {(mode === "circular" || p.size < cap) && hand(mode === "ingenua" ? p.size : p.end, "#fbbf24", together ? 7 : 0)}
             <circle cx={CX} cy={CY} r={4} fill="#4c5f79" />
           </svg>
           <p className="tp-legenda">
@@ -635,109 +592,57 @@ export function QueueVisualizer() {
           </p>
         </div>
 
-        <p className={notaCls}>{p.nota}</p>
+        <p className={noteClass}>{p.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">{modo === "ingenua" ? "fila_ingenua.py" : "fila_circular.py"}</div>
-            <div className="viz-code-body">
-              {codigo.map((txt, i) => (
-                <div key={i} className={`viz-line${i === p.linha ? " on" : ""}`}>
-                  <span className="ln">{i + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          {/* A moldura extra existe para a ALTURA: zerar a trilha da coluna só
+              tira a largura, e a linha do grid continuaria com a altura inteira
+              do código. O `.viz-code-slot` é o truque de grid 1fr→0fr, a única
+              forma de animar altura automática em CSS puro. */}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">{mode === "ingenua" ? "fila_ingenua.py" : "fila_circular.py"}</div>
+              <div className="viz-code-body">
+                {code.map((txt, i) => (
+                  <div key={i} className={`viz-line${i === p.line ? " on" : ""}`}>
+                    <span className="ln">{i + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            {variaveis.map((v) => (
-              <div className="viz-var" key={v.nome}>
-                <span className="viz-var-name">{v.nome}</span>
-                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.valor}</span>
+            {vars.map((v) => (
+              <div className="viz-var" key={v.name}>
+                <span className="viz-var-name">{v.name}</span>
+                <span className={`viz-var-val${v.best ? " best" : ""}`}>{v.value}</span>
               </div>
             ))}
             <p className="fila-resumo">
-              Roteiro com {enfileirados} {enfileirados === 1 ? "entrada" : "entradas"} e {desenfileirados}{" "}
-              {desenfileirados === 1 ? "saída" : "saídas"}. Até aqui, {p.movs}{" "}
-              {p.movs === 1 ? "movimentação de elemento" : "movimentações de elementos"}.
+              Roteiro com {enqueued} {enqueued === 1 ? "entrada" : "entradas"} e {dequeued}{" "}
+              {dequeued === 1 ? "saída" : "saídas"}. Até aqui, {p.moves}{" "}
+              {p.moves === 1 ? "movimentação de elemento" : "movimentações de elementos"}.
             </p>
           </div>
         </div>
 
         <div className="bigo-stats">
-          {estatisticas.map((s) => (
+          {stats.map((s) => (
             <div className="bigo-stat" key={s.k}>
-              <span>{s.rot}</span>
-              <strong>{s.val}</strong>
+              <span>{s.label}</span>
+              <strong>{s.value}</strong>
             </div>
           ))}
         </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.max(0, idx - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso(Math.min(idx + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} />
-        </div>
       </div>
+
+      {/* Fora do corpo de propósito: no expandido é ele que fica parado no pé
+          da janela enquanto o miolo rola. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
+  return viz.inPanel(frame);
 }
