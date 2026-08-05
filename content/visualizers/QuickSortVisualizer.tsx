@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // QuickSortVisualizer, a invariante da partição e o pivô que fica pronto.
@@ -24,35 +25,39 @@ import { createPortal } from "react-dom";
 // motivo diferente: já ordenado, invertido e todos iguais. O quadrático do
 // quick sort não é uma curiosidade teórica, ele mora nas entradas mais comuns
 // que existem, e um preset "aleatório bonitinho" esconderia isso.
+//
+// A casca vem do `useVisualizer`: medição de altura, painel com cabeçalho e
+// controles parados, código recolhível e os controles de reprodução. Aqui fica
+// só o que é DESTE visualizador. Contrato em `content/visualizers/README.md`.
 // ---------------------------------------------------------------------------
 
-type Passo = {
+type Step = {
   arr: number[];
   lo: number;
   hi: number;
   i: number; // fronteira dos menores ou iguais
   j: number; // varredura
-  pivoIdx: number;
+  pivotIdx: number;
   // As faixas da invariante saem do GERADOR, não de uma reconstrução na
   // renderização: só aqui dentro se sabe se a posição j já foi classificada ou
   // se ela ainda está em exame, e reconstruir isso a partir de i e j fazia a
   // faixa contradizer a nota no passo da comparação.
-  particionando: boolean;
-  menorAte: number; // último índice comprovadamente <= pivô
-  maiorAte: number; // último índice comprovadamente > pivô
-  exame: number; // índice sendo examinado agora, ou -1
-  fixos: number[];
-  pilha: string[];
-  comp: number;
-  trocas: number;
-  semEfeito: number;
-  prof: number;
-  linha: number;
-  nota: string;
+  partitioning: boolean;
+  lessUpTo: number; // último índice comprovadamente <= pivô
+  greaterUpTo: number; // último índice comprovadamente > pivô
+  probing: number; // índice sendo examinado agora, ou -1
+  fixed: number[];
+  stack: string[];
+  comparisons: number;
+  swaps: number;
+  noOpSwaps: number;
+  depth: number;
+  line: number;
+  note: string;
   ok?: boolean;
 };
 
-const CODIGO = [
+const CODE = [
   "def quick_sort(a, lo, hi):",
   "    if lo >= hi: return           # 0 ou 1 elemento",
   "    p = particiona(a, lo, hi)",
@@ -70,343 +75,306 @@ const CODIGO = [
   "    return i",
 ];
 
-type Preset = { key: string; rotulo: string; valores: number[]; dica: string };
+type Preset = { key: string; label: string; values: number[]; hint: string };
 
 const PRESETS: Preset[] = [
   {
-    key: "embaralhado",
-    rotulo: "Embaralhado: 5 3 13 1 7 6 21 3",
-    valores: [5, 3, 13, 1, 7, 6, 21, 3],
-    dica: "O caso comum, e o único bom deste conjunto. Acompanhe a faixa de regiões: a região cinza (não vistos) só encolhe, nunca cresce, e quando ela zera o pivô entra no lugar definitivo dele.",
+    key: "shuffled",
+    label: "Embaralhado: 5 3 13 1 7 6 21 3",
+    values: [5, 3, 13, 1, 7, 6, 21, 3],
+    hint: "O caso comum, e o único bom deste conjunto. Acompanhe a faixa de regiões: a região cinza (não vistos) só encolhe, nunca cresce, e quando ela zera o pivô entra no lugar definitivo dele.",
   },
   {
-    key: "ordenado",
-    rotulo: "Já ordenado: 1 2 3 4 5 6 7 8",
-    valores: [1, 2, 3, 4, 5, 6, 7, 8],
-    dica: "O desastre mais famoso do quick sort. Com o pivô fixo no último elemento, o maior valor é sempre o pivô, tudo cai à esquerda dele e a partição direita nasce vazia. Compare a profundidade da recursão com a do preset embaralhado.",
+    key: "sorted",
+    label: "Já ordenado: 1 2 3 4 5 6 7 8",
+    values: [1, 2, 3, 4, 5, 6, 7, 8],
+    hint: "O desastre mais famoso do quick sort. Com o pivô fixo no último elemento, o maior valor é sempre o pivô, tudo cai à esquerda dele e a partição direita nasce vazia. Compare a profundidade da recursão com a do preset embaralhado.",
   },
   {
-    key: "invertido",
-    rotulo: "Ao contrário: 8 7 6 5 4 3 2 1",
-    valores: [8, 7, 6, 5, 4, 3, 2, 1],
-    dica: "O mesmo desastre pelo motivo oposto: o pivô é sempre o menor valor, nada cai à esquerda e a partição esquerda nasce vazia. As duas entradas mais previsíveis do mundo são as duas piores para este pivô.",
+    key: "reversed",
+    label: "Ao contrário: 8 7 6 5 4 3 2 1",
+    values: [8, 7, 6, 5, 4, 3, 2, 1],
+    hint: "O mesmo desastre pelo motivo oposto: o pivô é sempre o menor valor, nada cai à esquerda e a partição esquerda nasce vazia. As duas entradas mais previsíveis do mundo são as duas piores para este pivô.",
   },
   {
-    key: "iguais",
-    rotulo: "Todos iguais: 4 4 4 4 4 4 4 4",
-    valores: [4, 4, 4, 4, 4, 4, 4, 4],
-    dica: "O caso que mais surpreende. Não há nada para ordenar e mesmo assim o algoritmo faz o trabalho quadrático inteiro: como toda comparação passa no <=, a fronteira avança sempre e o pivô termina na última posição. Trocar o <= por < só inverte o lado do desastre.",
+    key: "equal",
+    label: "Todos iguais: 4 4 4 4 4 4 4 4",
+    values: [4, 4, 4, 4, 4, 4, 4, 4],
+    hint: "O caso que mais surpreende. Não há nada para ordenar e mesmo assim o algoritmo faz o trabalho quadrático inteiro: como toda comparação passa no <=, a fronteira avança sempre e o pivô termina na última posição. Trocar o <= por < só inverte o lado do desastre.",
   },
 ];
 
-const VELOCIDADES = [0, 1200, 800, 520, 320, 180];
-const ROTULOS_VEL = ["", "0.5x", "0.75x", "1x", "1.5x", "2x"];
+// Este visualizador anda mais rápido que o padrão do hook: cada passo é uma
+// comparação ou uma troca, e são até 115 deles num preset só.
+const SPEEDS = [0, 1200, 800, 520, 320, 180];
 
-export function gerarPassos(valores: number[]): Passo[] {
-  const a = [...valores];
-  const out: Passo[] = [];
-  let comp = 0;
-  let trocas = 0;
-  let semEfeito = 0;
-  let profMax = 0;
-  const fixos = new Set<number>();
-  const pilha: string[] = [];
+export function generateSteps(values: number[]): Step[] {
+  const a = [...values];
+  const steps: Step[] = [];
+  let comparisons = 0;
+  let swaps = 0;
+  let noOpSwaps = 0;
+  let maxDepth = 0;
+  const fixed = new Set<number>();
+  const stack: string[] = [];
   const base = () => ({
     arr: [...a],
     i: -1,
     j: -1,
-    pivoIdx: -1,
-    particionando: false,
-    menorAte: -1,
-    maiorAte: -1,
-    exame: -1,
-    fixos: [...fixos],
-    pilha: [...pilha],
-    comp,
-    trocas,
-    semEfeito,
-    prof: profMax,
+    pivotIdx: -1,
+    partitioning: false,
+    lessUpTo: -1,
+    greaterUpTo: -1,
+    probing: -1,
+    fixed: [...fixed],
+    stack: [...stack],
+    comparisons,
+    swaps,
+    noOpSwaps,
+    depth: maxDepth,
   });
-  const trocar = (x: number, y: number) => {
-    trocas++;
-    if (x === y) semEfeito++;
+  const swap = (x: number, y: number) => {
+    swaps++;
+    if (x === y) noOpSwaps++;
     else [a[x], a[y]] = [a[y], a[x]];
   };
 
-  out.push({
+  steps.push({
     ...base(),
     lo: 0,
     hi: a.length - 1,
-    linha: 0,
-    nota: `Entrada: ${a.join(", ")}. O quick sort escolhe um pivô, joga os menores para a esquerda dele e os maiores para a direita, e com isso o pivô já fica na posição final. Depois repete nos dois lados.`,
+    line: 0,
+    note: `Entrada: ${a.join(", ")}. O quick sort escolhe um pivô, joga os menores para a esquerda dele e os maiores para a direita, e com isso o pivô já fica na posição final. Depois repete nos dois lados.`,
   });
 
-  const quick = (lo: number, hi: number, prof: number) => {
+  const quick = (lo: number, hi: number, depth: number) => {
     if (lo > hi) return; // intervalo vazio: nem chega a virar quadro de pilha
-    profMax = Math.max(profMax, prof);
+    maxDepth = Math.max(maxDepth, depth);
     if (lo === hi) {
-      fixos.add(lo);
-      out.push({
+      fixed.add(lo);
+      steps.push({
         ...base(),
         lo,
         hi,
-        linha: 1,
+        line: 1,
         ok: true,
-        nota: `Trecho ${lo}..${lo} tem um elemento só (${a[lo]}). Um elemento sozinho já está ordenado, então esta chamada volta sem fazer nada.`,
+        note: `Trecho ${lo}..${lo} tem um elemento só (${a[lo]}). Um elemento sozinho já está ordenado, então esta chamada volta sem fazer nada.`,
       });
       return;
     }
 
-    const pivo = a[hi];
-    out.push({
+    const pivot = a[hi];
+    steps.push({
       ...base(),
       lo,
       hi,
-      pivoIdx: hi,
-      linha: 7,
-      nota: `Chamada no trecho ${lo}..${hi}. Escolho o último elemento como pivô: ${pivo}. Ele é só a referência de comparação por enquanto, e a posição final dele ainda vai ser descoberta.`,
+      pivotIdx: hi,
+      line: 7,
+      note: `Chamada no trecho ${lo}..${hi}. Escolho o último elemento como pivô: ${pivot}. Ele é só a referência de comparação por enquanto, e a posição final dele ainda vai ser descoberta.`,
     });
 
     let i = lo;
-    out.push({
+    steps.push({
       ...base(),
       lo,
       hi,
       i,
-      pivoIdx: hi,
-      particionando: true,
-      menorAte: lo - 1,
-      maiorAte: lo - 1,
-      linha: 8,
-      nota: `A fronteira i começa em ${lo}. A promessa dela é: tudo antes de i já foi visto e é menor ou igual ao pivô. Agora ela está vazia, e a promessa vale de graça.`,
+      pivotIdx: hi,
+      partitioning: true,
+      lessUpTo: lo - 1,
+      greaterUpTo: lo - 1,
+      line: 8,
+      note: `A fronteira i começa em ${lo}. A promessa dela é: tudo antes de i já foi visto e é menor ou igual ao pivô. Agora ela está vazia, e a promessa vale de graça.`,
     });
 
     for (let j = lo; j < hi; j++) {
-      comp++;
-      const cabe = a[j] <= pivo;
-      out.push({
+      comparisons++;
+      const fits = a[j] <= pivot;
+      steps.push({
         ...base(),
         lo,
         hi,
         i,
         j,
-        pivoIdx: hi,
-        particionando: true,
-        menorAte: i - 1,
-        maiorAte: j - 1,
-        exame: j,
-        linha: 10,
-        nota: cabe
-          ? `${a[j]} <= ${pivo}: este elemento pertence ao lado dos menores. Vou trocá-lo com quem está na fronteira e empurrar a fronteira uma casa.`
-          : `${a[j]} > ${pivo}: este elemento fica onde está, do lado dos maiores. A fronteira não anda, e nenhuma escrita acontece.`,
+        pivotIdx: hi,
+        partitioning: true,
+        lessUpTo: i - 1,
+        greaterUpTo: j - 1,
+        probing: j,
+        line: 10,
+        note: fits
+          ? `${a[j]} <= ${pivot}: este elemento pertence ao lado dos menores. Vou trocá-lo com quem está na fronteira e empurrar a fronteira uma casa.`
+          : `${a[j]} > ${pivot}: este elemento fica onde está, do lado dos maiores. A fronteira não anda, e nenhuma escrita acontece.`,
       });
-      if (cabe) {
-        const igual = i === j;
-        const [naFronteira, varrido] = [a[i], a[j]]; // valores ANTES da troca
-        trocar(i, j);
-        out.push({
+      if (fits) {
+        const same = i === j;
+        const [atBoundary, scanned] = [a[i], a[j]]; // valores ANTES da troca
+        swap(i, j);
+        steps.push({
           ...base(),
           lo,
           hi,
           i,
           j,
-          pivoIdx: hi,
-          particionando: true,
-          menorAte: i,
-          maiorAte: j,
-          linha: 11,
-          nota: igual
+          pivotIdx: hi,
+          partitioning: true,
+          lessUpTo: i,
+          greaterUpTo: j,
+          line: 11,
+          note: same
             ? `Troca da posição ${i} com ela mesma: quando nenhum elemento maior apareceu ainda, i e j andam colados. O esquema de Lomuto faz muito disso, e é um dos motivos de ele perder em número de escritas para outros esquemas de partição.`
-            : `${varrido} sai da posição ${j} e vai para a fronteira, em ${i}; ${naFronteira} faz o caminho inverso. Repare que ${naFronteira} era maior que o pivô: ele só mudou de casa dentro da região dos maiores, e continua do lado certo.`,
+            : `${scanned} sai da posição ${j} e vai para a fronteira, em ${i}; ${atBoundary} faz o caminho inverso. Repare que ${atBoundary} era maior que o pivô: ele só mudou de casa dentro da região dos maiores, e continua do lado certo.`,
         });
         i++;
-        out.push({
+        steps.push({
           ...base(),
           lo,
           hi,
           i,
           j,
-          pivoIdx: hi,
-          particionando: true,
-          menorAte: i - 1,
-          maiorAte: j,
-          linha: 12,
-          nota: `A fronteira avança para ${i}. Agora as posições ${lo} a ${i - 1} são, todas, menores ou iguais a ${pivo}.`,
+          pivotIdx: hi,
+          partitioning: true,
+          lessUpTo: i - 1,
+          greaterUpTo: j,
+          line: 12,
+          note: `A fronteira avança para ${i}. Agora as posições ${lo} a ${i - 1} são, todas, menores ou iguais a ${pivot}.`,
         });
       }
     }
 
-    const igualFinal = i === hi;
-    trocar(i, hi);
-    fixos.add(i);
+    const sameFinal = i === hi;
+    swap(i, hi);
+    fixed.add(i);
     const p = i;
-    out.push({
+    steps.push({
       ...base(),
       lo,
       hi,
       i,
-      pivoIdx: p,
-      linha: 13,
+      pivotIdx: p,
+      line: 13,
       ok: true,
-      nota: `A varredura acabou e o pivô vai para a fronteira: troco a posição ${i} com a ${hi}. ${
-        igualFinal ? "As duas são a mesma, então nada se move, e mesmo assim " : ""
+      note: `A varredura acabou e o pivô vai para a fronteira: troco a posição ${i} com a ${hi}. ${
+        sameFinal ? "As duas são a mesma, então nada se move, e mesmo assim " : ""
       }A posição ${p} está definitiva: ${a[p]} tem ${p - lo} valores menores ou iguais à esquerda e ${hi - p} maiores à direita, que é exatamente o lugar dele no array ordenado. Ele nunca mais será tocado.`,
     });
 
     // Só entra na pilha o que é de fato chamada pendente: com o pivô na última
     // posição o lado direito nasce vazio, e mostrar "8..7" como algo a resolver
     // faria o painel de chamadas mentir.
-    const temDireita = p < hi;
-    if (temDireita) pilha.push(`${p + 1}..${hi}`);
-    out.push({
+    const hasRight = p < hi;
+    if (hasRight) stack.push(`${p + 1}..${hi}`);
+    steps.push({
       ...base(),
       lo,
       hi,
-      pivoIdx: p,
-      linha: 3,
-      nota: temDireita
+      pivotIdx: p,
+      line: 3,
+      note: hasRight
         ? `Guardo o lado direito (${p + 1}..${hi}, ${hi - p} elemento${hi - p === 1 ? "" : "s"}) para depois e desço no lado esquerdo, ${lo}..${p - 1}, com ${p - lo} elemento${p - lo === 1 ? "" : "s"}.`
         : `O pivô ficou na última posição, então o lado direito nasce vazio: não há nada para guardar. Desço direto no lado esquerdo, ${lo}..${p - 1}, com ${p - lo} elemento${p - lo === 1 ? "" : "s"}. Partição assim, ${p - lo} contra 0, é a definição do pior caso.`,
     });
-    quick(lo, p - 1, prof + 1);
-    if (temDireita) pilha.pop();
-    if (temDireita) {
-      out.push({
+    quick(lo, p - 1, depth + 1);
+    if (hasRight) stack.pop();
+    if (hasRight) {
+      steps.push({
         ...base(),
         lo,
         hi,
-        pivoIdx: p,
-        linha: 4,
-        nota: `Esquerda resolvida. Agora o lado direito, ${p + 1}..${hi}.`,
+        pivotIdx: p,
+        line: 4,
+        note: `Esquerda resolvida. Agora o lado direito, ${p + 1}..${hi}.`,
       });
-      quick(p + 1, hi, prof + 1);
+      quick(p + 1, hi, depth + 1);
     }
   };
 
   quick(0, a.length - 1, 1);
-  for (let k = 0; k < a.length; k++) fixos.add(k);
-  out.push({
+  for (let k = 0; k < a.length; k++) fixed.add(k);
+  steps.push({
     ...base(),
     lo: 0,
     hi: a.length - 1,
-    linha: 1,
+    line: 1,
     ok: true,
-    nota: `Ordenado: ${a.join(", ")}. Foram ${comp} comparações e ${trocas} trocas (${semEfeito} delas de um elemento com ele mesmo), com profundidade máxima de recursão ${profMax}. Nenhum array auxiliar foi criado: o único custo de memória é a pilha de chamadas.`,
+    note: `Ordenado: ${a.join(", ")}. Foram ${comparisons} comparações e ${swaps} trocas (${noOpSwaps} delas de um elemento com ele mesmo), com profundidade máxima de recursão ${maxDepth}. Nenhum array auxiliar foi criado: o único custo de memória é a pilha de chamadas.`,
   });
-  return out;
+  return steps;
 }
 
 export function QuickSortVisualizer() {
-  const [presetKey, setPresetKey] = useState("embaralhado");
-  const [passo, setPasso] = useState(0);
-  const [tocando, setTocando] = useState(false);
-  const [velocidade, setVelocidade] = useState(4);
-  const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => setMounted(true), []);
+  const [presetKey, setPresetKey] = useState("shuffled");
 
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
-  const passos = useMemo(() => gerarPassos(preset.valores), [preset]);
-  const total = passos.length;
-  const idx = Math.min(passo, total - 1);
-  const p = passos[idx];
-  const n = preset.valores.length;
+  const steps = useMemo(() => generateSteps(preset.values), [preset]);
+  const n = preset.values.length;
 
-  const parar = useCallback(() => {
-    if (timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  useEffect(() => () => parar(), [parar]);
-  useEffect(() => {
-    parar();
-    if (!tocando) return;
-    timer.current = setInterval(() => setPasso((s) => (s >= total - 1 ? s : s + 1)), VELOCIDADES[velocidade]);
-    return parar;
-  }, [tocando, velocidade, total, parar]);
-  useEffect(() => {
-    if (tocando && idx >= total - 1) setTocando(false);
-  }, [tocando, idx, total]);
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  const viz = useVisualizer({
+    title: "Visualizador · quick sort: a partição e o pivô que fica pronto",
+    total: steps.length,
+    speeds: SPEEDS,
+    initialSpeed: 4,
+    // O preset é a entrada inteira: ele troca a dica (a prosa mais longa da
+    // peça) e o número de passos. O tamanho do array NÃO entra: os quatro
+    // presets têm oito valores e não há campo para o aluno mudar isso.
+    measureOn: [presetKey],
+  });
 
-  const reiniciar = () => {
-    parar();
-    setTocando(false);
-    setPasso(0);
-  };
-  const trocarPreset = (k: string) => {
-    reiniciar();
+  const s = steps[viz.step];
+
+  const pickPreset = (k: string) => {
+    viz.reset();
     setPresetKey(k);
   };
 
-  const pctPasso = Math.round(((idx + 1) / total) * 100);
-  const fixos = new Set(p.fixos);
+  const fixed = new Set(s.fixed);
 
   // As cinco faixas da invariante, todas vindas do passo. A de "em exame" tem
   // uma posição só e existe porque, no instante da comparação, aquele elemento
   // ainda não pertence a nenhum dos dois lados.
-  const regioes: { de: number; ate: number; cls: string; txt: string }[] = [];
-  if (p.particionando) {
-    const primeiroNaoVisto = (p.exame >= 0 ? p.exame : p.maiorAte) + 1;
-    if (p.menorAte >= p.lo) regioes.push({ de: p.lo, ate: p.menorAte, cls: "menor", txt: "<= pivô" });
-    if (p.maiorAte > p.menorAte) regioes.push({ de: p.menorAte + 1, ate: p.maiorAte, cls: "maior", txt: "> pivô" });
-    if (p.exame >= 0) regioes.push({ de: p.exame, ate: p.exame, cls: "exame", txt: "em exame" });
-    if (p.hi - 1 >= primeiroNaoVisto) regioes.push({ de: primeiroNaoVisto, ate: p.hi - 1, cls: "naovisto", txt: "não vistos" });
-    regioes.push({ de: p.hi, ate: p.hi, cls: "pivo", txt: "pivô" });
+  //
+  // `cls` é nome de classe do CSS compartilhado (`.ms-seg.menor`,
+  // `.ms-seg.naovisto`, ...), não identificador: traduzir estes valores apagaria
+  // a cor das faixas sem o `tsc`, o guarda de idioma ou um teste acusarem.
+  const regions: { from: number; to: number; cls: string; text: string }[] = [];
+  if (s.partitioning) {
+    const firstUnseen = (s.probing >= 0 ? s.probing : s.greaterUpTo) + 1;
+    if (s.lessUpTo >= s.lo) regions.push({ from: s.lo, to: s.lessUpTo, cls: "menor", text: "<= pivô" });
+    if (s.greaterUpTo > s.lessUpTo) regions.push({ from: s.lessUpTo + 1, to: s.greaterUpTo, cls: "maior", text: "> pivô" });
+    if (s.probing >= 0) regions.push({ from: s.probing, to: s.probing, cls: "exame", text: "em exame" });
+    if (s.hi - 1 >= firstUnseen) regions.push({ from: firstUnseen, to: s.hi - 1, cls: "naovisto", text: "não vistos" });
+    regions.push({ from: s.hi, to: s.hi, cls: "pivo", text: "pivô" });
   }
 
-  const viz = (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · quick sort: a partição e o pivô que fica pronto</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            passo {idx + 1} de {total}
-          </span>
-          <button className="viz-expand" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "✕ Fechar" : "⤢ Expandir"}
-          </button>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz} />
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
               key={pr.key}
               className={`bigo-chip${presetKey === pr.key ? " on" : ""}`}
-              onClick={() => trocarPreset(pr.key)}
+              onClick={() => pickPreset(pr.key)}
               aria-pressed={presetKey === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
 
-        <p className="tt-legenda-arvore">{preset.dica}</p>
+        <p className="tt-legenda-arvore">{preset.hint}</p>
 
         <div className="hp-bloco">
           <div className="tt-painel-tit">
             A invariante da partição <em>o que o algoritmo já sabe sobre cada faixa</em>
           </div>
           <div className="ms-nivel-faixa" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
-            {regioes.length > 0 ? (
-              regioes.map((r) => (
-                <span key={r.cls} className={`ms-seg ${r.cls}`} style={{ gridColumn: `${r.de + 1} / ${r.ate + 2}` }}>
-                  {r.txt}
+            {regions.length > 0 ? (
+              regions.map((r) => (
+                <span key={r.cls} className={`ms-seg ${r.cls}`} style={{ gridColumn: `${r.from + 1} / ${r.to + 2}` }}>
+                  {r.text}
                 </span>
               ))
             ) : (
@@ -416,13 +384,13 @@ export function QuickSortVisualizer() {
             )}
           </div>
           <div className="hp-arr" style={{ marginTop: 8 }}>
-            {p.arr.map((v, k) => {
+            {s.arr.map((v, k) => {
               const cls = ["hp-cel"];
-              if (fixos.has(k)) cls.push("fixo");
-              else if (k < p.lo || k > p.hi) cls.push("fantasma");
-              if (k === p.pivoIdx) cls.push("pivo");
-              else if (k === p.j) cls.push("par");
-              else if (k === p.i) cls.push("alvo");
+              if (fixed.has(k)) cls.push("fixo");
+              else if (k < s.lo || k > s.hi) cls.push("fantasma");
+              if (k === s.pivotIdx) cls.push("pivo");
+              else if (k === s.j) cls.push("par");
+              else if (k === s.i) cls.push("alvo");
               return (
                 <span key={k} className={cls.join(" ")}>
                   <i>{k}</i>
@@ -433,37 +401,39 @@ export function QuickSortVisualizer() {
           </div>
         </div>
 
-        <p className={"viz-note" + (p.ok ? " ok" : "")}>{p.nota}</p>
+        <p className={"viz-note" + (s.ok ? " ok" : "")}>{s.note}</p>
 
         <div className="viz-split">
-          <div className="viz-code">
-            <div className="viz-code-head">quick_sort.py</div>
-            <div className="viz-code-body">
-              {CODIGO.map((txt, k) => (
-                <div key={k} className={`viz-line${k === p.linha ? " on" : ""}`}>
-                  <span className="ln">{k + 1}</span>
-                  {txt}
-                </div>
-              ))}
+          <div className="viz-code-slot">
+            <div className="viz-code" {...viz.blockProps}>
+              <div className="viz-code-head">quick_sort.py</div>
+              <div className="viz-code-body">
+                {CODE.map((txt, k) => (
+                  <div key={k} className={`viz-line${k === s.line ? " on" : ""}`}>
+                    <span className="ln">{k + 1}</span>
+                    {txt}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="viz-vars">
+          <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
             <div className="viz-var">
               <span className="viz-var-name">trecho ativo</span>
               <span className="viz-var-val best">
-                {p.lo}..{p.hi}
+                {s.lo}..{s.hi}
               </span>
             </div>
             <div className="viz-var">
               <span className="viz-var-name">i (fronteira) / j (varre)</span>
               <span className="viz-var-val">
-                {p.i >= 0 ? p.i : "-"} / {p.j >= 0 ? p.j : "-"}
+                {s.i >= 0 ? s.i : "-"} / {s.j >= 0 ? s.j : "-"}
               </span>
             </div>
             <div className="viz-var">
               <span className="viz-var-name">chamadas esperando</span>
-              <span className="viz-var-val">{p.pilha.length > 0 ? p.pilha.join(" ") : "nenhuma"}</span>
+              <span className="viz-var-val">{s.stack.length > 0 ? s.stack.join(" ") : "nenhuma"}</span>
             </div>
           </div>
         </div>
@@ -471,69 +441,20 @@ export function QuickSortVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>comparações</span>
-            <strong>{p.comp}</strong>
+            <strong>{s.comparisons}</strong>
           </div>
           <div className="bigo-stat">
             <span>trocas executadas</span>
-            <strong>{p.trocas}</strong>
+            <strong>{s.swaps}</strong>
           </div>
           <div className="bigo-stat">
             <span>trocas sem efeito</span>
-            <strong>{p.semEfeito}</strong>
+            <strong>{s.noOpSwaps}</strong>
           </div>
           <div className="bigo-stat">
             <span>profundidade da recursão</span>
-            <strong>{p.prof}</strong>
+            <strong>{s.depth}</strong>
           </div>
-        </div>
-
-        <div className="viz-controls">
-          <button className="viz-btn" title="Reiniciar" onClick={reiniciar}>
-            ↺
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === 0}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso((s) => Math.max(0, s - 1));
-            }}
-          >
-            ‹ Anterior
-          </button>
-          <button
-            className="viz-play"
-            onClick={() => {
-              if (tocando) {
-                setTocando(false);
-                return;
-              }
-              setPasso(idx >= total - 1 ? 0 : idx);
-              setTocando(true);
-            }}
-          >
-            {tocando ? "❚❚ Pausar" : "▶ Rodar"}
-          </button>
-          <button
-            className="viz-btn"
-            disabled={idx === total - 1}
-            onClick={() => {
-              parar();
-              setTocando(false);
-              setPasso((s) => Math.min(s + 1, total - 1));
-            }}
-          >
-            Próximo ›
-          </button>
-          <div className="viz-speed">
-            <span>Velocidade</span>
-            <input type="range" min={1} max={5} step={1} value={velocidade} onChange={(e) => setVelocidade(parseInt(e.target.value, 10))} />
-            <span className="val">{ROTULOS_VEL[velocidade]}</span>
-          </div>
-        </div>
-        <div className="viz-progress">
-          <div className="viz-progress-fill" style={{ width: `${pctPasso}%` }} />
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
@@ -543,21 +464,8 @@ export function QuickSortVisualizer() {
           do selection sort.
         </p>
       </div>
+
+      <VizFooter viz={viz} />
     </figure>
   );
-
-  if (expanded && mounted) {
-    return createPortal(
-      <div
-        className="viz-overlay"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setExpanded(false);
-        }}
-      >
-        {viz}
-      </div>,
-      document.body
-    );
-  }
-  return viz;
 }
