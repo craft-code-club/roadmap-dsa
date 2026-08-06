@@ -40,6 +40,12 @@ type Step = {
   line: number;
   note: string;
   ok?: boolean;
+  /**
+   * O último passo, empilhado DEPOIS do laço: é o resumo, não uma rodada. O
+   * `gap` dele vale 0 (o laço só termina quando ele zera), então tudo que fala
+   * de rodada precisa perguntar por este campo antes de mostrar o número.
+   */
+  summary?: boolean;
 };
 
 const CODE = [
@@ -212,6 +218,7 @@ export function generateSteps(values: number[]): Step[] {
     ...base(),
     line: 11,
     ok: true,
+    summary: true,
     note: `Ordenado: ${a.join(", ")}. Foram ${comparisons} comparações e ${writes} escritas, sem nenhuma memória extra. A única diferença para o insertion sort é a constante 1 ter virado a variável gap.`,
   });
   return out;
@@ -268,12 +275,19 @@ export function ShellSortVisualizer() {
             (`.hs-fase.f-fim` pinta a borda e o selo de verde, `.f-ordenar` de
             âmbar), compartilhado com o heap sort. Traduzir estes dois literais
             apagaria a cor sem o `tsc`, o guarda de idioma ou um teste acusarem. */}
-        <div className={`hs-fase ${s.gap === 1 ? "f-fim" : "f-ordenar"}`}>
-          <span className="hs-fase-selo">gap {s.gap}</span>
+        {/* O passo do resumo não é uma rodada: o `gap` dele é 0, porque o laço
+            `while gap > 0` já terminou. O selo diz o que aquele passo é, em vez
+            de anunciar uma rodada de gap 0, e a cor é a mesma do fim (`f-fim`,
+            verde) em vez da de ordenar (`f-ordenar`, âmbar) — pintar de âmbar o
+            array já ordenado é a mesma mentira, só que em cor. */}
+        <div className={`hs-fase ${s.summary || s.gap === 1 ? "f-fim" : "f-ordenar"}`}>
+          <span className="hs-fase-selo">{s.summary ? "ordenado" : `gap ${s.gap}`}</span>
           <span className="hs-fase-txt">
-            {s.gap === 1
-              ? "esta é a última rodada, e ela é o insertion sort puro"
-              : `o array é lido como ${s.gap} subsequências entrelaçadas, uma a cada ${s.gap} posições`}
+            {s.summary
+              ? "acabaram as rodadas de gap: este passo é o resumo da execução"
+              : s.gap === 1
+                ? "esta é a última rodada, e ela é o insertion sort puro"
+                : `o array é lido como ${s.gap} subsequências entrelaçadas, uma a cada ${s.gap} posições`}
           </span>
         </div>
 
@@ -347,7 +361,9 @@ export function ShellSortVisualizer() {
           </div>
           <div className="bigo-stat">
             <span>subsequências deste gap</span>
-            <strong>{s.gap}</strong>
+            {/* No resumo não há rodada, então não há "este gap": o traço é o
+                mesmo que as variáveis usam para "não se aplica aqui". */}
+            <strong>{s.summary ? "-" : s.gap}</strong>
           </div>
         </div>
 

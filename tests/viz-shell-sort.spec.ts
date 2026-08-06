@@ -370,14 +370,36 @@ test.describe("shell sort · o que está escrito na tela", () => {
       "esta é a última rodada, e ela é o insertion sort puro"
     );
 
-    // E o último passo mostra "gap 0", porque o gerador só empilha o estado
-    // final depois de o laço zerar o gap. É comportamento ANTERIOR à casca
-    // (está na `main`), não uma regressão da adaptação: fica afirmado aqui para
-    // deixar de ser mudo, e vai reportado como achado editorial.
+    // O último passo NÃO é uma rodada: o gerador empilha o resumo depois do
+    // `while gap > 0`, com o gap já zerado. Ele mostrava "gap 0" e prometia "0
+    // subsequências entrelaçadas, uma a cada 0 posições" — duas coisas que não
+    // existem —, e ainda pintava de âmbar (`f-ordenar`) um array já ordenado.
+    // Agora o selo diz o que o passo é, e a cor é a do fim.
     await ateOFim(fig);
     await expect(fig.locator(".viz-step")).toHaveText("passo 65 de 65");
-    await expect(fase.locator(".hs-fase-selo")).toHaveText("gap 0");
-    await expect(fase).toHaveClass(/f-ordenar/);
+    await expect(fase.locator(".hs-fase-selo")).toHaveText("ordenado");
+    await expect(fase.locator(".hs-fase-txt")).toHaveText(
+      "acabaram as rodadas de gap: este passo é o resumo da execução"
+    );
+    await expect(fase).toHaveClass(/f-fim/);
+    await expect(fase).not.toHaveClass(/f-ordenar/);
+    // Nenhum "gap 0" sobrou na fase, em lugar nenhum dela.
+    await expect(fase).not.toContainText("gap 0");
+    await expect(fase).not.toContainText("0 subsequências");
+
+    // O cartão que contava subsequências também falava de uma rodada que não
+    // existe. No resumo ele usa o mesmo traço das variáveis vazias.
+    await expect(
+      fig.locator(".bigo-stat").filter({ hasText: "subsequências deste gap" }).locator("strong")
+    ).toHaveText("-");
+
+    // E o painel de VARIÁVEIS continua mostrando 0 de propósito: ali o número é
+    // o valor da variável `gap` do código, e ela é 0 mesmo — é por isso que o
+    // `while gap > 0` terminou. O que era mentira era chamar isso de rodada.
+    await expect(
+      fig.locator(".viz-var").filter({ hasText: "gap" }).locator(".viz-var-val")
+    ).toHaveText("0");
+    await expect(fig.locator(".viz-note")).toContainText("Ordenado: 1, 3, 5, 6, 7, 13, 15, 21");
   });
 
   test("a fita tem oito células em todos os presets, e é por isso que ela não é eixo de altura", async ({ page }) => {
