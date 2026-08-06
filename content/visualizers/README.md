@@ -117,6 +117,13 @@ Três notas de execução, todas medidas:
   protege literais a deixa para trás: em `Omit<Step, "slots" | "desloc">` o
   `"desloc"` precisava virar `"shifts"` junto com o campo. Aqui só o `tsc`
   pegou — o guarda de idioma, por construção, nunca vai pegar;
+- **valor de união que É TEXTO DE TELA**, e o espelho do caso acima. Em
+  `conflict: "linha" | "coluna" | "quadrante"` (`BacktrackingSudoku`) os valores
+  são renderizados crus no painel "regra que barrou": traduzi-los **compila,
+  passa no guarda e troca o que o aluno lê**. A união *parece* identificador e
+  *é* conteúdo — enquanto o sufixo de classe *parece* conteúdo e *é* API. Antes
+  de traduzir uma união, **procure onde os valores dela aparecem**: se algum
+  chega ao JSX sem passar por um mapa, ele é texto de tela;
 - **qualquer literal que vira NOME DE CLASSE é contrato com o CSS**, e esse
   ninguém guarda. Ele passa pelo `tsc` (o tipo continua coerente), pelo guarda
   de idioma (não é texto de tela) e pelo teste (é cor). As três formas medidas,
@@ -375,6 +382,18 @@ passos consecutivos). Só a primeira é altura.
 Medido no `ShellSortVisualizer`: a sequência de gaps é `log₂` e o degrau seguinte
 abriria em 16 elementos — mas a pergunta nem chega a valer, porque cada rodada
 **substitui** a anterior na tela. O `.hs-fase` mede **35px nos 261 estados**.
+
+> **O lado SIM, para saber quando você o encontrou.** O sinal no código é o
+> gerador **acumulando**: `rows: [...rows, novaLinha]` em vez de `rows:
+> [novaLinha]`. Medido no `BinarioDivisoes`, onde a lista de divisões acumula:
+> o `⌈log₂ n⌉` vira geometria a **36px por linha exatos**, de 27px (nenhuma) a
+> 282px (oito), e isso é **255 dos 276px de amplitude** da peça. Aí o pior caso
+> da entrada é real e vale caçar.
+>
+> Dois detalhes que só aparecem medindo esse caso: **quatro controles podem
+> medir três pontos** (201 e 255 dão oito divisões e a mesma altura ao pixel), e
+> **o pico pode ser o penúltimo passo** — o último tem as mesmas oito linhas e
+> uma nota 21px mais curta.
 
 ### Eixo alcançável ainda pode ser eixo com DEGRAUS
 
@@ -732,10 +751,29 @@ os dois passando contra a quebra antes de serem consertados:
 
   A asserção que carrega o sentido é **a posição comparada com ela mesma** — o
   `boundingBox().y` do controle antes e depois de o miolo rolar — e o
-  `toBeInViewport({ ratio: 1 })` entra como complemento, não como prova. É o que
-  os testes bons deste repo já fazem: `headMoveu === 0`, `footMoveu === 0`,
-  `sobraFigura <= 8`. Se o seu teste de camada 1 não tem um desses, ele está
-  aprovando a quebra.
+  `toBeInViewport({ ratio: 1 })` entra como complemento, não como prova.
+
+  **E é MENOS gente trabalhando do que parece.** Contra a quebra canônica, num
+  teste de cinco asserções, **quatro passaram** — medido no `backtracking` e
+  confirmado independentemente no `binary-numbers`:
+
+  | asserção | contra a quebra |
+  |---|---|
+  | o miolo estoura (`scrollHeight - clientHeight > SLACK`) | **passa** |
+  | o miolo rolou (`scrollTop > 0`) | **passa** |
+  | a figura não rola (`sobraFigura <= 8`) | **passa** — o miolo absorve o rodapé |
+  | **o cabeçalho não anda** (`headMoveu === 0`) | **passa** |
+  | **a posição do controle de reprodução, comparada com ela mesma** | **reprova** (−227px, −425px, −488px) |
+
+  As três primeiras são as **premissas** que esta seção manda exigir, e elas
+  continuam certas — elas provam que o teste está medindo a coisa certa, não que
+  a camada funciona. E a do **cabeçalho**, que é a formulação mais natural de "a
+  camada 1 funciona", passa: com o rodapé dentro do miolo o cabeçalho continua
+  parado, porque o defeito é do rodapé.
+
+  **Escreva a asserção do rodapé.** Um teste de camada 1 sem a posição do
+  `▶ Rodar` (ou do controle que a peça tiver) medida antes e depois da rolagem
+  aprova a quebra que a camada existe para impedir.
 
 ---
 
@@ -812,6 +850,16 @@ seção.** O custo não é de adotar a casca: é de **ter um `.viz-foot`**. As t
 primeiras peças pagam porque, mesmo sem linha do tempo, elas têm controles
 próprios no rodapé. As duas últimas não têm rodapé nenhum — `total: 1` **e** sem
 `children` fazem o `VizFooter` sumir inteiro —, e aí a casca **devolve** 4px.
+
+**E o saldo pode ser MUITO negativo quando a peça tem bloco E rodapé.** O
+`BinarioDivisoes` ficou **184px mais baixo** no artigo, e a aritmética mostra que
+não há mecanismo novo: o `.viz-split` cai de 230 para 36px (−194) porque o bloco
+de código sai do fluxo lateral e vai para o `.viz-code-slot`, e o `.viz-foot`
+cobra os +10 de sempre. −194 + 10 = −184.
+
+Ou seja, o `+10` desta seção é o **custo fixo do rodapé**, e o que decide o sinal
+é quanto a camada 3 devolve. Não cite nenhum dos dois números sem medir a sua
+peça: a série já tem +28, +10, −4 e −184.
 
 **São 4px nas duas, em peças sem nenhum parentesco**, em todos os estados e em
 todas as réguas: 10 estados × 3 réguas numa, 7 estados na outra. Repetir o
