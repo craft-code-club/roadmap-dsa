@@ -126,6 +126,22 @@ deploy, e todo PR precisa da aprovação de um mantenedor antes do merge. Deploy
 vem de `--project-name` (no CI, do secret). Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
 `CLOUDFLARE_PROJECT_NAME` (e, para apoiadores, `APOIASE_TOKEN` / `APOIASE_CAMPAIGN_ID`).
 
+## Analytics
+
+- **Google Analytics 4 é opt-in por ambiente.** `src/components/Analytics.tsx` só renderiza o
+  `GoogleAnalytics` do `@next/third-parties` quando `NEXT_PUBLIC_GA_ID` existe; sem a variável ele
+  devolve `null` e nenhum byte do gtag.js é pedido. O workflow injeta o ID **só no build da `main`**
+  (é uma *variable*, `vars.NEXT_PUBLIC_GA_ID`, não um secret: o ID sai no HTML de toda página).
+  Preview de PR, build de fork e `npm run dev` ficam sem analytics — de propósito, para não sujar a
+  propriedade nem medir o desenvolvedor.
+- Não troque o componente do `@next/third-parties` por um `<script>` na mão: o snippet do Google é
+  síncrono e bloqueia o parser; o componente usa `next/script` com `afterInteractive` e cuida da
+  deduplicação entre navegações client-side do App Router.
+- **Google Search Console: a verificação é por DNS**, propriedade de *domínio*, com TXT no
+  Cloudflare — não depende de deploy nem de arquivo no `out/`. `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`
+  (que vira `metadata.verification.google` no layout) é o plano B para quem só tem propriedade de
+  prefixo de URL. As duas variáveis estão documentadas no `.env.example`.
+
 ## Git e CI
 
 - **Conventional Commits** (`feat`, `fix`, `docs`, `ci`, `chore`, ...). Commits atômicos. Ver

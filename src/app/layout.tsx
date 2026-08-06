@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Analytics } from "@/components/Analytics";
 import { ProgressProvider } from "@/components/ProgressProvider";
 import { Shell } from "@/components/Shell";
 import { SITE_URL } from "@/lib/links";
@@ -27,6 +28,16 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+  },
+  // Search Console, método "tag HTML". É o PLANO B: o método recomendado é a
+  // propriedade de domínio com registro TXT no DNS do Cloudflare, que cobre
+  // `dsa.` e qualquer subdomínio, sobrevive a redeploy e não gasta um byte de
+  // HTML. Esta linha existe para quem não tiver acesso ao DNS na hora: setando
+  // `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`, o Next emite
+  // `<meta name="google-site-verification">` em todas as rotas. Sem a variável,
+  // `undefined` não vira meta tag nenhuma.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },
 };
 
@@ -59,6 +70,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ProgressProvider>
           <Shell>{children}</Shell>
         </ProgressProvider>
+        {/* A doc do Next põe este componente como IRMÃO do <body>. Aqui ele fica
+            dentro, no fim: o `<html>` só pode ter <head> e <body> como filhos, e
+            o resultado é o mesmo. No servidor o componente rende `null` (o corte
+            por env acontece no build), e depois da hidratação quem posiciona a
+            tag é o next/script, que a coloca no <head> — a posição no JSX nunca
+            foi a posição no DOM. */}
+        <Analytics />
       </body>
     </html>
   );
