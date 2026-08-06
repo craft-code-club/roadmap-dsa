@@ -31,6 +31,10 @@ import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 // alarga e não sobe — a árvore DOM tem grau 3 e profundidade 4, e é 136px mais
 // alta que a do artigo, que tem grau 3 e profundidade 2. Largura rola sozinha,
 // porque `.tt-arv-wrap` é `overflow-x: auto`.
+//
+// A de diretórios é a demonstração disso: ela tem grau 4 e dez nós, contra grau
+// 3 e nove nós da do artigo, e as duas desenham os mesmos 196px de altura. O
+// quarto filho custou 96px de LARGURA (592 para 688) e zero de altura.
 // ---------------------------------------------------------------------------
 
 type TreeNode = { label: string; children: number[] };
@@ -67,11 +71,18 @@ const TREES: Tree[] = [
     ],
   },
   {
+    // A única das três com grau 4, e é de propósito: é ela que acende a linha
+    // do grau 4 na tabela do fim. A tabela promete "(o desta árvore)" e a
+    // promessa só vale se algum grau desenhado estiver entre os da tabela
+    // (2, 4, 8, 16, 64, 256) — com as três em grau 3, ela nunca acendia.
+    // O quarto filho da raiz é o que menos força o exemplo: uma pasta de
+    // projeto com src, testes, README e .gitignore é o caso comum, e o grau
+    // não mexe na altura do desenho (ver a nota de medição no topo).
     key: "files",
     label: "Uma árvore de diretórios",
     caption: "O exemplo mais honesto de árvore n-ária: uma pasta tem quantos filhos quiser.",
     nodes: [
-      { label: "/projeto", children: [1, 5, 8] },
+      { label: "/projeto", children: [1, 5, 8, 9] },
       { label: "src", children: [2, 3, 4] },
       { label: "app.py", children: [] },
       { label: "util.py", children: [] },
@@ -80,6 +91,7 @@ const TREES: Tree[] = [
       { label: "test_app.py", children: [] },
       { label: "test_db.py", children: [] },
       { label: "README.md", children: [] },
+      { label: ".gitignore", children: [] },
     ],
   },
   {
