@@ -267,6 +267,9 @@ test("array dinâmico: a nota do fim explica a capacidade reservada em portuguê
   await fig.getByRole("button", { name: "capacidade reservada" }).click();
 
   const proximo = fig.getByRole("button", { name: /Próximo/ });
+  // Depois do clique no preset, a leitura única de `isEnabled()` pode devolver
+  // o estado do fim da rodada anterior e pular o laço inteiro.
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
   await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
 

@@ -223,6 +223,10 @@ test.describe("sliding-window · casca adaptativa", () => {
     await expect(economia).toHaveText("0%");
 
     const proximo = painel.getByRole("button", { name: "Próximo ›" });
+    // `isEnabled()` lê UMA vez: se o painel ainda não tiver hidratado o botão, a
+    // leitura devolve o estado velho, o laço não clica e o `toBeDisabled()` do
+    // fim passa sobre esse mesmo estado. A janela tem dois lados.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     // O laço sai calado se o limite estourar. Sem esta linha, os cartões abaixo
     // seriam lidos num passo do meio — e os do passo 1 (1, 1, 0%) são valores
     // plausíveis, então a asserção passaria dizendo o contrário do que afirma.
@@ -266,6 +270,9 @@ test.describe("sliding-window · casca adaptativa", () => {
 
     // E a aula fecha com o mesmo número do campo: 4 + 9 + 2 = 15.
     const proximo = figura.getByRole("button", { name: "Próximo ›" });
+    // Aqui o array acabou de ser reescrito no campo, que é o caso mais claro de
+    // leitura única devolvendo o estado da entrada anterior.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 20 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     await expect(figura.locator(".viz-note")).toHaveText(
@@ -279,6 +286,7 @@ test.describe("sliding-window · casca adaptativa", () => {
     const painel = await abrirPainel(page, JANELA_FIXA);
 
     const proximo = painel.getByRole("button", { name: "Próximo ›" });
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     await expect(painel.locator(".viz-step")).toHaveText("passo 18 de 18");

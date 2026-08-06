@@ -158,6 +158,11 @@ test("Tabelas Hash: os contadores da tela batem com os números do artigo", asyn
   const insercao = page.locator("figure.viz").filter({ hasText: "inserindo chaves numa tabela hash" });
   await insercao.getByRole("button", { name: "Anagramas: o pior caso" }).click();
   const proximo = insercao.getByRole("button", { name: /Próximo/ });
+  // `isEnabled()` lê UMA vez: logo depois de trocar de preset ele ainda pode
+  // devolver o estado desabilitado do fim da rodada anterior, o laço não clica e
+  // o `toBeDisabled()` do fim passa sobre esse mesmo estado velho — a asserção
+  // volta a ser vazia pelo outro lado da janela.
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   // O laço sai CALADO se o limite estourar, e a asserção seguinte roda num passo
   // do meio. Exigir o botão desabilitado é o que transforma "andei até o fim" em
   // fato verificado.
@@ -1032,6 +1037,10 @@ test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async
   const viz = page.locator("figure.viz").first();
   const irAteOFim = async () => {
     const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    // Este helper roda logo depois de trocar a ordem do percurso, que é o caso
+    // exato em que a leitura única de `isEnabled()` devolve o estado da rodada
+    // anterior e o laço inteiro é pulado.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
     // Sem isto o laço sai calado quando o limite estoura e a saída é lida num
     // passo do meio — que, num percurso, é um prefixo válido da lista esperada.
@@ -1165,6 +1174,7 @@ test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ 
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
   await viz.getByRole("button", { name: "remover o topo" }).click();
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
   await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // asserção web-first: reconsulta até a saída completa aparecer
@@ -1203,6 +1213,7 @@ test("heap sort: a fronteira anda e o array sai ordenado", async ({ page }) => {
   await page.goto("/topico/heap-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "heap sort: duas fases no mesmo array" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
   await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // no fim, toda posição está congelada e na ordem crescente
