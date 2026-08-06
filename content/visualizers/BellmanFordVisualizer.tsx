@@ -81,6 +81,13 @@ type Step = {
   note: string;
   ok?: boolean;
   alert?: boolean;
+  /**
+   * A rodada de detecção de ciclo negativo, que roda DEPOIS das V-1. O `round`
+   * dela é V, e V não é uma das V-1: quem mostra rodada precisa perguntar por
+   * este campo antes de escrever o número. E com early exit ele nem é o número
+   * de rodadas que aconteceram — dois dos três presets param na 2.
+   */
+  extraRound?: boolean;
 };
 
 function buildSteps(edges: Edge[]): Step[] {
@@ -139,12 +146,12 @@ function buildSteps(edges: Edge[]): Step[] {
   if (culprit) {
     out.push(snap(V, culprit, true, 10,
       `RODADA EXTRA: a aresta ${LABELS[culprit.from]} → ${LABELS[culprit.to]} AINDA melhora, depois de ${V - 1} rodadas. Isso é impossível num grafo sadio, porque nenhum caminho mínimo usa mais de ${V - 1} arestas. A única explicação é ciclo negativo: dar mais uma volta barateia para sempre, e o mínimo não existe.`,
-      { alert: true }));
+      { alert: true, extraRound: true }));
   } else {
     const summary = LABELS.map((l, i) => `${l}=${dist[i] === null ? "∞" : dist[i]}`).join("  ");
     out.push(snap(V, null, false, 12,
       `RODADA EXTRA: nenhuma aresta melhora, então não existe ciclo negativo e a resposta é final. Distâncias a partir de ${LABELS[0]}: ${summary}.`,
-      { ok: true }));
+      { ok: true, extraRound: true }));
   }
   return out;
 }
@@ -172,12 +179,19 @@ export function BellmanFordVisualizer() {
   });
 
   const s = steps[viz.step];
+  // A rodada extra não é uma das V-1: ela roda DEPOIS delas, para detectar ciclo
+  // negativo. Mostrar o número dela ao lado do total dava "rodada 5 de 4", e com
+  // early exit (dois dos três presets param na rodada 2) o próprio 5 era falso.
+  // O rótulo passa a nomear a rodada em vez de numerá-la.
+  const roundLabel = s.extraRound ? "extra" : String(s.round);
 
   return viz.inPanel(
     <figure {...viz.figureProps} style={{ margin: 0 }}>
-      {/* A rodada continua à esquerda do "passo N de M", que agora é do hook. */}
+      {/* A rodada continua à esquerda do "passo N de M", que agora é do hook. O
+          `·` no fim é obrigatório: é a solução do §9 do contrato para o
+          separador que some quando o `VizHeader` já desenha o contador. */}
       <VizHeader viz={viz}>
-        <span className="viz-step">rodada {s.round} ·</span>
+        <span className="viz-step">rodada {roundLabel} ·</span>
       </VizHeader>
 
       <div {...viz.bodyProps}>
@@ -193,7 +207,7 @@ export function BellmanFordVisualizer() {
         <div className="gr-split">
           <div className="tt-arv-wrap" style={{ margin: 0 }}>
             <svg className="tt-arv" width={300} height={250} viewBox="0 0 300 250" role="img"
-              aria-label={`Grafo dirigido com pesos. Bellman-Ford, rodada ${s.round}. ${s.note}`}>
+              aria-label={`Grafo dirigido com pesos. Bellman-Ford, rodada ${roundLabel}. ${s.note}`}>
               <defs>
                 <marker id="seta-bf" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(59,130,246,0.75)" />
@@ -270,7 +284,7 @@ export function BellmanFordVisualizer() {
           </div>
           <div {...viz.varsProps}>
             <div className="viz-vars-head">Variáveis</div>
-            <div className="viz-var"><span className="viz-var-name">rodada</span><span className="viz-var-val best">{s.round} de {LABELS.length - 1}</span></div>
+            <div className="viz-var"><span className="viz-var-name">rodada</span><span className="viz-var-val best">{s.extraRound ? "extra (detecção)" : `${s.round} de ${LABELS.length - 1}`}</span></div>
             <div className="viz-var"><span className="viz-var-name">arestas por rodada</span><span className="viz-var-val">{preset.edges.length}</span></div>
             <div className="viz-var"><span className="viz-var-name">relaxamentos totais</span><span className="viz-var-val">{(LABELS.length - 1) * preset.edges.length}</span></div>
           </div>
