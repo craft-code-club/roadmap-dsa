@@ -1,0 +1,17 @@
+"use client";
+// LIMITE CONHECIDO, por construção e não por descuido: o guarda compara o
+// CONJUNTO de textos, não onde cada um aparece. Trocar dois campos de lugar
+// mantém o conjunto idêntico e sai verde — medido no `SubTypesVisualizer` com
+// {l.subtitle} e {l.body} invertidos.
+//
+// Quem pega isso é teste que lê RÓTULO E VALOR JUNTOS, no mesmo cartão (§8 do
+// contrato). Esta fixture existe para que o limite fique escrito e testado, em
+// vez de virar surpresa na próxima rodada.
+export function Exemplo({ l }: { l: { subtitle: string; body: string } }) {
+  return (
+    <div className="st-card">
+      <p className="st-sub">{l.body}</p>
+      <p className="st-body">{l.subtitle}</p>
+    </div>
+  );
+}

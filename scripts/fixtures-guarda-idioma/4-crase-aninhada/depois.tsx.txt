@@ -1,0 +1,10 @@
+"use client";
+// Buraco da 3ª versão, medido no `LinkedListFloyd` (a linha abaixo é a dele).
+//
+// As crases desta linha são quatro: abre externa (1), abre interna (2), fecha
+// interna (3), fecha externa (4). Um regex de crase pareia 1-2 e 3-4, então o
+// trecho entre 2 e 3 — que é JUSTAMENTE o texto da tela do template interno —
+// nunca é lido. Trocar ", e " por ", and " ali saía `SUMIRAM: nenhuma`.
+export function passo(total: number, cycle: number) {
+  return `Fase 1. O lento e o rápido começam os dois na cabeça, o nó 0. A lista tem ${total} ${total === 1 ? "nó" : "nós"}${cycle > 0 ? `, and ${cycle} ${cycle === 1 ? "deles forma" : "deles formam"} o ciclo` : ""}.`;
+}
