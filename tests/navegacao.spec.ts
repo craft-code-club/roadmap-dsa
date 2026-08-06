@@ -966,45 +966,91 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 
 // Cobertura de todos os tópicos "ready": em vez de um teste artesanal por
 // página, este bloco garante o contrato que toda página completa precisa
-// cumprir. Ao promover um tópico novo, acrescente o slug aqui.
-const TOPICOS_PRONTOS = [
-  { slug: "big-o", h1: "Notação Big O", vizMin: 2 },
-  { slug: "arrays", h1: "Arrays e Listas", vizMin: 3 },
-  { slug: "strings", h1: "Strings", vizMin: 3 },
-  { slug: "subarray-substring-subsequence-subset", h1: 'Os 4 "sub"', vizMin: 1 },
-  { slug: "two-pointers", h1: "Two Pointers", vizMin: 3 },
-  { slug: "sliding-window", h1: "Sliding Window", vizMin: 3 },
-  { slug: "prefix-sum", h1: "Prefix Sum", vizMin: 2 },
-  { slug: "intervals", h1: "Intervalos", vizMin: 2 },
-  { slug: "hash-table", h1: "Tabelas Hash", vizMin: 2 },
-  { slug: "listas-ligadas", h1: "Listas Encadeadas", vizMin: 3 },
-  { slug: "skip-list", h1: "Skip List", vizMin: 2 },
-  { slug: "pilhas", h1: "Pilhas (Stacks)", vizMin: 3 },
-  { slug: "filas", h1: "Filas e Deques", vizMin: 3 },
-  { slug: "recursao", h1: "Recursão: Fundamentos", vizMin: 2 },
-  { slug: "recursao-funcional", h1: "Recursão: Programação Funcional", vizMin: 2 },
-  { slug: "tree-traversals", h1: "Percursos em Árvore (DFS/BFS)", vizMin: 1 },
-  { slug: "arvores-binarias", h1: "Árvores Binárias", vizMin: 1 },
-  { slug: "n-ary-trees", h1: "Árvores N-árias", vizMin: 1 },
-  { slug: "bst", h1: "Árvore de Busca Binária", vizMin: 1 },
-  { slug: "grafos-intro", h1: "Introdução a Grafos", vizMin: 1 },
-  { slug: "dfs-bfs", h1: "DFS e BFS em Grafos", vizMin: 1 },
-  { slug: "dijkstra", h1: "Dijkstra", vizMin: 1 },
-  { slug: "bellman-ford", h1: "Bellman-Ford", vizMin: 1 },
-  { slug: "a-star", h1: "A* (A Estrela)", vizMin: 1 },
-  { slug: "topological-sort", h1: "Ordenação Topológica", vizMin: 1 },
-  { slug: "mst", h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
-  { slug: "binary-heap", h1: "Binary Heap", vizMin: 2 },
-  { slug: "heap-sort", h1: "Heap Sort", vizMin: 2 },
-  { slug: "busca-binaria", h1: "Busca Binária", vizMin: 3 },
-  { slug: "ordenacao-basica", h1: "Ordenação Básica", vizMin: 3 },
-  { slug: "merge-sort", h1: "Merge Sort", vizMin: 3 },
-  { slug: "quick-sort", h1: "Quick Sort", vizMin: 3 },
-  { slug: "shell-sort", h1: "Shell Sort", vizMin: 3 },
-  { slug: "backtracking", h1: "Backtracking", vizMin: 3 },
-  { slug: "binary-numbers", h1: "Números Binários", vizMin: 3 },
-  { slug: "negative-binary", h1: "Binários Negativos", vizMin: 3 },
-];
+// cumprir. Quatro guardas consomem esta lista — o contrato de página abaixo, os
+// controles de reprodução, o colapso de painel no celular e o overflow no
+// mobile.
+//
+// A LISTA DE SLUGS É DERIVADA de `ALL_TOPICS`, não escrita à mão. Escrita à mão
+// ela envelhece em silêncio: promover um tópico sem lembrar de acrescentá-lo
+// aqui deixa a página nova fora dos QUATRO guardas de uma vez, com o CI verde e
+// nenhum sinal de que faltou alguma coisa. São 11 promoções pela frente.
+//
+// O que continua à mão é a DESCRIÇÃO de cada tópico, e de propósito:
+//
+// - `h1` é conferência independente. Derivá-lo de `t.name` viraria tautologia,
+//   porque a página renderiza `t.name` — o teste passaria a comparar o dado com
+//   ele mesmo e pararia de pegar título trocado;
+// - `vizMin` não existe na fonte: `viz` é o nome de UM visualizador, não a
+//   contagem dos que o MDX de fato instancia.
+const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
+  "big-o": { h1: "Notação Big O", vizMin: 2 },
+  arrays: { h1: "Arrays e Listas", vizMin: 3 },
+  strings: { h1: "Strings", vizMin: 3 },
+  "subarray-substring-subsequence-subset": { h1: 'Os 4 "sub"', vizMin: 1 },
+  "two-pointers": { h1: "Two Pointers", vizMin: 3 },
+  "sliding-window": { h1: "Sliding Window", vizMin: 3 },
+  "prefix-sum": { h1: "Prefix Sum", vizMin: 2 },
+  intervals: { h1: "Intervalos", vizMin: 2 },
+  "hash-table": { h1: "Tabelas Hash", vizMin: 2 },
+  "listas-ligadas": { h1: "Listas Encadeadas", vizMin: 3 },
+  "skip-list": { h1: "Skip List", vizMin: 2 },
+  pilhas: { h1: "Pilhas (Stacks)", vizMin: 3 },
+  filas: { h1: "Filas e Deques", vizMin: 3 },
+  recursao: { h1: "Recursão: Fundamentos", vizMin: 2 },
+  "recursao-funcional": { h1: "Recursão: Programação Funcional", vizMin: 2 },
+  "tree-traversals": { h1: "Percursos em Árvore (DFS/BFS)", vizMin: 1 },
+  "arvores-binarias": { h1: "Árvores Binárias", vizMin: 1 },
+  "n-ary-trees": { h1: "Árvores N-árias", vizMin: 1 },
+  bst: { h1: "Árvore de Busca Binária", vizMin: 1 },
+  "grafos-intro": { h1: "Introdução a Grafos", vizMin: 1 },
+  "dfs-bfs": { h1: "DFS e BFS em Grafos", vizMin: 1 },
+  dijkstra: { h1: "Dijkstra", vizMin: 1 },
+  "bellman-ford": { h1: "Bellman-Ford", vizMin: 1 },
+  "a-star": { h1: "A* (A Estrela)", vizMin: 1 },
+  "topological-sort": { h1: "Ordenação Topológica", vizMin: 1 },
+  mst: { h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
+  "binary-heap": { h1: "Binary Heap", vizMin: 2 },
+  "heap-sort": { h1: "Heap Sort", vizMin: 2 },
+  "busca-binaria": { h1: "Busca Binária", vizMin: 3 },
+  "ordenacao-basica": { h1: "Ordenação Básica", vizMin: 3 },
+  "merge-sort": { h1: "Merge Sort", vizMin: 3 },
+  "quick-sort": { h1: "Quick Sort", vizMin: 3 },
+  "shell-sort": { h1: "Shell Sort", vizMin: 3 },
+  backtracking: { h1: "Backtracking", vizMin: 3 },
+  "binary-numbers": { h1: "Números Binários", vizMin: 3 },
+  "negative-binary": { h1: "Binários Negativos", vizMin: 3 },
+};
+
+// O fallback existe para que um tópico recém-promovido JÁ ENTRE nos quatro
+// guardas, mesmo antes de alguém descrevê-lo: `t.name` é o que a página
+// renderiza e `vizMin: 1` é o piso de qualquer página completa. Quem avisa que
+// falta descrever é o teste logo abaixo, e ele reprova alto.
+const TOPICOS_PRONTOS = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => ({
+  slug: t.slug,
+  h1: DESCRICAO[t.slug]?.h1 ?? t.name,
+  vizMin: DESCRICAO[t.slug]?.vizMin ?? 1,
+}));
+
+test("todo tópico 'ready' está descrito na tabela dos guardas de contrato", () => {
+  const prontos = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => t.slug);
+  const semDescricao = prontos.filter((s) => !DESCRICAO[s]);
+  const descritosDeMais = Object.keys(DESCRICAO).filter((s) => !prontos.includes(s));
+
+  // Promoveu um tópico? Ele já está rodando nos quatro guardas pelo fallback.
+  // O que falta é o `h1` e o `vizMin` de verdade, que são a parte que o dado
+  // não tem: sem eles, o contrato daquela página é o piso e não o dela.
+  expect(
+    semDescricao,
+    "tópicos promovidos a 'ready' sem entrada em DESCRICAO (acrescente h1 e vizMin)"
+  ).toEqual([]);
+  // E o contrário: entrada que sobrou aponta slug renomeado ou tópico que
+  // voltou para 'soon', e vira teste que nunca mais visita página nenhuma.
+  expect(
+    descritosDeMais,
+    "entradas de DESCRICAO que não correspondem a nenhum tópico 'ready'"
+  ).toEqual([]);
+  expect(TOPICOS_PRONTOS).toHaveLength(prontos.length);
+});
 
 for (const t of TOPICOS_PRONTOS) {
   test(`tópico ${t.slug} entrega artigo, visualizadores e âncoras válidas`, async ({ page }) => {
