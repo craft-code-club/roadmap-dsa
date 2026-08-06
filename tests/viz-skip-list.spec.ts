@@ -147,7 +147,11 @@ test("no expandido da inserção, o Próximo › anda o passo depois da rolagem"
   await expect(painel.locator(".viz-note")).toContainText(
     "42 não é menor que 33: se eu avançasse, passaria do ponto. Paro de andar no nível 3."
   );
-  await expect(painel.locator(".viz-var").filter({ hasText: "nivel" }).first()).toContainText("3");
+  // Valor exato no nó do valor: na ficha inteira ("nivel3"), `toContainText("3")`
+  // passa com 13 ou 30, e o nível é o número que a nota acima nomeia.
+  await expect(
+    painel.locator(".viz-var").filter({ hasText: "nivel" }).first().locator(".viz-var-val")
+  ).toHaveText("3");
 });
 
 test("no expandido dos níveis, a pirâmide gigante rola sozinha sob o cabeçalho parado", async ({

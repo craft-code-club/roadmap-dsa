@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
@@ -98,12 +98,18 @@ test("os três visualizadores de Two Pointers têm estado próprio e contam oper
   await page.goto("/topico/two-pointers/");
   const passos = page.locator(".viz-step");
   await page.getByRole("button", { name: /Próximo/ }).first().click();
-  await expect(passos.first()).toContainText("passo 2 de");
-  await expect(passos.nth(1)).toContainText("passo 1 de");
+  // regex ancorada: "passo 2 de" também é prefixo de "passo 20 de", e o número
+  // do passo é justamente o que este teste está afirmando.
+  await expect(passos.first()).toHaveText(/^passo 2 de \d+$/);
+  await expect(passos.nth(1)).toHaveText(/^passo 1 de \d+$/);
   // o preset do encontro fecha em 6 somas contra os 28 pares da força bruta
-  const convergente = page.locator(".viz").first();
+  const convergente = page.locator("figure.viz").filter({ hasText: "ponteiros convergentes" });
   await expect(convergente.getByText("pares na força bruta")).toBeVisible();
-  await expect(convergente.locator(".bigo-stat", { hasText: "pares na força bruta" })).toContainText("28");
+  // O card concatena rótulo e valor num nó só ("pares na força bruta28"), então
+  // `toContainText("28")` passaria com 128. O <strong> guarda só o número.
+  await expect(
+    convergente.locator(".bigo-stat", { hasText: "pares na força bruta" }).locator("strong")
+  ).toHaveText("28");
 });
 
 test("Strings traz os três visualizadores e os números do artigo batem com a tela", async ({ page }) => {
@@ -114,21 +120,27 @@ test("Strings traz os três visualizadores e os números do artigo batem com a t
   await expect(page.getByText("caractere, code point e byte")).toBeVisible();
   await expect(page.getByText("Rotate String, força bruta contra o truque")).toBeVisible();
 
-  // o painel de bytes vem primeiro e abre em CCC: 3 bytes em UTF-8, 6 em UTF-16
-  const bytes = page.locator(".viz").first();
-  await expect(bytes.locator(".str-enc.on .str-enc-val")).toContainText("3 bytes");
+  // As três peças são escolhidas pelo TÍTULO, não pela posição no DOM: `.nth(1)`
+  // amarra o teste à ordem do MDX e passa a testar outra peça se ela mudar.
+  // E o valor sai do <strong>: "3 bytes" é substring de "13 bytes".
+  const stat = (fig: Locator, rot: string) =>
+    fig.locator(".bigo-stat", { hasText: rot }).locator("strong");
+
+  // o painel de bytes abre em CCC: 3 bytes em UTF-8, 6 em UTF-16
+  const bytes = page.locator("figure.viz").filter({ hasText: "caractere, code point e byte" });
+  await expect(bytes.locator(".str-enc.on .str-enc-val")).toHaveText("3 bytes");
   await bytes.getByRole("button", { name: /^UTF-16/ }).click();
-  await expect(bytes.locator(".str-enc.on .str-enc-val")).toContainText("6 bytes");
+  await expect(bytes.locator(".str-enc.on .str-enc-val")).toHaveText("6 bytes");
 
   // o artigo promete 45 cópias com "s = s + c" e 9 com join para CRAFTCODE (n = 9)
-  const montagem = page.locator(".viz").nth(1);
-  await expect(montagem.locator(".bigo-stat", { hasText: "total com s = s + c" })).toContainText("45");
-  await expect(montagem.locator(".bigo-stat", { hasText: "total com join" })).toContainText("9");
+  const montagem = page.locator("figure.viz").filter({ hasText: "o custo de montar uma string" });
+  await expect(stat(montagem, "total com s = s + c")).toHaveText("45");
+  await expect(stat(montagem, "total com join")).toHaveText("9");
 
   // rotate: o preset "caso feliz" acha na 2a rotação, com 18 caracteres copiados
-  const rotate = page.locator(".viz").nth(2);
-  await expect(rotate.locator(".bigo-stat", { hasText: "pior caso com o laço" })).toContainText("45");
-  await expect(rotate.locator(".bigo-stat", { hasText: "pior caso com o truque" })).toContainText("10");
+  const rotate = page.locator("figure.viz").filter({ hasText: "Rotate String, força bruta" });
+  await expect(stat(rotate, "pior caso com o laço")).toHaveText("45");
+  await expect(stat(rotate, "pior caso com o truque")).toHaveText("10");
 
   await expect(page.getByRole("link", { name: "Rotate String", exact: true })).toHaveAttribute("href", /leetcode\.com/);
   await expect(page.getByRole("link", { name: "Longest Palindromic Substring", exact: true })).toHaveAttribute("href", /leetcode\.com/);
@@ -143,15 +155,19 @@ test("Tabelas Hash: os contadores da tela batem com os números do artigo", asyn
   await expect(page.locator(".ht-tab-table tbody tr")).toHaveCount(4);
 
   // o artigo promete: anagramas colidem em 3 e custam 6 comparações
-  const insercao = page.locator(".viz").first();
+  const insercao = page.locator("figure.viz").filter({ hasText: "inserindo chaves numa tabela hash" });
   await insercao.getByRole("button", { name: "Anagramas: o pior caso" }).click();
   const proximo = insercao.getByRole("button", { name: /Próximo/ });
   for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
-  await expect(insercao.locator(".viz-note")).toContainText("3 colisões");
-  await expect(insercao.locator(".viz-note")).toContainText("6 comparações de chave");
+  // A nota inteira, não os dois pedaços: "3 colisões" é substring de "13
+  // colisões" e "6 comparações" de "16 comparações", e os dois números são a
+  // aula do preset. Ler a frase toda ainda pega o fator de carga do lado.
+  await expect(insercao.locator(".viz-note")).toHaveText(
+    "Fim: 4 chaves em 5 buckets, fator de carga 0,80. Deu 3 colisões e 6 comparações de chave no caminho todo."
+  );
 
   // a corrida: com hash bom o pior caso com 1 milhão é 1; com hash ruim, 1 milhão
-  const busca = page.locator(".viz").nth(1);
+  const busca = page.locator("figure.viz").filter({ hasText: "busca linear x busca por hash" });
   const piorHash = busca.locator(".bigo-stat", { hasText: "pior caso · hash com 1 milhão" }).locator("strong");
   await expect(piorHash).toHaveText("1");
   await busca.getByRole("button", { name: /Hash ruim/ }).click();
@@ -174,8 +190,8 @@ test("Sliding Window reúne janela fixa e variável na mesma página", async ({ 
   // as duas instâncias têm estado próprio: avançar uma não mexe na outra
   const passos = page.locator(".viz-step");
   await page.getByRole("button", { name: /Próximo/ }).first().click();
-  await expect(passos.first()).toContainText("passo 2 de");
-  await expect(passos.nth(1)).toContainText("passo 1 de");
+  await expect(passos.first()).toHaveText(/^passo 2 de \d+$/);
+  await expect(passos.nth(1)).toHaveText(/^passo 1 de \d+$/);
   // os problemas das duas variações convivem na mesma lista
   await expect(page.getByRole("link", { name: /Maximum Average Subarray I/ }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Minimum Size Subarray Sum/ }).first()).toBeVisible();
@@ -1218,27 +1234,29 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
 
-  // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear
+  // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear.
+  // O card concatena rótulo e valor num nó só ("comparações até aqui3"), então
+  // `toContainText("3")` passaria com 13 ou 30. O <strong> guarda só o número,
+  // e `toHaveText` exige o valor exato.
   await irAteOFim();
-  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
-  await expect(stat(/^comparações até aqui\d/)).toContainText("3");
-  await expect(stat(/^busca linear gastaria\d/)).toContainText("5");
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
+  await expect(stat(/^comparações até aqui\d/)).toHaveText("3");
+  await expect(stat(/^busca linear gastaria\d/)).toHaveText("5");
   // "descartadas sem ler" não conta a posição do meio, que foi lida. Com 8
   // posições, 3 lidas e 5 descartadas fecham o array inteiro, e é essa
   // invariante que mantém a estatística honesta.
-  await expect(stat(/^descartadas sem ler\d/)).toContainText("5");
+  await expect(stat(/^descartadas sem ler\d/)).toHaveText("5");
 
   // dobrar o array de 8 para 16 acrescenta UMA comparação, não dobra o trabalho
   await viz.getByRole("button", { name: /16 posições/ }).click();
   await irAteOFim();
-  await expect(stat(/^comparações até aqui\d/)).toContainText("4");
+  await expect(stat(/^comparações até aqui\d/)).toHaveText("4");
 
   // num alvo ausente a busca varre o espaço inteiro, então lidas + descartadas
   // tem que fechar exatamente em n
   await viz.getByRole("button", { name: /não existe: 40/ }).click();
   await irAteOFim();
-  const numero = async (rot: RegExp) =>
-    parseInt(((await stat(rot).textContent()) ?? "").replace(/\D+/g, "").slice(-2), 10);
+  const numero = async (rot: RegExp) => parseInt((await stat(rot).innerText()).trim(), 10);
   const lidas = await numero(/^comparações até aqui\d/);
   const cegas = await numero(/^descartadas sem ler\d/);
   expect(lidas + cegas, "toda posição é lida ou descartada, exatamente uma vez").toBe(8);
@@ -1257,8 +1275,10 @@ test("busca binária: a fórmula ingênua do meio estoura o inteiro de 32 bits",
   await viz.getByRole("button", { name: /Alguns passos depois/ }).click();
   await expect(viz.locator(".viz-step")).toHaveText("as duas discordam");
   await expect(viz.locator(".bb-bit.sinal")).toHaveClass(/\bon\b/);
-  await expect(viz.locator(".bb-formula").first().locator("li b").last()).toContainText("-397.483.648");
-  await expect(viz.locator(".bb-formula").nth(1).locator("li b").last()).toContainText("1.750.000.000");
+  // texto exato: "-397.483.648" é substring de "-1.397.483.648", e o sinal e a
+  // magnitude do estouro são a aula inteira desta peça
+  await expect(viz.locator(".bb-formula").first().locator("li b").last()).toHaveText("-397.483.648");
+  await expect(viz.locator(".bb-formula").nth(1).locator("li b").last()).toHaveText("1.750.000.000");
 });
 
 test("fronteira: a mesma busca devolve primeira, última e ponto de inserção", async ({ page }) => {
@@ -1269,34 +1289,38 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
     await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
-    return viz.locator(".bigo-stat").filter({ hasText: rot });
+    // O card concatena rótulo e valor num nó só, então uma asserção de substring
+    // no card inteiro passa com qualquer número que contenha o esperado ("1"
+    // passa com -10). O <strong> guarda só o valor.
+    return viz.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
   };
 
   // [1, 3, 3, 3, 5, 8, 8, 11, 14] procurando 3: bloco nas posições 1, 2 e 3
-  await expect(await resposta(/^primeira ocorrência/)).toContainText("1");
+  await expect(await resposta(/^primeira ocorrência/)).toHaveText("1");
   await viz.getByRole("button", { name: "última ocorrência" }).click();
-  await expect(await resposta(/^última ocorrência/)).toContainText("3");
+  await expect(await resposta(/^última ocorrência/)).toHaveText("3");
 
   // um valor ausente: a busca falha, mas a posição de inserção sai de graça
   await viz.getByRole("button", { name: "onde entraria" }).click();
   await viz.getByRole("button", { name: /não existe: 7/ }).click();
-  await expect(await resposta(/^onde o valor entraria/)).toContainText("5");
+  await expect(await resposta(/^onde o valor entraria/)).toHaveText("5");
   // o retorno negativo é o do caso de FALHA: -(5) - 1
-  const retorno = viz.locator(".bigo-stat").filter({ hasText: /^retorno do Arrays/ });
-  await expect(retorno).toContainText("-6");
+  const retorno = viz.locator(".bigo-stat").filter({ hasText: /^retorno do Arrays/ }).locator("strong");
+  await expect(retorno).toHaveText("-6");
 
   // Regressão: com o alvo PRESENTE o card mostrava o negativo do mesmo jeito,
   // mas aí o Arrays.binarySearch devolve o índice. O 3 existe na posição 1.
+  // `toHaveText("1")` já reprova qualquer negativo, então o `not.toContainText`
+  // que existia aqui virou redundante.
   await viz.getByRole("button", { name: /bloco de três iguais/ }).click();
   await resposta(/^onde o valor entraria/);
-  await expect(retorno).toContainText("1");
-  await expect(retorno).not.toContainText("-");
+  await expect(retorno).toHaveText("1");
 
   // Borda de cima: a esquerda para em 9, que é o tamanho do array e não indexa
   // ninguém. É onde a checagem de existência leria fora do intervalo.
   await viz.getByRole("button", { name: /Maior que tudo/ }).click();
-  await expect(await resposta(/^onde o valor entraria/)).toContainText("9");
-  await expect(retorno).toContainText("-10");
+  await expect(await resposta(/^onde o valor entraria/)).toHaveText("9");
+  await expect(retorno).toHaveText("-10");
 });
 
 test("ordenação básica: o selection sort não tem melhor caso", async ({ page }) => {
@@ -1352,7 +1376,11 @@ test("ordenação básica: as barras batem com o passo a passo e a lei das inver
 
   // preset embaralhado (12 inversões): os números são os mesmos que o
   // visualizador de passo a passo mostra, porque saem do mesmo gerador
-  await expect(corrida.locator(".viz-step")).toContainText("12 inversões");
+  // a linha inteira: "12 inversões" é substring de "112 inversões", e os três
+  // números (inversões, piso e teto) são o que as barras abaixo têm que bater
+  await expect(corrida.locator(".viz-step")).toHaveText(
+    "12 inversões na entrada · piso 7, teto 28 comparações"
+  );
   await expect(barras(0)).toHaveText(["25", "24"]); // bubble: 2 x 12 inversões
   await expect(barras(1)).toHaveText(["28", "12"]); // selection: sempre 28
   await expect(barras(2)).toHaveText(["17", "19"]); // insertion: 12 + 7 colocações
@@ -1416,7 +1444,9 @@ test("merge sort: o custo não depende dos dados, e o empate depende do sinal", 
   await expect(niveis.locator(".ms-nivel")).toHaveCount(5);
   await niveis.getByRole("button", { name: "n = 64" }).click();
   await expect(niveis.locator(".ms-nivel")).toHaveCount(7);
-  await expect(niveis.locator(".viz-step")).toContainText("6 rodadas de intercalação x 64 elementos = 384");
+  await expect(niveis.locator(".viz-step")).toHaveText(
+    "6 rodadas de intercalação x 64 elementos = 384 movimentos"
+  );
 
   // estabilidade: o mesmo merge com <= e com <, e só o segundo inverte empates
   const empate = page.locator("figure.viz").filter({ hasText: "o sinal que decide a estabilidade" });
@@ -1482,13 +1512,23 @@ test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) =
 
   // três vias: com o array constante a faixa dos iguais sai da recursão inteira
   const vias = page.locator("figure.viz").filter({ hasText: "o que fazer com os iguais" });
-  await expect(vias.locator(".ms-op").nth(0)).toContainText("28 comparações · profundidade 8");
-  await expect(vias.locator(".ms-op").nth(1)).toContainText("16 comparações · profundidade 1");
-  await expect(vias.locator(".ms-op").nth(1)).toContainText("nenhum subproblema");
+  // O selo é o nó que guarda só os dois números: no `.ms-op` inteiro,
+  // "28 comparações" passaria com "128 comparações" e "profundidade 1" com
+  // "profundidade 10", que é a diferença entre as duas partições.
+  const selo = (i: number) => vias.locator(".ms-op").nth(i).locator(".bb-formula-selo");
+  await expect(selo(0)).toHaveText("28 comparações · profundidade 8");
+  await expect(selo(1)).toHaveText("16 comparações · profundidade 1");
+  // BUG DE PRODUTO (não é desta lane): o ramo sem subproblema entra no meio da
+  // frase e produz "sobram nenhum subproblema: acabou aqui para a recursão
+  // resolver" — QuickSortTresVias.tsx:186-192. A asserção grava o texto ATUAL,
+  // para que o conserto seja um diff visível em vez de passar despercebido.
+  await expect(vias.locator(".ms-op").nth(1).locator(".bb-formula-fim")).toHaveText(
+    "Depois da primeira partição sobram nenhum subproblema: acabou aqui para a recursão resolver."
+  );
   // sem repetidos ela não é melhor: mesma profundidade e o dobro de comparações
   await vias.getByRole("button", { name: /Sem repetição/ }).click();
-  await expect(vias.locator(".ms-op").nth(0)).toContainText("18 comparações · profundidade 5");
-  await expect(vias.locator(".ms-op").nth(1)).toContainText("35 comparações · profundidade 5");
+  await expect(selo(0)).toHaveText("18 comparações · profundidade 5");
+  await expect(selo(1)).toHaveText("35 comparações · profundidade 5");
 });
 
 test("shell sort: a h-ordenação não se perde e o gap só compensa com n grande", async ({ page }) => {
@@ -1515,7 +1555,7 @@ test("shell sort: a h-ordenação não se perde e o gap só compensa com n grand
   await sub.getByRole("button", { name: "Rodada 3: gap 1" }).click();
   await expect(selos).toHaveText(["4-ordenado: sim", "2-ordenado: sim", "1-ordenado: sim"]);
   // com gap 1 existe uma subsequência só, e ela é o array inteiro
-  await expect(sub.locator(".viz-step")).toContainText("1 subsequência de 8 elementos");
+  await expect(sub.locator(".viz-step")).toHaveText("gap 1 · 1 subsequência de 8 elementos");
 
   // o cruzamento: com 8 elementos o shell sort perde, com 128 ele ganha de longe
   const gaps = page.locator("figure.viz").filter({ hasText: "a partir de que tamanho o gap compensa" });
@@ -1560,8 +1600,14 @@ test("backtracking: escolher, explorar e desfazer, com a lista voltando ao iníc
   await expect(stat(/^soluções encontradas\d/)).toHaveText("8");
   // a invariante: um retrocesso por aresta, ou seja, nós - 1
   await expect(stat(/^retrocessos\d/)).toHaveText("7");
-  // e a solução parcial termina vazia, porque todo escolher teve o seu desfazer
-  await expect(viz.locator(".hp-bloco").first()).toContainText("vazia");
+  // e a solução parcial termina vazia, porque todo escolher teve o seu desfazer.
+  // O bloco é escolhido pelo TÍTULO, não por `.first()`: a peça tem três
+  // `.hp-bloco` (parcial, pilha de chamadas e soluções) e dois deles também
+  // sabem escrever "vazia", então o `.first()` fazia a asserção depender da
+  // ordem no DOM para não estar lendo o painel errado.
+  await expect(
+    viz.locator(".hp-bloco").filter({ hasText: "A solução parcial" }).locator(".bb-array-nota")
+  ).toHaveText("vazia");
 
   // permutações: só as folhas são resposta, então 16 nós para 6 soluções
   await viz.getByRole("button", { name: /Permutações/ }).click();
@@ -1638,8 +1684,12 @@ test("números binários: a soma das posições ligadas e as divisões por 2", a
   for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
   await expect(proximo).toBeDisabled();
   await expect(div.locator(".bigo-stat").filter({ hasText: /^divisões feitas\d/ }).locator("strong")).toHaveText("8");
-  await expect(div.locator(".viz-note")).toContainText("11001001");
-  await expect(div.locator(".viz-note")).toContainText("128 + 64 + 8 + 1 = 201");
+  // A nota inteira: "11001001" é substring de "111001001" e a contagem de
+  // divisões dita a de bits significativos, então os dois números só provam
+  // alguma coisa lidos junto com a frase que os relaciona.
+  await expect(div.locator(".viz-note")).toHaveText(
+    "Cheguei a zero, então acabou: 201 em binário é 11001001. Foram 8 divisões para 8 bits significativos, e os zeros à esquerda entram só para completar o byte. Conferindo pelo outro caminho: 128 + 64 + 8 + 1 = 201."
+  );
 
   // as bases: o mesmo número escrito de quatro formas, e hexa em grupos de 4 bits
   const bases = page.locator("figure.viz").filter({ hasText: "a base é um parâmetro" });
@@ -1663,10 +1713,15 @@ test("binários negativos: complemento de dois, zero único e o padrão sem sina
   await expect(comp.locator(".viz-note")).toContainText("11100110");
   await expect(comp.locator(".viz-note")).toContainText("vai-um sobrando");
 
-  // o zero é o caso que prova a ausência de ambiguidade: o oposto dele é ele
+  // O zero é o caso que prova a ausência de ambiguidade: o oposto dele é ele.
+  // Rótulo e valor no mesmo par, e valor exato: `.nth(2)` dependia da ordem das
+  // três fichas, e `toContainText("0")` passava com 10, -128 ou 0x00 — inclusive
+  // com o número que este teste existe para descartar.
   await comp.getByRole("button", { name: /teste da ambiguidade/ }).click();
   await irAteOFim();
-  await expect(comp.locator(".viz-var").nth(2)).toContainText("0");
+  await expect(
+    comp.locator(".viz-var").filter({ hasText: "em construção (com sinal)" }).locator(".viz-var-val")
+  ).toHaveText("0");
 
   // as três convenções: só o complemento de dois tem um zero e soma zero
   const tres = page.locator("figure.viz").filter({ hasText: "três formas de escrever um negativo" });
