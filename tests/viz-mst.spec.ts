@@ -107,6 +107,10 @@ async function irAoFim(page: Page, raiz: string) {
   const proximo = page.locator(raiz).getByRole("button", { name: "Próximo ›" });
   for (let i = 1; i < total; i++) await proximo.click();
   await expect(page.locator(raiz).locator(".viz-step").last()).toHaveText(`passo ${total} de ${total}`);
+  // O contador diz onde a peça está; o botão desabilitado diz que ela ACABOU.
+  // São afirmações diferentes: um `total` lido errado deixa as duas primeiras
+  // asserções coerentes entre si e erradas em relação à animação.
+  await expect(proximo, "o percurso não chegou ao fim: Próximo continua ativo").toBeDisabled();
   return total;
 }
 

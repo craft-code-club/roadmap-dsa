@@ -158,7 +158,11 @@ test("Tabelas Hash: os contadores da tela batem com os números do artigo", asyn
   const insercao = page.locator("figure.viz").filter({ hasText: "inserindo chaves numa tabela hash" });
   await insercao.getByRole("button", { name: "Anagramas: o pior caso" }).click();
   const proximo = insercao.getByRole("button", { name: /Próximo/ });
+  // O laço sai CALADO se o limite estourar, e a asserção seguinte roda num passo
+  // do meio. Exigir o botão desabilitado é o que transforma "andei até o fim" em
+  // fato verificado.
   for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // A nota inteira, não os dois pedaços: "3 colisões" é substring de "13
   // colisões" e "6 comparações" de "16 comparações", e os dois números são a
   // aula do preset. Ler a frase toda ainda pega o fator de carga do lado.
@@ -1029,6 +1033,9 @@ test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async
   const irAteOFim = async () => {
     const proximo = viz.getByRole("button", { name: "Próximo ›" });
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    // Sem isto o laço sai calado quando o limite estoura e a saída é lida num
+    // passo do meio — que, num percurso, é um prefixo válido da lista esperada.
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
 
   // as quatro sequências da árvore do artigo (raiz 1, esquerda 2 com 4 e 5, direita 3 com 6)
@@ -1159,6 +1166,7 @@ test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ 
   await viz.getByRole("button", { name: "remover o topo" }).click();
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // asserção web-first: reconsulta até a saída completa aparecer
   await expect(viz.locator(".tt-saida-item")).toHaveText(["1", "2", "3", "4", "5", "6"]);
 });
@@ -1196,6 +1204,7 @@ test("heap sort: a fronteira anda e o array sai ordenado", async ({ page }) => {
   const viz = page.locator("figure.viz").filter({ hasText: "heap sort: duas fases no mesmo array" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // no fim, toda posição está congelada e na ordem crescente
   await expect(viz.locator(".hp-cel.fixo")).toHaveCount(10);
   // cada célula concatena índice e valor: posição 0 com o valor 1 lê "01"

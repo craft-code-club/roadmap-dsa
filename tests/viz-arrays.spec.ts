@@ -268,6 +268,7 @@ test("array dinâmico: a nota do fim explica a capacidade reservada em portuguê
 
   const proximo = fig.getByRole("button", { name: /Próximo/ });
   for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
 
   const [atual, total] = await passo(fig);
   expect(atual, "a animação não chegou ao último passo").toBe(total);

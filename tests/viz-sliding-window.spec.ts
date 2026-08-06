@@ -223,7 +223,11 @@ test.describe("sliding-window · casca adaptativa", () => {
     await expect(economia).toHaveText("0%");
 
     const proximo = painel.getByRole("button", { name: "Próximo ›" });
+    // O laço sai calado se o limite estourar. Sem esta linha, os cartões abaixo
+    // seriam lidos num passo do meio — e os do passo 1 (1, 1, 0%) são valores
+    // plausíveis, então a asserção passaria dizendo o contrário do que afirma.
     for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     await expect(painel.locator(".viz-step")).toHaveText("passo 25 de 25");
 
     // [2,3,4,5,6,7,1,9] com k = 3: 6 janelas. A força bruta relê k por janela
@@ -263,6 +267,7 @@ test.describe("sliding-window · casca adaptativa", () => {
     // E a aula fecha com o mesmo número do campo: 4 + 9 + 2 = 15.
     const proximo = figura.getByRole("button", { name: "Próximo ›" });
     for (let i = 0; i < 20 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     await expect(figura.locator(".viz-note")).toHaveText(
       /a maior soma de 3 elementos seguidos é 15/
     );
@@ -275,6 +280,7 @@ test.describe("sliding-window · casca adaptativa", () => {
 
     const proximo = painel.getByRole("button", { name: "Próximo ›" });
     for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
     await expect(painel.locator(".viz-step")).toHaveText("passo 18 de 18");
 
     // [3,6,2,8,1,4,1,5] com k = 3: a janela lê 3 + 2·5 = 13; a força bruta
