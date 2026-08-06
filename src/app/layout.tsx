@@ -70,10 +70,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ProgressProvider>
           <Shell>{children}</Shell>
         </ProgressProvider>
+        {/* A doc do Next põe este componente como IRMÃO do <body>. Aqui ele fica
+            dentro, no fim: o `<html>` só pode ter <head> e <body> como filhos, e
+            o resultado é o mesmo. No servidor o componente rende `null` (o corte
+            por env acontece no build), e depois da hidratação quem posiciona a
+            tag é o next/script, que a coloca no <head> — a posição no JSX nunca
+            foi a posição no DOM. */}
+        <Analytics />
       </body>
-      {/* Irmão do <body>, como a doc do Next manda: o next/script injeta a tag
-          depois da hidratação, então a posição no JSX não é a posição no DOM. */}
-      <Analytics />
     </html>
   );
 }
