@@ -21,3 +21,30 @@
 
 /*/opengraph-image
   Content-Type: image/png
+
+# X-Frame-Options: por que DENY, e por que só ele.
+#
+# O risco aqui NÃO é sequestro de clique: o site é estático, não tem login, não
+# tem formulário e não tem ação destrutiva atrás de um clique. O risco é
+# republicação: envelopar o guia inteiro num iframe de um site com anúncios e
+# servir o nosso conteúdo como se fosse dele. A licença do repositório é
+# PolyForm Noncommercial 1.0.0, e esse uso a contraria. `DENY` é o único
+# cabeçalho que o navegador aplica sem depender de o outro site colaborar.
+#
+# Não quebra nada, e a direção é o que importa: o único iframe do projeto é de
+# SAÍDA (o embed do YouTube em `src/app/topico/[slug]/page.tsx`, que é a nossa
+# página carregando youtube-nocookie.com). `X-Frame-Options` só governa a
+# direção de ENTRADA, isto é, quem pode carregar as NOSSAS respostas dentro de
+# um frame. O embed continua igual.
+#
+# Dois cabeçalhos foram considerados e descartados de propósito, para o arquivo
+# não sugerir proteção nova onde não há:
+#
+# - `X-Content-Type-Options: nosniff` — o Pages já envia, em toda resposta. É o
+#   mesmo `nosniff` que o comentário do topo deste arquivo descreve como o
+#   motivo de as regras de Content-Type existirem.
+# - `Referrer-Policy: strict-origin-when-cross-origin` — é o padrão dos
+#   navegadores desde 2020. Escrever aqui não muda comportamento nenhum.
+
+/*
+  X-Frame-Options: DENY

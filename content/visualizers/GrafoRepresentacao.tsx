@@ -283,14 +283,31 @@ export function GrafoRepresentacao() {
           <div className="bigo-stat"><span>arestas (E)</span><strong>{E} de {maxE}</strong></div>
           <div className="bigo-stat"><span>memória da matriz</span><strong>{matrixCost} células</strong></div>
           <div className="bigo-stat"><span>memória da lista</span><strong>{listCost} entradas</strong></div>
-          <div className="bigo-stat"><span>células em zero</span><strong>{matrixCost - (directed ? E : 2 * E) - V}</strong></div>
+          {/* Sem o `- V` que descontava a diagonal. Ela é DESENHADA: cada
+              célula dela é um botão com `0` dentro (`:250-257`), só com
+              `opacity: .35` — apagada, e perfeitamente legível. Descontá-la
+              fazia o cartão dizer 16 com 22 zeros na tela, e dizer 0 no preset
+              Completo com 6 zeros à vista, logo abaixo de um cartão que cobra
+              as 36 células da matriz.
+
+              Entre mudar o número e mudar o rótulo, o número: é ele que o
+              aluno consegue CONFERIR contando a tela, e é ele que fecha a
+              conta com o cartão vizinho (36 células menos 22 em zero = as 14
+              ocupadas). E a diagonal não é ruído a descontar, é o argumento:
+              são V posições que a matriz reserva para sempre e que nenhuma
+              aresta pode ocupar, porque vértice não é vizinho de si mesmo. O
+              desperdício de V² é o assunto da peça, e essa é a parte dele que
+              nunca tem chance. O rótulo continua "células em zero" porque
+              agora é literalmente isso que o número conta. */}
+          <div className="bigo-stat"><span>células em zero</span><strong>{matrixCost - (directed ? E : 2 * E)}</strong></div>
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
           A matriz custa V² sempre, ligada ou não a aresta. A lista custa{" "}
           {directed ? "V + E (dirigido: cada aresta aparece uma vez só)" : "V + 2E (não dirigido: cada aresta aparece nos dois vizinhos)"},
-          então ela só perde quando o grafo é quase completo. Com 6 vértices a diferença é pequena;
-          com 1 milhão de vértices, a matriz pediria 10¹² células e simplesmente não cabe.
+          e no grafo completo isso dá exatamente V²: os dois empatam, e é o mais caro que a lista
+          chega a ficar. Com 6 vértices a diferença é pequena; com 1 milhão de vértices, a matriz
+          pediria 10¹² células e simplesmente não cabe.
         </p>
       </div>
 

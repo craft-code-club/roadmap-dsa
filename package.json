@@ -11,7 +11,10 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:build": "next build && playwright test",
-    "screenshots": "bash scripts/smoke-screenshots.sh"
+    "screenshots": "bash scripts/smoke-screenshots.sh",
+    "lint": "eslint .",
+    "guarda:commit": "base=${GUARDA_BASE:-origin/main}; git rev-parse --verify -q \"$base\" >/dev/null || { echo \"guarda:commit: a ref base '$base' não existe. Rode 'git fetch' ou aponte outra em GUARDA_BASE (ex.: upstream/main).\" >&2; exit 2; }; test \"$(git rev-list --count \"$base\"..HEAD)\" -gt 0 || { echo \"guarda:commit: 0 commits em $base..HEAD - NADA foi checado.\" >&2; exit 2; }; git log --format=%s \"$base\"..HEAD | python3 scripts/guarda-commit.py",
+    "guarda:idioma": "python3 scripts/guarda-idioma.py"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.0",
@@ -31,6 +34,8 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.2.12",
     "shiki": "^4.4.1",
     "typescript": "^5.7.0"
   }

@@ -1,0 +1,13 @@
+"use client";
+// O contrário do caso 13, com o mesmo atributo e o mesmo valor. `Icone` é
+// componente NOSSO, e componente pode ter prop de rótulo com qualquer nome —
+// nada garante que o `d` daqui seja geometria, e não uma descrição que o aluno
+// lê. Na dúvida o motor devolve TELA, então esta troca REPROVA. Um dia isso vai
+// custar uma linha de ruído a alguém; o defeito que ele evita é o guarda cego.
+import { Icone } from "@/components/Icone";
+
+export function Exemplo() {
+  return (
+    <Icone viewBox="0 0 40 forma" d="M0 zero L20 vinte" className="ic-seta" />
+  );
+}

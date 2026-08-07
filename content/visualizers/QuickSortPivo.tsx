@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
 // ---------------------------------------------------------------------------
 // QuickSortPivo, a escolha que decide se o algoritmo é O(n log n) ou O(n²).
 //
@@ -23,6 +25,16 @@ import { useMemo, useState } from "react";
 //
 // Interativo sem linha do tempo: a variável é a estratégia e a entrada, e o
 // passo a passo do algoritmo é assunto do visualizador principal.
+//
+// Sobre a casca (contrato em `content/visualizers/README.md`):
+//   · `total: 1` — sem linha do tempo. O que resume o estado ("com n = 8,
+//     profundidade 4 é o ideal e 8 é o pior caso") entra como `children` do
+//     `VizHeader`, com o rótulo junto, no lugar do "passo N de M".
+//   · `collapsible: false` — as quatro linhas da corrida SÃO o conteúdo. Não há
+//     bloco dispensável, e por isso `measureOn` também fica de fora.
+//   · as quatro estratégias são constantes do arquivo, e os quatro presets têm
+//     oito elementos cada: a contagem de linhas não é eixo de altura aqui, só a
+//     prosa (a dica do preset e as legendas das barras).
 // ---------------------------------------------------------------------------
 
 type Estrategia = "ultimo" | "primeiro" | "meio" | "mediana3";
@@ -147,6 +159,12 @@ export function QuickSortPivo() {
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
   const n = preset.valores.length;
 
+  const viz = useVisualizer({
+    title: "Visualizador · a escolha do pivô decide entre n log n e n²",
+    total: 1,
+    collapsible: false,
+  });
+
   const linhas = useMemo(
     () => ESTRATEGIAS.map((e) => ({ e, ...rodar(preset.valores, e) })),
     [preset]
@@ -158,21 +176,15 @@ export function QuickSortPivo() {
   const idealProf = Math.ceil(Math.log2(n + 1));
   const piorProf = n;
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a escolha do pivô decide entre n log n e n²</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            com n = {n}, profundidade {idealProf} é o ideal e {piorProf} é o pior caso
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          com n = {n}, profundidade {idealProf} é o ideal e {piorProf} é o pior caso
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
@@ -247,6 +259,9 @@ export function QuickSortPivo() {
           meio da execução, trocando velocidade por uma garantia.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o `VizFooter` não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }

@@ -1,0 +1,11 @@
+"use client";
+// Buraco da 1ª versão do guarda: ela só olhava literais de string, e o rótulo
+// mora num nó de texto JSX. Medido no contador do Big O.
+export function Exemplo({ nums }: { nums: number[] }) {
+  return (
+    <figure className="viz">
+      <span className="viz-var-name">Array (fica ordenado)</span>
+      <span className="viz-var-val">{nums.length}</span>
+    </figure>
+  );
+}

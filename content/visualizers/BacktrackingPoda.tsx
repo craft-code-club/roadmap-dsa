@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
 // ---------------------------------------------------------------------------
 // BacktrackingPoda, a otimização que não muda o algoritmo, muda quando ele
 // desiste.
@@ -22,6 +24,19 @@ import { useMemo, useState } from "react";
 // assunto do visualizador de passo a passo, e aqui o que interessa é o total.
 // Por isso é interativo sem linha do tempo: a variável é o tamanho do
 // tabuleiro.
+//
+// Sobre a casca (contrato em `content/visualizers/README.md`):
+//   · `total: 1` — não há linha do tempo, então somem o contador de passo, os
+//     atalhos e a barra de progresso. O que resume o estado (quantas rainhas,
+//     quantas soluções, a razão) entra como `children` do `VizHeader`, no lugar
+//     onde ficaria o "passo N de M", com o rótulo junto.
+//   · `collapsible: false` — não existe bloco dispensável. O tabuleiro, as
+//     barras e os chips SÃO o conteúdo; inventar um bloco só para ganhar o
+//     botão é o que a §2 do contrato proíbe. Por isso `measureOn` também fica
+//     de fora: sem bloco para recolher não há decisão a medir.
+//   · os chips de tamanho e de solução ficam no MIOLO, não no rodapé: eles não
+//     são reprodução, e com `total: 1` o `VizFooter` sem `children` some
+//     inteiro — que é o caso em que a casca DEVOLVE altura no artigo (§9).
 // ---------------------------------------------------------------------------
 
 type Resultado = { nos: number; solucoes: number[][]; podas: number };
@@ -103,26 +118,26 @@ export function BacktrackingPoda() {
   const com = useMemo(() => comPoda(n), [n]);
   const [qual, setQual] = useState(0);
 
+  const viz = useVisualizer({
+    title: "Visualizador · a poda: mesma resposta, uma fração do trabalho",
+    total: 1,
+    collapsible: false,
+  });
+
   const mesmasSolucoes =
     sem.solucoes.map((s) => s.join(",")).sort().join("|") === com.solucoes.map((s) => s.join(",")).sort().join("|");
   const razao = sem.nos / com.nos;
   const sol = com.solucoes.length > 0 ? com.solucoes[Math.min(qual, com.solucoes.length - 1)] : [];
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a poda: mesma resposta, uma fração do trabalho</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {n} rainhas · {com.solucoes.length} soluções · {razao.toFixed(1)}x menos nós com poda
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {n} rainhas · {com.solucoes.length} soluções · {razao.toFixed(1)}x menos nós com poda
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {TAMANHOS.map((t) => (
             <button
@@ -255,6 +270,10 @@ export function BacktrackingPoda() {
           com um nome diferente: em vez de cortar o ramo impossível, guardar o resultado do ramo já calculado.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o `VizFooter` não desenha nada.
+          Fica declarado para o próximo leitor ver que a ausência é escolha. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }

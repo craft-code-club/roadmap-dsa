@@ -238,9 +238,11 @@ test("no expandido do comparador, o Próximo › anda o passo depois da rolagem"
   await expect(painel.locator(".tr-painel").first().locator(".viz-note")).toContainText(
     "2 frames na pilha, parados, esperando uma resposta que ainda não existe."
   );
+  // Valor no nó do valor: na ficha inteira ("frames · comum2"),
+  // `toContainText("2")` passa com 12 ou 20 — e o número é a aula do passo.
   await expect(
-    painel.locator(".viz-var").filter({ hasText: "frames · comum" })
-  ).toContainText("2");
+    painel.locator(".viz-var").filter({ hasText: "frames · comum" }).locator(".viz-var-val")
+  ).toHaveText("2");
 });
 
 test("em 1512x900 o código do comparador vem recolhido, sob o rótulo certo", async ({ page }) => {
@@ -299,12 +301,14 @@ test("a escolha de mostrar o código do comparador sobrevive a desligar o TCO", 
   // Desligar o TCO está no `measureOn` e muda a peça de verdade: o lado direito
   // passa a empilhar igual ao esquerdo. A medição roda de novo aqui.
   await peca.getByRole("button", { name: "Python, Java, C# (sem TCO)" }).click();
-  await expect(peca.locator(".bigo-stat").filter({ hasText: "espaço extra · de cauda" })).toContainText(
-    "O(n)"
-  );
-  await expect(peca.locator(".bigo-stat").filter({ hasText: "pico de frames · de cauda" })).toContainText(
-    "5"
-  );
+  // O card concatena rótulo e valor num nó só, então o <strong> é quem guarda o
+  // valor: no card inteiro, "5" passa com 15 e "O(n)" com "O(n log n)".
+  await expect(
+    peca.locator(".bigo-stat").filter({ hasText: "espaço extra · de cauda" }).locator("strong")
+  ).toHaveText("O(n)");
+  await expect(
+    peca.locator(".bigo-stat").filter({ hasText: "pico de frames · de cauda" }).locator("strong")
+  ).toHaveText("5");
 
   // "Está aberto agora" não é "continua aberto": amostro ao longo do tempo.
   // Esta é a asserção que carrega o sentido do teste, e por isso vem ANTES da
@@ -360,9 +364,9 @@ test("no expandido, seta e espaço andam o comparador e não roubam a tecla de q
 
   // E o campo continua editável: digitar muda a lista e a peça acompanha.
   await expect(passo).toHaveText("passo 1 de 5");
-  await expect(painel.locator(".bigo-stat").filter({ hasText: "pico de frames · comum" })).toContainText(
-    "3"
-  );
+  await expect(
+    painel.locator(".bigo-stat").filter({ hasText: "pico de frames · comum" }).locator("strong")
+  ).toHaveText("3");
 });
 
 test("com a lista vazia o comparador perde a linha do tempo, e o que fica tem rótulo", async ({
@@ -385,12 +389,12 @@ test("com a lista vazia o comparador perde a linha do tempo, e o que fica tem r�
 
   // O que fica continua dizendo o que é — e é o número que o artigo promete
   // para este preset: 1 frame de pico dos dois lados.
-  await expect(peca.locator(".bigo-stat").filter({ hasText: "pico de frames · comum" })).toContainText(
-    "1"
-  );
-  await expect(peca.locator(".bigo-stat").filter({ hasText: "pico de frames · de cauda" })).toContainText(
-    "1"
-  );
+  await expect(
+    peca.locator(".bigo-stat").filter({ hasText: "pico de frames · comum" }).locator("strong")
+  ).toHaveText("1");
+  await expect(
+    peca.locator(".bigo-stat").filter({ hasText: "pico de frames · de cauda" }).locator("strong")
+  ).toHaveText("1");
   // E o preset segue no miolo, que é como se volta de lá.
   await expect(peca.getByRole("button", { name: "Sete números" })).toBeVisible();
 });

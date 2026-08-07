@@ -1,0 +1,12 @@
+"use client";
+// Texto de tela que não é filho de elemento nem string solta: ele é o valor de
+// um atributo. `aria-label` e `title` são lidos (por leitor de tela e pelo
+// tooltip); `className` e `viewBox` não são. O guarda separa os dois.
+export function Exemplo() {
+  return (
+    <svg className="ll-svg" viewBox="0 0 460 130" role="img">
+      <title>Diagrama da lista com ciclo</title>
+      <circle cx={20} cy={20} r={9} fill="#0f1826" aria-label="head node" />
+    </svg>
+  );
+}

@@ -7,13 +7,17 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // `.viz-step` casa 3 na página e 1 nesta figura, `.viz-note` idem. Por isso
 // todo seletor daqui é escopado na figura, nunca na página.
 //
-// Só o visualizador da partição recebeu a casca, então `figure.viz-fit` o
-// identifica sozinho — e o primeiro teste confere isso em vez de supor.
+// `figure.viz-fit` já identificou esta peça sozinho, e não identifica mais: o
+// comparador de pivôs entrou na casca e o seletor passou a casar 2, derrubando
+// os 8 testes do arquivo por strict mode violation. O seletor daqui agora diz
+// QUAL peça é, e não quantas têm a casca — contar `.viz-fit` é afirmar o
+// cronograma da migração, não o produto.
 
 const SLACK = 8;
 
 /** A figura adaptada, no fluxo do artigo. */
-const figArtigo = (page: Page) => page.locator("article figure.viz-fit");
+const figArtigo = (page: Page) =>
+  page.locator("article figure.viz").filter({ hasText: "quick sort: a partição e o pivô" });
 /** A mesma figura depois de expandida: ela vai para o portal, fora do <article>. */
 const figPainel = (page: Page) => page.locator(".viz-overlay figure.viz-fit");
 
@@ -55,14 +59,18 @@ async function passo(fig: Locator): Promise<{ atual: number; total: number }> {
 }
 
 test.describe("quick sort", () => {
-  test("a figura adaptada é a única com a casca, e os irmãos não contaminam os seletores", async ({
+  test("o seletor acha a peça da partição, e os irmãos não contaminam a leitura", async ({
     page,
   }) => {
     await abrirPagina(page, 1512, 900);
-    // Se um irmão ganhasse a casca, os seletores deste arquivo passariam a
-    // casar com ele e todos os outros testes mediriam a peça errada.
+    // O que precisa ser verdade não é "só uma tem a casca" — isso envelhece a
+    // cada peça que entra —, e sim "o meu seletor casa uma, e é a minha". O
+    // `toHaveCount(1)` do `abrirPagina` é essa garantia; aqui ficam as
+    // contagens dos irmãos, que é o que faz um seletor de página mentir.
     await expect(page.locator("article figure.viz")).toHaveCount(3);
-    await expect(page.locator("article figure.viz-fit")).toHaveCount(1);
+    await expect(figArtigo(page).locator(".viz-head-title")).toContainText(
+      "quick sort: a partição e o pivô que fica pronto"
+    );
     await expect(page.locator(".viz-step")).toHaveCount(3);
     await expect(figArtigo(page).locator(".viz-step")).toHaveCount(1);
     await expect(figArtigo(page).locator(".bigo-stat")).toHaveCount(4);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // HeapSortEstabilidade, o preço que o heap sort cobra e quase ninguém enxerga.
@@ -18,17 +19,23 @@ import { useMemo, useState } from "react";
 //
 // Os dois algoritmos rodam de verdade no componente (nada de resultado fixo),
 // e as inversões são detectadas comparando a posição ORIGINAL de cada empate.
+//
+// Sobre a casca: `total: 1` e `collapsible: false`. Não há passo a passo nem
+// bloco dispensável — as três filas e a explicação SÃO o conteúdo. Esta é a
+// peça mais baixa da rodada, e mesmo assim precisa do painel: cabe a 1512x900
+// (712px de 816) e passa do orçamento a 1440x700 (712 de 616) e a 390x844
+// (1.240 de 760).
 // ---------------------------------------------------------------------------
 
-type Reg = { chave: number; nome: string; orig: number };
+type Rec = { key: number; name: string; orig: number };
 
-type Preset = { key: string; rotulo: string; dados: [number, string][]; dica: string };
+type Preset = { key: string; label: string; data: [number, string][]; hint: string };
 
 const PRESETS: Preset[] = [
   {
     key: "nomes",
-    rotulo: "Lista ordenada por nome, reordenando por idade",
-    dados: [
+    label: "Lista ordenada por nome, reordenando por idade",
+    data: [
       [3, "Ana"],
       [5, "Bia"],
       [3, "Caio"],
@@ -36,104 +43,104 @@ const PRESETS: Preset[] = [
       [5, "Enzo"],
       [2, "Fran"],
     ],
-    dica: "A entrada está em ordem alfabética. Ordenando por idade, o esperado é que dentro de cada idade os nomes continuem alfabéticos, e é isso que o sort estável entrega.",
+    hint: "A entrada está em ordem alfabética. Ordenando por idade, o esperado é que dentro de cada idade os nomes continuem alfabéticos, e é isso que o sort estável entrega.",
   },
   {
     key: "empate",
-    rotulo: "Um empate que sobrevive por sorte",
-    dados: [
+    label: "Um empate que sobrevive por sorte",
+    data: [
       [7, "sete"],
       [4, "quatro-a"],
       [9, "nove"],
       [4, "quatro-b"],
       [1, "um"],
     ],
-    dica: "Aqui o heap sort devolve o mesmo resultado do estável, e é justamente esse o perigo: instável não quer dizer sempre errado, quer dizer sem garantia. Um código apoiado neste comportamento passa nos testes e quebra quando um dado muda.",
+    hint: "Aqui o heap sort devolve o mesmo resultado do estável, e é justamente esse o perigo: instável não quer dizer sempre errado, quer dizer sem garantia. Um código apoiado neste comportamento passa nos testes e quebra quando um dado muda.",
   },
   {
     key: "iguais",
-    rotulo: "Chaves todas iguais",
-    dados: [
+    label: "Chaves todas iguais",
+    data: [
       [4, "p"],
       [4, "q"],
       [4, "r"],
       [4, "s"],
       [4, "t"],
     ],
-    dica: "Caso extremo: como toda comparação empata, o sort estável não move ninguém e o heap sort embaralha à vontade. Os dois resultados estão corretos pela chave.",
+    hint: "Caso extremo: como toda comparação empata, o sort estável não move ninguém e o heap sort embaralha à vontade. Os dois resultados estão corretos pela chave.",
   },
 ];
 
 // Insertion sort: estável por construção, porque só desloca enquanto o de trás
 // for ESTRITAMENTE maior. Empate nunca provoca troca.
-function ordenacaoEstavel(reg: Reg[]): Reg[] {
-  const a = reg.map((r) => ({ ...r }));
+function stableSort(recs: Rec[]): Rec[] {
+  const a = recs.map((r) => ({ ...r }));
   for (let i = 1; i < a.length; i++) {
-    const atual = a[i];
+    const current = a[i];
     let j = i - 1;
-    while (j >= 0 && a[j].chave > atual.chave) {
+    while (j >= 0 && a[j].key > current.key) {
       a[j + 1] = a[j];
       j--;
     }
-    a[j + 1] = atual;
+    a[j + 1] = current;
   }
   return a;
 }
 
 // Heap sort, exatamente o mesmo algoritmo da outra visualização, só que
-// comparando o campo `chave` de um registro em vez de um número solto.
-function heapSort(reg: Reg[]): Reg[] {
-  const a = reg.map((r) => ({ ...r }));
+// comparando o campo `key` de um registro em vez de um número solto.
+function heapSort(recs: Rec[]): Rec[] {
+  const a = recs.map((r) => ({ ...r }));
   const n = a.length;
-  const desce = (i: number, limite: number) => {
-    let guarda = 0;
-    while (guarda++ < 200) {
-      let maior = i;
-      const e = 2 * i + 1;
-      const d = 2 * i + 2;
-      if (e < limite && a[e].chave > a[maior].chave) maior = e;
-      if (d < limite && a[d].chave > a[maior].chave) maior = d;
-      if (maior === i) return;
-      [a[i], a[maior]] = [a[maior], a[i]];
-      i = maior;
+  const siftDown = (i: number, limit: number) => {
+    let guard = 0;
+    while (guard++ < 200) {
+      let largest = i;
+      const l = 2 * i + 1;
+      const r = 2 * i + 2;
+      if (l < limit && a[l].key > a[largest].key) largest = l;
+      if (r < limit && a[r].key > a[largest].key) largest = r;
+      if (largest === i) return;
+      [a[i], a[largest]] = [a[largest], a[i]];
+      i = largest;
     }
   };
-  for (let i = Math.floor(n / 2) - 1; i >= 0; i--) desce(i, n);
-  for (let fim = n - 1; fim > 0; fim--) {
-    [a[0], a[fim]] = [a[fim], a[0]];
-    desce(0, fim);
+  for (let i = Math.floor(n / 2) - 1; i >= 0; i--) siftDown(i, n);
+  for (let end = n - 1; end > 0; end--) {
+    [a[0], a[end]] = [a[end], a[0]];
+    siftDown(0, end);
   }
   return a;
 }
 
 // Um empate inverteu se, entre dois registros de mesma chave, o que veio depois
 // na entrada aparece antes na saída.
-function invertidos(saida: Reg[]): Set<number> {
-  const marcados = new Set<number>();
-  for (let i = 0; i < saida.length; i++) {
-    for (let j = i + 1; j < saida.length; j++) {
-      if (saida[i].chave === saida[j].chave && saida[i].orig > saida[j].orig) {
-        marcados.add(saida[i].orig);
-        marcados.add(saida[j].orig);
+function inverted(output: Rec[]): Set<number> {
+  const marked = new Set<number>();
+  for (let i = 0; i < output.length; i++) {
+    for (let j = i + 1; j < output.length; j++) {
+      if (output[i].key === output[j].key && output[i].orig > output[j].orig) {
+        marked.add(output[i].orig);
+        marked.add(output[j].orig);
       }
     }
   }
-  return marcados;
+  return marked;
 }
 
-function Fila({ regs, marcados, titulo, selo }: { regs: Reg[]; marcados: Set<number>; titulo: string; selo: string }) {
+function Fila({ recs, marked, title, badge }: { recs: Rec[]; marked: Set<number>; title: string; badge: string }) {
   return (
     <div className="hs-fila">
       <div className="hs-fila-cab">
-        <span className="hs-fila-tit">{titulo}</span>
-        <span className={`hs-fila-selo${marcados.size > 0 ? " quebrou" : ""}`}>{selo}</span>
+        <span className="hs-fila-tit">{title}</span>
+        <span className={`hs-fila-selo${marked.size > 0 ? " quebrou" : ""}`}>{badge}</span>
       </div>
       <div className="hp-arr">
-        {regs.map((r) => (
-          <span key={r.orig} className={`hp-cel reg${marcados.has(r.orig) ? " inverteu" : ""}`}>
+        {recs.map((r) => (
+          <span key={r.orig} className={`hp-cel reg${marked.has(r.orig) ? " inverteu" : ""}`}>
             <i>entrou em {r.orig}</i>
-            <b>{r.chave}</b>
-            <em>{r.nome}</em>
+            <b>{r.key}</b>
+            <em>{r.name}</em>
           </span>
         ))}
       </div>
@@ -145,45 +152,49 @@ export function HeapSortEstabilidade() {
   const [presetKey, setPresetKey] = useState("nomes");
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
 
-  const entrada: Reg[] = useMemo(
-    () => preset.dados.map(([chave, nome], orig) => ({ chave, nome, orig })),
+  const input: Rec[] = useMemo(
+    () => preset.data.map(([key, name], orig) => ({ key, name, orig })),
     [preset]
   );
-  const estavel = useMemo(() => ordenacaoEstavel(entrada), [entrada]);
-  const doHeap = useMemo(() => heapSort(entrada), [entrada]);
-  const marcasHeap = useMemo(() => invertidos(doHeap), [doHeap]);
-  const marcasEstavel = useMemo(() => invertidos(estavel), [estavel]);
+  const stable = useMemo(() => stableSort(input), [input]);
+  const fromHeap = useMemo(() => heapSort(input), [input]);
+  const tiesHeap = useMemo(() => inverted(fromHeap), [fromHeap]);
+  const tiesStable = useMemo(() => inverted(stable), [stable]);
 
-  const chavesOk = useMemo(
-    () => doHeap.map((r) => r.chave).join(",") === estavel.map((r) => r.chave).join(","),
-    [doHeap, estavel]
+  const sameKeys = useMemo(
+    () => fromHeap.map((r) => r.key).join(",") === stable.map((r) => r.key).join(","),
+    [fromHeap, stable]
   );
 
   // O primeiro par que trocou de lugar, para a explicação citar nomes de verdade.
-  const parTrocado = useMemo(() => {
-    for (let i = 0; i < doHeap.length; i++) {
-      for (let j = i + 1; j < doHeap.length; j++) {
-        if (doHeap[i].chave === doHeap[j].chave && doHeap[i].orig > doHeap[j].orig) {
-          return { antes: doHeap[j], depois: doHeap[i] };
+  const swappedPair = useMemo(() => {
+    for (let i = 0; i < fromHeap.length; i++) {
+      for (let j = i + 1; j < fromHeap.length; j++) {
+        if (fromHeap[i].key === fromHeap[j].key && fromHeap[i].orig > fromHeap[j].orig) {
+          return { before: fromHeap[j], after: fromHeap[i] };
         }
       }
     }
     return null;
-  }, [doHeap]);
+  }, [fromHeap]);
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · o que &quot;instável&quot; significa na prática</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">{marcasHeap.size > 0 ? `${marcasHeap.size} registros fora da ordem original` : "nenhum empate trocou desta vez"}</span>
-        </div>
-      </div>
+  const viz = useVisualizer({
+    title: 'Visualizador · o que "instável" significa na prática',
+    // Sem linha do tempo: a variável é o preset, não o tempo.
+    total: 1,
+    // Sem bloco dispensável: as três filas e a explicação são o conteúdo.
+    collapsible: false,
+  });
 
-      <div className="viz-body">
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem "passo N de M": entra o número que resume o estado, com o rótulo
+          junto, como manda a §6 do contrato. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">{tiesHeap.size > 0 ? `${tiesHeap.size} registros fora da ordem original` : "nenhum empate trocou desta vez"}</span>
+      </VizHeader>
+
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
@@ -192,27 +203,27 @@ export function HeapSortEstabilidade() {
               onClick={() => setPresetKey(pr.key)}
               aria-pressed={presetKey === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
 
-        <p className="tt-legenda-arvore">{preset.dica}</p>
+        <p className="tt-legenda-arvore">{preset.hint}</p>
 
         <div className="hs-filas">
-          <Fila regs={entrada} marcados={new Set()} titulo="Entrada" selo="como chegou" />
-          <Fila regs={estavel} marcados={marcasEstavel} titulo="Ordenação estável (insertion sort)" selo={marcasEstavel.size > 0 ? "quebrou" : "empates preservados"} />
-          <Fila regs={doHeap} marcados={marcasHeap} titulo="Heap sort" selo={marcasHeap.size > 0 ? "empates trocados" : "empates preservados"} />
+          <Fila recs={input} marked={new Set()} title="Entrada" badge="como chegou" />
+          <Fila recs={stable} marked={tiesStable} title="Ordenação estável (insertion sort)" badge={tiesStable.size > 0 ? "quebrou" : "empates preservados"} />
+          <Fila recs={fromHeap} marked={tiesHeap} title="Heap sort" badge={tiesHeap.size > 0 ? "empates trocados" : "empates preservados"} />
         </div>
 
-        <p className={`viz-note${marcasHeap.size > 0 ? " invalid" : " ok"}`}>
-          {parTrocado ? (
+        <p className={`viz-note${tiesHeap.size > 0 ? " invalid" : " ok"}`}>
+          {swappedPair ? (
             <>
-              As duas saídas estão <strong>corretas pela chave</strong>: {chavesOk ? "a sequência de chaves é idêntica nas duas" : "as chaves saem em ordem crescente nas duas"}. O que mudou foi o
-              desempate. <strong>{parTrocado.depois.nome}</strong> entrou na posição {parTrocado.depois.orig} e{" "}
-              <strong>{parTrocado.antes.nome}</strong> na posição {parTrocado.antes.orig}, os dois com chave{" "}
-              {parTrocado.antes.chave}. O sort estável manteve essa ordem; o heap sort devolveu{" "}
-              {parTrocado.depois.nome} na frente. Ninguém errou uma comparação: é que o heap arranca o último
+              As duas saídas estão <strong>corretas pela chave</strong>: {sameKeys ? "a sequência de chaves é idêntica nas duas" : "as chaves saem em ordem crescente nas duas"}. O que mudou foi o
+              desempate. <strong>{swappedPair.after.name}</strong> entrou na posição {swappedPair.after.orig} e{" "}
+              <strong>{swappedPair.before.name}</strong> na posição {swappedPair.before.orig}, os dois com chave{" "}
+              {swappedPair.before.key}. O sort estável manteve essa ordem; o heap sort devolveu{" "}
+              {swappedPair.after.name} na frente. Ninguém errou uma comparação: é que o heap arranca o último
               elemento do array e joga na raiz, e esse salto não tem como respeitar de onde o registro veio.
             </>
           ) : (
@@ -228,6 +239,9 @@ export function HeapSortEstabilidade() {
           duas chaves de uma vez, na mesma função de comparação, em vez de ordenar duas vezes.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o rodapé não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }

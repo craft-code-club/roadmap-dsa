@@ -1,0 +1,14 @@
+"use client";
+// A demonstração que fechou o assunto (`BellmanFordVisualizer:273`): o " de "
+// entre duas interpolações. Com o guarda antigo o painel podia passar a dizer
+// "rodada 5 of 4" e a saída era `SUMIRAM: nenhuma / APARECERAM: nenhuma`.
+const LABELS = ["A", "B", "C", "D", "E"];
+
+export function Exemplo({ s }: { s: { round: number } }) {
+  return (
+    <div className="viz-var">
+      <span className="viz-var-name">rodada</span>
+      <span className="viz-var-val best">{s.round} of {LABELS.length - 1}</span>
+    </div>
+  );
+}
