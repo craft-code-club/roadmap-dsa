@@ -540,10 +540,35 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   // qualquer discriminante de texto ou de ordem quebra no dia em que o rótulo
   // mudar. O ref aponta sempre para o nó vivo daquele elemento, e é `null` se
   // não houver nenhum.
+  //
+  // E a devolução mora no CORPO do efeito, no ramo do `expanded === false`, e
+  // não na LIMPEZA dele. Aqui a forma é o conserto, então vale registrar por quê:
+  //
+  // com `return () => expandButtonRef.current?.focus()`, o `react-hooks/
+  // exhaustive-deps` reprova ("copie `.current` para uma variável dentro do
+  // efeito e use a variável na limpeza") — e OBEDECER reintroduz exatamente o
+  // defeito acima. A variável captura o nó DAQUELE momento, que é o `⤢ Expandir`
+  // de dentro da `<figure>` que o portal vai desmontar: é o `document.
+  // activeElement` guardado na abertura com outro nome. Medido, com a sugestão
+  // da regra aplicada e o build visível: os dois testes de
+  // `tests/viz-hook.spec.ts` reprovam com `Expected: "BUTTON"` /
+  // `Received: "BODY"`, nas duas saídas.
+  //
+  // Ler o ref no corpo do efeito resolve os dois lados: a regra não dispara (ela
+  // só vale para a limpeza) e a leitura acontece DEPOIS de o React ter
+  // recriado o botão, no nó vivo — que é a única coisa que o conserto precisa.
+  const esteveExpandido = useRef(false);
   useEffect(() => {
-    if (!expanded) return;
-    figureRef.current?.focus();
-    return () => expandButtonRef.current?.focus();
+    if (expanded) {
+      esteveExpandido.current = true;
+      figureRef.current?.focus();
+      return;
+    }
+    // Só devolve o foco a quem ABRIU o painel: na montagem `expanded` já é
+    // `false`, e sem esta guarda toda peça da página roubaria o foco no load.
+    if (!esteveExpandido.current) return;
+    esteveExpandido.current = false;
+    expandButtonRef.current?.focus();
   }, [expanded]);
 
   // Teclado do panel: Esc fecha, o Tab circula DENTRO dele, e as setas e o
