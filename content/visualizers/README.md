@@ -325,6 +325,26 @@ texto junto. Dois desenhos grandes desta série pareciam o mesmo caso e não era
 **Compare os dois números antes de escrever o teto.** Se forem iguais, ou se o
 renderizado for menor, não há vazio a devolver — o caminho é outro.
 
+**E uma peça de `<canvas>` nem entra nessa comparação: ela não estica.** Sem
+`viewBox` não existe tamanho natural que o renderizado possa ultrapassar, e sem
+`preserveAspectRatio` não existe o encolhimento que faria o teto funcionar. A
+altura do desenho é a constante que o componente escreve: no
+`BigOChartVisualizer.tsx` ela é `expanded ? 400 : 300`, e nenhuma das receitas
+acima tem o que devolver ali.
+
+O que sobra é procurar o eixo **fora** do desenho, e nessa peça ele existe: o
+`.bigo-grid` é `repeat(auto-fit, minmax(158px, 1fr))` no `globals.css`, e o
+número de cartões é o número de famílias ligadas, de 1 a 8 — responde **sim** à
+pergunta que esta seção faz mais abaixo (*algo na tela repete com o número?*),
+enquanto o canvas responde não.
+
+Em troca, o canvas ganha uma asserção barata que vale a pena copiar em qualquer
+peça assim: **afirmar as duas alturas do desenho** (uma no artigo, outra no
+painel) prova que o `expanded` da casca chegou até o desenho, e não só até a
+moldura. É a regressão mais provável da migração — deixar o `ResizeObserver`
+dependendo do `expanded` antigo faz o canvas abrir o painel com a largura
+velha.
+
 ### O perfil de altura de um visualizador de grafo
 
 Os sete tópicos de Grafos foram adaptados por sete agentes independentes, e os
