@@ -324,4 +324,43 @@ test.describe("cartões que ensinavam o oposto", () => {
     });
   });
 
+  // --------------------------------------------------------------------- grafo
+  test.describe("grafos-intro · o custo das duas representações", () => {
+    test("a legenda diz empate no completo, e os dois cartões empatam mesmo", async ({ page }) => {
+      const fig = await abrir(page, GRAFOS, FIG_GRAFO);
+      const matriz = cartao(fig, "memória da matriz").locator("strong");
+      const lista = cartao(fig, "memória da lista").locator("strong");
+
+      // Esparso: a lista custa bem menos, que é o argumento da peça.
+      await expect(matriz).toHaveText("36 células");
+      await expect(lista).toHaveText("20 entradas");
+
+      // Completo, não dirigido: V + 2E = V + V(V-1) = V². Os dois EMPATAM. A
+      // legenda dizia que a lista "só perde quando o grafo é quase completo", e
+      // ela nunca perde: o completo é o teto, e no teto os números se igualam.
+      await fig.getByRole("button", { name: "Completo", exact: true }).click();
+      await expect(fig.locator(".viz-step")).toHaveText("V = 6 · E = 15 · densidade 100%");
+      await expect(matriz).toHaveText("36 células");
+      await expect(lista).toHaveText("36 entradas");
+
+      // O outro lado da condicional da legenda: no dirigido a conta é V + E, e
+      // o empate acontece igual, com os 30 arcos do completo.
+      await fig.getByRole("button", { name: "dirigido", exact: true }).click();
+      await expect(fig.locator(".viz-step")).toHaveText("V = 6 · E = 30 · densidade 100%");
+      await expect(matriz).toHaveText("36 células");
+      await expect(lista).toHaveText("36 entradas");
+
+      await expect(fig.locator(".viz-caption")).toContainText("V + E (dirigido");
+      await expect(fig.locator(".viz-caption")).toContainText(
+        "no grafo completo isso dá exatamente V²: os dois empatam, e é o mais caro que a lista chega a ficar."
+      );
+
+      // E o lado não dirigido da mesma frase.
+      await fig.getByRole("button", { name: "não dirigido", exact: true }).click();
+      await expect(fig.locator(".viz-caption")).toContainText("V + 2E (não dirigido");
+      await expect(fig.locator(".viz-caption")).toContainText(
+        "no grafo completo isso dá exatamente V²: os dois empatam, e é o mais caro que a lista chega a ficar."
+      );
+    });
+  });
 });
