@@ -1,0 +1,12 @@
+"use client";
+// O §0 do contrato: literal que vira NOME DE CLASSE é contrato com o CSS, não
+// texto de tela. Ele passa pelo `tsc`, passa pelo teste (é cor) e o guarda
+// antigo o listava como se fosse rótulo — pedindo a reação que RE-QUEBRA o
+// rename. Aqui ele sai no bloco AVISO e o guarda continua com exit 0.
+export function Exemplo({ gap }: { gap: number }) {
+  return (
+    <span className={`hs-fase ${gap === 1 ? "f-fim" : "f-ordenar"}`}>
+      gap {gap}
+    </span>
+  );
+}

@@ -370,14 +370,89 @@ test.describe("shell sort · o que está escrito na tela", () => {
       "esta é a última rodada, e ela é o insertion sort puro"
     );
 
-    // E o último passo mostra "gap 0", porque o gerador só empilha o estado
-    // final depois de o laço zerar o gap. É comportamento ANTERIOR à casca
-    // (está na `main`), não uma regressão da adaptação: fica afirmado aqui para
-    // deixar de ser mudo, e vai reportado como achado editorial.
+    // O último passo NÃO é uma rodada: o gerador empilha o resumo depois do
+    // `while gap > 0`, com o gap já zerado. Ele mostrava "gap 0" e prometia "0
+    // subsequências entrelaçadas, uma a cada 0 posições" — duas coisas que não
+    // existem —, e ainda pintava de âmbar (`f-ordenar`) um array já ordenado.
+    // Agora o selo diz o que o passo é, e a cor é a do fim.
     await ateOFim(fig);
     await expect(fig.locator(".viz-step")).toHaveText("passo 65 de 65");
-    await expect(fase.locator(".hs-fase-selo")).toHaveText("gap 0");
-    await expect(fase).toHaveClass(/f-ordenar/);
+    await expect(fase.locator(".hs-fase-selo")).toHaveText("ordenado");
+    await expect(fase.locator(".hs-fase-txt")).toHaveText(
+      "acabaram as rodadas de gap: este passo é o resumo da execução"
+    );
+    await expect(fase).toHaveClass(/f-fim/);
+    await expect(fase).not.toHaveClass(/f-ordenar/);
+    // Nenhum "gap 0" sobrou na fase, em lugar nenhum dela.
+    await expect(fase).not.toContainText("gap 0");
+    await expect(fase).not.toContainText("0 subsequências");
+  });
+
+  // Esta asserção olhava só o ÚLTIMO passo, e por isso ficou verde sobre um
+  // "gap 0" vivo: ele não estava no resumo, estava no passo 64 de 65, o fim da
+  // rodada de gap 1. A varredura abaixo passa por TODOS os passos, e é a única
+  // forma de a promessa "a faixa nunca fala de uma rodada que não existe" valer
+  // de verdade. Ela cobre os quatro presets porque o número de rodadas muda com
+  // a entrada, e com ele o passo em que o defeito aparece.
+  test("nenhum passo, em nenhum preset, rotula uma rodada que não existe", async ({ page }) => {
+    const fig = await abrir(page);
+    const chips = fig.locator(".bigo-chip");
+    const nomes = await chips.allTextContents();
+    for (const preset of nomes) {
+      await chips.filter({ hasText: preset }).first().click();
+      const proximo = fig.locator('button:has-text("Próximo")');
+      // Reconsulta em vez de ler uma vez: logo após trocar de preset,
+      // `isEnabled()` devolve o estado da rodada anterior, o laço não clica e a
+      // varredura passa vazia.
+      await expect(proximo).toBeEnabled();
+      const problemas: string[] = [];
+      for (let i = 0; i < 400; i++) {
+        const [selo, txt, classe, nota, card] = await Promise.all([
+          fig.locator(".hs-fase-selo").textContent(),
+          fig.locator(".hs-fase-txt").textContent(),
+          fig.locator(".hs-fase").getAttribute("class"),
+          fig.locator(".viz-note").first().textContent(),
+          fig
+            .locator(".bigo-stat")
+            .filter({ hasText: "subsequências deste gap" })
+            .locator("strong")
+            .textContent(),
+        ]);
+        if (selo?.includes("gap 0") || txt?.includes("0 subsequências") || card === "0") {
+          problemas.push(`${preset} passo ${i + 1}: selo="${selo}" cartão="${card}"`);
+        }
+        // O selo é sobre a RODADA do passo, então ele tem que bater com a nota
+        // do fim de rodada, que é a única que nomeia o gap por extenso. Era
+        // exatamente aqui que a faixa mostrava o gap da rodada SEGUINTE.
+        const fim = nota?.match(/Fim da rodada de gap (\d+)/);
+        if (fim && selo?.trim() !== `gap ${fim[1]}`) {
+          problemas.push(`${preset} passo ${i + 1}: nota diz gap ${fim[1]}, selo diz "${selo}"`);
+        }
+        // Rodada de gap 1 e resumo são o fim, e só eles pintam `f-fim`.
+        const ehFim = selo?.trim() === "gap 1" || selo?.trim() === "ordenado";
+        if (ehFim !== !!classe?.includes("f-fim")) {
+          problemas.push(`${preset} passo ${i + 1}: selo="${selo}" com classe="${classe}"`);
+        }
+        if (!(await proximo.isEnabled())) break;
+        await proximo.click();
+      }
+      await expect(proximo, `${preset} não chegou ao fim`).toBeDisabled();
+      expect(problemas, "faixa da fase falando de rodada que não existe").toEqual([]);
+    }
+
+    // O cartão que contava subsequências também falava de uma rodada que não
+    // existe. No resumo ele usa o mesmo traço das variáveis vazias.
+    await expect(
+      fig.locator(".bigo-stat").filter({ hasText: "subsequências deste gap" }).locator("strong")
+    ).toHaveText("-");
+
+    // E o painel de VARIÁVEIS continua mostrando 0 de propósito: ali o número é
+    // o valor da variável `gap` do código, e ela é 0 mesmo — é por isso que o
+    // `while gap > 0` terminou. O que era mentira era chamar isso de rodada.
+    await expect(
+      fig.locator(".viz-var").filter({ hasText: "gap" }).locator(".viz-var-val")
+    ).toHaveText("0");
+    await expect(fig.locator(".viz-note")).toContainText("Ordenado: 1, 3, 5, 6, 7, 13, 15, 21");
   });
 
   test("a fita tem oito células em todos os presets, e é por isso que ela não é eixo de altura", async ({ page }) => {

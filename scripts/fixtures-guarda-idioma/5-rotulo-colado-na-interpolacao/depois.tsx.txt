@@ -1,0 +1,12 @@
+"use client";
+// O buraco SILENCIOSO da 3ª versão, medido no `LinkedListFloyd` (a linha do
+// <span> é a dele). O padrão do guarda antigo exigia `>texto<`, e o `{` da
+// interpolação cortava o casamento: "Nós no ciclo: " não está dentro de string
+// nenhuma e simplesmente não era visto.
+export function Exemplo({ cycle }: { cycle: number }) {
+  return (
+    <label className="viz-field grow">
+      <span>Nodes no ciclo: {cycle === 0 ? "nenhum, a lista termina em None" : cycle}</span>
+    </label>
+  );
+}

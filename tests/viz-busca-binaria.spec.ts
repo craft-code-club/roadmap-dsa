@@ -327,6 +327,10 @@ test.describe("as contas que a tela promete", () => {
     await fig.getByRole("button", { name: "Um valor que não existe: 40" }).click();
 
     const proximo = fig.getByRole("button", { name: "Próximo ›" });
+    // `isDisabled()` lê UMA vez, e o laço vem logo depois de trocar de preset:
+    // com o estado velho o laço não clica e o `toBeDisabled()` abaixo passa
+    // sobre esse mesmo estado, sem um único passo andado.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 40 && !(await proximo.isDisabled()); i++) await proximo.click();
     await expect(proximo).toBeDisabled();
 
@@ -356,6 +360,7 @@ test.describe("as contas que a tela promete", () => {
     await fig.getByRole("button", { name: "onde entraria", exact: true }).click();
 
     const proximo = fig.getByRole("button", { name: "Próximo ›" });
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 40 && !(await proximo.isDisabled()); i++) await proximo.click();
     await expect(proximo).toBeDisabled();
 

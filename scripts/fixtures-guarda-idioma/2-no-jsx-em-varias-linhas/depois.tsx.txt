@@ -1,0 +1,11 @@
+"use client";
+// Buraco da 2ª versão: o nó de texto JSX numa linha só. O Prettier quebra a
+// linha de qualquer elemento cujos atributos não cabem, e o rótulo cai sozinho
+// numa linha do meio.
+export function Exemplo({ pickOp }: { pickOp: (k: string) => void }) {
+  return (
+    <button className="viz-btn" onClick={() => pickOp("push-end")}>
+      inserir no done
+    </button>
+  );
+}
