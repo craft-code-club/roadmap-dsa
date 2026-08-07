@@ -262,7 +262,13 @@ test("todo link interno de artigo já sai com a barra final", () => {
   const ancoras = ancorasDosArtigos();
   expect(ancoras.length, "nenhuma âncora de prosa no build").toBeGreaterThan(200);
 
-  const internos = ancoras.filter((a) => a.href.startsWith("/"));
+  // Quem decide o que é "interno" é a MESMA função que o renderer usa, e não um
+  // `startsWith("/")` paralelo. O atalho divergia dela em dois pontos:
+  // `//cdn...` começa com "/" e é EXTERNO, e `/imagens/x.png` é `cru` — que de
+  // propósito não ganha barra final, então cobrar barra dele reprovaria um
+  // artigo legítimo. Teste e implementação com modelos diferentes é o defeito
+  // que este arquivo existe para não ter.
+  const internos = ancoras.filter((a) => classificarLink(a.href).tipo === "interno");
   expect(internos.length, "nenhum link interno de artigo no build").toBeGreaterThan(200);
 
   const semBarra = internos.filter((a) => !a.href.split(/[?#]/)[0].endsWith("/"));
@@ -274,7 +280,11 @@ test("todo link interno de artigo já sai com a barra final", () => {
 });
 
 test("todo link externo de artigo abre em nova aba com rel seguro", () => {
-  const externos = ancorasDosArtigos().filter((a) => /^https?:\/\//.test(a.href));
+  // Idem: `/^https?:\/\//` deixava `//cdn...` de fora, e `classificarLink`
+  // manda protocol-relative para o ramo externo — ou seja, um link desses
+  // ganharia `target="_blank"` e escaparia do guarda de `rel` por um buraco
+  // entre os dois modelos.
+  const externos = ancorasDosArtigos().filter((a) => classificarLink(a.href).tipo === "externo");
   expect(externos.length, "nenhum link externo de artigo no build").toBeGreaterThan(5);
 
   const frouxos = externos.filter(
