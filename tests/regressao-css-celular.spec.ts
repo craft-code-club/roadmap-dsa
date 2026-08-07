@@ -218,9 +218,50 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
 // Defeito 2 — a gaveta do celular e o card que ficava sem caminho
 // ---------------------------------------------------------------------------
 
+/** Clica num botão pelo rótulo acessível, e **diz o que houve** quando ele não
+ *  existe.
+ *
+ *  Por que não é `getByRole(...).click()` direto: quando o rótulo procurado não
+ *  existe em lugar nenhum, o Playwright reprova com `Test timeout of 30000ms
+ *  exceeded` — exatamente o mesmo texto de página que não carregou, de servidor
+ *  fora do ar, de elemento coberto por outro e de animação que nunca termina. O
+ *  relatório não distingue "o botão sumiu" de "a máquina está lenta", e a única
+ *  informação que resolveria o caso — quais rótulos EXISTEM — não aparece em
+ *  lugar nenhum.
+ *
+ *  Não é hipótese: `"Abrir menu de tópicos"` era procurado aqui e só existia
+ *  neste arquivo. O botão real nasceu `aria-label="Menu de tópicos"` no
+ *  `Shell.tsx`, e a renomeação passou por revisão sem que ninguém ligasse uma
+ *  coisa à outra, porque o que o CI mostrava eram quatro timeouts.
+ *
+ *  O guarda troca 30s de espera muda por 5s e uma mensagem que já traz a
+ *  resposta. Continua sendo espera de verdade (o botão do cabeçalho depende de
+ *  hidratação), só que com teto curto e desfecho falante. */
+async function clicarBotao(page: Page, nome: string) {
+  const alvo = page.getByRole("button", { name: nome, exact: true });
+  try {
+    await alvo.waitFor({ state: "visible", timeout: 5_000 });
+  } catch {
+    const presentes = await page
+      .getByRole("button")
+      .evaluateAll((bs) =>
+        bs.map((b) => (b.getAttribute("aria-label") ?? b.textContent ?? "").trim()).filter(Boolean)
+      );
+    throw new Error(
+      `nenhum botão visível com o rótulo acessível ${JSON.stringify(nome)}. ` +
+        `Se ele foi renomeado, o nome novo está nesta lista: ${JSON.stringify(presentes)}`
+    );
+  }
+  await alvo.click();
+}
+
 async function abrirGaveta(page: Page, w: number, h: number) {
   await abrir(page, "/topico/quick-sort/", w, h);
-  await page.getByRole("button", { name: "Abrir menu de tópicos" }).click();
+  // `aria-label="Menu de tópicos"`, em `src/components/Shell.tsx`. O texto de
+  // antes (`"Abrir menu de tópicos"`) não existia no produto: ele só existia
+  // aqui, e o `clicarBotao` acima é o que faz esse tipo de descolamento se
+  // anunciar em vez de virar timeout.
+  await clicarBotao(page, "Menu de tópicos");
   await expect(page.locator(".sidebar.open")).toBeVisible();
 }
 
