@@ -48,6 +48,13 @@ ele que o contrato, o runbook e a skill mandam chamar; o que saiu daqui foi só
 o motor, que precisa da AST, e não a comparação, que são seis linhas de
 `Counter`.
 """
+# As anotações `list[Path]` são PEP 585 e, sem isto, o interpretador as AVALIA
+# na definição da função — em Python 3.8 o script morre no import, antes de
+# olhar arquivo nenhum. Nada aqui fixa versão de Python (nenhum workflow usa
+# `setup-python`; vale o `python3` do runner), então a linha é barata e tira a
+# suposição do caminho.
+from __future__ import annotations
+
 import json
 import shutil
 import subprocess
