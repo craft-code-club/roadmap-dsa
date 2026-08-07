@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
 // ---------------------------------------------------------------------------
 // ShellSortGaps, onde a conta vira e o que a sequência de gaps muda.
 //
@@ -24,6 +26,15 @@ import { useMemo, useState } from "react";
 // As entradas são geradas por fórmula determinística, nunca por Math.random:
 // além de a hidratação quebrar, um número que muda a cada visita não pode ser
 // citado no artigo nem verificado por teste.
+//
+// Sobre a casca (contrato em `content/visualizers/README.md`):
+//   · `total: 1` — sem linha do tempo. O eixo é a ENTRADA (o tamanho e a
+//     forma), e o resumo do estado entra como `children` do `VizHeader`.
+//   · `collapsible: false` — as cinco linhas da corrida são o conteúdo; não há
+//     bloco dispensável, e por isso `measureOn` fica de fora.
+//   · o que move a altura aqui não é a contagem de linhas (são cinco, fixas em
+//     `SEQUENCIAS`) e sim a legenda `gaps: …`, que cresce com n, e a nota, que
+//     tem três redações. Os dois chips de controle ficam no miolo.
 // ---------------------------------------------------------------------------
 
 type Seq = { key: string; nome: string; gaps: (n: number) => number[]; nota: string };
@@ -178,6 +189,12 @@ export function ShellSortGaps() {
   const [forma, setForma] = useState<Forma>("embaralhado");
   const [n, setN] = useState(32);
 
+  const viz = useVisualizer({
+    title: "Visualizador · a partir de que tamanho o gap compensa",
+    total: 1,
+    collapsible: false,
+  });
+
   const entrada = useMemo(() => entradaDe(forma, n), [forma, n]);
   const linhas = useMemo(
     () =>
@@ -204,22 +221,16 @@ export function ShellSortGaps() {
   const shellPunida = n >= 16 && shell.comp > melhorGap.comp * 2;
   const formaAtual = FORMAS.find((f) => f.key === forma)!;
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a partir de que tamanho o gap compensa</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            n = {n} · melhor com gap: {melhorGap.s.nome}, {melhorGap.comp} comparações · insertion sort:{" "}
-            {insertion.comp}
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          n = {n} · melhor com gap: {melhorGap.s.nome}, {melhorGap.comp} comparações · insertion sort:{" "}
+          {insertion.comp}
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {TAMANHOS.map((t) => (
             <button key={t} className={`bigo-chip${n === t ? " on" : ""}`} onClick={() => setN(t)} aria-pressed={n === t}>
@@ -311,6 +322,9 @@ export function ShellSortGaps() {
           deduzida.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o `VizFooter` não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }

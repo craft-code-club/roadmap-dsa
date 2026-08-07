@@ -1,0 +1,19 @@
+"use client";
+// LIMITE CONHECIDO. Um valor de união pode chegar ao JSX CRU, e aí ele é texto
+// de tela — medido no `BacktrackingSudoku`, no painel "regra que barrou". Mas o
+// que o guarda enxerga é `{p.conflict}`, uma interpolação: ele vira `§`, e a
+// palavra que o aluno lê nunca aparece como literal no JSX.
+//
+// A união em si é um tipo, e chave de tipo é CÓDIGO (§0: "em `Omit<Step,
+// 'desloc'>` só o tsc pega"). Então traduzi-la compila e não reprova o guarda —
+// ela sai no bloco AVISO, que é o mais longe que uma ferramenta pode ir sem
+// saber o que a página renderiza.
+//
+// A regra que fecha isto continua sendo a do §0: ANTES de traduzir uma união,
+// procure onde os valores dela aparecem; se algum chega ao JSX sem passar por
+// um mapa, ele é texto de tela.
+type Conflito = "linha" | "coluna" | "quadrante";
+
+export function Exemplo({ p }: { p: { conflict: Conflito } }) {
+  return <span className="bs-regra">regra que barrou: {p.conflict}</span>;
+}

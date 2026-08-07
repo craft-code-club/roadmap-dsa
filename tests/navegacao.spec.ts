@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
@@ -98,12 +98,18 @@ test("os três visualizadores de Two Pointers têm estado próprio e contam oper
   await page.goto("/topico/two-pointers/");
   const passos = page.locator(".viz-step");
   await page.getByRole("button", { name: /Próximo/ }).first().click();
-  await expect(passos.first()).toContainText("passo 2 de");
-  await expect(passos.nth(1)).toContainText("passo 1 de");
+  // regex ancorada: "passo 2 de" também é prefixo de "passo 20 de", e o número
+  // do passo é justamente o que este teste está afirmando.
+  await expect(passos.first()).toHaveText(/^passo 2 de \d+$/);
+  await expect(passos.nth(1)).toHaveText(/^passo 1 de \d+$/);
   // o preset do encontro fecha em 6 somas contra os 28 pares da força bruta
-  const convergente = page.locator(".viz").first();
+  const convergente = page.locator("figure.viz").filter({ hasText: "ponteiros convergentes" });
   await expect(convergente.getByText("pares na força bruta")).toBeVisible();
-  await expect(convergente.locator(".bigo-stat", { hasText: "pares na força bruta" })).toContainText("28");
+  // O card concatena rótulo e valor num nó só ("pares na força bruta28"), então
+  // `toContainText("28")` passaria com 128. O <strong> guarda só o número.
+  await expect(
+    convergente.locator(".bigo-stat", { hasText: "pares na força bruta" }).locator("strong")
+  ).toHaveText("28");
 });
 
 test("Strings traz os três visualizadores e os números do artigo batem com a tela", async ({ page }) => {
@@ -114,21 +120,27 @@ test("Strings traz os três visualizadores e os números do artigo batem com a t
   await expect(page.getByText("caractere, code point e byte")).toBeVisible();
   await expect(page.getByText("Rotate String, força bruta contra o truque")).toBeVisible();
 
-  // o painel de bytes vem primeiro e abre em CCC: 3 bytes em UTF-8, 6 em UTF-16
-  const bytes = page.locator(".viz").first();
-  await expect(bytes.locator(".str-enc.on .str-enc-val")).toContainText("3 bytes");
+  // As três peças são escolhidas pelo TÍTULO, não pela posição no DOM: `.nth(1)`
+  // amarra o teste à ordem do MDX e passa a testar outra peça se ela mudar.
+  // E o valor sai do <strong>: "3 bytes" é substring de "13 bytes".
+  const stat = (fig: Locator, rot: string) =>
+    fig.locator(".bigo-stat", { hasText: rot }).locator("strong");
+
+  // o painel de bytes abre em CCC: 3 bytes em UTF-8, 6 em UTF-16
+  const bytes = page.locator("figure.viz").filter({ hasText: "caractere, code point e byte" });
+  await expect(bytes.locator(".str-enc.on .str-enc-val")).toHaveText("3 bytes");
   await bytes.getByRole("button", { name: /^UTF-16/ }).click();
-  await expect(bytes.locator(".str-enc.on .str-enc-val")).toContainText("6 bytes");
+  await expect(bytes.locator(".str-enc.on .str-enc-val")).toHaveText("6 bytes");
 
   // o artigo promete 45 cópias com "s = s + c" e 9 com join para CRAFTCODE (n = 9)
-  const montagem = page.locator(".viz").nth(1);
-  await expect(montagem.locator(".bigo-stat", { hasText: "total com s = s + c" })).toContainText("45");
-  await expect(montagem.locator(".bigo-stat", { hasText: "total com join" })).toContainText("9");
+  const montagem = page.locator("figure.viz").filter({ hasText: "o custo de montar uma string" });
+  await expect(stat(montagem, "total com s = s + c")).toHaveText("45");
+  await expect(stat(montagem, "total com join")).toHaveText("9");
 
   // rotate: o preset "caso feliz" acha na 2a rotação, com 18 caracteres copiados
-  const rotate = page.locator(".viz").nth(2);
-  await expect(rotate.locator(".bigo-stat", { hasText: "pior caso com o laço" })).toContainText("45");
-  await expect(rotate.locator(".bigo-stat", { hasText: "pior caso com o truque" })).toContainText("10");
+  const rotate = page.locator("figure.viz").filter({ hasText: "Rotate String, força bruta" });
+  await expect(stat(rotate, "pior caso com o laço")).toHaveText("45");
+  await expect(stat(rotate, "pior caso com o truque")).toHaveText("10");
 
   await expect(page.getByRole("link", { name: "Rotate String", exact: true })).toHaveAttribute("href", /leetcode\.com/);
   await expect(page.getByRole("link", { name: "Longest Palindromic Substring", exact: true })).toHaveAttribute("href", /leetcode\.com/);
@@ -143,15 +155,28 @@ test("Tabelas Hash: os contadores da tela batem com os números do artigo", asyn
   await expect(page.locator(".ht-tab-table tbody tr")).toHaveCount(4);
 
   // o artigo promete: anagramas colidem em 3 e custam 6 comparações
-  const insercao = page.locator(".viz").first();
+  const insercao = page.locator("figure.viz").filter({ hasText: "inserindo chaves numa tabela hash" });
   await insercao.getByRole("button", { name: "Anagramas: o pior caso" }).click();
   const proximo = insercao.getByRole("button", { name: /Próximo/ });
+  // `isEnabled()` lê UMA vez: logo depois de trocar de preset ele ainda pode
+  // devolver o estado desabilitado do fim da rodada anterior, o laço não clica e
+  // o `toBeDisabled()` do fim passa sobre esse mesmo estado velho — a asserção
+  // volta a ser vazia pelo outro lado da janela.
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
+  // O laço sai CALADO se o limite estourar, e a asserção seguinte roda num passo
+  // do meio. Exigir o botão desabilitado é o que transforma "andei até o fim" em
+  // fato verificado.
   for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
-  await expect(insercao.locator(".viz-note")).toContainText("3 colisões");
-  await expect(insercao.locator(".viz-note")).toContainText("6 comparações de chave");
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
+  // A nota inteira, não os dois pedaços: "3 colisões" é substring de "13
+  // colisões" e "6 comparações" de "16 comparações", e os dois números são a
+  // aula do preset. Ler a frase toda ainda pega o fator de carga do lado.
+  await expect(insercao.locator(".viz-note")).toHaveText(
+    "Fim: 4 chaves em 5 buckets, fator de carga 0,80. Deu 3 colisões e 6 comparações de chave no caminho todo."
+  );
 
   // a corrida: com hash bom o pior caso com 1 milhão é 1; com hash ruim, 1 milhão
-  const busca = page.locator(".viz").nth(1);
+  const busca = page.locator("figure.viz").filter({ hasText: "busca linear x busca por hash" });
   const piorHash = busca.locator(".bigo-stat", { hasText: "pior caso · hash com 1 milhão" }).locator("strong");
   await expect(piorHash).toHaveText("1");
   await busca.getByRole("button", { name: /Hash ruim/ }).click();
@@ -174,8 +199,8 @@ test("Sliding Window reúne janela fixa e variável na mesma página", async ({ 
   // as duas instâncias têm estado próprio: avançar uma não mexe na outra
   const passos = page.locator(".viz-step");
   await page.getByRole("button", { name: /Próximo/ }).first().click();
-  await expect(passos.first()).toContainText("passo 2 de");
-  await expect(passos.nth(1)).toContainText("passo 1 de");
+  await expect(passos.first()).toHaveText(/^passo 2 de \d+$/);
+  await expect(passos.nth(1)).toHaveText(/^passo 1 de \d+$/);
   // os problemas das duas variações convivem na mesma lista
   await expect(page.getByRole("link", { name: /Maximum Average Subarray I/ }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Minimum Size Subarray Sum/ }).first()).toBeVisible();
@@ -218,7 +243,37 @@ test("Big O traz o gráfico de crescimento, o contador de operações e a tabela
 // com o botão ainda escrito "Mostrar código" ensina errado do mesmo jeito.
 // ---------------------------------------------------------------------------
 
-const CONTADOR = "figure.viz-fit";
+// A página do Big O tem DUAS peças na casca desde que o gráfico de curvas
+// entrou, e o gráfico vem ANTES no DOM. `figure.viz-fit` sozinho casa 2: em
+// `page.locator()` isso é violação de strict mode, e nos `querySelector` abaixo
+// seria a peça errada EM SILÊNCIO — ela não tem `.viz-foot` nem `.viz-code`, e
+// as medições sairiam nulas sem ninguém reclamar.
+//
+// O discriminante é o SLOT do bloco recolhível, não o bloco: `.viz-code-slot`
+// existe porque a peça É recolhível (`collapsible: true`), enquanto o conteúdo
+// dentro dele é o que um dia pode virar condicional. Medido nos quatro estados
+// que estes testes atravessam — tela alta, tela baixa com o código já recolhido
+// pela medição, código recolhido na mão e painel expandido —, ele casa 1 nos
+// quatro: o contrato mantém o bloco no DOM mesmo recolhido, que é o que permite
+// medir o pior caso de altura.
+const CONTADOR = "figure.viz-fit:has(.viz-code-slot)";
+const GRAFICO = "figure.viz-fit:has(canvas)";
+
+test("Big O: o seletor do contador separa as duas peças da casca na página", async ({ page }) => {
+  await page.goto("/topico/big-o/");
+  // Se algum dia esta asserção cair, é porque uma peça entrou ou saiu da casca
+  // nesta página, e todo `CONTADOR` daqui para baixo precisa ser reconferido.
+  await expect(page.locator("figure.viz-fit")).toHaveCount(2);
+  await expect(page.locator(CONTADOR)).toHaveCount(1);
+  await expect(page.locator(GRAFICO)).toHaveCount(1);
+  // E são peças diferentes, lidas pelo rótulo do cabeçalho.
+  await expect(page.locator(`${CONTADOR} .viz-head-title`)).toHaveText(
+    "Visualizador · contando operações no mesmo array"
+  );
+  await expect(page.locator(`${GRAFICO} .viz-head-title`)).toHaveText(
+    "Visualizador · como cada família cresce"
+  );
+});
 
 /** Caixas do quadro, do cabeçalho e do rodapé + o estado da rolagem do miolo. */
 function medirCasca(page: import("@playwright/test").Page) {
@@ -303,11 +358,11 @@ test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal",
   const fugas: string[] = [];
   for (let i = 0; i < 24; i++) {
     await page.keyboard.press("Tab");
-    const onde = await page.evaluate(() => {
+    const onde = await page.evaluate((sel) => {
       const a = document.activeElement;
-      const fig = document.querySelector("figure.viz-fit");
+      const fig = document.querySelector(sel);
       return { dentro: !!(fig && a && fig.contains(a)), quem: a?.className || a?.tagName || "?" };
-    });
+    }, CONTADOR);
     if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
   }
   expect(fugas, "o foco vazou do painel").toEqual([]);
@@ -316,10 +371,10 @@ test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal",
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   expect(
-    await page.evaluate(() => {
-      const fig = document.querySelector("figure.viz-fit");
+    await page.evaluate((sel) => {
+      const fig = document.querySelector(sel);
       return !!(fig && document.activeElement && fig.contains(document.activeElement));
-    })
+    }, CONTADOR)
   ).toBe(true);
 
   // O código recolhido some para leitor de tela, não só para o teclado.
@@ -941,45 +996,91 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 
 // Cobertura de todos os tópicos "ready": em vez de um teste artesanal por
 // página, este bloco garante o contrato que toda página completa precisa
-// cumprir. Ao promover um tópico novo, acrescente o slug aqui.
-const TOPICOS_PRONTOS = [
-  { slug: "big-o", h1: "Notação Big O", vizMin: 2 },
-  { slug: "arrays", h1: "Arrays e Listas", vizMin: 3 },
-  { slug: "strings", h1: "Strings", vizMin: 3 },
-  { slug: "subarray-substring-subsequence-subset", h1: 'Os 4 "sub"', vizMin: 1 },
-  { slug: "two-pointers", h1: "Two Pointers", vizMin: 3 },
-  { slug: "sliding-window", h1: "Sliding Window", vizMin: 3 },
-  { slug: "prefix-sum", h1: "Prefix Sum", vizMin: 2 },
-  { slug: "intervals", h1: "Intervalos", vizMin: 2 },
-  { slug: "hash-table", h1: "Tabelas Hash", vizMin: 2 },
-  { slug: "listas-ligadas", h1: "Listas Encadeadas", vizMin: 3 },
-  { slug: "skip-list", h1: "Skip List", vizMin: 2 },
-  { slug: "pilhas", h1: "Pilhas (Stacks)", vizMin: 3 },
-  { slug: "filas", h1: "Filas e Deques", vizMin: 3 },
-  { slug: "recursao", h1: "Recursão: Fundamentos", vizMin: 2 },
-  { slug: "recursao-funcional", h1: "Recursão: Programação Funcional", vizMin: 2 },
-  { slug: "tree-traversals", h1: "Percursos em Árvore (DFS/BFS)", vizMin: 1 },
-  { slug: "arvores-binarias", h1: "Árvores Binárias", vizMin: 1 },
-  { slug: "n-ary-trees", h1: "Árvores N-árias", vizMin: 1 },
-  { slug: "bst", h1: "Árvore de Busca Binária", vizMin: 1 },
-  { slug: "grafos-intro", h1: "Introdução a Grafos", vizMin: 1 },
-  { slug: "dfs-bfs", h1: "DFS e BFS em Grafos", vizMin: 1 },
-  { slug: "dijkstra", h1: "Dijkstra", vizMin: 1 },
-  { slug: "bellman-ford", h1: "Bellman-Ford", vizMin: 1 },
-  { slug: "a-star", h1: "A* (A Estrela)", vizMin: 1 },
-  { slug: "topological-sort", h1: "Ordenação Topológica", vizMin: 1 },
-  { slug: "mst", h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
-  { slug: "binary-heap", h1: "Binary Heap", vizMin: 2 },
-  { slug: "heap-sort", h1: "Heap Sort", vizMin: 2 },
-  { slug: "busca-binaria", h1: "Busca Binária", vizMin: 3 },
-  { slug: "ordenacao-basica", h1: "Ordenação Básica", vizMin: 3 },
-  { slug: "merge-sort", h1: "Merge Sort", vizMin: 3 },
-  { slug: "quick-sort", h1: "Quick Sort", vizMin: 3 },
-  { slug: "shell-sort", h1: "Shell Sort", vizMin: 3 },
-  { slug: "backtracking", h1: "Backtracking", vizMin: 3 },
-  { slug: "binary-numbers", h1: "Números Binários", vizMin: 3 },
-  { slug: "negative-binary", h1: "Binários Negativos", vizMin: 3 },
-];
+// cumprir. Quatro guardas consomem esta lista — o contrato de página abaixo, os
+// controles de reprodução, o colapso de painel no celular e o overflow no
+// mobile.
+//
+// A LISTA DE SLUGS É DERIVADA de `ALL_TOPICS`, não escrita à mão. Escrita à mão
+// ela envelhece em silêncio: promover um tópico sem lembrar de acrescentá-lo
+// aqui deixa a página nova fora dos QUATRO guardas de uma vez, com o CI verde e
+// nenhum sinal de que faltou alguma coisa. São 11 promoções pela frente.
+//
+// O que continua à mão é a DESCRIÇÃO de cada tópico, e de propósito:
+//
+// - `h1` é conferência independente. Derivá-lo de `t.name` viraria tautologia,
+//   porque a página renderiza `t.name` — o teste passaria a comparar o dado com
+//   ele mesmo e pararia de pegar título trocado;
+// - `vizMin` não existe na fonte: `viz` é o nome de UM visualizador, não a
+//   contagem dos que o MDX de fato instancia.
+const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
+  "big-o": { h1: "Notação Big O", vizMin: 2 },
+  arrays: { h1: "Arrays e Listas", vizMin: 3 },
+  strings: { h1: "Strings", vizMin: 3 },
+  "subarray-substring-subsequence-subset": { h1: 'Os 4 "sub"', vizMin: 1 },
+  "two-pointers": { h1: "Two Pointers", vizMin: 3 },
+  "sliding-window": { h1: "Sliding Window", vizMin: 3 },
+  "prefix-sum": { h1: "Prefix Sum", vizMin: 2 },
+  intervals: { h1: "Intervalos", vizMin: 2 },
+  "hash-table": { h1: "Tabelas Hash", vizMin: 2 },
+  "listas-ligadas": { h1: "Listas Encadeadas", vizMin: 3 },
+  "skip-list": { h1: "Skip List", vizMin: 2 },
+  pilhas: { h1: "Pilhas (Stacks)", vizMin: 3 },
+  filas: { h1: "Filas e Deques", vizMin: 3 },
+  recursao: { h1: "Recursão: Fundamentos", vizMin: 2 },
+  "recursao-funcional": { h1: "Recursão: Programação Funcional", vizMin: 2 },
+  "tree-traversals": { h1: "Percursos em Árvore (DFS/BFS)", vizMin: 1 },
+  "arvores-binarias": { h1: "Árvores Binárias", vizMin: 1 },
+  "n-ary-trees": { h1: "Árvores N-árias", vizMin: 1 },
+  bst: { h1: "Árvore de Busca Binária", vizMin: 1 },
+  "grafos-intro": { h1: "Introdução a Grafos", vizMin: 1 },
+  "dfs-bfs": { h1: "DFS e BFS em Grafos", vizMin: 1 },
+  dijkstra: { h1: "Dijkstra", vizMin: 1 },
+  "bellman-ford": { h1: "Bellman-Ford", vizMin: 1 },
+  "a-star": { h1: "A* (A Estrela)", vizMin: 1 },
+  "topological-sort": { h1: "Ordenação Topológica", vizMin: 1 },
+  mst: { h1: "Árvore Geradora Mínima (MST)", vizMin: 1 },
+  "binary-heap": { h1: "Binary Heap", vizMin: 2 },
+  "heap-sort": { h1: "Heap Sort", vizMin: 2 },
+  "busca-binaria": { h1: "Busca Binária", vizMin: 3 },
+  "ordenacao-basica": { h1: "Ordenação Básica", vizMin: 3 },
+  "merge-sort": { h1: "Merge Sort", vizMin: 3 },
+  "quick-sort": { h1: "Quick Sort", vizMin: 3 },
+  "shell-sort": { h1: "Shell Sort", vizMin: 3 },
+  backtracking: { h1: "Backtracking", vizMin: 3 },
+  "binary-numbers": { h1: "Números Binários", vizMin: 3 },
+  "negative-binary": { h1: "Binários Negativos", vizMin: 3 },
+};
+
+// O fallback existe para que um tópico recém-promovido JÁ ENTRE nos quatro
+// guardas, mesmo antes de alguém descrevê-lo: `t.name` é o que a página
+// renderiza e `vizMin: 1` é o piso de qualquer página completa. Quem avisa que
+// falta descrever é o teste logo abaixo, e ele reprova alto.
+const TOPICOS_PRONTOS = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => ({
+  slug: t.slug,
+  h1: DESCRICAO[t.slug]?.h1 ?? t.name,
+  vizMin: DESCRICAO[t.slug]?.vizMin ?? 1,
+}));
+
+test("todo tópico 'ready' está descrito na tabela dos guardas de contrato", () => {
+  const prontos = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => t.slug);
+  const semDescricao = prontos.filter((s) => !DESCRICAO[s]);
+  const descritosDeMais = Object.keys(DESCRICAO).filter((s) => !prontos.includes(s));
+
+  // Promoveu um tópico? Ele já está rodando nos quatro guardas pelo fallback.
+  // O que falta é o `h1` e o `vizMin` de verdade, que são a parte que o dado
+  // não tem: sem eles, o contrato daquela página é o piso e não o dela.
+  expect(
+    semDescricao,
+    "tópicos promovidos a 'ready' sem entrada em DESCRICAO (acrescente h1 e vizMin)"
+  ).toEqual([]);
+  // E o contrário: entrada que sobrou aponta slug renomeado ou tópico que
+  // voltou para 'soon', e vira teste que nunca mais visita página nenhuma.
+  expect(
+    descritosDeMais,
+    "entradas de DESCRICAO que não correspondem a nenhum tópico 'ready'"
+  ).toEqual([]);
+  expect(TOPICOS_PRONTOS).toHaveLength(prontos.length);
+});
 
 for (const t of TOPICOS_PRONTOS) {
   test(`tópico ${t.slug} entrega artigo, visualizadores e âncoras válidas`, async ({ page }) => {
@@ -1012,7 +1113,14 @@ test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async
   const viz = page.locator("figure.viz").first();
   const irAteOFim = async () => {
     const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    // Este helper roda logo depois de trocar a ordem do percurso, que é o caso
+    // exato em que a leitura única de `isEnabled()` devolve o estado da rodada
+    // anterior e o laço inteiro é pulado.
+    await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+    // Sem isto o laço sai calado quando o limite estoura e a saída é lida num
+    // passo do meio — que, num percurso, é um prefixo válido da lista esperada.
+    await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
 
   // as quatro sequências da árvore do artigo (raiz 1, esquerda 2 com 4 e 5, direita 3 com 6)
@@ -1142,7 +1250,9 @@ test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ 
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
   await viz.getByRole("button", { name: "remover o topo" }).click();
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // asserção web-first: reconsulta até a saída completa aparecer
   await expect(viz.locator(".tt-saida-item")).toHaveText(["1", "2", "3", "4", "5", "6"]);
 });
@@ -1179,7 +1289,9 @@ test("heap sort: a fronteira anda e o array sai ordenado", async ({ page }) => {
   await page.goto("/topico/heap-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "heap sort: duas fases no mesmo array" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 0; i < 200 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   // no fim, toda posição está congelada e na ordem crescente
   await expect(viz.locator(".hp-cel.fixo")).toHaveCount(10);
   // cada célula concatena índice e valor: posição 0 com o valor 1 lê "01"
@@ -1218,27 +1330,29 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
   };
 
-  // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear
+  // 8 posições, alvo no meio: 3 comparações contra as 5 da busca linear.
+  // O card concatena rótulo e valor num nó só ("comparações até aqui3"), então
+  // `toContainText("3")` passaria com 13 ou 30. O <strong> guarda só o número,
+  // e `toHaveText` exige o valor exato.
   await irAteOFim();
-  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot });
-  await expect(stat(/^comparações até aqui\d/)).toContainText("3");
-  await expect(stat(/^busca linear gastaria\d/)).toContainText("5");
+  const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
+  await expect(stat(/^comparações até aqui\d/)).toHaveText("3");
+  await expect(stat(/^busca linear gastaria\d/)).toHaveText("5");
   // "descartadas sem ler" não conta a posição do meio, que foi lida. Com 8
   // posições, 3 lidas e 5 descartadas fecham o array inteiro, e é essa
   // invariante que mantém a estatística honesta.
-  await expect(stat(/^descartadas sem ler\d/)).toContainText("5");
+  await expect(stat(/^descartadas sem ler\d/)).toHaveText("5");
 
   // dobrar o array de 8 para 16 acrescenta UMA comparação, não dobra o trabalho
   await viz.getByRole("button", { name: /16 posições/ }).click();
   await irAteOFim();
-  await expect(stat(/^comparações até aqui\d/)).toContainText("4");
+  await expect(stat(/^comparações até aqui\d/)).toHaveText("4");
 
   // num alvo ausente a busca varre o espaço inteiro, então lidas + descartadas
   // tem que fechar exatamente em n
   await viz.getByRole("button", { name: /não existe: 40/ }).click();
   await irAteOFim();
-  const numero = async (rot: RegExp) =>
-    parseInt(((await stat(rot).textContent()) ?? "").replace(/\D+/g, "").slice(-2), 10);
+  const numero = async (rot: RegExp) => parseInt((await stat(rot).innerText()).trim(), 10);
   const lidas = await numero(/^comparações até aqui\d/);
   const cegas = await numero(/^descartadas sem ler\d/);
   expect(lidas + cegas, "toda posição é lida ou descartada, exatamente uma vez").toBe(8);
@@ -1257,8 +1371,10 @@ test("busca binária: a fórmula ingênua do meio estoura o inteiro de 32 bits",
   await viz.getByRole("button", { name: /Alguns passos depois/ }).click();
   await expect(viz.locator(".viz-step")).toHaveText("as duas discordam");
   await expect(viz.locator(".bb-bit.sinal")).toHaveClass(/\bon\b/);
-  await expect(viz.locator(".bb-formula").first().locator("li b").last()).toContainText("-397.483.648");
-  await expect(viz.locator(".bb-formula").nth(1).locator("li b").last()).toContainText("1.750.000.000");
+  // texto exato: "-397.483.648" é substring de "-1.397.483.648", e o sinal e a
+  // magnitude do estouro são a aula inteira desta peça
+  await expect(viz.locator(".bb-formula").first().locator("li b").last()).toHaveText("-397.483.648");
+  await expect(viz.locator(".bb-formula").nth(1).locator("li b").last()).toHaveText("1.750.000.000");
 });
 
 test("fronteira: a mesma busca devolve primeira, última e ponto de inserção", async ({ page }) => {
@@ -1269,34 +1385,38 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
     await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
     for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
     await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
-    return viz.locator(".bigo-stat").filter({ hasText: rot });
+    // O card concatena rótulo e valor num nó só, então uma asserção de substring
+    // no card inteiro passa com qualquer número que contenha o esperado ("1"
+    // passa com -10). O <strong> guarda só o valor.
+    return viz.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
   };
 
   // [1, 3, 3, 3, 5, 8, 8, 11, 14] procurando 3: bloco nas posições 1, 2 e 3
-  await expect(await resposta(/^primeira ocorrência/)).toContainText("1");
+  await expect(await resposta(/^primeira ocorrência/)).toHaveText("1");
   await viz.getByRole("button", { name: "última ocorrência" }).click();
-  await expect(await resposta(/^última ocorrência/)).toContainText("3");
+  await expect(await resposta(/^última ocorrência/)).toHaveText("3");
 
   // um valor ausente: a busca falha, mas a posição de inserção sai de graça
   await viz.getByRole("button", { name: "onde entraria" }).click();
   await viz.getByRole("button", { name: /não existe: 7/ }).click();
-  await expect(await resposta(/^onde o valor entraria/)).toContainText("5");
+  await expect(await resposta(/^onde o valor entraria/)).toHaveText("5");
   // o retorno negativo é o do caso de FALHA: -(5) - 1
-  const retorno = viz.locator(".bigo-stat").filter({ hasText: /^retorno do Arrays/ });
-  await expect(retorno).toContainText("-6");
+  const retorno = viz.locator(".bigo-stat").filter({ hasText: /^retorno do Arrays/ }).locator("strong");
+  await expect(retorno).toHaveText("-6");
 
   // Regressão: com o alvo PRESENTE o card mostrava o negativo do mesmo jeito,
   // mas aí o Arrays.binarySearch devolve o índice. O 3 existe na posição 1.
+  // `toHaveText("1")` já reprova qualquer negativo, então o `not.toContainText`
+  // que existia aqui virou redundante.
   await viz.getByRole("button", { name: /bloco de três iguais/ }).click();
   await resposta(/^onde o valor entraria/);
-  await expect(retorno).toContainText("1");
-  await expect(retorno).not.toContainText("-");
+  await expect(retorno).toHaveText("1");
 
   // Borda de cima: a esquerda para em 9, que é o tamanho do array e não indexa
   // ninguém. É onde a checagem de existência leria fora do intervalo.
   await viz.getByRole("button", { name: /Maior que tudo/ }).click();
-  await expect(await resposta(/^onde o valor entraria/)).toContainText("9");
-  await expect(retorno).toContainText("-10");
+  await expect(await resposta(/^onde o valor entraria/)).toHaveText("9");
+  await expect(retorno).toHaveText("-10");
 });
 
 test("ordenação básica: o selection sort não tem melhor caso", async ({ page }) => {
@@ -1352,7 +1472,11 @@ test("ordenação básica: as barras batem com o passo a passo e a lei das inver
 
   // preset embaralhado (12 inversões): os números são os mesmos que o
   // visualizador de passo a passo mostra, porque saem do mesmo gerador
-  await expect(corrida.locator(".viz-step")).toContainText("12 inversões");
+  // a linha inteira: "12 inversões" é substring de "112 inversões", e os três
+  // números (inversões, piso e teto) são o que as barras abaixo têm que bater
+  await expect(corrida.locator(".viz-step")).toHaveText(
+    "12 inversões na entrada · piso 7, teto 28 comparações"
+  );
   await expect(barras(0)).toHaveText(["25", "24"]); // bubble: 2 x 12 inversões
   await expect(barras(1)).toHaveText(["28", "12"]); // selection: sempre 28
   await expect(barras(2)).toHaveText(["17", "19"]); // insertion: 12 + 7 colocações
@@ -1416,7 +1540,9 @@ test("merge sort: o custo não depende dos dados, e o empate depende do sinal", 
   await expect(niveis.locator(".ms-nivel")).toHaveCount(5);
   await niveis.getByRole("button", { name: "n = 64" }).click();
   await expect(niveis.locator(".ms-nivel")).toHaveCount(7);
-  await expect(niveis.locator(".viz-step")).toContainText("6 rodadas de intercalação x 64 elementos = 384");
+  await expect(niveis.locator(".viz-step")).toHaveText(
+    "6 rodadas de intercalação x 64 elementos = 384 movimentos"
+  );
 
   // estabilidade: o mesmo merge com <= e com <, e só o segundo inverte empates
   const empate = page.locator("figure.viz").filter({ hasText: "o sinal que decide a estabilidade" });
@@ -1482,8 +1608,12 @@ test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) =
 
   // três vias: com o array constante a faixa dos iguais sai da recursão inteira
   const vias = page.locator("figure.viz").filter({ hasText: "o que fazer com os iguais" });
-  await expect(vias.locator(".ms-op").nth(0)).toContainText("28 comparações · profundidade 8");
-  await expect(vias.locator(".ms-op").nth(1)).toContainText("16 comparações · profundidade 1");
+  // O selo é o nó que guarda só os dois números: no `.ms-op` inteiro,
+  // "28 comparações" passaria com "128 comparações" e "profundidade 1" com
+  // "profundidade 10", que é a diferença entre as duas partições.
+  const selo = (i: number) => vias.locator(".ms-op").nth(i).locator(".bb-formula-selo");
+  await expect(selo(0)).toHaveText("28 comparações · profundidade 8");
+  await expect(selo(1)).toHaveText("16 comparações · profundidade 1");
   // A frase inteira, no nó dela: o ramo sem subproblema deixou de entrar no
   // meio de uma moldura fixa, e a asserção antiga (`toContainText("nenhum
   // subproblema")`) gravava justamente o texto quebrado.
@@ -1492,8 +1622,8 @@ test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) =
   );
   // sem repetidos ela não é melhor: mesma profundidade e o dobro de comparações
   await vias.getByRole("button", { name: /Sem repetição/ }).click();
-  await expect(vias.locator(".ms-op").nth(0)).toContainText("18 comparações · profundidade 5");
-  await expect(vias.locator(".ms-op").nth(1)).toContainText("35 comparações · profundidade 5");
+  await expect(selo(0)).toHaveText("18 comparações · profundidade 5");
+  await expect(selo(1)).toHaveText("35 comparações · profundidade 5");
 });
 
 test("shell sort: a h-ordenação não se perde e o gap só compensa com n grande", async ({ page }) => {
@@ -1520,7 +1650,7 @@ test("shell sort: a h-ordenação não se perde e o gap só compensa com n grand
   await sub.getByRole("button", { name: "Rodada 3: gap 1" }).click();
   await expect(selos).toHaveText(["4-ordenado: sim", "2-ordenado: sim", "1-ordenado: sim"]);
   // com gap 1 existe uma subsequência só, e ela é o array inteiro
-  await expect(sub.locator(".viz-step")).toContainText("1 subsequência de 8 elementos");
+  await expect(sub.locator(".viz-step")).toHaveText("gap 1 · 1 subsequência de 8 elementos");
 
   // o cruzamento: com 8 elementos o shell sort perde, com 128 ele ganha de longe
   const gaps = page.locator("figure.viz").filter({ hasText: "a partir de que tamanho o gap compensa" });
@@ -1565,8 +1695,14 @@ test("backtracking: escolher, explorar e desfazer, com a lista voltando ao iníc
   await expect(stat(/^soluções encontradas\d/)).toHaveText("8");
   // a invariante: um retrocesso por aresta, ou seja, nós - 1
   await expect(stat(/^retrocessos\d/)).toHaveText("7");
-  // e a solução parcial termina vazia, porque todo escolher teve o seu desfazer
-  await expect(viz.locator(".hp-bloco").first()).toContainText("vazia");
+  // e a solução parcial termina vazia, porque todo escolher teve o seu desfazer.
+  // O bloco é escolhido pelo TÍTULO, não por `.first()`: a peça tem três
+  // `.hp-bloco` (parcial, pilha de chamadas e soluções) e dois deles também
+  // sabem escrever "vazia", então o `.first()` fazia a asserção depender da
+  // ordem no DOM para não estar lendo o painel errado.
+  await expect(
+    viz.locator(".hp-bloco").filter({ hasText: "A solução parcial" }).locator(".bb-array-nota")
+  ).toHaveText("vazia");
 
   // permutações: só as folhas são resposta, então 16 nós para 6 soluções
   await viz.getByRole("button", { name: /Permutações/ }).click();
@@ -1643,8 +1779,12 @@ test("números binários: a soma das posições ligadas e as divisões por 2", a
   for (let i = 0; i < 40 && (await proximo.isEnabled()); i++) await proximo.click();
   await expect(proximo).toBeDisabled();
   await expect(div.locator(".bigo-stat").filter({ hasText: /^divisões feitas\d/ }).locator("strong")).toHaveText("8");
-  await expect(div.locator(".viz-note")).toContainText("11001001");
-  await expect(div.locator(".viz-note")).toContainText("128 + 64 + 8 + 1 = 201");
+  // A nota inteira: "11001001" é substring de "111001001" e a contagem de
+  // divisões dita a de bits significativos, então os dois números só provam
+  // alguma coisa lidos junto com a frase que os relaciona.
+  await expect(div.locator(".viz-note")).toHaveText(
+    "Cheguei a zero, então acabou: 201 em binário é 11001001. Foram 8 divisões para 8 bits significativos, e os zeros à esquerda entram só para completar o byte. Conferindo pelo outro caminho: 128 + 64 + 8 + 1 = 201."
+  );
 
   // as bases: o mesmo número escrito de quatro formas, e hexa em grupos de 4 bits
   const bases = page.locator("figure.viz").filter({ hasText: "a base é um parâmetro" });
@@ -1668,10 +1808,15 @@ test("binários negativos: complemento de dois, zero único e o padrão sem sina
   await expect(comp.locator(".viz-note")).toContainText("11100110");
   await expect(comp.locator(".viz-note")).toContainText("vai-um sobrando");
 
-  // o zero é o caso que prova a ausência de ambiguidade: o oposto dele é ele
+  // O zero é o caso que prova a ausência de ambiguidade: o oposto dele é ele.
+  // Rótulo e valor no mesmo par, e valor exato: `.nth(2)` dependia da ordem das
+  // três fichas, e `toContainText("0")` passava com 10, -128 ou 0x00 — inclusive
+  // com o número que este teste existe para descartar.
   await comp.getByRole("button", { name: /teste da ambiguidade/ }).click();
   await irAteOFim();
-  await expect(comp.locator(".viz-var").nth(2)).toContainText("0");
+  await expect(
+    comp.locator(".viz-var").filter({ hasText: "em construção (com sinal)" }).locator(".viz-var-val")
+  ).toHaveText("0");
 
   // as três convenções: só o complemento de dois tem um zero e soma zero
   const tres = page.locator("figure.viz").filter({ hasText: "três formas de escrever um negativo" });
@@ -1699,7 +1844,11 @@ test("binários negativos: complemento de dois, zero único e o padrão sem sina
 // Vídeo extra é link para resolução de exercício, não material do tópico, e um
 // tópico que só tem isso continua sem aula, sem texto e sem visualização.
 test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização", async ({ page }) => {
-  // O menu lateral só renderiza o grupo aberto, então a conferência é por grupo.
+  // A conferência é por grupo, então o locator olha só o grupo ABERTO. Ele já foi
+  // `.sidebar .badge-soon`, sem o filtro, e isso funcionava por acidente: o menu
+  // não renderizava o grupo fechado, e por isso escondia 46 dos 47 tópicos do
+  // rastreador no pior caso. Corrigido aquilo, os 11 selos do site inteiro
+  // passaram a estar no DOM, e o que contava o grupo passou a contar o site.
   // Ler de ALL_TOPICS em vez de fixar uma lista faz o teste sobreviver ao dia
   // em que qualquer um destes tópicos for publicado.
   //
@@ -1714,7 +1863,9 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
     const grupo = ALL_TOPICS.find((t) => t.slug === slug)!.group;
     const doGrupo = ALL_TOPICS.filter((t) => t.group === grupo);
     const vazios = doGrupo.filter((t) => isEmptyTopic(t));
-    await expect(page.locator(".sidebar .badge-soon")).toHaveCount(vazios.length);
+    await expect(page.locator(".sidebar .side-items:not([hidden]) .badge-soon")).toHaveCount(
+      vazios.length
+    );
     for (const t of doGrupo) {
       const item = page.locator(`.sidebar a[href="/topico/${t.slug}/"]`);
       if (isEmptyTopic(t)) await expect(item, `${t.slug} devia estar em breve`).toHaveClass(/\bsoon\b/);

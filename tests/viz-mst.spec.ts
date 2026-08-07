@@ -105,8 +105,15 @@ async function painelPronto(page: Page) {
 async function irAoFim(page: Page, raiz: string) {
   const { total } = await page.evaluate(contador, raiz);
   const proximo = page.locator(raiz).getByRole("button", { name: "Próximo ›" });
+  // Os dois lados da janela: o percurso começa no início (senão os cliques caem
+  // num botão já desabilitado e o contador nunca sai do lugar) e termina no fim.
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 1; i < total; i++) await proximo.click();
   await expect(page.locator(raiz).locator(".viz-step").last()).toHaveText(`passo ${total} de ${total}`);
+  // O contador diz onde a peça está; o botão desabilitado diz que ela ACABOU.
+  // São afirmações diferentes: um `total` lido errado deixa as duas primeiras
+  // asserções coerentes entre si e erradas em relação à animação.
+  await expect(proximo, "o percurso não chegou ao fim: Próximo continua ativo").toBeDisabled();
   return total;
 }
 

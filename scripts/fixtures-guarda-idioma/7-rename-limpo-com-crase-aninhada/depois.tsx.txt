@@ -1,0 +1,28 @@
+"use client";
+// O caso NEGATIVO, e ele importa tanto quanto os outros: um guarda que grita em
+// tudo é tão inútil quanto um cego. Aqui o rename é só de identificador
+// (slow/fast/cycle/total -> slowPtr/fastPtr/cycleLen/nodeCount) e NENHUM texto
+// de tela muda. O guarda tem que sair limpo.
+//
+// Com o guarda antigo este mesmo rename saía com 40 linhas de ruído, porque a
+// crase aninhada desincronizava o pareamento e ele passava a comparar código.
+import { useState } from "react";
+
+export function Exemplo() {
+  const [nodeCount, setNodeCount] = useState(6);
+  const [cycleLen, setCycleLen] = useState(3);
+  const slowPtr = 0;
+  const fastPtr = 1;
+  const notas = [
+    `A lista tem ${nodeCount} ${nodeCount === 1 ? "nó" : "nós"}${cycleLen > 0 ? `, e ${cycleLen} ${cycleLen === 1 ? "deles forma" : "deles formam"} o ciclo` : ""}.`,
+    `O rápido está no nó ${fastPtr}, o lento no nó ${slowPtr}: ${fastPtr === slowPtr ? `os dois no nó ${slowPtr}` : "ainda não se encontraram"}.`,
+  ];
+  return (
+    <figure className="viz">
+      <p>{notas[0]}</p>
+      <span>Nós no ciclo: {cycleLen === 0 ? "nenhum, a lista termina em None" : cycleLen}</span>
+      <button onClick={() => setNodeCount(nodeCount + 1)}>mais um nó</button>
+      <button onClick={() => setCycleLen(0)}>tirar o ciclo</button>
+    </figure>
+  );
+}

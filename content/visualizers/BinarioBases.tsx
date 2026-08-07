@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // BinarioBases, o mesmo número em quatro sistemas, e o que cabe em cada tipo.
@@ -23,13 +24,13 @@ import { useMemo, useState } from "react";
 // do tempo: a variável é o número.
 // ---------------------------------------------------------------------------
 
-const VALORES = [53, 201, 255, 4095, 48879];
+const VALUES = [53, 201, 255, 4095, 48879];
 
-const BASES: { base: number; nome: string; nota: string }[] = [
-  { base: 2, nome: "binário", nota: "2 símbolos: 0 e 1. É o que existe no hardware." },
-  { base: 8, nome: "octal", nota: "8 símbolos. Cada dígito vale exatamente 3 bits. Sobrevive nas permissões de arquivo do Unix." },
-  { base: 10, nome: "decimal", nota: "10 símbolos. É o único da lista que não tem relação com potências de dois." },
-  { base: 16, nome: "hexadecimal", nota: "16 símbolos, de 0 a F. Cada dígito vale exatamente 4 bits, e é por isso que ele é a forma curta de escrever binário." },
+const BASES: { base: number; name: string; note: string }[] = [
+  { base: 2, name: "binário", note: "2 símbolos: 0 e 1. É o que existe no hardware." },
+  { base: 8, name: "octal", note: "8 símbolos. Cada dígito vale exatamente 3 bits. Sobrevive nas permissões de arquivo do Unix." },
+  { base: 10, name: "decimal", note: "10 símbolos. É o único da lista que não tem relação com potências de dois." },
+  { base: 16, name: "hexadecimal", note: "16 símbolos, de 0 a F. Cada dígito vale exatamente 4 bits, e é por isso que ele é a forma curta de escrever binário." },
 ];
 
 // Formatador determinístico: Intl.NumberFormat diverge entre build e cliente.
@@ -37,7 +38,7 @@ function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function compacto(v: number): string {
+function compact(v: number): string {
   if (v >= 1e18) return `${num(v / 1e18)} qui`;
   if (v >= 1e15) return `${num(v / 1e15)} quatri`;
   if (v >= 1e12) return `${num(v / 1e12)} tri`;
@@ -46,45 +47,53 @@ function compacto(v: number): string {
   return num(v);
 }
 
-const TIPOS = [
-  { bits: 8, nome: "byte", exemplo: "byte, char, uint8" },
-  { bits: 16, nome: "16 bits", exemplo: "short, uint16" },
-  { bits: 32, nome: "32 bits", exemplo: "int, float, cor RGBA" },
-  { bits: 64, nome: "64 bits", exemplo: "long, double, ponteiro" },
+const TYPES = [
+  { bits: 8, name: "byte", example: "byte, char, uint8" },
+  { bits: 16, name: "16 bits", example: "short, uint16" },
+  { bits: 32, name: "32 bits", example: "int, float, cor RGBA" },
+  { bits: 64, name: "64 bits", example: "long, double, ponteiro" },
 ];
 
 export function BinarioBases() {
-  const [valor, setValor] = useState(255);
-  const bin = useMemo(() => valor.toString(2), [valor]);
-  const hex = useMemo(() => valor.toString(16).toUpperCase(), [valor]);
+  const [value, setValue] = useState(255);
+  const bin = useMemo(() => value.toString(2), [value]);
+  const hex = useMemo(() => value.toString(16).toUpperCase(), [value]);
+
+  const viz = useVisualizer({
+    title: "Visualizador · a base é um parâmetro, e os bits são um orçamento",
+    // Não é uma animação: a tabela responde ao valor escolhido e pronto. Com
+    // `total: 1` somem o contador de passo, o rodapé e os atalhos.
+    total: 1,
+    // As duas tabelas e a fita de grupos SÃO o conteúdo: não há bloco
+    // dispensável para recolher, e prometer esconder um seria rótulo mentindo.
+    collapsible: false,
+    // `measureOn` fica de fora de propósito: com `collapsible: false` não há
+    // decisão a tomar, e o hook nem espera as fontes.
+  });
 
   // Os grupos de 4 bits que formam cada dígito hexadecimal, alinhados pela
   // direita: é a demonstração de que hexa é binário com outra roupa.
-  const grupos = useMemo(() => {
-    const preenchido = bin.padStart(Math.ceil(bin.length / 4) * 4, "0");
+  const groups = useMemo(() => {
+    const padded = bin.padStart(Math.ceil(bin.length / 4) * 4, "0");
     const out: string[] = [];
-    for (let i = 0; i < preenchido.length; i += 4) out.push(preenchido.slice(i, i + 4));
+    for (let i = 0; i < padded.length; i += 4) out.push(padded.slice(i, i + 4));
     return out;
   }, [bin]);
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a base é um parâmetro, e os bits são um orçamento</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {num(valor)} = 0x{hex} = 0b{bin}
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem linha do tempo não há "passo N de M": o número que resume o estado
+          entra no lugar dele, com os três formatos juntos. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {num(value)} = 0x{hex} = 0b{bin}
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {VALORES.map((v) => (
-            <button key={v} className={`bigo-chip${valor === v ? " on" : ""}`} onClick={() => setValor(v)} aria-pressed={valor === v}>
+          {VALUES.map((v) => (
+            <button key={v} className={`bigo-chip${value === v ? " on" : ""}`} onClick={() => setValue(v)} aria-pressed={value === v}>
               {num(v)}
             </button>
           ))}
@@ -98,7 +107,7 @@ export function BinarioBases() {
 
         <div className="hp-bloco">
           <div className="tt-painel-tit">
-            O mesmo {num(valor)} em quatro bases <em>quanto menor a base, mais dígitos</em>
+            O mesmo {num(value)} em quatro bases <em>quanto menor a base, mais dígitos</em>
           </div>
           <div className="bigo-fam-scroll">
             <table className="bigo-fam-table">
@@ -112,20 +121,20 @@ export function BinarioBases() {
               </thead>
               <tbody>
                 {BASES.map((b) => {
-                  const escrita = valor.toString(b.base).toUpperCase();
+                  const written = value.toString(b.base).toUpperCase();
                   return (
                     <tr key={b.base} className={b.base === 16 ? "hp-destaque" : ""}>
                       <td>
                         <div className="bigo-fam-not hp-nome">
-                          {b.nome} ({b.base})
+                          {b.name} ({b.base})
                         </div>
                       </td>
                       <td>
-                        <span className="bn-escrita">{escrita}</span>
+                        <span className="bn-escrita">{written}</span>
                       </td>
-                      <td className="nums">{escrita.length}</td>
+                      <td className="nums">{written.length}</td>
                       <td>
-                        <div className="hp-veredito">{b.nota}</div>
+                        <div className="hp-veredito">{b.note}</div>
                       </td>
                     </tr>
                   );
@@ -140,7 +149,7 @@ export function BinarioBases() {
             Por que hexadecimal e não decimal <em>cada dígito hexa é um grupo de 4 bits, sem sobra</em>
           </div>
           <div className="bn-grupos">
-            {grupos.map((g, k) => (
+            {groups.map((g, k) => (
               <span className="bn-grupo" key={k}>
                 <span className="bn-grupo-bits">{g}</span>
                 <span className="bn-grupo-hex">{parseInt(g, 2).toString(16).toUpperCase()}</span>
@@ -169,25 +178,25 @@ export function BinarioBases() {
                 </tr>
               </thead>
               <tbody>
-                {TIPOS.map((t) => {
+                {TYPES.map((t) => {
                   const combos = Math.pow(2, t.bits);
-                  const cabe = valor < combos;
+                  const fits = value < combos;
                   return (
                     <tr key={t.bits}>
                       <td>
-                        <div className="bigo-fam-not hp-nome">{t.nome}</div>
+                        <div className="bigo-fam-not hp-nome">{t.name}</div>
                         <div className="bigo-fam-nome">{t.bits} bits</div>
                       </td>
                       <td className="nums">
                         <span className="hp-custo c-bom">2^{t.bits}</span>
                       </td>
                       <td className="nums">
-                        <span className={`hp-custo ${cabe ? "c-otimo" : "c-ruim"}`}>{compacto(combos - 1)}</span>
+                        <span className={`hp-custo ${fits ? "c-otimo" : "c-ruim"}`}>{compact(combos - 1)}</span>
                       </td>
                       <td>
                         <div className="hp-veredito">
-                          {t.exemplo}
-                          {cabe ? "" : ` · o ${num(valor)} escolhido acima NÃO cabe aqui`}
+                          {t.example}
+                          {fits ? "" : ` · o ${num(value)} escolhido acima NÃO cabe aqui`}
                         </div>
                       </td>
                     </tr>
@@ -199,7 +208,7 @@ export function BinarioBases() {
         </div>
 
         <p className="viz-note ok">
-          Os {num(valor)} escolhidos precisam de <strong>{bin.length} bits</strong> para serem escritos, ou{" "}
+          Os {num(value)} escolhidos precisam de <strong>{bin.length} bits</strong> para serem escritos, ou{" "}
           {hex.length} dígitos hexadecimais. Repare que dobrar a quantidade de bits não dobra o alcance, ele
           eleva ao quadrado: 8 bits vão até 255, 16 até 65.535, e 32 até mais de 4 bilhões. É a mesma curva
           exponencial de sempre, vista do lado de dentro.
@@ -212,6 +221,10 @@ export function BinarioBases() {
           32 bits é uma decisão, não um detalhe.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem controles próprios, o rodapé some inteiro —
+          é o que devolve os 4px medidos no contrato, §9. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }
