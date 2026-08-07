@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
-import { JsonLd, topicJsonLd } from "@/lib/jsonld";
+import { breadcrumbJsonLd, JsonLd, topicJsonLd } from "@/lib/jsonld";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
@@ -71,13 +71,25 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="topic-layout">
-      <JsonLd data={[topicJsonLd(t)]} />
+      <JsonLd data={[topicJsonLd(t), breadcrumbJsonLd(t)]} />
       <article>
-        <div className="breadcrumb">
-          <span>{t.group}</span>
-          <span>/</span>
-          <span className="cur">{t.name}</span>
-        </div>
+        {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
+            leva ao roadmap e o tópico corrente se identifica com `aria-current`.
+            O `color: "inherit"` é o que mantém a trilha com a MESMA aparência de
+            antes — `globals.css:37` pinta toda âncora com a cor de destaque, e
+            este PR não pode tocar naquele arquivo. Dar às âncoras uma afirmação
+            visual de link (sublinhado no hover, por exemplo) é uma regra
+            `.breadcrumb a` de quem for dono do CSS.
+            O grupo aponta para `/roadmap/` porque a âncora `#<id>` do grupo não
+            existe: `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
+            não vira atributo. Quando o `id` existir, muda só o destino. */}
+        <nav className="breadcrumb" aria-label="Trilha de navegação">
+          <Link href="/" style={{ color: "inherit" }}>Início</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/roadmap/" style={{ color: "inherit" }}>{t.group}</Link>
+          <span aria-hidden="true">/</span>
+          <span className="cur" aria-current="page">{t.name}</span>
+        </nav>
         <h1 className="topic-h1">{t.name}</h1>
 
         <div className="topic-chips">

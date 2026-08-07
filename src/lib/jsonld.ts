@@ -94,6 +94,27 @@ export function topicJsonLd(t: Topic) {
   };
 }
 
+/**
+ * A trilha do tópico, item a item igual à que a página desenha.
+ *
+ * O nível do meio aponta para `/roadmap/` e não para o grupo: a âncora do grupo
+ * não existe hoje. `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
+ * não vira atributo — não há `#<id>` no HTML para linkar. Quando a `<section>`
+ * ganhar o `id`, este destino vira `/roadmap/#<id>` e a marcação continua com os
+ * mesmos três níveis.
+ */
+export function breadcrumbJsonLd(t: Topic) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Início", item: abs("/") },
+      { "@type": "ListItem", position: 2, name: t.group, item: abs("/roadmap/") },
+      { "@type": "ListItem", position: 3, name: t.name, item: abs(`/topico/${t.slug}/`) },
+    ],
+  };
+}
+
 /** A trilha inteira do /roadmap, na ordem em que a página renderiza os cards. */
 export function roadmapJsonLd() {
   return {

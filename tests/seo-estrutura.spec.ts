@@ -277,6 +277,27 @@ test("cada página de tópico descreve o tópico, com os dados que estão na tel
   expect(sem, `${sem.length} de ${ALL_TOPICS.length} tópicos sem LearningResource`).toEqual([]);
 });
 
+test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () => {
+  const sem: string[] = [];
+  for (const t of ALL_TOPICS) {
+    const rota = `/topico/${t.slug}/`;
+    const trilha = doTipo(jsonLd(rota), "BreadcrumbList");
+    if (!trilha) {
+      sem.push(rota);
+      continue;
+    }
+    const itens = trilha.itemListElement as No[];
+    expect(itens.map((i) => i.name), rota).toEqual(["Início", t.group, t.name]);
+    expect(itens.map((i) => i.position), rota).toEqual([1, 2, 3]);
+    expect(itens.map((i) => i.item), rota).toEqual([
+      urlAbsoluta("/"),
+      urlAbsoluta("/roadmap/"),
+      urlAbsoluta(rota),
+    ]);
+  }
+  expect(sem, `${sem.length} de ${ALL_TOPICS.length} tópicos sem BreadcrumbList`).toEqual([]);
+});
+
 test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
   const lista = doTipo(jsonLd("/roadmap/"), "ItemList");
   expect(lista, "/roadmap/ sem ItemList").toBeTruthy();
@@ -295,5 +316,44 @@ test("o JSON-LD do tópico não promete vídeo, que é o que falta para o VideoO
   const comVideo = ALL_TOPICS.find((t) => t.youtube)!;
   const nos = jsonLd(`/topico/${comVideo.slug}/`);
   expect(doTipo(nos, "VideoObject"), "VideoObject só entra quando houver uploadDate").toBeUndefined();
+});
+
+// ---------------------------------------------------------------------------
+// 4. O que o aluno vê: trilha navegável e hierarquia de títulos
+// ---------------------------------------------------------------------------
+
+test("a trilha do tópico é navegável e diz onde o aluno está", async ({ page }) => {
+  const t = ALL_TOPICS[1]; // um tópico com grupo de verdade (o [0] é a Introdução)
+  await page.goto(`/topico/${t.slug}/`);
+  const trilha = page.locator(".breadcrumb");
+
+  const inicio = trilha.getByRole("link", { name: "Início" });
+  await expect(inicio).toHaveAttribute("href", "/");
+  await expect(trilha.getByRole("link", { name: t.group })).toHaveAttribute("href", "/roadmap/");
+  await expect(trilha.locator(".cur")).toHaveAttribute("aria-current", "page");
+
+  // Interagir, não contar: o link tem que levar mesmo à home.
+  await inicio.click();
+  await expect(page).toHaveURL(new RegExp("/$"));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+});
+
+test("a trilha marcada é a trilha desenhada", async ({ page }) => {
+  // Regra do Google que decide o desenho: a marcação reflete o que está na tela.
+  for (const t of [ALL_TOPICS[1], ALL_TOPICS[ALL_TOPICS.length - 1]]) {
+    const rota = `/topico/${t.slug}/`;
+    await page.goto(rota);
+    const naTela = await page
+      .locator(".breadcrumb")
+      .evaluate((el) =>
+        [...el.children]
+          .map((c) => c.textContent?.trim() ?? "")
+          .filter((s) => s !== "" && s !== "/")
+      );
+    const marcado = (doTipo(jsonLd(rota), "BreadcrumbList")!.itemListElement as No[]).map(
+      (i) => i.name
+    );
+    expect(naTela, rota).toEqual(marcado);
+  }
 });
 
