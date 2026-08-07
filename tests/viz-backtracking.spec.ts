@@ -30,9 +30,30 @@ async function abrirPagina(page: Page, w: number, h: number) {
   await expect(page.locator("article figure.viz")).toHaveCount(3);
 }
 
+/** O título de cada uma das três, na ordem dos índices acima. */
+const TITULOS = [
+  "backtracking: escolher, explorar, desfazer",
+  "o mesmo backtracking resolvendo sudoku",
+  "a poda: mesma resposta, uma fração do trabalho",
+];
+
 /** A figura da peça, com as contagens afirmadas nos dois níveis. */
 async function figura(page: Page, i: number): Promise<Locator> {
   const fig = page.locator("article figure.viz").nth(i);
+  // O índice diz ONDE, e esta linha diz QUAL. Nenhuma das asserções abaixo
+  // separa as duas peças — árvore e sudoku têm as duas a casca, o contador de
+  // passo e o bloco recolhível —, então sem ela o helper devolve a figura
+  // errada calado.
+  //
+  // Medido, e o resultado corrige o que eu ia escrever aqui: trocando ARVORE e
+  // SUDOKU de índice, a suíte reprova COM e SEM esta linha. Os testes lá
+  // embaixo são específicos o bastante (`passo 1 de 32` contra `passo 1 de 60`)
+  // para pegar a troca. O que esta linha muda é ONDE a reprovação acontece: no
+  // helper, dizendo qual peça veio, em vez de três arquivos de asserção adiante
+  // com um número que não explica nada.
+  await expect(fig.locator(".viz-head-title"), `a figura ${i} é a peça certa`).toContainText(
+    TITULOS[i]
+  );
   await expect(fig).toHaveClass(/viz-fit/);
   // Na página `.viz-step` casa TRÊS, e o terceiro não é um contador de passo: o
   // `BacktrackingPoda` usa a mesma classe para dizer "6 rainhas · 4 soluções ·
@@ -44,9 +65,11 @@ async function figura(page: Page, i: number): Promise<Locator> {
   // `not.toContainText` num locator vazio REPROVA (`element(s) not found`) em
   // vez de passar. O que continua verdade — e é o que importa — é que o
   // `.viz-step` da poda não é um contador de passo.
-  await expect(
-    page.locator("article figure.viz").nth(PODA).locator(".viz-step")
-  ).not.toContainText("passo");
+  const poda = page
+    .locator("article figure.viz")
+    .filter({ has: page.locator(".viz-head-title", { hasText: TITULOS[PODA] }) });
+  await expect(poda).toHaveCount(1);
+  await expect(poda.locator(".viz-step")).not.toContainText("passo");
   await expect(fig.locator(".viz-step")).toHaveCount(1);
   await expect(fig.locator(".viz-step")).toContainText("passo");
   // O bloco recolhível existe só nas duas peças adaptadas.

@@ -32,8 +32,6 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 
 const URL = "/topico/busca-binaria/";
 
-/** Índice desta peça entre as três `figure.viz` da página, como no arquivo irmão. */
-const OVERFLOW = 1;
 const TITULO = "Visualizador · as duas formas de achar o meio, e por que só uma serve";
 
 /** Folga de subpixel, igual à do hook. */
@@ -44,9 +42,15 @@ async function abrir(page: Page, w: number, h: number): Promise<Locator> {
   expect(page.viewportSize(), "a janela pedida é a janela medida").toEqual({ width: w, height: h });
   await page.goto(URL);
   await page.evaluate(() => document.fonts.ready);
-  const fig = page.locator("article figure.viz").nth(OVERFLOW);
+  // Escolhida por QUAL peça é, e não por posição entre as três figuras da
+  // página: `.nth(1)` é uma afirmação sobre a ordem do artigo, e o dia em que
+  // ela mudar esta suíte mede outra peça. O `toHaveCount(1)` é a outra metade —
+  // sem ele, um título ambíguo devolveria duas figuras.
+  const fig = page
+    .locator("article figure.viz")
+    .filter({ has: page.locator(".viz-head-title", { hasText: "as duas formas de achar o meio" }) });
+  await expect(fig, `a peça "${TITULO}" tem que ser única em ${URL}`).toHaveCount(1);
   await expect(fig).toHaveClass(/viz-fit/);
-  await expect(fig.locator(".viz-head-title")).toContainText("as duas formas de achar o meio");
   return fig;
 }
 
