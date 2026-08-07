@@ -121,7 +121,7 @@ export const test = base.extend<{ semErroDeConsole: void }>({
       // teste no relatório do Playwright, com o array inteiro no `Received`.
       expect(
         ocorrencias,
-        "a página emitiu erro. Se for ruído legítimo, declare em RUIDO_TOLERADO com o motivo"
+        "a página emitiu erro. Se for ruído legítimo, declare em `ruidoTolerado()` com o motivo"
       ).toEqual([]);
     },
     { auto: true },

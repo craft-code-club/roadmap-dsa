@@ -45,11 +45,12 @@ const ROTAS = [
 ];
 
 /**
- * Piso de tamanho de fonte. É `> 0`, e não um valor confortável, de propósito:
- * o repositório tem tipografia legitimamente pequena (o expoente do bit sai a
- * 6.7px, o `.badge-soon` a 9px), e um piso generoso viraria alarme falso. O que
- * este guarda proíbe é a classe de defeito que já aconteceu: texto renderizado
- * com tamanho zero, invisível, sem estourar nada.
+ * Piso de tamanho de fonte: **zero**. Não é um mínimo confortável, é o valor
+ * comparado — a regra efetiva abaixo é `fs > PISO_FONTE`, ou seja `font-size >
+ * 0`. Zero de propósito: o repositório tem tipografia legitimamente pequena (o
+ * expoente do bit sai a 6.7px, o `.badge-soon` a 9px), e um piso generoso
+ * viraria alarme falso. O que este guarda proíbe é a classe de defeito que já
+ * aconteceu: texto renderizado com tamanho zero, invisível, sem estourar nada.
  */
 const PISO_FONTE = 0;
 

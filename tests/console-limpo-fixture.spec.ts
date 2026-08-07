@@ -4,7 +4,8 @@ import { coletarErros } from "./fixtures/console-limpo";
 // O guarda do guarda: prova o que a tolerância de ruído deixa passar.
 //
 // POR QUE EXISTE
-// `RUIDO_TOLERADO` começou com `^requestfailed: .* \(net::ERR_ABORTED\)$`. O
+// A tolerância de ruído (hoje `ruidoTolerado()`, na fixture) começou como uma
+// constante com `^requestfailed: .* \(net::ERR_ABORTED\)$`. O
 // `.*` casa qualquer host, então um `ERR_ABORTED` de domínio de fora — um
 // `<script>` de terceiro, um `fetch` para API externa, um embed — era engolido
 // em silêncio pelo mesmo padrão escrito para o prefetch do Next. Uma allowlist
@@ -34,6 +35,13 @@ test("a tolerância de ERR_ABORTED vale para o site, e não para domínio de for
   browser,
   baseURL,
 }) => {
+  // Falhar cedo, e por escrito. Sem `baseURL` a tolerância sai VAZIA (é
+  // exatamente o que o teste seguinte prova), então este aqui reprovaria lá
+  // embaixo, na comparação de arrays, por um motivo que o diff não conta — e
+  // ainda montaria `undefined/aborta-me-...` nas URLs. O caso sem `baseURL` tem
+  // dono, e é o outro teste; aqui ele é pré-condição.
+  expect(baseURL, "este teste exige `use.baseURL` no playwright.config.ts").toBeTruthy();
+
   const page = await browser.newPage({ baseURL });
   const ocorrencias = coletarErros(page, baseURL);
 
