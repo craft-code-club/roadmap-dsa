@@ -11,7 +11,9 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:build": "next build && playwright test",
-    "screenshots": "bash scripts/smoke-screenshots.sh"
+    "screenshots": "bash scripts/smoke-screenshots.sh",
+    "guarda:commit": "git log --format=%s origin/main..HEAD | python3 scripts/guarda-commit.py",
+    "guarda:idioma": "python3 scripts/guarda-idioma.py"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.0",
