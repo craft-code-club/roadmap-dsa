@@ -252,6 +252,13 @@ test("cada página de tópico descreve o tópico, com os dados que estão na tel
   for (const t of ALL_TOPICS) {
     const rota = `/topico/${t.slug}/`;
     const recurso = doTipo(jsonLd(rota), "LearningResource");
+    // Os dois lados da condicional, não só o que interessa: página sem material
+    // é `noindex` e sai do sitemap, então também não declara ser um recurso de
+    // aprendizado. Sem esta metade, a marcação podia voltar sem ninguém ver.
+    if (isEmptyTopic(t)) {
+      expect(recurso, `${rota} é noindex e não pode declarar LearningResource`).toBeUndefined();
+      continue;
+    }
     if (!recurso) {
       sem.push(rota);
       continue;
@@ -274,7 +281,8 @@ test("cada página de tópico descreve o tópico, com os dados que estão na tel
     else expect(recurso.programmingLanguage, rota).toBeUndefined();
     expect((recurso.about as No | undefined)?.name, rota).toBe(t.group);
   }
-  expect(sem, `${sem.length} de ${ALL_TOPICS.length} tópicos sem LearningResource`).toEqual([]);
+  const indexaveis = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
+  expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem LearningResource`).toEqual([]);
 });
 
 test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () => {
@@ -282,6 +290,12 @@ test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () =
   for (const t of ALL_TOPICS) {
     const rota = `/topico/${t.slug}/`;
     const trilha = doTipo(jsonLd(rota), "BreadcrumbList");
+    // A trilha DESENHADA continua nas 47 páginas; só a marcação some junto com o
+    // resto do JSON-LD nas que pedem para não ser indexadas.
+    if (isEmptyTopic(t)) {
+      expect(trilha, `${rota} é noindex e não pode declarar BreadcrumbList`).toBeUndefined();
+      continue;
+    }
     if (!trilha) {
       sem.push(rota);
       continue;
@@ -295,7 +309,8 @@ test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () =
       urlAbsoluta(rota),
     ]);
   }
-  expect(sem, `${sem.length} de ${ALL_TOPICS.length} tópicos sem BreadcrumbList`).toEqual([]);
+  const indexaveis = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
+  expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem BreadcrumbList`).toEqual([]);
 });
 
 test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
@@ -340,7 +355,8 @@ test("a trilha do tópico é navegável e diz onde o aluno está", async ({ page
 
 test("a trilha marcada é a trilha desenhada", async ({ page }) => {
   // Regra do Google que decide o desenho: a marcação reflete o que está na tela.
-  for (const t of [ALL_TOPICS[1], ALL_TOPICS[ALL_TOPICS.length - 1]]) {
+  const comMarcacao = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
+  for (const t of [comMarcacao[0], comMarcacao[comMarcacao.length - 1]]) {
     const rota = `/topico/${t.slug}/`;
     await page.goto(rota);
     const naTela = await page

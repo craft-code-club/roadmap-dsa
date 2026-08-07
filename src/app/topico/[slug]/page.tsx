@@ -71,7 +71,13 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="topic-layout">
-      <JsonLd data={[topicJsonLd(t), breadcrumbJsonLd(t)]} />
+      {/* O MESMO `isEmptyTopic` do `noindex` acima e do filtro do sitemap. Sem
+          este terceiro uso, a página de um tópico sem material declarava ser um
+          recurso de aprendizado e, duas tags adiante, pedia para não ser
+          indexada. O `noindex` vence no Google, então não é defeito de ranking —
+          é a mesma contradição que este PR foi escrito para fechar, e o
+          consumidor que lê JSON-LD sem olhar `robots` acredita na declaração. */}
+      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t), breadcrumbJsonLd(t)]} />}
       <article>
         {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
             leva ao roadmap e o tópico corrente se identifica com `aria-current`.
