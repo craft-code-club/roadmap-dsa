@@ -1214,6 +1214,17 @@ export const TOTAL_LEETCODE_PROBLEMS = ALL_TOPICS.reduce(
   (n, t) => n + (t.problems?.filter((p) => p.source === "LeetCode").length ?? 0),
   0
 );
+// Tópicos que já têm alguma coisa para o aluno abrir. É o mesmo rigor do
+// `TOTAL_LEETCODE_PROBLEMS` logo acima, aplicado à outra ponta: `TOTAL_TOPICS`
+// conta a trilha inteira, e a trilha inclui os tópicos que o próprio site marca
+// como "em breve" e tira do índice do Google por não terem vídeo, artigo nem
+// visualização. Prometer o total onde a frase descreve o que a página entrega
+// conta o que não existe.
+//
+// Deriva de `isEmptyTopic`, a MESMA função que decide o selo "em breve" no menu
+// e o `noindex` da página, e não de uma cópia da regra: o número sobe sozinho no
+// dia em que um tópico ganha material, sem ninguém lembrar de voltar aqui.
+export const TOTAL_TOPICS_PRONTOS = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
 
 export function getTopic(slug: string): Topic | undefined {
   return ALL_TOPICS.find((t) => t.slug === slug);

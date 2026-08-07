@@ -176,17 +176,22 @@ test.describe("grafos-intro · casca adaptativa", () => {
     await expect(painel.locator(".viz-body .sub-modo button")).toHaveCount(2);
 
     // Rótulo e valor lidos no MESMO cartão. Esparso: a lista custa 20 entradas
-    // contra 36 células da matriz, e sobram 16 células em zero.
+    // contra 36 células da matriz, e sobram 22 células em zero — as 14 ligadas
+    // mais a diagonal, que a matriz desenha com o zero à mostra.
     await expect(cartao(painel, "memória da matriz").locator("strong")).toHaveText("36 células");
     await expect(cartao(painel, "memória da lista").locator("strong")).toHaveText("20 entradas");
-    await expect(cartao(painel, "células em zero").locator("strong")).toHaveText("16");
+    await expect(cartao(painel, "células em zero").locator("strong")).toHaveText("22");
 
-    // Completo: os dois custos empatam e não sobra célula nenhuma em zero.
+    // Completo: os dois custos empatam, e o que sobra em zero é exatamente a
+    // diagonal — as V células que nenhuma aresta pode ocupar, porque vértice
+    // não é vizinho de si mesmo. (Este comentário dizia "não sobra célula
+    // nenhuma em zero", e era falso: os 6 zeros da diagonal sempre estiveram
+    // na tela. O cartão é que os descontava.)
     await painel.getByRole("button", { name: "Completo", exact: true }).click();
     await expect(cartao(painel, "arestas (E)").locator("strong")).toHaveText("15 de 15");
     await expect(cartao(painel, "memória da matriz").locator("strong")).toHaveText("36 células");
     await expect(cartao(painel, "memória da lista").locator("strong")).toHaveText("36 entradas");
-    await expect(cartao(painel, "células em zero").locator("strong")).toHaveText("0");
+    await expect(cartao(painel, "células em zero").locator("strong")).toHaveText("6");
   });
 
   test("clicar numa célula dentro do painel liga a aresta, espelha a simétrica e atualiza cabeçalho, lista e custo", async ({
@@ -219,6 +224,6 @@ test.describe("grafos-intro · casca adaptativa", () => {
       "C",
       "F",
     ]);
-    await expect(cartao(painel, "células em zero").locator("strong")).toHaveText("14");
+    await expect(cartao(painel, "células em zero").locator("strong")).toHaveText("20");
   });
 });

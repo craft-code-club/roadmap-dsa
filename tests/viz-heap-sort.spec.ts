@@ -10,7 +10,11 @@ import { test, expect, type Page } from "@playwright/test";
 // HeapSortEstabilidade (28 `.hp-cel` na página, 10 são desta peça). Tudo aqui
 // desce a partir da figura, nunca da página.
 
-const ARTIGO = "article figure.viz-fit";
+// As DUAS figuras da página estão na casca agora, então `figure.viz-fit` casava
+// 1 e passou a casar 2 — em `page.locator()` isso é violação de strict mode, e
+// em `document.querySelector()` seria a peça errada EM SILÊNCIO. O discriminante
+// é o bloco recolhível: só o passo a passo tem `.viz-code-slot`.
+const ARTIGO = "article figure.viz-fit:has(.viz-code-slot)";
 const PAINEL = ".viz-overlay-fit figure.viz-fit";
 
 /** Folga de subpixel, o mesmo valor que o hook usa para decidir. */
@@ -268,6 +272,8 @@ test.describe("heap-sort", () => {
             passos: number;
             erros: string[];
             comparacoes: number[];
+            passosVazios: number[];
+            primeiroArr: number[];
             ultimoArr: number[];
             ultimoOrdenado: string;
           }>((resolve) => {
@@ -277,6 +283,8 @@ test.describe("heap-sort", () => {
             ) as HTMLButtonElement;
             const erros: string[] = [];
             const comparacoes: number[] = [];
+            const passosVazios: number[] = [];
+            let primeiroArr: number[] = [];
             let ultimoArr: number[] = [];
             let ultimoOrdenado = "";
 
@@ -302,24 +310,54 @@ test.describe("heap-sort", () => {
               if (!c) throw new Error(`nao achei o cartao "${nome}"`);
               return c.querySelector("strong")!.textContent!.trim();
             };
+            // A célula é `<span class="hp-cel"><i>4</i>6</span>`: o índice mora
+            // no <i> e o VALOR é um nó de texto irmão, sem elemento próprio.
+            // `textContent` concatena os dois ("46"), e fatiar isso com
+            // `replace(/^\d+/, "")` come a string inteira: o regex é guloso e
+            // não sabe onde o índice termina. Sobrava "" e `parseInt` devolvia
+            // NaN em TODAS as células. Descer até o nó do valor é o que faz a
+            // leitura existir.
+            const valorDe = (c: Element) =>
+              parseInt(
+                [...c.childNodes]
+                  .filter((x) => x.nodeType === 3)
+                  .map((x) => x.textContent ?? "")
+                  .join("")
+                  .trim(),
+                10
+              );
 
             const ler = () => {
               const { i } = contador();
               const txt = f.querySelector(".hs-fase-txt")!.textContent!.replace(/\s+/g, " ").trim();
-              const m = txt.match(/heap ativo: posições 0 a (\d+) · já ordenado: (\d+) de (\d+)/);
+              const n = parseInt(varDe("n (heap ativo)"), 10);
+
+              // O rótulo tem DOIS lados e os dois são afirmados. Com heap ativo
+              // ele nomeia a faixa de posições; com o heap vazio não há faixa a
+              // nomear, e prometer "posições 0 a 0" é dizer que a posição 0
+              // ainda está no heap. Cobrir só o lado de cima deixaria passar
+              // exatamente o defeito que este commit conserta.
+              const ativo = txt.match(/^heap ativo: posições 0 a (\d+) · já ordenado: (\d+) de (\d+)$/);
+              const vazio = txt.match(/^heap vazio · já ordenado: (\d+) de (\d+)$/);
+              const m = ativo ?? vazio;
               if (!m) {
                 erros.push(`passo ${i}: o cartao da fase nao casou: "${txt}"`);
                 return;
               }
-              const ultimo = parseInt(m[1], 10);
-              const ordenados = parseInt(m[2], 10);
-              const tamanho = parseInt(m[3], 10);
+              if (n === 0 && !vazio)
+                erros.push(`passo ${i}: n=0 e o cartao ainda anuncia uma faixa: "${txt}"`);
+              if (n > 0 && !ativo)
+                erros.push(`passo ${i}: n=${n} e o cartao diz que o heap esta vazio: "${txt}"`);
+              if (vazio) passosVazios.push(i);
 
-              const n = parseInt(varDe("n (heap ativo)"), 10);
+              const ultimo = ativo ? parseInt(ativo[1], 10) : -1;
+              const ordenados = parseInt(ativo ? ativo[2] : vazio![1], 10);
+              const tamanho = parseInt(ativo ? ativo[3] : vazio![2], 10);
+
               const celulas = [...f.querySelectorAll(".hp-cel")];
               const verdes = celulas.filter((c) => c.classList.contains("fixo")).length;
 
-              if (ultimo !== Math.max(n - 1, 0))
+              if (ativo && ultimo !== n - 1)
                 erros.push(`passo ${i}: cartao diz ate ${ultimo}, painel diz n=${n}`);
               if (ordenados !== tamanho - n)
                 erros.push(`passo ${i}: cartao diz ${ordenados} ordenados, n=${n} de ${tamanho}`);
@@ -331,7 +369,13 @@ test.describe("heap-sort", () => {
                 erros.push(`passo ${i}: o cartao de tamanho diz ${statDe("tamanho do array")}`);
 
               comparacoes.push(parseInt(statDe("comparações"), 10));
-              ultimoArr = celulas.map((c) => parseInt(c.textContent!.replace(/^\d+/, ""), 10));
+              const valores = celulas.map(valorDe);
+              if (valores.some((v) => Number.isNaN(v)))
+                erros.push(
+                  `passo ${i}: li NaN no array: "${celulas.map((c) => c.textContent).join("|")}"`
+                );
+              if (!primeiroArr.length) primeiroArr = valores;
+              ultimoArr = valores;
               ultimoOrdenado = `${ordenados} de ${tamanho}`;
             };
 
@@ -341,7 +385,7 @@ test.describe("heap-sort", () => {
               ler();
               k++;
               if (k >= total) {
-                resolve({ passos: total, erros, comparacoes, ultimoArr, ultimoOrdenado });
+                resolve({ passos: total, erros, comparacoes, passosVazios, primeiroArr, ultimoArr, ultimoOrdenado });
                 return;
               }
               prox.click();
@@ -361,10 +405,168 @@ test.describe("heap-sort", () => {
       expect(recuos, "o contador de comparacoes andou para tras").toEqual([]);
 
       // E no fim o array está ordenado, com a fronteira cobrindo tudo.
+      //
+      // Esta é a TESE da peça, e até aqui ela não era verificada: a leitura do
+      // valor da célula devolvia NaN, e `[NaN, NaN]` é igual a `[NaN, NaN]`
+      // ordenado, então a asserção passava com qualquer coisa na tela. Agora o
+      // array final tem que ser o PRIMEIRO ordenado, o que exige as duas
+      // coisas de uma vez: mesma multiplicidade de valores e ordem crescente.
+      expect(leitura.ultimoArr.filter((v) => Number.isNaN(v)), "li NaN no lugar do valor").toEqual([]);
+
+      // O outro lado da condicional do rótulo: "heap vazio" acontece EXATAMENTE
+      // uma vez, e é o último passo. Sem esta asserção, um rótulo que dissesse
+      // "heap vazio" a animação inteira passaria pelas checagens acima.
+      expect(leitura.passosVazios, "o 'heap vazio' tem que ser so o ultimo passo").toEqual([
+        leitura.passos,
+      ]);
+      expect(leitura.primeiroArr.length, "o array de entrada nao foi lido").toBeGreaterThan(1);
       expect(leitura.ultimoOrdenado).toBe(`${leitura.ultimoArr.length} de ${leitura.ultimoArr.length}`);
       expect(leitura.ultimoArr, "o heap sort terminou com o array fora de ordem").toEqual(
-        [...leitura.ultimoArr].sort((a, b) => a - b)
+        [...leitura.primeiroArr].sort((a, b) => a - b)
       );
+    });
+  });
+
+  // ------------------------------------------------------- a peça sem passos
+  // O `HeapSortEstabilidade` vestia `figure.viz` — a MESMA moldura do passo a
+  // passo — sem botão Expandir, sem diálogo, sem trava de rolagem, sem Esc e
+  // sem foco. Uma peça muda para uma que expandia, com aparência idêntica.
+  //
+  // Entra com `total: 1` e `collapsible: false`: não há passo a passo nem bloco
+  // dispensável. Sem rodapé, o controle cuja posição carrega o sentido da
+  // camada 1 é o `✕ Fechar`, que é a saída do diálogo.
+  //
+  // Réguas medidas antes de escrever (artigo, altura da peça): 696..720 a
+  // 1512x900 (orçamento 816: CABE), 696..720 a 1440x700 (orçamento 616: NÃO
+  // cabe) e 1.173..1.285 a 390x844 (orçamento 760). Sobra do miolo no painel:
+  // 0 a 1512x900, 34 a 1440x600 e 461 a 390x844 — por isso o teste de rolagem
+  // mora na régua de celular, que é onde existe o que rolar.
+  test.describe("estabilidade", () => {
+    const MUDA = 'o que "instável" significa na prática';
+    const muda = (page: Page) =>
+      page.locator("article figure.viz-fit").filter({ hasText: "significa na prática" });
+
+    test.describe("afordancia", () => {
+      test.use({ viewport: { width: 1512, height: 900 } });
+
+      test("as duas peças anunciam o mesmo botão, e o rótulo diz o que a peça mostra", async ({ page }) => {
+        await abrirTopico(page);
+        // era 1 Expandir para 2 figuras de aparência idêntica
+        await expect(page.locator("article figure.viz")).toHaveCount(2);
+        await expect(page.locator("article figure.viz-fit")).toHaveCount(2);
+        await expect(page.getByRole("button", { name: "⤢ Expandir" })).toHaveCount(2);
+        // o discriminante do passo a passo continua único
+        await expect(page.locator(ARTIGO)).toHaveCount(1);
+        await expect(page.locator("article .viz-code-slot")).toHaveCount(1);
+
+        const fig = muda(page);
+        await expect(fig).toHaveCount(1);
+        await expect(fig.locator(".viz-step")).toHaveCount(1);
+        // rótulo e valor no mesmo locator, e o número tem que bater com as
+        // células marcadas na fila do heap sort
+        await expect(fig.locator(".viz-step")).toHaveText("6 registros fora da ordem original");
+        await expect(fig.locator(".hs-fila").nth(2).locator(".hp-cel.reg.inverteu")).toHaveCount(6);
+      });
+
+      test("ela não promete esconder um bloco que não tem", async ({ page }) => {
+        await abrirTopico(page);
+        const fig = muda(page);
+        await expect(fig.locator(".viz-code-slot")).toHaveCount(0);
+        await expect(fig.locator(".viz-toggle-codigo")).toHaveCount(0);
+        await expect(fig.getByRole("button", { name: /código/ })).toHaveCount(0);
+        await expect(fig.locator(".viz-foot")).toHaveCount(0);
+        await expect(fig.locator(".viz-atalhos")).toHaveCount(0);
+        await expect(fig.getByRole("button", { name: /Rodar|Próximo|Anterior/ })).toHaveCount(0);
+        await expect(fig.locator(".viz-step")).not.toHaveText(/passo \d+ de \d+/);
+      });
+    });
+
+    test.describe("camada 1", () => {
+      test.use({ viewport: { width: 390, height: 844 } });
+
+      test("o cabeçalho e o ✕ Fechar ficam parados enquanto o miolo rola", async ({ page }) => {
+        expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
+        await abrirTopico(page);
+        const fig = muda(page);
+        await fig.getByRole("button", { name: "⤢ Expandir" }).click();
+        const painel = page.locator(PAINEL);
+        await expect(painel).toBeVisible();
+        // `toBeVisible()` não é "pronto para o teclado": o foco entrando é o
+        // sinal de que o commit do listener já rodou.
+        await expect(painel).toBeFocused();
+
+        // --- pré-condições ---
+        await expect(painel.locator(".viz-foot"), "esta peça não tem rodapé").toHaveCount(0);
+        const fechar = painel.getByRole("button", { name: "✕ Fechar" });
+        await expect(fechar).toHaveCount(1);
+
+        const antes = await painel.evaluate((f) => {
+          const b = f.querySelector(".viz-body") as HTMLElement;
+          // o click() do Playwright ROLA o contêiner para alcançar o alvo
+          f.scrollTop = 0;
+          b.scrollTop = 0;
+          const x = [...f.querySelectorAll("button")].find((n) => /Fechar/.test(n.textContent ?? ""))!;
+          return {
+            sobraMiolo: b.scrollHeight - b.clientHeight,
+            sobraFigura: f.scrollHeight - f.clientHeight,
+            head: f.querySelector(".viz-head")!.getBoundingClientRect().y,
+            fechar: x.getBoundingClientRect().y,
+          };
+        });
+        expect(antes.sobraMiolo, "o miolo precisa estourar para haver o que rolar").toBeGreaterThan(SLACK);
+        expect(antes.sobraFigura, "a figura não pode ter sobra própria").toBeLessThanOrEqual(SLACK);
+
+        // --- a ação ---
+        const depois = await painel.evaluate((f) => {
+          const b = f.querySelector(".viz-body") as HTMLElement;
+          b.scrollTop = b.scrollHeight;
+          const x = [...f.querySelectorAll("button")].find((n) => /Fechar/.test(n.textContent ?? ""))!;
+          return {
+            rolouMiolo: b.scrollTop,
+            rolouFigura: f.scrollTop,
+            head: f.querySelector(".viz-head")!.getBoundingClientRect().y,
+            fechar: x.getBoundingClientRect().y,
+          };
+        });
+        expect(depois.rolouMiolo, "quem rolou tem que ser o miolo").toBeGreaterThan(0);
+        expect(depois.rolouFigura, "a figura não pode rolar").toBe(0);
+
+        // --- as asserções que carregam o sentido ---
+        expect(Math.abs(depois.head - antes.head), "o cabeçalho andou junto com o miolo").toBeLessThanOrEqual(2);
+        expect(
+          Math.abs(depois.fechar - antes.fechar),
+          "o ✕ Fechar andou junto com o miolo"
+        ).toBeLessThanOrEqual(2);
+        await expect(fechar).toBeInViewport({ ratio: 1 });
+      });
+
+      test("o painel é um diálogo de verdade: foco, Tab preso, Esc e rolagem travada", async ({ page }) => {
+        await abrirTopico(page);
+        await muda(page).getByRole("button", { name: "⤢ Expandir" }).click();
+        const overlay = page.locator(".viz-overlay-fit");
+        await expect(overlay).toBeVisible();
+        await expect(overlay).toHaveAttribute("role", "dialog");
+        await expect(overlay).toHaveAttribute("aria-modal", "true");
+        // o rótulo do diálogo é o título DESTA peça, não um genérico
+        await expect(overlay).toHaveAttribute("aria-label", `Visualizador · ${MUDA}`);
+        expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
+
+        const fugas: string[] = [];
+        for (let i = 0; i < 14; i++) {
+          await page.keyboard.press("Tab");
+          const onde = await page.evaluate(() => {
+            const a = document.activeElement;
+            const f = document.querySelector(".viz-overlay-fit figure.viz-fit");
+            return { dentro: !!(f && a && f.contains(a)), quem: a?.className || a?.tagName || "?" };
+          });
+          if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
+        }
+        expect(fugas, "o foco vazou do painel").toEqual([]);
+
+        await page.keyboard.press("Escape");
+        await expect(page.locator(".viz-overlay-fit")).toHaveCount(0);
+        expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
+      });
     });
   });
 });
