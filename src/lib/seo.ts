@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { alt as OG_ALT_RAIZ } from "@/app/opengraph-image";
-import { OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
+import { OG_ALT_RAIZ, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og-meta";
 
 // Metadados por rota, em um lugar só.
 //

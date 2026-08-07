@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og-meta";
 
 // Template único dos cards de Open Graph (1200x630, gerados no build).
 //
@@ -6,8 +7,10 @@ import { ImageResponse } from "next/og";
 // título: o layout, as cores e os selos ficam aqui, para que um card novo seja
 // três linhas de texto e não uma cópia do arquivo inteiro. O card da raiz também
 // é o fallback de toda rota que não define o seu (os /topico/*).
-export const OG_SIZE = { width: 1200, height: 630 };
-export const OG_CONTENT_TYPE = "image/png";
+// As constantes moram no `og-meta.ts`, que os metadados importam sem puxar
+// o `next/og`. Reexportadas aqui para os `opengraph-image.tsx` seguirem
+// importando do mesmo lugar que o `ogImage()`.
+export { OG_CONTENT_TYPE, OG_SIZE };
 
 export type OgImageProps = {
   // Primeiras palavras do título, em azul. Opcional.
