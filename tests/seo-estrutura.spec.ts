@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { LINKS, SITE_URL } from "../src/lib/links";
-import { CONTEUDO_DA_ROTA, historicoRaso } from "../src/app/sitemap";
+import { CONTEUDO_DA_ROTA, estadoDoHistorico } from "../src/app/sitemap";
 
 // Estrutura de SEO do site inteiro: canonical, sitemap e dados estruturados.
 //
@@ -252,12 +252,21 @@ function dataEsperada(arquivos: readonly string[]): number | undefined {
 
 test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const xml = sitemap();
-  if (historicoRaso()) {
+  const historico = estadoDoHistorico();
+  // O diagnóstico entra nas DUAS mensagens: quando este guarda erra, o que falta
+  // saber é o que ele viu, e o ambiente da CI não abre para inspeção depois.
+  const visto = `git deste processo: ${historico.motivo}; ` +
+    `datas distintas que ele resolve: ${new Set(
+      [...ALL_TOPICS.slice(0, 6).map((t) => `content/topics/${t.slug}.mdx`), "content/roadmap.ts"]
+        .map(dataDoGit)
+        .filter(Boolean)
+    ).size}`;
+  if (historico.raso) {
     // Num clone `--depth 1` o `git log` de QUALQUER caminho devolve o commit do
     // HEAD: as 40 URLs sairiam com a data do último deploy, que é justamente a
     // mentira que o Google já aprendeu a ignorar. Sem campo é melhor que campo
     // falso, e o guarda é isto aqui.
-    expect(xml, "clone raso não pode produzir lastmod").not.toContain("<lastmod>");
+    expect(xml, `clone raso não pode produzir lastmod. ${visto}`).not.toContain("<lastmod>");
     return;
   }
   const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
@@ -297,7 +306,7 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
       );
     }
   }
-  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível`).toEqual([]);
+  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível. ${visto}`).toEqual([]);
   expect(errados, "lastmod que não bate com o commit do arquivo").toEqual([]);
 });
 

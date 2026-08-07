@@ -72,14 +72,26 @@ function diretorioDoGit(raiz: string): string | undefined {
   return existsSync(commondir) ? path.resolve(dir, readFileSync(commondir, "utf8").trim()) : dir;
 }
 
-/** `true` quando o histórico não dá para distinguir um caminho do outro. */
-export function historicoRaso(): boolean {
-  const dir = diretorioDoGit(process.cwd());
-  if (!dir) return true; // sem repositório, nenhuma data é derivável
-  return existsSync(path.join(dir, "shallow"));
+/**
+ * `true` quando o histórico não dá para distinguir um caminho do outro, e o
+ * MOTIVO junto.
+ *
+ * O motivo não é enfeite: este guarda já reprovou a suíte duas vezes dizendo
+ * "clone raso" num job que tinha o histórico completo, e sem ele a investigação
+ * vira adivinhação sobre um ambiente que não dá para abrir. Guarda que decide
+ * sozinho tem que saber contar por quê.
+ */
+export function estadoDoHistorico(): { raso: boolean; motivo: string } {
+  const cwd = process.cwd();
+  const dir = diretorioDoGit(cwd);
+  if (!dir) return { raso: true, motivo: `sem repositório Git a partir de ${cwd}` };
+  const marcador = path.join(dir, "shallow");
+  return existsSync(marcador)
+    ? { raso: true, motivo: `marcador de clone raso em ${marcador}` }
+    : { raso: false, motivo: `histórico completo (${dir})` };
 }
 
-const historicoDisponivel = !historicoRaso();
+const historicoDisponivel = !estadoDoHistorico().raso;
 
 // Um `git log` por caminho, e não por consulta. São 48 chamadas para montar o
 // sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,
