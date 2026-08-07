@@ -102,11 +102,26 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
     test(`quick sort, a invariante da partição, passo a passo (${r.nome})`, async ({ page }) => {
       test.slow();
       await abrir(page, "/topico/quick-sort/", r.w, r.h);
-      const fig = page.locator("figure.viz-fit");
-      await expect(fig).toHaveCount(1);
+      // Escopado por QUAL figura, e nunca por QUANTAS têm a casca. Contar
+      // `figure.viz-fit` era afirmar o cronograma da migração: a peça alvo era a
+      // única adaptada em `/topico/quick-sort/` quando isto foi escrito, e a
+      // asserção passou a reprovar no dia em que a peça do pivô ganhou a mesma
+      // casca — sem que nada do que este teste mede tivesse mudado. O título é
+      // identidade; a contagem é data.
+      //
+      // E os dois modos de errar não custam o mesmo: título trocado reprova alto
+      // no `toHaveCount(1)`, contagem trocada mede a peça errada em silêncio.
+      const fig = page
+        .locator("figure.viz-fit")
+        .filter({ hasText: "a partição e o pivô que fica pronto" });
+      await expect(fig, "a peça da partição tem que ser única em /topico/quick-sort/").toHaveCount(1);
 
       const chips = fig.locator(".bigo-chip");
       expect(await chips.count(), "os quatro presets da partição").toBe(4);
+      // A faixa é o objeto do teste. Sem esta linha, apontar para a figura
+      // errada faria `medir` devolver zero trechos e a comparação com `[]`
+      // passaria em silêncio — verde provando nada.
+      expect(await fig.locator(".ms-nivel-faixa").count(), "a faixa da invariante").toBe(1);
 
       for (let i = 0; i < 4; i++) {
         const preset = await trocarPreset(fig, i);
@@ -117,8 +132,13 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
         const proximo = fig.getByRole("button", { name: /Próximo/ });
         for (let s = 1; s <= passos; s++) {
           await expect(contador).toHaveText(new RegExp(`passo ${s} de ${passos}`));
+          const medidas = await fig.evaluate(medir);
           expect(
-            cortadas(await fig.evaluate(medir)),
+            medidas.length,
+            `${preset}, passo ${s}: há trecho para medir`
+          ).toBeGreaterThan(0);
+          expect(
+            cortadas(medidas),
             `${r.nome}, preset ${JSON.stringify(preset)}, passo ${s} de ${passos}: rótulo cortado`
           ).toEqual([]);
           if (s < passos) await proximo.click();
@@ -198,9 +218,50 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
 // Defeito 2 — a gaveta do celular e o card que ficava sem caminho
 // ---------------------------------------------------------------------------
 
+/** Clica num botão pelo rótulo acessível, e **diz o que houve** quando ele não
+ *  existe.
+ *
+ *  Por que não é `getByRole(...).click()` direto: quando o rótulo procurado não
+ *  existe em lugar nenhum, o Playwright reprova com `Test timeout of 30000ms
+ *  exceeded` — exatamente o mesmo texto de página que não carregou, de servidor
+ *  fora do ar, de elemento coberto por outro e de animação que nunca termina. O
+ *  relatório não distingue "o botão sumiu" de "a máquina está lenta", e a única
+ *  informação que resolveria o caso — quais rótulos EXISTEM — não aparece em
+ *  lugar nenhum.
+ *
+ *  Não é hipótese: `"Abrir menu de tópicos"` era procurado aqui e só existia
+ *  neste arquivo. O botão real nasceu `aria-label="Menu de tópicos"` no
+ *  `Shell.tsx`, e a renomeação passou por revisão sem que ninguém ligasse uma
+ *  coisa à outra, porque o que o CI mostrava eram quatro timeouts.
+ *
+ *  O guarda troca 30s de espera muda por 5s e uma mensagem que já traz a
+ *  resposta. Continua sendo espera de verdade (o botão do cabeçalho depende de
+ *  hidratação), só que com teto curto e desfecho falante. */
+async function clicarBotao(page: Page, nome: string) {
+  const alvo = page.getByRole("button", { name: nome, exact: true });
+  try {
+    await alvo.waitFor({ state: "visible", timeout: 5_000 });
+  } catch {
+    const presentes = await page
+      .getByRole("button")
+      .evaluateAll((bs) =>
+        bs.map((b) => (b.getAttribute("aria-label") ?? b.textContent ?? "").trim()).filter(Boolean)
+      );
+    throw new Error(
+      `nenhum botão visível com o rótulo acessível ${JSON.stringify(nome)}. ` +
+        `Se ele foi renomeado, o nome novo está nesta lista: ${JSON.stringify(presentes)}`
+    );
+  }
+  await alvo.click();
+}
+
 async function abrirGaveta(page: Page, w: number, h: number) {
   await abrir(page, "/topico/quick-sort/", w, h);
-  await page.getByRole("button", { name: "Abrir menu de tópicos" }).click();
+  // `aria-label="Menu de tópicos"`, em `src/components/Shell.tsx`. O texto de
+  // antes (`"Abrir menu de tópicos"`) não existia no produto: ele só existia
+  // aqui, e o `clicarBotao` acima é o que faz esse tipo de descolamento se
+  // anunciar em vez de virar timeout.
+  await clicarBotao(page, "Menu de tópicos");
   await expect(page.locator(".sidebar.open")).toBeVisible();
 }
 
