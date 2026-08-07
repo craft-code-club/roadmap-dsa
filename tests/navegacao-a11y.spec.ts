@@ -89,3 +89,34 @@ test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ 
   expect(viz.estilo, "o campo do visualizador ficou sem anel de foco").not.toBe("none");
   expect(parseFloat(viz.largura)).toBeGreaterThan(0);
 });
+
+test("todo landmark de navegação tem nome próprio", async ({ page }) => {
+  // Na home só existem os três da casca. Sem nome, o leitor de tela anuncia
+  // "navegação" três vezes e o aluno não sabe qual é o menu de tópicos.
+  await page.goto("/");
+  await expect(page.getByRole("navigation")).toHaveCount(3);
+  for (const nome of ["Principal", "Comunidade e apoio", "Trilha de estudos"]) {
+    await expect(page.getByRole("navigation", { name: nome })).toHaveCount(1);
+  }
+
+  // A trilha é navegação, e não `aside` (landmark "complementar").
+  await expect(page.locator("nav#menu-lateral.sidebar")).toHaveCount(1);
+});
+
+test("o botão do menu diz se o menu está aberto", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/topico/arrays/");
+
+  const botao = page.getByRole("button", { name: "Menu de tópicos" });
+  await expect(botao).toHaveAttribute("aria-expanded", "false");
+  await expect(botao).toHaveAttribute("aria-controls", "menu-lateral");
+  await expect(page.locator("#menu-lateral")).toBeHidden();
+
+  await botao.click();
+  await expect(botao).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#menu-lateral")).toBeVisible();
+
+  await botao.click();
+  await expect(botao).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#menu-lateral")).toBeHidden();
+});

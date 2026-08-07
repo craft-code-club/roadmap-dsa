@@ -169,7 +169,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="header-left">
           <button
             className="header-menu-toggle nav-icon"
-            aria-label="Abrir menu de tópicos"
+            aria-label="Menu de tópicos"
+            aria-expanded={mobileNav}
+            aria-controls="menu-lateral"
             onClick={() => setMobileNav((v) => !v)}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -183,13 +185,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span className="brand-sub">por Craft &amp; Code Club</span>
             </span>
           </Link>
-          <nav className="topnav nav-left">
+          {/* Cada landmark com nome próprio: são três `nav` na página, e sem
+              rótulo o leitor de tela anuncia "navegação" três vezes. */}
+          <nav className="topnav nav-left" aria-label="Principal">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
             <Link href="/roadmap" className={`nav-hide-sm${navOn("/roadmap") ? " on" : ""}`}>Roadmap</Link>
           </nav>
         </div>
 
-        <nav className="topnav nav-right">
+        <nav className="topnav nav-right" aria-label="Comunidade e apoio">
           <a href={LINKS.youtube} className="nav-yt nav-hide-sm ext" target="_blank" rel="noopener noreferrer">
             <span className="dot" />YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
           </a>
@@ -239,7 +243,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      <aside className={`sidebar${mobileNav ? " open" : ""}`}>
+      {/* `nav`, e não `aside`: a trilha inteira é navegação, e o landmark
+          "complementar" do `aside` mandava o leitor de tela procurar o menu de
+          tópicos fora da lista de navegação da página. */}
+      <nav
+        id="menu-lateral"
+        className={`sidebar${mobileNav ? " open" : ""}`}
+        aria-label="Trilha de estudos"
+      >
         <div className="side-head">
           <div className="side-head-row">
             <span className="side-label">Sua trilha</span>
@@ -248,8 +259,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
+          {/* O `placeholder` era o único nome do campo, e ele some na primeira
+              letra digitada: a partir daí quem usa leitor de tela ouvia só
+              "caixa de edição". O rótulo fica fora da tela, e não escondido. */}
+          <label className="sr-only" htmlFor="busca-topico">
+            Buscar tópico
+          </label>
           <input
+            id="busca-topico"
             className="side-search"
+            type="search"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar tópico…"
@@ -332,7 +351,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <p>Ajude a manter a comunidade e o conteúdo livres, para todo mundo.</p>
           </Link>
         </div>
-      </aside>
+      </nav>
 
       {/* `tabIndex={-1}` para o link de pular ter onde pousar o foco: sem ele o
           navegador rola até o conteúdo e deixa o foco no começo da página, e o

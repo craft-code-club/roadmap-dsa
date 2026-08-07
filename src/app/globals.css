@@ -74,6 +74,13 @@ html { scroll-behavior: smooth; }
 }
 .skip-link:focus { top: 0; color: #fff; }
 
+/* Texto só para leitor de tela: sai da tela sem sair da árvore de acessibilidade
+   (`display: none` e `visibility: hidden` somem das duas). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
 .header {
   position: sticky; top: 0; z-index: 40; grid-column: 1 / -1;
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
