@@ -749,11 +749,37 @@ Nos testes (`tests/`), o mínimo por visualizador adaptado:
 2. em tela baixa o botão diz **"Mostrar código"** e o bloco está recolhido;
 3. em tela alta ele já vem aberto;
 4. a escolha do aluno sobrevive a uma troca de estado que pediria medição nova;
-5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**.
+5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**;
+6. numa página com mais de um `figure.viz`, **um teste que afirma quantos**.
+   Escope todo locator pelo **conteúdo** da sua peça (o canvas, o SVG, um rótulo
+   que só ela tem), nunca por posição, e afirme a contagem nos **dois níveis**:
+   quantas figuras a página casa e quantas o seu seletor casa. É essa asserção
+   que avisa, em vez de quebrar, no dia em que um irmão for adaptado.
 
 Os itens 2, 3 e 4 — os três que falam do bloco recolhível — não existem quando
 `collapsible: false`. No lugar deles, prove que a ausência tem o rótulo certo:
 **nenhum botão pode prometer esconder um bloco que o visualizador não tem.**
+
+E o inverso do item 6, que morde antes de você escrever teste nenhum: **adaptar
+uma peça quebra o teste de quem veio antes**. Pôr `viz-fit` numa figura faz um
+seletor como `figure.viz-fit` deixar de casar 1 e passar a casar 2 — em
+`page.locator()` isso é `strict mode violation`, que reprova alto; em
+`document.querySelector()` dentro de um `page.evaluate` é **a peça errada em
+silêncio**, e as medições saem nulas sem ninguém reclamar. Medido duas vezes na
+mesma rodada: o gráfico do Big O reprovou **5 testes** já existentes em
+`tests/navegacao.spec.ts`, e as cinco peças do grupo Ordenação reprovaram **16
+no merge sort e 11 no heap sort** ao voltar o seletor para `article
+figure.viz-fit`.
+
+Antes de pôr `viz-fit` numa peça, rode `grep -n 'figure\.viz-fit' tests/*.spec.ts`
+e abra os testes que visitam a sua página. E escolha o discriminante por
+**estabilidade conceitual**, não por conveniência: os quatro candidatos do
+gráfico do Big O casavam 1 nos quatro estados que aqueles testes atravessam
+(tela alta, tela baixa com `data-codigo="off"`, recolhido na mão e painel
+expandido), e o escolhido foi `:has(.viz-code-slot)` — o slot existe porque a
+peça **é** recolhível, enquanto o conteúdo dentro dele é o que um dia pode virar
+condicional. O grupo Ordenação chegou ao mesmo seletor por conta própria, em
+três arquivos de teste.
 
 Duas armadilhas medidas ao escrever esses testes:
 
