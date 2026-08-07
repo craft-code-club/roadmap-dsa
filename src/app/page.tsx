@@ -51,12 +51,7 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        {/* "open source" saiu daqui e do rodapé: a licença é a PolyForm
-            Noncommercial, que proíbe uso comercial e por isso não é open source
-            pela definição da OSI. O que a frase queria dizer ao dev continua
-            verdade e continua dito, sem o rótulo errado: o código está no
-            GitHub, aberto para ler, aprender e contribuir. */}
-        <span className="hero-badge">Feito pela comunidade Craft &amp; Code Club · 100% grátis · código no GitHub</span>
+        <span className="hero-badge">Feito pela comunidade Craft &amp; Code Club · 100% grátis · open source</span>
         <h1><span className="accent">Visualização</span> e aprofundamento em cada estrutura</h1>
         <p>
           O maior guia visual de algoritmos e estruturas de dados em português. Nos {TOTAL_TOPICS_PRONTOS} tópicos
@@ -149,7 +144,7 @@ function Footer() {
       <div className="foot-text">
         <span>Feito <span className="heart">♥</span> pela comunidade, para a comunidade.</span>
         <span className="foot-sep">·</span>
-        <span>Código no GitHub · gratuito para sempre</span>
+        <span>Open source · gratuito para sempre</span>
       </div>
       <div className="foot-links">
         <a href={LINKS.github} target="_blank" rel="noopener noreferrer">GitHub</a>
