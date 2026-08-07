@@ -224,7 +224,7 @@ test("no artigo, em 390px, nenhuma das três estoura a largura", async ({ page }
   }
 });
 
-test("o painel das três formas é diálogo, e o Esc devolve o foco de onde saiu", async ({ page }) => {
+test("o painel das três formas é diálogo, e o Esc fecha e destrava a página", async ({ page }) => {
   await abrir(page, 1440, 700);
   const f = por(page, TITULOS.formas);
   const botao = f.locator("button", { hasText: "Expandir" });
@@ -260,11 +260,14 @@ test("o painel das três formas é diálogo, e o Esc devolve o foco de onde saiu
   expect(await corpo.evaluate((e) => e.scrollHeight - e.clientHeight)).toBeGreaterThan(SLACK);
   expect(await p.evaluate((e) => e.scrollHeight - e.clientHeight)).toBeLessThanOrEqual(SLACK);
 
-  // `Esc` fecha e destrava a rolagem da página. O contrato §5 promete também
-  // que o foco volta para onde estava, e isso NÃO acontece: ele vai para o
-  // `<body>`, porque o `⤢ Expandir` mora dentro da figura que o `createPortal`
-  // desmonta. É defeito do hook, alcança todas as peças (medido no `big-o`
-  // também) e não é consertado aqui — por isso não há asserção de foco.
+  // `Esc` fecha e destrava a rolagem da página, e é só isso que o nome deste
+  // teste promete. O contrato §5 promete também que o foco volta para onde
+  // estava, e isso NÃO acontece: ele vai para o `<body>`, porque o
+  // `⤢ Expandir` mora dentro da figura que o `createPortal` desmonta. É defeito
+  // do hook, alcança todas as peças (medido no `big-o` também) e não é
+  // consertado aqui — por isso não há asserção de foco, e por isso o nome do
+  // teste não pode citá-la: nome que promete cobertura inexistente engana quem
+  // lê o relatório da suíte. O conserto do hook está no PR #51.
   await page.keyboard.press("Escape");
   await expect(overlay).toHaveCount(0);
   expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");

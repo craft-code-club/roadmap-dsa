@@ -196,7 +196,7 @@ test.describe("binary numbers · as duas peças sem linha do tempo", () => {
     await expect(bases.locator(".viz-step")).toHaveText("48.879 = 0xBEEF = 0b1011111011101111");
   });
 
-  test("no painel o cabeçalho não anda quando o miolo rola, e o Esc devolve o foco", async ({ page }) => {
+  test("no painel o cabeçalho não anda quando o miolo rola, e o Esc fecha e destrava", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
     await page.goto("/topico/binary-numbers/");
     await page.evaluate(() => document.fonts.ready);
@@ -255,13 +255,17 @@ test.describe("binary numbers · as duas peças sem linha do tempo", () => {
 
     // `Esc` fecha e a trava de rolagem sai.
     //
-    // O que NÃO é afirmado aqui, de propósito: o contrato (§5) promete que o
-    // foco "volta para onde estava ao fechar", e ele não volta — vai para o
-    // `<body>`. A causa é do hook e alcança todo mundo: `previous` é o próprio
+    // O nome deste teste diz "fecha e destrava", e não "devolve o foco", porque
+    // é isso que ele afirma. O contrato (§5) promete também que o foco "volta
+    // para onde estava ao fechar", e ele não volta — vai para o `<body>`. A
+    // causa é do hook e alcança todo mundo: `previous` é o próprio
     // `⤢ Expandir`, que vive DENTRO da figura que o `createPortal` desmonta e
     // remonta, então o `previous.focus()` da limpeza roda num nó já destacado.
     // Medido também em `/topico/big-o/`, que é a peça de referência do
-    // contrato. Escrever a asserção do jeito errado aqui cimentaria o defeito.
+    // contrato. Escrever a asserção do jeito errado aqui cimentaria o defeito;
+    // nomear o teste pelo que ele NÃO faz é pior ainda, porque o relatório da
+    // suíte passa a prometer uma cobertura que não existe. O conserto do hook
+    // está no PR #51, e é lá que a asserção de foco entra.
     await page.keyboard.press("Escape");
     await expect(overlay).toHaveCount(0);
     expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
