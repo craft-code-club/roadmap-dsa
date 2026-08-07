@@ -60,6 +60,35 @@ async function irAoPasso(fig: Locator, alvo: number) {
   }
 }
 
+/**
+ * Anda a animação inteira dentro do navegador e fecha com `toBeDisabled`.
+ * Laço que não prova que chegou ao fim deixa a asserção seguinte vazia.
+ */
+async function irAoFim(page: Page, sel: string, fig: Locator): Promise<number> {
+  const andou = await page.evaluate(
+    (s) =>
+      new Promise<number>((resolve, reject) => {
+        const f = document.querySelector(s)!;
+        const prox = [...f.querySelectorAll("button")].find((b) =>
+          b.textContent!.includes("Próximo")
+        ) as HTMLButtonElement;
+        if (!prox) return reject(new Error("nao achei o botao Proximo"));
+        let k = 0;
+        const tick = () => {
+          if (prox.disabled) return resolve(k);
+          if (k > 500) return reject(new Error("a animacao nao terminou em 500 passos"));
+          prox.click();
+          k++;
+          requestAnimationFrame(() => requestAnimationFrame(tick));
+        };
+        tick();
+      }),
+    sel
+  );
+  await expect(proximoDe(fig)).toBeDisabled();
+  return andou;
+}
+
 test.describe("cartões que ensinavam o oposto", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -253,6 +282,45 @@ test.describe("cartões que ensinavam o oposto", () => {
         { preset: "Ao contrário", passos: 71, maior: 26, trocou: 21 },
         { preset: "Com repetidos", passos: 56, maior: 18, trocou: 17 },
       ]);
+    });
+  });
+
+  // -------------------------------------------------- heap sort · os três números
+  test.describe("heap sort · os números prometidos", () => {
+    test("38, 41 e 35 são o que a peça produz, e é o que a legenda e o artigo dizem", async ({
+      page,
+    }) => {
+      test.slow();
+      const fig = await abrir(page, HEAP, FIG_HEAP);
+
+      // A peça. Igualdade exata: `toContainText("38")` passaria com 138.
+      for (const [preset, esperado] of [
+        ["Embaralhado", "38"],
+        ["Já ordenado", "41"],
+        ["Ao contrário", "35"],
+      ] as const) {
+        await fig.getByRole("button", { name: new RegExp(`^${preset}:`) }).click();
+        await expect(fig.locator(".viz-step")).toContainText("passo 1 de ");
+        await irAoFim(page, FIG_HEAP, fig);
+        await expect(
+          cartao(fig, "comparações").locator("strong"),
+          `${preset}: o total de comparacoes mudou`
+        ).toHaveText(esperado);
+      }
+
+      // A legenda da peça, que manda o aluno anotar os três.
+      await expect(fig.locator(".viz-caption")).toContainText(
+        "anote o total de comparações: 38, 41 e 35."
+      );
+
+      // E a terceira cópia: o artigo repete os mesmos números, em negrito. As
+      // três pontas amarradas num teste só — mexer no gerador reprova aqui em
+      // vez de apodrecer em silêncio nas outras duas.
+      const frase = page.locator("article p").filter({ hasText: "38 comparações" });
+      await expect(frase).toHaveCount(1);
+      await expect(frase).toContainText(
+        "38 comparações no embaralhado, 41 no já ordenado e 35 no invertido"
+      );
     });
   });
 
