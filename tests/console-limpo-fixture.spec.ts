@@ -88,6 +88,89 @@ test("a tolerância de ERR_ABORTED vale para o site, e não para domínio de for
   await page.close();
 });
 
+// ---------------------------------------------------------------------------
+// A segunda tolerância: o beacon do GA4.
+//
+// Ela nasce com o mesmo risco da primeira, e por isso ganha o mesmo tratamento:
+// uma tolerância escrita para "o beacon do Google Analytics" pode, se o regex
+// for largo, acabar engolindo QUALQUER coisa do domínio do Google — inclusive um
+// 404, que é justamente o sintoma de recurso que sumiu do `out/`. Este teste
+// fixa os quatro lados: o que passa, e os três vizinhos que continuam
+// reprovando.
+// ---------------------------------------------------------------------------
+
+/** O beacon de verdade: `/g/collect` com a query que o gtag.js monta. */
+const GA_BEACON =
+  "https://www.google-analytics.com/g/collect?v=2&tid=G-EXEMPLO&en=page_view&_p=1";
+/** Mesmo endpoint, servido com 404: chunk sumido não pode virar ruído tolerado. */
+const GA_404 = "https://www.google-analytics.com/g/collect?v=2&tid=G-EXEMPLO&caso=404";
+/** Mesmo endpoint, outro motivo de falha. */
+const GA_RECUSADO = "https://www.google-analytics.com/g/collect?v=2&tid=G-EXEMPLO&caso=recusa";
+/** Mesmo host, OUTRO caminho: a tolerância é do endpoint de coleta, não do domínio. */
+const GA_OUTRO_CAMINHO = "https://www.google-analytics.com/analytics.js";
+
+test("a tolerância do GA vale para o beacon abortado, e não para o 404 nem para o resto do domínio", async ({
+  browser,
+  baseURL,
+}) => {
+  expect(baseURL, "este teste exige `use.baseURL` no playwright.config.ts").toBeTruthy();
+
+  const page = await browser.newPage({ baseURL });
+  const ocorrencias = coletarErros(page, baseURL);
+
+  // Nenhuma destas URLs sai da máquina: o roteador responde por todas antes de a
+  // requisição virar rede. É o que torna o teste determinístico e o que evita
+  // mandar pageview de mentira para o Google.
+  //
+  // A ordem importa, e é o contrário da intuição: no Playwright o handler
+  // registrado por ÚLTIMO é consultado primeiro. Por isso o pega-tudo vem antes
+  // dos dois casos específicos — invertido, ele responderia por todos e os dois
+  // `route` de baixo nunca rodariam, deixando o teste verde provando um caso só.
+  await page.route(/google-analytics\.com/, (route) => route.abort("aborted"));
+  await page.route(GA_404, (route) => route.fulfill({ status: 404, body: "" }));
+  await page.route(GA_RECUSADO, (route) => route.abort("connectionrefused"));
+
+  await page.goto("/");
+
+  // O 404 é o único que não chega por `requestfailed`: ele RESPONDE, e quem o
+  // registra é o listener de resposta. Esperar o evento certo para cada caso é o
+  // que impede o teste de medir uma corrida em vez do comportamento.
+  const resposta404 = page.waitForEvent("response", (r) => r.url() === GA_404);
+  await page.evaluate((u) => {
+    void fetch(u, { mode: "no-cors" }).catch(() => {});
+  }, GA_404);
+  expect((await resposta404).status(), "o cenário do 404 é o que dissemos que é").toBe(404);
+
+  const motivos = new Map<string, string>();
+  for (const url of [GA_BEACON, GA_RECUSADO, GA_OUTRO_CAMINHO]) {
+    const falhou = page.waitForEvent("requestfailed", (r) => r.url() === url);
+    await page.evaluate((u) => {
+      void fetch(u, { mode: "no-cors" }).catch(() => {});
+    }, url);
+    const req = await falhou;
+    motivos.set(url, req.failure()?.errorText ?? "sem motivo");
+  }
+
+  // Primeiro o cenário, como no teste de cima: se o Chromium trocar o texto do
+  // erro, é aqui que a gente descobre, e não numa comparação de arrays que
+  // passaria a provar outra coisa.
+  expect(motivos.get(GA_BEACON), "o beacon abortado").toBe("net::ERR_ABORTED");
+  expect(motivos.get(GA_OUTRO_CAMINHO), "o outro caminho, abortado").toBe("net::ERR_ABORTED");
+  expect(motivos.get(GA_RECUSADO), "a conexão recusada").toBe("net::ERR_CONNECTION_REFUSED");
+
+  const registradas = ocorrencias.filter((o) => o.includes("google-analytics.com"));
+  expect(
+    registradas,
+    "só o beacon abortado é tolerado: o 404, a recusa e o outro caminho do mesmo host reprovam"
+  ).toEqual([
+    `http 404: ${GA_404}`,
+    `requestfailed: ${GA_RECUSADO} (net::ERR_CONNECTION_REFUSED)`,
+    `requestfailed: ${GA_OUTRO_CAMINHO} (net::ERR_ABORTED)`,
+  ]);
+
+  await page.close();
+});
+
 test("sem baseURL nada é tolerado, nem o prefetch do próprio site", async ({ browser }) => {
   // A porta de saída segura: se a configuração perder o `baseURL`, o guarda
   // fica barulhento em vez de mudo. Um guarda mudo é pior que guarda nenhum,
