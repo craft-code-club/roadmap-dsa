@@ -29,7 +29,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "Roadmap DSA",
+    // Mesma constante do `title` e do JSON-LD: o nome do site é um valor só.
+    siteName: SITE_NAME,
   },
   twitter: {
     card: "summary_large_image",
