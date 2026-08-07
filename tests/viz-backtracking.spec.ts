@@ -1,10 +1,11 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-// A casca adaptativa nas duas peças de `backtracking`: a árvore de decisão e o
-// sudoku. A terceira figura da página (`BacktrackingPoda`) não tem overlay e
-// ficou fora — por isso todo seletor daqui é escopado na figura, e as contagens
-// são afirmadas nos dois níveis (página e figura). Sem isso, `.viz-step` casa
-// duas figuras e a leitura sai da peça errada.
+// A casca adaptativa nas duas peças de `backtracking` com linha do tempo: a
+// árvore de decisão e o sudoku. A terceira figura da página
+// (`BacktrackingPoda`) também está na casca, mas sem passo a passo — por isso
+// todo seletor daqui é escopado na figura, e as contagens são afirmadas nos
+// dois níveis (página e figura). Sem isso, `.viz-step` casa três figuras e a
+// leitura sai da peça errada.
 //
 // Medido antes de escrever: no expandido a figura inteira rolava, e o
 // `▶ Rodar` era desenhado 335px (árvore, 1512x900) e 590px (sudoku, 1440x600)
@@ -16,6 +17,8 @@ const URL = "/topico/backtracking/";
 
 const ARVORE = 0;
 const SUDOKU = 1;
+/** A peça sem linha do tempo, que usa `.viz-step` para outra coisa. */
+const PODA = 2;
 
 /** Folga de subpixel, igual à do hook. */
 const SLACK = 8;
@@ -36,7 +39,14 @@ async function figura(page: Page, i: number): Promise<Locator> {
   // 2.6x menos nós com poda". Escopar na figura não é preciosismo — sem isso a
   // leitura sai da peça errada e o teste fica verde medindo outra coisa.
   await expect(page.locator("article figure.viz .viz-step")).toHaveCount(3);
-  await expect(page.locator("article figure.viz:not(.viz-fit) .viz-step")).not.toContainText("passo");
+  // Escopado por QUAL figura, e não por `:not(.viz-fit)` como já foi: as três
+  // estão na casca agora, aquele seletor passou a casar ZERO, e
+  // `not.toContainText` num locator vazio REPROVA (`element(s) not found`) em
+  // vez de passar. O que continua verdade — e é o que importa — é que o
+  // `.viz-step` da poda não é um contador de passo.
+  await expect(
+    page.locator("article figure.viz").nth(PODA).locator(".viz-step")
+  ).not.toContainText("passo");
   await expect(fig.locator(".viz-step")).toHaveCount(1);
   await expect(fig.locator(".viz-step")).toContainText("passo");
   // O bloco recolhível existe só nas duas peças adaptadas.

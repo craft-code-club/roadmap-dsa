@@ -54,8 +54,15 @@ const TOTAL_PADRAO = 21;
 // `.viz-step`, `.bigo-stat` e `input[type=range]`. Medido: `.viz-step` casa 2 na
 // página e 1 dentro da peça. Todo seletor daqui é escopado por isso — um
 // seletor ambíguo não dá erro, devolve o PRIMEIRO elemento.
+//
+// E o escopo diz QUAL peça é, não quantas têm a casca: `article figure.viz-fit`
+// era o seletor daqui e virou armadilha quando o vizinho entrou na casca — ele
+// passou a casar 2 e derrubou os 8 testes do arquivo. Contar `.viz-fit` é
+// afirmar o cronograma da migração, não o produto.
 function noArtigo(page: Page): Locator {
-  return page.locator("article figure.viz-fit");
+  return page
+    .locator("article figure.viz")
+    .filter({ hasText: "a árvore e o array do heap se movendo juntos" });
 }
 
 /** A peça depois de expandida: ela é portada para fora do artigo. */

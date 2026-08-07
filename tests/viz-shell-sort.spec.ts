@@ -3,7 +3,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // Casca adaptativa do ShellSortVisualizer.
 //
 // A página tem TRÊS `figure.viz` (o passo a passo, as subsequências e a corrida
-// de sequências de gap) e só uma delas é `.viz-fit`. As outras duas têm
+// de sequências de gap), e as três estão na casca. As outras duas têm
 // `.viz-step` com outro sentido ("gap 4 · 4 subsequências...", "n = 32 ·
 // melhor com gap..."), então todo seletor aqui é escopado na figura certa e o
 // primeiro teste confere as contagens.
@@ -19,9 +19,16 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 
 const ORCAMENTO = (h: number) => h - 60 - 24;
 
-/** A figura adaptada, no fluxo do artigo. */
-const noArtigo = (page: Page) => page.locator("article figure.viz-fit");
-/** A figura adaptada, dentro do painel expandido. */
+/**
+ * A figura DESTE arquivo, no fluxo do artigo. Escopada por QUAL peça ela é, e
+ * não por quantas têm a casca: `article figure.viz-fit` já foi o seletor daqui
+ * e virou armadilha no dia em que as duas irmãs entraram na casca — ele casava
+ * 3 e derrubava os 11 testes do arquivo por strict mode violation. Contar
+ * `.viz-fit` é afirmar o cronograma da migração, não o produto.
+ */
+const noArtigo = (page: Page) =>
+  page.locator("article figure.viz").filter({ hasText: "shell sort: o insertion sort com gap" });
+/** A mesma figura no painel: o overlay só tem uma figura de cada vez. */
 const noPainel = (page: Page) => page.locator(".viz-overlay figure.viz-fit");
 
 /** Espera a casca terminar a medição: `data-anim` só vira "on" depois dela. */
@@ -93,7 +100,7 @@ async function ateOGap(fig: Locator, gap: number) {
 test.describe("shell sort · a figura certa", () => {
   test.use({ viewport: { width: 1512, height: 900 } });
 
-  test("a casca alcança um dos três visualizadores, e é o do passo a passo", async ({ page }) => {
+  test("o seletor deste arquivo acha o do passo a passo, e só ele", async ({ page }) => {
     const fig = await abrir(page);
     expect(page.viewportSize()).toEqual({ width: 1512, height: 900 });
 
