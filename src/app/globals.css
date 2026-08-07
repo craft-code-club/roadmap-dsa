@@ -1876,6 +1876,29 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .viz-fit .viz-head { flex-wrap: wrap; }
 .viz-fit .viz-head-right { flex-wrap: wrap; justify-content: flex-end; }
 
+/* --- a região viva do visualizador: texto só para leitor de tela ---------
+   O contador "passo N de M" é visual, e era a única pista de que o algoritmo
+   andou. O `VizHeader` desenha um irmão dele com `role="status"` que diz a
+   mesma coisa em voz alta; esta classe é o que o tira dos olhos sem tirá-lo do
+   leitor de tela.
+   A técnica é RECORTE, e a escolha é o ponto: `display: none` e
+   `visibility: hidden` tiram o nó da árvore de acessibilidade junto, que é
+   exatamente quem precisa ler isto — o anúncio ficaria mudo e a regra pareceria
+   funcionar. `position: absolute` mantém o custo de layout em zero (o elemento
+   sai do fluxo do `.viz-head`, que é flex). */
+.viz-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ------------------------------ responsive ------------------------------ */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); }

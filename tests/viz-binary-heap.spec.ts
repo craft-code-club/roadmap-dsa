@@ -435,7 +435,7 @@ test.describe("binary-heap · a árvore e o array se movendo juntos", () => {
     await ficha(fig, 0, "elementos", "4");
 
     // E o ↺ continua sendo o caminho para ver a inserção desde o heap vazio.
-    await fig.getByRole("button", { name: "↺" }).click();
+    await fig.getByRole("button", { name: "Reiniciar" }).click();
     await expect(fig.locator(".viz-step")).toHaveText(`passo 1 de ${TOTAL_PADRAO}`);
     await ficha(fig, 0, "elementos", "1");
   });

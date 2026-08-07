@@ -97,7 +97,30 @@ export type VisualizerOptions = {
    * redimensionar já entram sozinhos.
    */
   measureOn?: readonly unknown[];
+  /**
+   * A nota de um step, em português: o mesmo texto que o aluno vidente lê no
+   * `.viz-note`. Sem ela a região viva diz só "passo N de M", que é o esqueleto
+   * da aula e não a aula.
+   *
+   * É uma FUNÇÃO do step, e não a nota do step atual, porque o anúncio é montado
+   * no mesmo `setState` que move o step (ver a nota da reprodução): o hook
+   * precisa da nota do step de DESTINO. A adoção é de uma linha —
+   * `stepNote: (i) => steps[i].note` — e é o próximo PR, não este.
+   */
+  stepNote?: (step: number) => string | undefined;
 };
+
+/**
+ * O step atual e o que a região viva está dizendo, num estado só.
+ *
+ * `liveTotal` é o `total` com que a frase de `live` foi montada. Toda frase
+ * daqui cita o total ("passo 1 de 8"), e o total pode mudar DEPOIS de a frase
+ * estar escrita — daí guardar o número junto do texto, para a leitura poder
+ * conferir se ele ainda vale. O porquê de conferir na leitura está no
+ * `liveMessage`, lá embaixo. Campo obrigatório de propósito: assim o TypeScript
+ * cobra quem acrescentar um caminho novo que escreve `live`.
+ */
+type Playback = { step: number; live: string; liveTotal: number };
 
 export type Visualizer = {
   title: string;
@@ -116,6 +139,11 @@ export type Visualizer = {
   /** Volta ao step 0 e pausa. Chame quando a entrada do visualizador mudar. */
   reset: () => void;
   setSpeed: (i: number) => void;
+  /**
+   * O que a região viva do `VizHeader` está dizendo agora. Começa vazia: só a
+   * interação do aluno escreve nela.
+   */
+  liveMessage: string;
   // --- casca ---
   expanded: boolean;
   /** O blockName recolhível está à mostra? Sempre `true` quando `collapsible: false`. */
@@ -143,7 +171,12 @@ export type Visualizer = {
     onClick: () => void;
     children: string;
   };
-  expandButtonProps: { className: string; onClick: () => void; children: string };
+  expandButtonProps: {
+    className: string;
+    ref: React.RefObject<HTMLButtonElement | null>;
+    onClick: () => void;
+    children: string;
+  };
   /** Envolve o `<figure>` no overlay quando expanded. Use no `return`. */
   inPanel: (content: ReactNode) => ReactNode;
 };
@@ -157,65 +190,178 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     blockName = "código",
     collapsible = true,
     measureOn = [],
+    stepNote,
   } = options;
 
   const hasSteps = total > 1;
 
   // --------------------------------------------------------------- reprodução
-  const [rawStep, setRawStep] = useState(0);
+  // O step e o texto da região viva moram no MESMO estado, e isso não é
+  // arrumação: escrever a região num efeito à parte custa uma renderização a
+  // mais por tecla, e essa renderização ENGOLE tecla. Medido, e reprodutível com
+  // `--workers=1`: o percurso de 114 setas do `viz-quick-sort.spec.ts` parava no
+  // passo 113. Com o anúncio montado dentro do mesmo `setState`, é um update por
+  // tecla — exatamente o que era antes desta mudança.
+  const [playback, setPlayback] = useState<Playback>({ step: 0, live: "", liveTotal: total });
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(initialSpeed);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const step = Math.max(0, Math.min(rawStep, total - 1));
+  const step = Math.max(0, Math.min(playback.step, total - 1));
 
   // `total` e `playing` por ref porque a tecla REPETE muito mais rápido que o
   // clique: ler o valor do closure engoliria repetições.
   const totalRef = useRef(total);
   const playingRef = useRef(false);
+  // A nota chega por FUNÇÃO, e não por string, pela mesma razão: o anúncio é
+  // montado junto com o step, então o hook precisa da nota do step de DESTINO,
+  // que a renderização atual (a do step de origem) não conhece.
+  const stepNoteRef = useRef(stepNote);
   useEffect(() => { totalRef.current = total; }, [total]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
+
+  // O ref acompanha na MESMA chamada, e não só no efeito. Enquanto ele só era
+  // escrito no efeito, todo `playing` recém-trocado tinha uma janela em que o
+  // ref ainda dizia o contrário — e quem lê o ref para DECIDIR nessa janela
+  // decide errado. Medido: `botao.click(); botao.click()` no mesmo tick
+  // deixava a peça em "❚❚ Pausar", porque o segundo clique leu `false` e voltou
+  // a mandar rodar em vez de pausar. O efeito acima continua, como rede para
+  // qualquer caminho que mexa em `playing` sem passar por aqui.
+  const setPlayingNow = useCallback((v: boolean) => {
+    playingRef.current = v;
+    setPlaying(v);
+  }, []);
+  useEffect(() => { stepNoteRef.current = stepNote; }, [stepNote]);
 
   const stop = useCallback(() => {
     if (timer.current) { clearInterval(timer.current); timer.current = null; }
   }, []);
   useEffect(() => () => stop(), [stop]);
 
+  // ------------------------------------------------- anúncio (leitor de tela)
+  // O contador "passo N de M" é a única pista de que o algoritmo andou, e ele é
+  // só visual: sem região viva o aluno cego aperta "Próximo ›", o algoritmo
+  // anda, e ele não ouve nada — o visualizador vira um botão que não faz nada.
+  //
+  // A região começa VAZIA, e isso é parte do conserto: uma região viva já
+  // preenchida na montagem faz as cinco peças de `intervals.mdx` falarem juntas
+  // ao abrir a página, sem que ninguém tenha pedido. O HTML do build sai sem uma
+  // palavra a mais por causa disto.
+  //
+  // E ela é escrita pela INTERAÇÃO, não pelo relógio: `aria-live="polite"` a
+  // cada tick, na marcha 2x (250ms), enfileira falas que nunca alcançam a
+  // animação — o leitor de tela ainda estaria no passo 3 com a tela no 12, e
+  // ruído contínuo é pior que silêncio. Na reprodução automática a região diz só
+  // o começo, a pausa e o fim.
+  const fala = useCallback((n: number) => {
+    const passo = `passo ${n + 1} de ${totalRef.current}`;
+    const nota = stepNoteRef.current?.(n);
+    return nota ? `${passo}. ${nota}` : passo;
+  }, []);
+
+  // A faixa é aplicada na LEITURA do estado guardado, e não na escrita do
+  // `setStep`. Guardar o valor cru é o que faz um componente conseguir posicionar
+  // o passo de uma entrada que ainda não chegou ao `total`: o "20 inteiros" do
+  // `ArraysVisualizer` troca o array e pede o índice 16 no MESMO handler, com o
+  // `total` ainda em 8. Medido no build servido — limitando na escrita, o
+  // cabeçalho lê `passo 8 de 20` em vez de `passo 17 de 20`.
+  //
+  // Sem esta função, porém, o valor cru vaza do `step` (que é limitado na linha
+  // acima) para a aritmética das setas e para o texto dos anúncios, e aí o
+  // leitor de tela ouve um passo que não existe.
+  const naFaixa = useCallback(
+    (n: number) => Math.max(0, Math.min(n, totalRef.current - 1)),
+    []
+  );
+
+  // Sem anúncio de propósito: quem chama isto é o componente (o step inicial de
+  // uma peça, um salto calculado), não o aluno.
+  //
+  // "Sem anúncio" inclui não deixar de pé o anúncio ANTERIOR, que o salto acaba
+  // de tornar falso. Medido no `ArraysVisualizer`: o `viz.reset()` do "20
+  // inteiros" escreve "passo 1 de 8" e o `setStep(16)` da linha seguinte leva a
+  // peça para o passo 17 de 20 — a região viva ficava afirmando o passo e o
+  // total errados. O hook não tem como montar a frase certa aqui (o `total` novo
+  // só chega no render seguinte), então ele cala em vez de mentir.
+  const setStep = useCallback((n: number | ((s: number) => number)) => {
+    setPlayback((p) => {
+      const alvo = typeof n === "function" ? n(p.step) : n;
+      return alvo === p.step && p.live === "" ? p : { ...p, step: alvo, live: "" };
+    });
+  }, []);
+
   const stepBy = useCallback((delta: number) => {
     stop();
-    setPlaying(false);
-    setRawStep((s) => Math.max(0, Math.min(s + delta, totalRef.current - 1)));
-  }, [stop]);
+    setPlayingNow(false);
+    setPlayback((p) => {
+      const alvo = naFaixa(naFaixa(p.step) + delta);
+      const live = fala(alvo);
+      return alvo === p.step && live === p.live
+        ? p
+        : { step: alvo, live, liveTotal: totalRef.current };
+    });
+  }, [stop, fala, naFaixa, setPlayingNow]);
 
   const togglePlay = useCallback(() => {
-    if (playingRef.current) { stop(); setPlaying(false); return; }
-    // no fim da animação, rodar de novo rebobina em vez de não fazer nada
-    setRawStep((s) => (s >= totalRef.current - 1 ? 0 : s));
-    setPlaying(true);
-  }, [stop]);
+    if (playingRef.current) {
+      stop();
+      setPlayingNow(false);
+      setPlayback((p) => ({
+        ...p,
+        live: `pausado no passo ${naFaixa(p.step) + 1} de ${totalRef.current}`,
+        liveTotal: totalRef.current,
+      }));
+      return;
+    }
+    setPlayingNow(true);
+    setPlayback((p) => {
+      // no fim da animação, rodar de novo rebobina em vez de não fazer nada
+      const atual = naFaixa(p.step);
+      const de = atual >= totalRef.current - 1 ? 0 : atual;
+      return {
+        step: de,
+        live: `rodando a partir do passo ${de + 1} de ${totalRef.current}`,
+        liveTotal: totalRef.current,
+      };
+    });
+  }, [stop, naFaixa, setPlayingNow]);
 
   const reset = useCallback(() => {
     stop();
-    setPlaying(false);
-    setRawStep(0);
-  }, [stop]);
+    setPlayingNow(false);
+    setPlayback({ step: 0, live: fala(0), liveTotal: totalRef.current });
+  }, [stop, fala, setPlayingNow]);
 
   useEffect(() => {
     stop();
     if (!playing) return;
     timer.current = setInterval(
-      () => setRawStep((s) => (s >= totalRef.current - 1 ? s : s + 1)),
+      // O relógio anda o step e NÃO escreve na região viva. O `p` devolvido no
+      // fim preserva o bail-out do React, que é o que impede a renderização
+      // inútil a cada tick depois do último step.
+      () =>
+        setPlayback((p) => {
+          const atual = naFaixa(p.step);
+          return atual >= totalRef.current - 1 ? p : { ...p, step: atual + 1 };
+        }),
       speeds[speed]
     );
     return stop;
-  }, [playing, speed, speeds, stop]);
+  }, [playing, speed, speeds, stop, naFaixa]);
 
   useEffect(() => {
-    if (playing && step >= total - 1) setPlaying(false);
-  }, [playing, step, total]);
+    if (!playing || step < total - 1) return;
+    setPlayingNow(false);
+    // Aqui o total certo é o do RENDER, não o do ref: este efeito só dispara
+    // depois de o render com o total novo ter acontecido.
+    setPlayback((p) => ({ ...p, live: `fim da animação, passo ${total} de ${total}`, liveTotal: total }));
+  }, [playing, step, total, setPlayingNow]);
 
   // -------------------------------------------------------------------- casca
   const blockId = useId();
   const figureRef = useRef<HTMLElement>(null);
+  // O ⤢ Expandir, para devolver o foco a ele ao fechar o painel (ver o efeito do
+  // foco abaixo). Ele é recriado na travessia do portal, e o ref acompanha.
+  const expandButtonRef = useRef<HTMLButtonElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const [expanded, setExpanded] = useState(false);
@@ -292,6 +438,58 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", onResize); };
   }, [collapsible]);
 
+  // ------------------------------ a animação não roda para quem não está vendo
+  // O `setInterval` acima não olhava a tela: uma peça rolada para fora, ou uma
+  // aba escondida, continuava andando. Cada tick é uma tarefa de main thread, e
+  // na marcha 2x ela volta a cada 250ms — em `intervals.mdx`, que tem cinco
+  // instâncias, isso é bateria queimada e INP piorando exatamente enquanto o
+  // aluno rola e interage com a peça seguinte.
+  //
+  // Ao voltar à tela a peça fica PAUSADA de propósito: retomar sozinho
+  // surpreende quem rolou de volta, e o ▶ Rodar à espera é mais honesto.
+  //
+  // Isto não conversa com a medição da casca: só mexe em `playing`, nunca em
+  // `open`, `measuring` ou `measureTick`, e a medição é guardada por
+  // `measuredRound`.
+  //
+  // Idempotente de propósito, sem guarda por `playingRef`: o ref só é escrito
+  // num efeito, então existe uma janela — curta, e real — em que `playing` já é
+  // `true` e o ref ainda é `false`, e nela a guarda descartaria a pausa. As três
+  // linhas abaixo são no-op quando não há o que pausar (`stop` sem timer,
+  // `setPlaying` com o mesmo valor e o bail-out do `setPlayback`), então a
+  // primeira chamada do observer na montagem — que reporta o estado atual e
+  // acontece em toda peça abaixo da dobra — continua não custando renderização.
+  const pauseOffscreen = useCallback(() => {
+    stop();
+    setPlayingNow(false);
+    // A região viva ficava dizendo "rodando a partir do passo N" com a peça
+    // parada: a única pista de quem não enxerga afirmando o contrário do botão
+    // ao lado. Ela CALA em vez de anunciar, porque pausa automática não é ação
+    // do aluno — anunciá-la interromperia quem já está lendo outra coisa.
+    setPlayback((p) => (p.live === "" ? p : { ...p, live: "" }));
+  }, [stop, setPlayingNow]);
+
+  useEffect(() => {
+    const onHide = () => { if (document.hidden) pauseOffscreen(); };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [pauseOffscreen]);
+
+  useEffect(() => {
+    // No panel expanded a peça É a tela, e o `<figure>` troca de nó DOM ao
+    // atravessar o portal: observar ali reportaria "saiu da tela" na travessia
+    // e pausaria justamente a animação que o aluno acabou de expandir.
+    if (expanded || typeof IntersectionObserver === "undefined") return;
+    const figure = figureRef.current;
+    if (!figure) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (!entries.some((e) => e.isIntersecting)) pauseOffscreen(); },
+      { threshold: 0 }
+    );
+    observer.observe(figure);
+    return () => observer.disconnect();
+  }, [expanded, pauseOffscreen]);
+
   const toggleOpen = useCallback(() => {
     setOpen((a) => {
       // Anotar dentro do updater mantém leitura e escrita no mesmo valor mesmo
@@ -325,13 +523,52 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     return () => { body.style.overflow = prevOverflow; body.style.paddingRight = prevPadding; };
   }, [expanded]);
 
-  // O foco entra no panel ao abrir e volta para onde estava ao fechar, senão o
-  // teclado continua navegando o artigo escondido.
+  // O foco entra no panel ao abrir e volta para o botão que o abriu ao fechar,
+  // senão o teclado continua navegando o artigo escondido.
+  //
+  // A volta é pelo REF do botão, e não pelo `document.activeElement` guardado na
+  // abertura, que é o que estava aqui e não funcionava: aquele nó era o
+  // `⤢ Expandir` de dentro da `<figure>` que o `createPortal` DESMONTA, então o
+  // `focus()` da limpeza rodava num nó destacado — no-op silencioso — e o foco
+  // caía no `<body>`. Medido em `/topico/big-o/` (a peça de referência do
+  // contrato), `/topico/merge-sort/` e `/topico/intervals/`, pelas duas saídas:
+  // `document.activeElement.tagName` era `BODY` nas seis leituras.
+  //
+  // Guardar a referência não resolve porque o botão é RECRIADO no fechamento; é
+  // preciso reencontrá-lo depois. Ref e não seletor porque ref é IDENTIDADE:
+  // `.viz-expand` casa DOIS botões (este e o de mostrar/ocultar o bloco), e
+  // qualquer discriminante de texto ou de ordem quebra no dia em que o rótulo
+  // mudar. O ref aponta sempre para o nó vivo daquele elemento, e é `null` se
+  // não houver nenhum.
+  //
+  // E a devolução mora no CORPO do efeito, no ramo do `expanded === false`, e
+  // não na LIMPEZA dele. Aqui a forma é o conserto, então vale registrar por quê:
+  //
+  // com `return () => expandButtonRef.current?.focus()`, o `react-hooks/
+  // exhaustive-deps` reprova ("copie `.current` para uma variável dentro do
+  // efeito e use a variável na limpeza") — e OBEDECER reintroduz exatamente o
+  // defeito acima. A variável captura o nó DAQUELE momento, que é o `⤢ Expandir`
+  // de dentro da `<figure>` que o portal vai desmontar: é o `document.
+  // activeElement` guardado na abertura com outro nome. Medido, com a sugestão
+  // da regra aplicada e o build visível: os dois testes de
+  // `tests/viz-hook.spec.ts` reprovam com `Expected: "BUTTON"` /
+  // `Received: "BODY"`, nas duas saídas.
+  //
+  // Ler o ref no corpo do efeito resolve os dois lados: a regra não dispara (ela
+  // só vale para a limpeza) e a leitura acontece DEPOIS de o React ter
+  // recriado o botão, no nó vivo — que é a única coisa que o conserto precisa.
+  const esteveExpandido = useRef(false);
   useEffect(() => {
-    if (!expanded) return;
-    const previous = document.activeElement as HTMLElement | null;
-    figureRef.current?.focus();
-    return () => previous?.focus?.();
+    if (expanded) {
+      esteveExpandido.current = true;
+      figureRef.current?.focus();
+      return;
+    }
+    // Só devolve o foco a quem ABRIU o painel: na montagem `expanded` já é
+    // `false`, e sem esta guarda toda peça da página roubaria o foco no load.
+    if (!esteveExpandido.current) return;
+    esteveExpandido.current = false;
+    expandButtonRef.current?.focus();
   }, [expanded]);
 
   // Teclado do panel: Esc fecha, o Tab circula DENTRO dele, e as setas e o
@@ -417,11 +654,45 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     playing,
     speed,
     progress: total > 0 ? Math.round(((step + 1) / total) * 100) : 0,
-    setStep: setRawStep,
+    setStep,
     stepBy,
     togglePlay,
     reset,
     setSpeed: setSpeedClamped,
+    // Um `total` novo torna FALSA qualquer frase já escrita, porque todas elas
+    // citam o total: `viz.reset(); setNums(...)` no mesmo handler compõe
+    // "passo 1 de 8" e no mesmo render a peça já tem 20 células. O mesmo vale
+    // para a frase de `stepBy`, a de pausa e a de "rodando", que sobrevivem a
+    // uma troca de entrada sem passar por `reset` nenhum. A região cala, e a
+    // interação seguinte a reescreve com o número certo.
+    //
+    // A conferência é na LEITURA, e não num `useEffect([total])` que zera
+    // `live`. As duas razões são medidas, e a primeira é mais sutil do que
+    // parece:
+    //
+    // 1. Com o efeito, a frase falsa CHEGA ao DOM e sai no update seguinte —
+    //    medido pelos `MutationRecord` da região: `characterData` saindo de
+    //    "passo 5 de 8" e um `childList` removendo "passo 1 de 8". Ela não
+    //    chega a ser PINTADA no caminho do evento discreto (`input`, `click`),
+    //    porque aí o React esvazia o efeito antes da pintura — oito frames
+    //    seguidos lidos por `requestAnimationFrame` já mostram vazio. Só que
+    //    essa garantia é do evento discreto: `total` que muda por relógio, por
+    //    transição ou por dado que chegou depois tem o efeito adiado para
+    //    DEPOIS da pintura, e aí o frame com a frase falsa existe e vai para a
+    //    árvore de acessibilidade. A guarda aqui não depende dessa distinção: o
+    //    primeiro render com o total novo já sai `""` em qualquer caminho, e o
+    //    texto falso nunca existe. Um invariante em vez de um detalhe de
+    //    agendamento do React.
+    // 2. Efeito que chama `setPlayback` custa uma renderização a mais por troca
+    //    de `total`, e este arquivo documenta na declaração do `playback` que
+    //    renderização a mais por interação ENGOLE tecla.
+    //
+    // Calar em vez de recontar com o total novo: a frase carrega também a nota
+    // do step (`fala`), e `stepNoteRef` é atualizado num efeito — na
+    // renderização em que o total mudou a nota é tão velha quanto ele.
+    // Consertar só o número daria número verdadeiro colado em frase falsa. É a
+    // mesma política já escrita para o `setStep`: calar em vez de mentir.
+    liveMessage: playback.live && playback.liveTotal === total ? playback.live : "",
     expanded,
     open,
     collapsible,
@@ -447,6 +718,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     },
     expandButtonProps: {
       className: "viz-expand",
+      ref: expandButtonRef,
       onClick: toggleExpanded,
       children: expanded ? "✕ Fechar" : "⤢ Expandir",
     },
@@ -474,6 +746,13 @@ export function VizHeader({
 }) {
   return (
     <div className="viz-head">
+      {/* A região viva do visualizador: invisível para o olho, lida em voz alta
+          quando o step muda. Ela mora aqui, ao lado do contador que duplica,
+          porque `.viz-head` é o único pedaço do `<figure>` que TODOS os
+          visualizadores da casca desenham. */}
+      <span className="viz-sr" role="status" aria-live="polite" aria-atomic="true">
+        {viz.liveMessage}
+      </span>
       <div className="viz-head-title">
         <span className="dot" style={color ? { background: color } : undefined} />
         <span>{viz.title}</span>
@@ -529,7 +808,11 @@ export function VizFooter({
   return (
     <div className="viz-foot">
       <div className="viz-controls">
-        <button className="viz-btn" title="Reiniciar" onClick={viz.reset}>↺</button>
+        {/* `aria-label` e não só `title`: o CONTEÚDO vence o `title` no cálculo
+            do nome acessível, então o leitor de tela anunciava o nome Unicode do
+            glifo (ou nada). Os quatro vizinhos desta linha têm texto; este era o
+            único mudo. */}
+        <button className="viz-btn" title="Reiniciar" aria-label="Reiniciar" onClick={viz.reset}>↺</button>
         <button
           className="viz-btn"
           disabled={viz.step === 0}
@@ -556,7 +839,12 @@ export function VizFooter({
           <kbd>←</kbd><kbd>→</kbd> passo <span>·</span> <kbd>espaço</kbd> roda
         </p>
         {!noSpeed && (
-          <div className="viz-speed">
+          // `<label>`, e não a `<div>` de antes: o rótulo "Velocidade" estava
+          // ao lado do slider e não ligado a ele, então o controle não tinha
+          // nome acessível nenhum. É o mesmo padrão dos outros campos do
+          // produto, e o CSS é por classe (`.viz-speed`), então a troca de tag
+          // não muda um pixel.
+          <label className="viz-speed">
             <span>Velocidade</span>
             <input
               type="range"
@@ -564,10 +852,17 @@ export function VizFooter({
               max={5}
               step={1}
               value={viz.speed}
+              // Sem isto o leitor de tela anuncia o índice cru ("3 de 5"), que
+              // não é o que a tela diz.
+              aria-valuetext={SPEED_LABELS[viz.speed]}
               onChange={(e) => viz.setSpeed(parseInt(e.target.value, 10))}
             />
-            <span className="val">{SPEED_LABELS[viz.speed]}</span>
-          </div>
+            {/* Fora do NOME do slider de propósito: dentro dele o nome mudaria
+                a cada arrastada ("Velocidade 1x" → "Velocidade 2x"). O valor
+                não se perde, ele é dito pelo `aria-valuetext` acima, que é o
+                lugar do valor de um slider. */}
+            <span className="val" aria-hidden="true">{SPEED_LABELS[viz.speed]}</span>
+          </label>
         )}
       </div>
       <div className="viz-progress">

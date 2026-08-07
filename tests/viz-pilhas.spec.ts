@@ -425,7 +425,7 @@ test("na call stack o ↺ do rodapé volta só o passo, e o Voltar ao 2³ volta 
   await peca.getByRole("button", { name: "Próximo ›" }).click();
   await expect(peca.locator(".viz-step")).toHaveText("passo 3 de 15");
 
-  await peca.getByRole("button", { name: "↺", exact: true }).click();
+  await peca.getByRole("button", { name: "Reiniciar", exact: true }).click();
   await expect(peca.locator(".viz-step")).toHaveText("passo 1 de 15");
   await expect(expoente).toHaveValue("5");
 

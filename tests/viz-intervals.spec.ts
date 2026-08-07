@@ -361,7 +361,7 @@ test("sobreposição: o ↺ volta ao passo 1 e o botão ao lado é quem devolve 
   await expect(passo).toHaveText("passo 5 de 24");
 
   // O ↺ do rodapé compartilhado é `viz.reset()`: volta ao passo 1 e NADA mais.
-  await f.getByRole("button", { name: "↺" }).click();
+  await f.getByRole("button", { name: "Reiniciar" }).click();
   await expect(passo).toHaveText("passo 1 de 24");
   await expect(aTermina).toHaveValue("20");
 
