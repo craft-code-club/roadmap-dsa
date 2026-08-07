@@ -23,14 +23,13 @@ import { test, expect } from "./fixtures/console-limpo";
 //   2. quando uma regra conhecida passa do TETO de nós congelado.
 //
 // O item 2 tem exceção declarada: `color-contrast` numa página de artigo entra
-// **sem teto**. A contagem dela acompanha o tamanho do texto da página (são 34
+// **sem teto**. A contagem dela acompanha o tamanho do texto da página (são 16
 // nós hoje em `/topico/two-pointers/`, quase todos `.code-lang` e
 // `.viz-var-name` repetidos), então qualquer parágrafo novo empurraria o número
 // para cima sem nenhuma regressão de acessibilidade. Teto ali seria alarme
 // falso mensal, e alarme falso é o que faz o guarda ser desligado. Nas regras
-// que vêm de um componente fixo (o `<nav>` da barra, o range de velocidade da
-// casca, o `<h3>` do cartão de apoio) o teto vale, porque só cresce se alguém
-// duplicar o defeito.
+// que vêm de um componente fixo (o range de velocidade da casca, o `<h3>` do
+// cartão de apoio) o teto vale, porque só cresce se alguém duplicar o defeito.
 //
 // COMO BAIXAR O PASSIVO
 // Consertando o site, não editando esta lista. Cada item aponta `arquivo:linha`.
@@ -49,37 +48,29 @@ type Conhecida = {
 };
 
 /**
- * Passivo medido em 2026-08-07, axe-core 4.12.1, sobre o `out/` da `main`
- * (e35c1b2), viewport Desktop Chrome.
+ * Passivo **remedido em 2026-08-07 sobre a `main` 0d7d01a**, axe-core 4.12.1,
+ * viewport Desktop Chrome, já com a folga de hidratação que o teste aplica.
+ *
+ * Duas coisas mudaram em relação à primeira medição (feita sobre e35c1b2):
+ *
+ *  - `landmark-unique` **saiu das cinco rotas**: o #50 pôs `aria-label` nos dois
+ *    `<nav>` da barra, que era o defeito. Com isso `/` e `/roadmap/` ficam com a
+ *    lista **vazia** — e lista vazia não é lacuna, é a forma mais forte deste
+ *    guarda: qualquer violação que apareça ali vira "regra nova" e reprova;
+ *  - `color-contrast` em `/topico/two-pointers/` caiu de 34 para 16 nós, porque
+ *    agora o axe roda depois da hidratação (ver a folga no corpo do teste). Os
+ *    18 nós de diferença eram do HTML do SSG, antes de as ilhas client
+ *    repintarem — o aluno nunca os vê.
  */
 const PASSIVO: Record<string, Conhecida[]> = {
-  "/": [
-    {
-      regra: "landmark-unique",
-      teto: 1,
-      nota:
-        "os dois <nav> da barra (`.nav-left` e `.nav-right`, src/components/Shell.tsx:179 e :185) " +
-        "não têm aria-label, então o leitor de tela anuncia 'navegação' duas vezes sem distinguir",
-    },
-  ],
-  "/roadmap/": [
-    {
-      regra: "landmark-unique",
-      teto: 1,
-      nota: "o mesmo par de <nav> da barra, src/components/Shell.tsx:179 e :185",
-    },
-  ],
+  "/": [],
+  "/roadmap/": [],
   "/topico/two-pointers/": [
-    {
-      regra: "landmark-unique",
-      teto: 1,
-      nota: "o mesmo par de <nav> da barra, src/components/Shell.tsx:179 e :185",
-    },
     {
       regra: "color-contrast",
       teto: null, // sem teto: acompanha o tamanho do texto da página, ver o cabeçalho
       nota:
-        "34 nós, todos de duas famílias de cor do tema: o selo de linguagem do bloco de código " +
+        "16 nós, todos de duas famílias de cor do tema: o selo de linguagem do bloco de código " +
         "(`.code-lang`, src/app/globals.css:315) e o nome da variável do painel do visualizador " +
         "(`.viz-var-name`, src/app/globals.css:446, #8ba0bb sobre #0d1420). O pior medido é " +
         "3.48:1 contra os 4.5:1 exigidos",
@@ -103,11 +94,6 @@ const PASSIVO: Record<string, Conhecida[]> = {
   ],
   "/topico/trie/": [
     {
-      regra: "landmark-unique",
-      teto: 1,
-      nota: "o mesmo par de <nav> da barra, src/components/Shell.tsx:179 e :185",
-    },
-    {
       regra: "color-contrast",
       teto: 2,
       nota:
@@ -117,11 +103,6 @@ const PASSIVO: Record<string, Conhecida[]> = {
     },
   ],
   "/apoie/": [
-    {
-      regra: "landmark-unique",
-      teto: 1,
-      nota: "o mesmo par de <nav> da barra, src/components/Shell.tsx:179 e :185",
-    },
     {
       regra: "heading-order",
       teto: 1,
@@ -142,9 +123,18 @@ const AMOSTRA = Object.keys(PASSIVO);
 for (const rota of AMOSTRA) {
   test(`acessibilidade: ${rota} não ganha violação nova (axe-core)`, async ({ page }) => {
     await page.goto(rota);
-    // O menu lateral e os visualizadores são ilhas client; sem esperar a
-    // hidratação o axe analisa o HTML do SSG e não o que o aluno usa.
+    // O `<h1>` já vem no HTML do SSG, então esta espera NÃO é sinal de
+    // hidratação: ela só garante que a rota certa carregou.
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // A hidratação é que importa aqui — o menu lateral e os visualizadores são
+    // ilhas client, e o axe precisa ver o DOM que o aluno usa, não o do SSG.
+    // Não há marcador observável para esperar: o único estado de hidratação que
+    // chega ao DOM é o `hydrated` do `ProgressProvider`, e ele só decide o
+    // número da barra de progresso, que vale 0 antes e 0 depois num perfil sem
+    // nada salvo. Sem sinal, sobra a folga — a mesma de `console-limpo.spec.ts`,
+    // e pelo mesmo motivo (efeitos, `localStorage` do progresso, `matchMedia` da
+    // casca adaptativa).
+    await page.waitForTimeout(400);
 
     const { violations } = await new AxeBuilder({ page }).analyze();
     const conhecidas = PASSIVO[rota];
