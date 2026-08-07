@@ -56,6 +56,13 @@ function gravarAbertos(abertos: Record<string, boolean>) {
 const mesmaRota = (a: string | null | undefined, b: string) =>
   !!a && a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
 
+// Minúsculas e sem acento. NFD separa a letra da marca de acento em pontos de
+// código diferentes, e o `replace` joga fora só a marca: com isso "recursao"
+// acha "Recursão" e "memoizacao" acha "memoização". Fica fora do componente
+// para não virar dependência nova do `useMemo` a cada renderização.
+const semAcento = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
@@ -121,7 +128,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // precisa. `block: nearest` na mão: distância mínima, sem centralizar nada.
   useEffect(() => {
     const lista = listaRef.current;
-    const atual = lista?.querySelector<HTMLElement>(".side-item.on");
+    // `:not([hidden])` porque o item do grupo fechado agora existe no DOM: sem o
+    // filtro, o `getBoundingClientRect` de um elemento oculto devolve zeros e a
+    // conta abaixo rolaria o menu para o topo sem motivo.
+    const atual = lista?.querySelector<HTMLElement>(".side-items:not([hidden]) .side-item.on");
     if (!lista || !atual) return;
     const item = atual.getBoundingClientRect();
     const caixa = lista.getBoundingClientRect();
@@ -141,12 +151,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const feitosTotal = contarTopicos(GROUPS.flatMap((g) => g.topics.map((t) => t.slug)));
   const pct = hydrated && TOTAL_TOPICS ? Math.round((feitosTotal / TOTAL_TOPICS) * 100) : 0;
 
-  const b = busca.trim().toLowerCase();
+  const b = semAcento(busca.trim());
 
+  // A busca casa nome, descrição e nome do grupo. Só pelo nome ela mentia sobre
+  // o guia: "janela" (Sliding Window), "memoização" (Programação Dinâmica) e
+  // "ponteiro" (Listas Encadeadas) aparecem em `description` e em zero `name`,
+  // e quem digitava concluía que o tópico não existe aqui. Custo de bundle zero:
+  // as descrições já vêm no mesmo chunk que os nomes.
   const grupos = useMemo(
     () =>
       GROUPS.map((g) => {
-        const itens = g.topics.filter((t) => !b || t.name.toLowerCase().includes(b));
+        // Grupo que casa pelo nome entrega a lista inteira dele: quem digita
+        // "grafos" quer o grupo, não o subconjunto que repete a palavra.
+        const grupoCasa = !!b && semAcento(g.name).includes(b);
+        const itens = g.topics.filter(
+          (t) => !b || grupoCasa || semAcento(`${t.name} ${t.description}`).includes(b)
+        );
         return { ...g, itens, aberto: b ? itens.length > 0 : !!abertos[g.id] };
       }).filter((g) => !b || g.itens.length > 0),
     [b, abertos]
@@ -158,11 +178,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="shell">
+      {/* WCAG 2.4.1: antes desta linha eram 44 paradas de tabulação até o
+          primeiro parágrafo em /topico/dijkstra/, em toda página aberta. Ele é o
+          primeiro filho do shell de propósito, e some da tela sem sair da ordem
+          de foco (por isso não é `display: none`). */}
+      <a className="skip-link" href="#conteudo">
+        Ir para o conteúdo
+      </a>
       <header className="header">
         <div className="header-left">
           <button
             className="header-menu-toggle nav-icon"
-            aria-label="Abrir menu de tópicos"
+            aria-label="Menu de tópicos"
+            aria-expanded={mobileNav}
+            aria-controls="menu-lateral"
             onClick={() => setMobileNav((v) => !v)}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -176,13 +205,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span className="brand-sub">por Craft &amp; Code Club</span>
             </span>
           </Link>
-          <nav className="topnav nav-left">
+          {/* Cada landmark com nome próprio: são três `nav` na página, e sem
+              rótulo o leitor de tela anuncia "navegação" três vezes. */}
+          <nav className="topnav nav-left" aria-label="Principal">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
             <Link href="/roadmap" className={`nav-hide-sm${navOn("/roadmap") ? " on" : ""}`}>Roadmap</Link>
           </nav>
         </div>
 
-        <nav className="topnav nav-right">
+        <nav className="topnav nav-right" aria-label="Comunidade e apoio">
           <a href={LINKS.youtube} className="nav-yt nav-hide-sm ext" target="_blank" rel="noopener noreferrer">
             <span className="dot" />YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
           </a>
@@ -232,7 +263,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      <aside className={`sidebar${mobileNav ? " open" : ""}`}>
+      {/* `nav`, e não `aside`: a trilha inteira é navegação, e o landmark
+          "complementar" do `aside` mandava o leitor de tela procurar o menu de
+          tópicos fora da lista de navegação da página. */}
+      <nav
+        id="menu-lateral"
+        className={`sidebar${mobileNav ? " open" : ""}`}
+        aria-label="Trilha de estudos"
+      >
         <div className="side-head">
           <div className="side-head-row">
             <span className="side-label">Sua trilha</span>
@@ -241,8 +279,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
+          {/* O `placeholder` era o único nome do campo, e ele some na primeira
+              letra digitada: a partir daí quem usa leitor de tela ouvia só
+              "caixa de edição". O rótulo fica fora da tela, e não escondido. */}
+          <label className="sr-only" htmlFor="busca-topico">
+            Buscar tópico
+          </label>
           <input
+            id="busca-topico"
             className="side-search"
+            type="search"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar tópico…"
@@ -266,53 +312,71 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <span style={{ flex: 1 }}>{g.name}</span>
                   <span className="side-count">{feitos}/{g.topics.length}</span>
                 </button>
-                {g.aberto && (
-                  <div className="side-items">
-                    {g.intro && (
-                      <Link
-                        href={g.intro.href}
-                        className={`side-item${navOn(g.intro.href) ? " on" : ""}`}
-                        aria-current={navOn(g.intro.href) ? "page" : undefined}
-                      >
-                        <span className="side-intro-ico" aria-hidden="true">✦</span>
-                        <span className="side-item-name">{g.intro.name}</span>
-                      </Link>
-                    )}
-                    {g.itens.map((t) => {
-                      const feito = isTopico(t.slug);
-                      const ativo = slugAtivo === t.slug;
-                      // "Em breve" é só para quem ainda não tem nada: se já existe vídeo,
-                      // artigo ou visualização, o tópico é navegável como qualquer outro.
-                      const vazio = isEmptyTopic(t);
-                      return (
+                {/* O grupo fechado esconde os itens, e não deixa de renderizá-los:
+                    o menu era a única lista de tópicos de toda página, e com
+                    `{g.aberto && ...}` ela chegava ao rastreador com 1 link no pior
+                    caso. `hidden` (mais a regra que vence o `display: flex` no CSS)
+                    dá o mesmo visual, tira os itens ocultos da ordem de foco e
+                    entrega os 47 tópicos em toda página. */}
+                <div className="side-items" hidden={!g.aberto}>
+                  {g.intro && (
+                    <Link
+                      href={g.intro.href}
+                      className={`side-item${navOn(g.intro.href) ? " on" : ""}`}
+                      aria-current={navOn(g.intro.href) ? "page" : undefined}
+                    >
+                      <span className="side-intro-ico" aria-hidden="true">✦</span>
+                      <span className="side-item-name">{g.intro.name}</span>
+                    </Link>
+                  )}
+                  {g.itens.map((t) => {
+                    const feito = isTopico(t.slug);
+                    const ativo = slugAtivo === t.slug;
+                    // "Em breve" é só para quem ainda não tem nada: se já existe vídeo,
+                    // artigo ou visualização, o tópico é navegável como qualquer outro.
+                    const vazio = isEmptyTopic(t);
+                    return (
+                      // A marca de concluído é IRMÃ do link, não filha: widget
+                      // focável dentro de `<a>` é estado inválido pela ARIA, e
+                      // dava dois destinos para o mesmo Tab. É o arranjo que o
+                      // `ProblemList` já usa. Quem pinta o estado da linha
+                      // passa a ser a `.side-row`, para o ✓ continuar dentro
+                      // do realce de "você está aqui".
+                      <div className={`side-row${ativo ? " on" : ""}`} key={t.slug}>
+                        <button
+                          type="button"
+                          className={`side-check${feito ? " done" : ""}`}
+                          role="checkbox"
+                          aria-checked={feito}
+                          aria-label={`Marcar ${t.name} como concluído`}
+                          onClick={() => toggleTopico(t.slug)}
+                        >
+                          {feito ? "✓" : ""}
+                        </button>
                         <Link
-                          key={t.slug}
                           href={`/topico/${t.slug}`}
                           className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
                           aria-current={ativo ? "page" : undefined}
                         >
-                          <span
-                            className={`side-check${feito ? " done" : ""}`}
-                            role="checkbox"
-                            aria-checked={feito}
-                            tabIndex={0}
-                            aria-label={`Marcar ${t.name} como concluído`}
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); }}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); } }}
-                          >
-                            {feito ? "✓" : ""}
-                          </span>
                           <span className="side-item-name">{t.name}</span>
                           {t.isNew && <span className="badge-novo">NOVO</span>}
                           {vazio && <span className="badge-soon">em breve</span>}
                         </Link>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
+          {/* Sem isto, busca sem resultado devolvia uma coluna vazia, e a tela
+              não dizia se o guia não tem o assunto ou se o menu quebrou. */}
+          {b && grupos.length === 0 && (
+            <p className="side-vazio" role="status">
+              Nenhum tópico com <strong>{busca.trim()}</strong>. Tente outra palavra, como
+              &ldquo;janela&rdquo;, &ldquo;árvore&rdquo; ou &ldquo;ordenação&rdquo;.
+            </p>
+          )}
         </div>
 
         <div className="side-apoio">
@@ -325,9 +389,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <p>Ajude a manter a comunidade e o conteúdo livres, para todo mundo.</p>
           </Link>
         </div>
-      </aside>
+      </nav>
 
-      <main className="main">{children}</main>
+      {/* `tabIndex={-1}` para o link de pular ter onde pousar o foco: sem ele o
+          navegador rola até o conteúdo e deixa o foco no começo da página, e o
+          Tab seguinte volta para o menu. */}
+      <main className="main" id="conteudo" tabIndex={-1}>
+        {children}
+      </main>
     </div>
   );
 }
