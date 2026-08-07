@@ -344,7 +344,7 @@ async function abrirPainel(page: Page, fig: Locator): Promise<Locator> {
 }
 
 /** Camada 1 numa peça SEM rodapé: quem não pode andar é o cabeçalho e o ✕ Fechar. */
-async function provarCamada1(page: Page, painel: Locator) {
+async function provarCamada1(painel: Locator) {
   // --- pré-condições: a situação que o teste afirma existe mesmo ---
   await expect(painel.locator(".viz-foot"), "esta peça não tem rodapé").toHaveCount(0);
   const fechar = painel.getByRole("button", { name: "✕ Fechar" });
@@ -428,13 +428,13 @@ test.describe("merge sort · as duas peças sem linha do tempo", () => {
   test("o mapa de níveis: o cabeçalho e o ✕ Fechar ficam parados enquanto o miolo rola", async ({ page }) => {
     await abrir(page, 1440, 600);
     const painel = await abrirPainel(page, muda(page, TITULO_NIVEIS));
-    await provarCamada1(page, painel);
+    await provarCamada1(painel);
   });
 
   test("o comparador de empate: o cabeçalho e o ✕ Fechar ficam parados enquanto o miolo rola", async ({ page }) => {
     await abrir(page, 1440, 600);
     const painel = await abrirPainel(page, muda(page, TITULO_EMPATE));
-    await provarCamada1(page, painel);
+    await provarCamada1(painel);
   });
 
   test("o painel é um diálogo de verdade: foco, Tab preso, Esc e rolagem travada", async ({ page }) => {
