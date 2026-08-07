@@ -351,7 +351,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
                           aria-label={`Marcar ${t.name} como concluído`}
                           onClick={() => toggleTopico(t.slug)}
                         >
-                          {feito ? "✓" : ""}
+                          {/* Desenho, e não o caractere `✓`: o glifo continuava
+                              torto mesmo com o padding do `<button>` zerado, e
+                              o botão nem herda a fonte do site — o porquê
+                              medido está no `globals.css`. O mesmo traço
+                              aparece no `RoadmapGroups` e no `ProblemList`, e o
+                              teste `check-alinhado` mede os três; ele é o que
+                              segura as três cópias iguais.
+                              É DECORAÇÃO: o estado é `aria-checked` e o nome é
+                              o `aria-label`, por isso `aria-hidden`. */}
+                          {feito ? (
+                            <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                              <path
+                                d="M2.4 6.4 5.1 8.6 9.6 3.4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          ) : null}
                         </button>
                         <Link
                           href={`/topico/${t.slug}`}
