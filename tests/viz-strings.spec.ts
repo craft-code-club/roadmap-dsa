@@ -90,10 +90,12 @@ async function sobraAssentada(miolo: Locator): Promise<number> {
           repetidos = sobra === anterior ? repetidos + 1 : 0;
           anterior = sobra;
           if (repetidos >= 5) resolve(sobra);
-          else if (++quadros > teto)
+          else if (++quadros >= teto)
             reject(
               new Error(
-                `a sobra de rolagem do miolo não assentou em ${teto} quadros; ` +
+                // O número sai do próprio contador, não do teto: assim ele não
+                // pode divergir da condição que o produziu.
+                `a sobra de rolagem do miolo não assentou em ${quadros} quadros; ` +
                   `última leitura: ${sobra}px (scrollHeight ${el.scrollHeight}, clientHeight ${el.clientHeight})`
               )
             );
