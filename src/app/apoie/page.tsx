@@ -37,7 +37,16 @@ export default async function ApoiePage() {
       {/* Apoio principal: a comunidade */}
       <div className="cta-card coffee" style={{ marginBottom: 16 }}>
         <div className="cta-eyebrow" style={{ color: "#fcd34d" }}><span>♥</span>Apoie a comunidade</div>
-        <h3>Seja um apoiador</h3>
+        {/* `h2`, e não `h3`: a página ia de `h1` direto para `h3` e só voltava
+            para `h2` lá embaixo, em "Apoiadores". Quem navega por títulos ouvia
+            uma seção dentro de outra que não existe.
+            O estilo vem por TAG (`.cta-card h3`, `globals.css:222`), então trocar
+            a tag sem repor encolheria o título de 22px para o padrão do `h2`.
+            Estes valores são cópia exata daquela regra; a casa deles é o CSS, que
+            pertence a outra frente nesta rodada. */}
+        <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          Seja um apoiador
+        </h2>
         <p style={{ color: "#dcc9a8", maxWidth: "54ch" }}>
           Sua contribuição, do valor que você quiser, mantém o conteúdo saindo e as visualizações
           novas chegando, e deixa o guia livre e aberto para quem vem depois. E você entra na lista
@@ -48,7 +57,12 @@ export default async function ApoiePage() {
 
       {/* Contribuir com tempo */}
       <div className="feature-card" style={{ marginBottom: 40 }}>
-        <h3 style={{ marginTop: 0, fontSize: 16 }}>Da comunidade pra comunidade, contribua</h3>
+        {/* Mesmo caso do anterior. A regra por tag é `.feature-card h3`
+            (`globals.css:210`), com `margin: 14px 0 7px`, e o `marginTop: 0`
+            daqui já zerava o topo — o valor abaixo é o resultado dos dois. */}
+        <h2 style={{ margin: "0 0 7px", fontSize: 16, fontWeight: 600 }}>
+          Da comunidade pra comunidade, contribua
+        </h2>
         <p className="prose-p" style={{ fontSize: 14, marginBottom: 10 }}>
           O código e o conteúdo são abertos. Corrija um erro, escreva um tópico ou crie um
           visualizador, e entre nos créditos.

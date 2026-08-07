@@ -357,3 +357,27 @@ test("a trilha marcada é a trilha desenhada", async ({ page }) => {
   }
 });
 
+test("nenhuma rota pula um nível de título", () => {
+  const problemas: string[] = [];
+  for (const rota of TODAS_AS_ROTAS) {
+    const corpo = html(rota).split("<body")[1] ?? "";
+    const niveis = [...corpo.matchAll(/<h([1-6])[ >]/g)].map((m) => Number(m[1]));
+    const saltos = niveis.filter((n, i) => i > 0 && n > niveis[i - 1] + 1);
+    if (saltos.length) problemas.push(`${rota} → ${niveis.join(",")}`);
+    if (niveis.filter((n) => n === 1).length !== 1) problemas.push(`${rota} → h1 x${niveis.filter((n) => n === 1).length}`);
+  }
+  expect(problemas, "hierarquia de títulos quebrada").toEqual([]);
+});
+
+test("o /apoie mantém o tamanho dos títulos ao consertar a hierarquia", async ({ page }) => {
+  // A hierarquia é de semântica, não de aparência: `.cta-card h3` e
+  // `.feature-card h3` são regras por TAG no `globals.css`, então trocar a tag
+  // sem repor o estilo encolheria dois títulos da página que sustenta o projeto.
+  await page.goto("/apoie/");
+  const seja = page.locator(".cta-card").getByText("Seja um apoiador", { exact: true });
+  const contribua = page.locator(".feature-card").getByText("Da comunidade pra comunidade, contribua");
+  expect(await seja.evaluate((el) => getComputedStyle(el).fontSize)).toBe("22px");
+  expect(await contribua.evaluate((el) => getComputedStyle(el).fontSize)).toBe("16px");
+  await expect(seja).toHaveRole("heading");
+  await expect(contribua).toHaveRole("heading");
+});
