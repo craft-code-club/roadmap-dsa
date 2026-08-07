@@ -91,3 +91,42 @@ test.describe("a região viva anuncia o passo", () => {
     await expect(status).not.toHaveText(anuncioNoInicio);
   });
 });
+
+test.describe("a animação não roda para quem não está vendo", () => {
+  test("sair da tela pausa, e voltar NÃO retoma sozinho", async ({ page }) => {
+    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const contador = contadorDePasso(fig);
+    await expect(contador).toHaveCount(1);
+    const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
+
+    const inicial = (await contador.textContent()) ?? "";
+    await rodar.click();
+    await expect(rodar).toHaveText(/Pausar/);
+    // Premissa: com a peça na tela ela ANDA. Sem isto o teste aprovaria uma
+    // animação que nunca começou.
+    await expect(contador).not.toHaveText(inicial);
+
+    await page.evaluate(() =>
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" })
+    );
+    await expect(fig).not.toBeInViewport();
+
+    // Duas leituras com intervalo, e não o estado interno: o que importa é o
+    // que o aluno vê parar de andar.
+    await page.waitForTimeout(400);
+    const foraA = (await contador.textContent()) ?? "";
+    // Premissa: não é que a animação acabou — ela parou no meio.
+    expect(foraA).not.toMatch(/^passo (\d+) de \1$/);
+    await page.waitForTimeout(2000);
+    expect(await contador.textContent()).toBe(foraA);
+
+    // De volta à tela: pausada, e pausada continua. Retomar sozinho surpreende
+    // quem rolou de volta.
+    await fig.scrollIntoViewIfNeeded();
+    await expect(fig).toBeInViewport();
+    await expect(rodar).toHaveText(/Rodar/);
+    const voltaA = (await contador.textContent()) ?? "";
+    await page.waitForTimeout(2000);
+    expect(await contador.textContent()).toBe(voltaA);
+  });
+});

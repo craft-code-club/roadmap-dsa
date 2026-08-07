@@ -370,6 +370,47 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", onResize); };
   }, [collapsible]);
 
+  // ------------------------------ a animação não roda para quem não está vendo
+  // O `setInterval` acima não olhava a tela: uma peça rolada para fora, ou uma
+  // aba escondida, continuava andando. Cada tick é uma tarefa de main thread, e
+  // na marcha 2x ela volta a cada 250ms — em `intervals.mdx`, que tem cinco
+  // instâncias, isso é bateria queimada e INP piorando exatamente enquanto o
+  // aluno rola e interage com a peça seguinte.
+  //
+  // Ao voltar à tela a peça fica PAUSADA de propósito: retomar sozinho
+  // surpreende quem rolou de volta, e o ▶ Rodar à espera é mais honesto.
+  //
+  // Isto não conversa com a medição da casca: só mexe em `playing`, nunca em
+  // `open`, `measuring` ou `measureTick`, e a medição é guardada por
+  // `measuredRound`. Na montagem `playing` é `false`, então a primeira chamada
+  // do observer (que reporta o estado atual) é um no-op.
+  const pauseOffscreen = useCallback(() => {
+    if (!playingRef.current) return;
+    stop();
+    setPlaying(false);
+  }, [stop]);
+
+  useEffect(() => {
+    const onHide = () => { if (document.hidden) pauseOffscreen(); };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [pauseOffscreen]);
+
+  useEffect(() => {
+    // No panel expanded a peça É a tela, e o `<figure>` troca de nó DOM ao
+    // atravessar o portal: observar ali reportaria "saiu da tela" na travessia
+    // e pausaria justamente a animação que o aluno acabou de expandir.
+    if (expanded || typeof IntersectionObserver === "undefined") return;
+    const figure = figureRef.current;
+    if (!figure) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (!entries.some((e) => e.isIntersecting)) pauseOffscreen(); },
+      { threshold: 0 }
+    );
+    observer.observe(figure);
+    return () => observer.disconnect();
+  }, [expanded, pauseOffscreen]);
+
   const toggleOpen = useCallback(() => {
     setOpen((a) => {
       // Anotar dentro do updater mantém leitura e escrita no mesmo valor mesmo
