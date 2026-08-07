@@ -75,13 +75,21 @@ def main() -> int:
             [sys.executable, str(guarda), str(base / "antes.tsx.txt"), str(base / "depois.tsx.txt")],
             capture_output=True, text=True,
         )
-        reprovou = r.returncode == 1
+        # Código inesperado é o guarda NÃO TENDO RODADO, não um caso reprovado.
+        # Contar como FALHA fazia a suíte sair 1, o mesmo código de "regressão",
+        # e escondia a diferença entre "o guarda achou um problema" e "o guarda
+        # está quebrado". Aborta na hora, com o 2 do contrato.
         if r.returncode not in (0, 1):
-            ok, nota = False, f"o guarda saiu {r.returncode}"
-        else:
-            ok = reprovou == deve_reprovar
-            nota = "" if ok else ("passou VERDE com a tela estragada"
-                                  if deve_reprovar else "reprovou sem a tela ter mudado")
+            print(f"  ERRO   {pasta:<38} o guarda saiu {r.returncode}, não 0 nem 1")
+            for linha in (r.stdout + r.stderr).rstrip().splitlines():
+                print(f"         | {linha[:160]}")
+            print("\nsuíte abortada: o guarda não conseguiu rodar (não é regressão de caso)")
+            return 2
+
+        reprovou = r.returncode == 1
+        ok = reprovou == deve_reprovar
+        nota = "" if ok else ("passou VERDE com a tela estragada"
+                              if deve_reprovar else "reprovou sem a tela ter mudado")
         marca = "ok  " if ok else "FALHA"
         esperado = "reprova" if deve_reprovar else "passa"
         print(f"  {marca}  {pasta:<38} {esperado:<8} {oquê}")
