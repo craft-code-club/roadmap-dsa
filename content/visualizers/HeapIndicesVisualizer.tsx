@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // HeapIndicesVisualizer, a aritmética que substitui os ponteiros.
@@ -17,6 +19,17 @@ import { useEffect, useMemo, useState } from "react";
 // O painel marca explicitamente os filhos que CAIRIAM FORA do array. É a mesma
 // checagem de limite que toda implementação de sift down precisa ter, e é o
 // erro mais comum de quem escreve heap pela primeira vez.
+//
+// Sobre a casca (contrato em `content/visualizers/README.md`):
+//   · `total: 1` — não há linha do tempo. O eixo é a SELEÇÃO (o nó clicado), e
+//     o resumo do estado ("índice 4 de 0 a 11") entra como `children` do
+//     `VizHeader`, no lugar do "passo N de M". Ele já vem com o rótulo junto.
+//   · `collapsible: false` — a árvore, o array e as fórmulas são o conteúdo, e
+//     não existe bloco dispensável. Sem bloco, `measureOn` não faria nada.
+//   · o `total: 1` também é o que preserva o teclado PRÓPRIO desta peça: os nós
+//     do SVG respondem a setas, Home e End, e o hook só sequestra seta e espaço
+//     quando há linha do tempo. Com passos, o `stepBy` do painel andaria por
+//     cima de cada seta do aluno navegando a árvore.
 // ---------------------------------------------------------------------------
 
 const VALORES = [10, 21, 14, 35, 27, 19, 42, 51, 38, 44, 33, 22, 60, 47, 55, 29];
@@ -66,14 +79,34 @@ export function HeapIndicesVisualizer() {
   const [n, setN] = useState(12);
   const [sel, setSel] = useState(4);
 
+  const viz = useVisualizer({
+    title: "Visualizador · clique num nó e veja de onde saem pai e filhos",
+    total: 1,
+    collapsible: false,
+  });
+
   const arr = useMemo(() => construir(n, k), [n, k]);
 
   // Só encolher o array tira a seleção do intervalo válido: os índices vão de 0 a
   // n - 1 seja qual for o k. Trocar k muda quem é pai e quem é filho, nunca
   // quantas posições existem.
-  useEffect(() => {
-    if (sel >= n) setSel(Math.max(0, n - 1));
-  }, [n, sel]);
+  //
+  // O ajuste roda na FASE DE RENDER e não num `useEffect`, que é o padrão
+  // documentado do React para estado derivado de outro estado — o mesmo que o
+  // §9 do contrato usa para o passo inicial. Com o efeito, o React pintava um
+  // quadro com a seleção fora da faixa antes de corrigir.
+  //
+  // O `Math.min` abaixo é rede, não a regra: é ele que segura o quadro em que o
+  // ajuste ainda não rodou. Quem apagar a linha abaixo achando que o `Math.min`
+  // já resolve troca o comportamento sem nenhum erro aparecer — a seleção
+  // deixaria de ser fixada e voltaria sozinha ao encolher e crescer de novo.
+  //
+  // A condição basta sozinha, sem guardar o `n` anterior: nenhum outro caminho
+  // põe `sel` fora da faixa (o clique nasce de um índice que existe, e o teclado
+  // já é limitado por `n` em `aoTeclar`), então ela só é verdadeira no render
+  // seguinte a um `n` menor. E ela termina: o `n` vem de um `range` de 3 a 16,
+  // então `n - 1 >= 2` e a escrita sempre deixa `sel < n`.
+  if (sel >= n) setSel(Math.max(0, n - 1));
   const i = Math.min(sel, n - 1);
 
   const pai = i === 0 ? -1 : Math.floor((i - 1) / k);
@@ -142,21 +175,15 @@ export function HeapIndicesVisualizer() {
     })),
   ];
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · clique num nó e veja de onde saem pai e filhos</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            índice {i} de 0 a {n - 1}
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          índice {i} de 0 a {n - 1}
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="viz-inputs">
           <div className="viz-field">
             <span>Filhos por nó (k)</span>
@@ -285,6 +312,9 @@ export function HeapIndicesVisualizer() {
           razão pela qual build-heap custa O(n) e não O(n log n).
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o `VizFooter` não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }

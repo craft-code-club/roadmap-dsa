@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // OrdenacaoBasicaEstabilidade, a distância do movimento como causa.
@@ -21,19 +22,25 @@ import { useMemo, useState } from "react";
 // adjacentes), e as inversões de empate são detectadas comparando a posição de
 // ENTRADA de cada registro. Nada de resultado fixo: trocar o preset não exige
 // reescrever nenhuma expectativa.
+//
+// Sobre a casca: `total: 1` e `collapsible: false`. Não há passo a passo nem
+// bloco dispensável — as quatro filas e a explicação SÃO o conteúdo. O que a
+// peça ganha é o painel expandido com o cabeçalho parado enquanto o miolo rola,
+// e ela precisa: pede 945px de um orçamento de 816 a 1512x900, 966 de 616 a
+// 1440x700 e 1.640 de 760 a 390x844.
 // ---------------------------------------------------------------------------
 
-type Reg = { chave: number; etiq: string; orig: number };
+type Rec = { key: number; tag: string; orig: number };
 
-type Saida = { regs: Reg[]; trocas: number; maiorSalto: number };
+type Result = { recs: Rec[]; swaps: number; longestSwap: number };
 
-type Preset = { key: string; rotulo: string; dados: [number, string][]; dica: string };
+type Preset = { key: string; label: string; data: [number, string][]; hint: string };
 
 const PRESETS: Preset[] = [
   {
     key: "chamados",
-    rotulo: "Chamados na ordem de chegada, ordenando por prioridade",
-    dados: [
+    label: "Chamados na ordem de chegada, ordenando por prioridade",
+    data: [
       [2, "#41"],
       [2, "#42"],
       [1, "#43"],
@@ -41,23 +48,23 @@ const PRESETS: Preset[] = [
       [3, "#45"],
       [5, "#46"],
     ],
-    dica: "A fila chegou em ordem e o critério de ordenação é a prioridade. O esperado é que, dentro da mesma prioridade, quem chegou antes continue sendo atendido antes.",
+    hint: "A fila chegou em ordem e o critério de ordenação é a prioridade. O esperado é que, dentro da mesma prioridade, quem chegou antes continue sendo atendido antes.",
   },
   {
     key: "sorte",
-    rotulo: "Um empate que sobrevive por sorte",
-    dados: [
+    label: "Um empate que sobrevive por sorte",
+    data: [
       [3, "#51"],
       [3, "#52"],
       [1, "#53"],
       [2, "#54"],
     ],
-    dica: "Aqui os três devolvem a mesma coisa, inclusive o selection sort. É justamente esse o perigo: instável quer dizer sem garantia, não sempre errado. Um código apoiado neste resultado passa nos testes hoje e quebra quando entrar mais um chamado.",
+    hint: "Aqui os três devolvem a mesma coisa, inclusive o selection sort. É justamente esse o perigo: instável quer dizer sem garantia, não sempre errado. Um código apoiado neste resultado passa nos testes hoje e quebra quando entrar mais um chamado.",
   },
   {
     key: "muitos",
-    rotulo: "Fila embaralhada, com empate em toda prioridade",
-    dados: [
+    label: "Fila embaralhada, com empate em toda prioridade",
+    data: [
       [3, "#61"],
       [2, "#62"],
       [3, "#63"],
@@ -65,93 +72,93 @@ const PRESETS: Preset[] = [
       [2, "#65"],
       [1, "#66"],
     ],
-    dica: "Com empate em todas as prioridades, o salto longo do selection sort tem muito mais chance de acontecer. Repare que ele erra em dois pares de uma vez, e que os outros dois continuam intactos.",
+    hint: "Com empate em todas as prioridades, o salto longo do selection sort tem muito mais chance de acontecer. Repare que ele erra em dois pares de uma vez, e que os outros dois continuam intactos.",
   },
 ];
 
 // Os três na forma baseada em TROCAS, para a distância de cada movimento ser
 // comparável entre eles. Cada troca é registrada, e é daí que sai o maior salto.
-function rodar(algo: "bubble" | "selection" | "insertion", entrada: Reg[]): Saida {
-  const a = entrada.map((r) => ({ ...r }));
+function run(algo: "bubble" | "selection" | "insertion", input: Rec[]): Result {
+  const a = input.map((r) => ({ ...r }));
   const n = a.length;
-  let trocas = 0;
-  let maiorSalto = 0;
-  const troca = (x: number, y: number) => {
+  let swaps = 0;
+  let longestSwap = 0;
+  const swap = (x: number, y: number) => {
     [a[x], a[y]] = [a[y], a[x]];
-    trocas++;
-    maiorSalto = Math.max(maiorSalto, Math.abs(x - y));
+    swaps++;
+    longestSwap = Math.max(longestSwap, Math.abs(x - y));
   };
 
   if (algo === "bubble") {
-    for (let fim = n - 1; fim > 0; fim--) {
-      let mexeu = false;
-      for (let j = 0; j < fim; j++)
-        if (a[j].chave > a[j + 1].chave) {
-          troca(j, j + 1);
-          mexeu = true;
+    for (let end = n - 1; end > 0; end--) {
+      let moved = false;
+      for (let j = 0; j < end; j++)
+        if (a[j].key > a[j + 1].key) {
+          swap(j, j + 1);
+          moved = true;
         }
-      if (!mexeu) break;
+      if (!moved) break;
     }
   } else if (algo === "selection") {
     for (let i = 0; i < n - 1; i++) {
-      let menor = i;
-      for (let j = i + 1; j < n; j++) if (a[j].chave < a[menor].chave) menor = j;
-      if (menor !== i) troca(i, menor);
+      let smallest = i;
+      for (let j = i + 1; j < n; j++) if (a[j].key < a[smallest].key) smallest = j;
+      if (smallest !== i) swap(i, smallest);
     }
   } else {
     for (let i = 1; i < n; i++) {
       let j = i;
-      while (j > 0 && a[j - 1].chave > a[j].chave) {
-        troca(j - 1, j);
+      while (j > 0 && a[j - 1].key > a[j].key) {
+        swap(j - 1, j);
         j--;
       }
     }
   }
-  return { regs: a, trocas, maiorSalto };
+  return { recs: a, swaps, longestSwap };
 }
 
 // Um empate inverteu se, entre dois registros de mesma chave, o que entrou
 // depois aparece antes na saída.
-function invertidos(saida: Reg[]): Set<number> {
-  const marcados = new Set<number>();
-  for (let i = 0; i < saida.length; i++)
-    for (let j = i + 1; j < saida.length; j++)
-      if (saida[i].chave === saida[j].chave && saida[i].orig > saida[j].orig) {
-        marcados.add(saida[i].orig);
-        marcados.add(saida[j].orig);
+function inverted(output: Rec[]): Set<number> {
+  const marked = new Set<number>();
+  for (let i = 0; i < output.length; i++)
+    for (let j = i + 1; j < output.length; j++)
+      if (output[i].key === output[j].key && output[i].orig > output[j].orig) {
+        marked.add(output[i].orig);
+        marked.add(output[j].orig);
       }
-  return marcados;
+  return marked;
 }
 
 function Fila({
-  regs,
-  marcados,
-  titulo,
-  selo,
-  detalhe,
+  recs,
+  marked,
+  title,
+  badge,
+  detail,
 }: {
-  regs: Reg[];
-  marcados: Set<number>;
-  titulo: string;
-  selo: string;
-  detalhe?: string;
+  recs: Rec[];
+  marked: Set<number>;
+  title: string;
+  badge: string;
+  detail?: string;
 }) {
   return (
     <div className="hs-fila">
       <div className="hs-fila-cab">
-        <span className="hs-fila-tit">{titulo}</span>
-        <span className={`hs-fila-selo${marcados.size > 0 ? " quebrou" : ""}`}>{selo}</span>
+        <span className="hs-fila-tit">{title}</span>
+        <span className={`hs-fila-selo${marked.size > 0 ? " quebrou" : ""}`}>{badge}</span>
       </div>
       <div className="hp-arr">
-        {regs.map((r) => (
-          <span key={r.orig} className={`hp-cel reg${marcados.has(r.orig) ? " inverteu" : ""}`}>
+        {recs.map((r) => (
+          <span key={r.orig} className={`hp-cel reg${marked.has(r.orig) ? " inverteu" : ""}`}>
             <i>chegou em {r.orig}</i>
-            <b>p{r.chave}</b>
-            <em>{r.etiq}</em>
+            <b>p{r.key}</b>
+            <em>{r.tag}</em>
           </span>
         ))}
       </div>
-      {detalhe ? <p className="bb-array-nota" style={{ marginTop: 8 }}>{detalhe}</p> : null}
+      {detail ? <p className="bb-array-nota" style={{ marginTop: 8 }}>{detail}</p> : null}
     </div>
   );
 }
@@ -160,49 +167,53 @@ export function OrdenacaoBasicaEstabilidade() {
   const [presetKey, setPresetKey] = useState("chamados");
   const preset = useMemo(() => PRESETS.find((p) => p.key === presetKey) ?? PRESETS[0], [presetKey]);
 
-  const entrada: Reg[] = useMemo(
-    () => preset.dados.map(([chave, etiq], orig) => ({ chave, etiq, orig })),
+  const input: Rec[] = useMemo(
+    () => preset.data.map(([key, tag], orig) => ({ key, tag, orig })),
     [preset]
   );
 
-  const bubble = useMemo(() => rodar("bubble", entrada), [entrada]);
-  const selection = useMemo(() => rodar("selection", entrada), [entrada]);
-  const insertion = useMemo(() => rodar("insertion", entrada), [entrada]);
+  const bubble = useMemo(() => run("bubble", input), [input]);
+  const selection = useMemo(() => run("selection", input), [input]);
+  const insertion = useMemo(() => run("insertion", input), [input]);
 
-  const mB = useMemo(() => invertidos(bubble.regs), [bubble]);
-  const mS = useMemo(() => invertidos(selection.regs), [selection]);
-  const mI = useMemo(() => invertidos(insertion.regs), [insertion]);
+  const tiesB = useMemo(() => inverted(bubble.recs), [bubble]);
+  const tiesS = useMemo(() => inverted(selection.recs), [selection]);
+  const tiesI = useMemo(() => inverted(insertion.recs), [insertion]);
 
-  const chavesIguais =
-    selection.regs.map((r) => r.chave).join(",") === bubble.regs.map((r) => r.chave).join(",");
+  const sameKeys =
+    selection.recs.map((r) => r.key).join(",") === bubble.recs.map((r) => r.key).join(",");
 
   // O par concreto que trocou de lugar, para a explicação citar etiquetas reais.
-  const parTrocado = useMemo(() => {
-    const s = selection.regs;
+  const swappedPair = useMemo(() => {
+    const s = selection.recs;
     for (let i = 0; i < s.length; i++)
       for (let j = i + 1; j < s.length; j++)
-        if (s[i].chave === s[j].chave && s[i].orig > s[j].orig) return { antes: s[j], depois: s[i] };
+        if (s[i].key === s[j].key && s[i].orig > s[j].orig) return { before: s[j], after: s[i] };
     return null;
   }, [selection]);
 
-  const detalhe = (r: Saida) =>
-    `${r.trocas} troca${r.trocas === 1 ? "" : "s"}, a mais longa com distância ${r.maiorSalto || 0}`;
+  const detail = (r: Result) =>
+    `${r.swaps} troca${r.swaps === 1 ? "" : "s"}, a mais longa com distância ${r.longestSwap || 0}`;
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · a distância da troca decide a estabilidade</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {mS.size > 0 ? `${mS.size} chamados fora da ordem de chegada` : "nenhum empate trocou desta vez"}
-          </span>
-        </div>
-      </div>
+  const viz = useVisualizer({
+    title: "Visualizador · a distância da troca decide a estabilidade",
+    // Sem linha do tempo: a variável é o preset, não o tempo.
+    total: 1,
+    // Sem bloco dispensável: as quatro filas e a explicação são o conteúdo.
+    collapsible: false,
+  });
 
-      <div className="viz-body">
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem "passo N de M": entra o número que resume o estado, com o rótulo
+          junto, como manda a §6 do contrato. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {tiesS.size > 0 ? `${tiesS.size} chamados fora da ordem de chegada` : "nenhum empate trocou desta vez"}
+        </span>
+      </VizHeader>
+
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
@@ -211,49 +222,49 @@ export function OrdenacaoBasicaEstabilidade() {
               onClick={() => setPresetKey(pr.key)}
               aria-pressed={presetKey === pr.key}
             >
-              {pr.rotulo}
+              {pr.label}
             </button>
           ))}
         </div>
 
-        <p className="tt-legenda-arvore">{preset.dica}</p>
+        <p className="tt-legenda-arvore">{preset.hint}</p>
 
         <div className="hs-filas">
-          <Fila regs={entrada} marcados={new Set()} titulo="Entrada" selo="como chegou" />
+          <Fila recs={input} marked={new Set()} title="Entrada" badge="como chegou" />
           <Fila
-            regs={bubble.regs}
-            marcados={mB}
-            titulo="Bubble sort"
-            selo={mB.size > 0 ? "empates trocados" : "empates preservados"}
-            detalhe={detalhe(bubble)}
+            recs={bubble.recs}
+            marked={tiesB}
+            title="Bubble sort"
+            badge={tiesB.size > 0 ? "empates trocados" : "empates preservados"}
+            detail={detail(bubble)}
           />
           <Fila
-            regs={insertion.regs}
-            marcados={mI}
-            titulo="Insertion sort"
-            selo={mI.size > 0 ? "empates trocados" : "empates preservados"}
-            detalhe={detalhe(insertion)}
+            recs={insertion.recs}
+            marked={tiesI}
+            title="Insertion sort"
+            badge={tiesI.size > 0 ? "empates trocados" : "empates preservados"}
+            detail={detail(insertion)}
           />
           <Fila
-            regs={selection.regs}
-            marcados={mS}
-            titulo="Selection sort"
-            selo={mS.size > 0 ? "empates trocados" : "empates preservados"}
-            detalhe={detalhe(selection)}
+            recs={selection.recs}
+            marked={tiesS}
+            title="Selection sort"
+            badge={tiesS.size > 0 ? "empates trocados" : "empates preservados"}
+            detail={detail(selection)}
           />
         </div>
 
-        <p className={`viz-note${mS.size > 0 ? " invalid" : " ok"}`}>
-          {parTrocado ? (
+        <p className={`viz-note${tiesS.size > 0 ? " invalid" : " ok"}`}>
+          {swappedPair ? (
             <>
               As três saídas estão <strong>corretas pela prioridade</strong>
-              {chavesIguais ? ": a sequência de prioridades é idêntica nas três" : ""}. O que mudou foi o
-              desempate. <strong>{parTrocado.depois.etiq}</strong> chegou na posição {parTrocado.depois.orig} e{" "}
-              <strong>{parTrocado.antes.etiq}</strong> na {parTrocado.antes.orig}, os dois com prioridade{" "}
-              {parTrocado.antes.chave}, e o selection sort devolveu {parTrocado.depois.etiq} na frente. Repare
+              {sameKeys ? ": a sequência de prioridades é idêntica nas três" : ""}. O que mudou foi o
+              desempate. <strong>{swappedPair.after.tag}</strong> chegou na posição {swappedPair.after.orig} e{" "}
+              <strong>{swappedPair.before.tag}</strong> na {swappedPair.before.orig}, os dois com prioridade{" "}
+              {swappedPair.before.key}, e o selection sort devolveu {swappedPair.after.tag} na frente. Repare
               na causa, logo acima: a maior troca do bubble e do insertion tem distância{" "}
-              {Math.max(bubble.maiorSalto, insertion.maiorSalto)}, e a do selection tem distância{" "}
-              {selection.maiorSalto}. Uma troca de distância 1 não consegue pular por cima de ninguém, então
+              {Math.max(bubble.longestSwap, insertion.longestSwap)}, e a do selection tem distância{" "}
+              {selection.longestSwap}. Uma troca de distância 1 não consegue pular por cima de ninguém, então
               empate nunca muda de ordem. Uma troca longa passa por cima de quem estiver no caminho, e nada no
               algoritmo confere se aquele alguém tem a mesma chave.
             </>
@@ -261,7 +272,7 @@ export function OrdenacaoBasicaEstabilidade() {
             <>
               Neste preset nenhum empate mudou de lugar, nem no selection sort. Isso não o torna estável:
               instável quer dizer que ele <strong>não garante nada</strong> sobre empates. Repare que a maior
-              troca dele já tem distância {selection.maiorSalto}, ou seja, a capacidade de atropelar um igual
+              troca dele já tem distância {selection.longestSwap}, ou seja, a capacidade de atropelar um igual
               está lá; foi só o acaso do arranjo que não cobrou. Troque de preset para ver a garantia falhar.
             </>
           )}
@@ -275,6 +286,9 @@ export function OrdenacaoBasicaEstabilidade() {
           menos escreve no array. As duas coisas têm a mesma causa.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o rodapé não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }

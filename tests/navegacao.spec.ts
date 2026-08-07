@@ -1845,7 +1845,11 @@ test("binários negativos: complemento de dois, zero único e o padrão sem sina
 // Vídeo extra é link para resolução de exercício, não material do tópico, e um
 // tópico que só tem isso continua sem aula, sem texto e sem visualização.
 test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização", async ({ page }) => {
-  // O menu lateral só renderiza o grupo aberto, então a conferência é por grupo.
+  // A conferência é por grupo, então o locator olha só o grupo ABERTO. Ele já foi
+  // `.sidebar .badge-soon`, sem o filtro, e isso funcionava por acidente: o menu
+  // não renderizava o grupo fechado, e por isso escondia 46 dos 47 tópicos do
+  // rastreador no pior caso. Corrigido aquilo, os 11 selos do site inteiro
+  // passaram a estar no DOM, e o que contava o grupo passou a contar o site.
   // Ler de ALL_TOPICS em vez de fixar uma lista faz o teste sobreviver ao dia
   // em que qualquer um destes tópicos for publicado.
   //
@@ -1860,7 +1864,9 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
     const grupo = ALL_TOPICS.find((t) => t.slug === slug)!.group;
     const doGrupo = ALL_TOPICS.filter((t) => t.group === grupo);
     const vazios = doGrupo.filter((t) => isEmptyTopic(t));
-    await expect(page.locator(".sidebar .badge-soon")).toHaveCount(vazios.length);
+    await expect(page.locator(".sidebar .side-items:not([hidden]) .badge-soon")).toHaveCount(
+      vazios.length
+    );
     for (const t of doGrupo) {
       const item = page.locator(`.sidebar a[href="/topico/${t.slug}/"]`);
       if (isEmptyTopic(t)) await expect(item, `${t.slug} devia estar em breve`).toHaveClass(/\bsoon\b/);
