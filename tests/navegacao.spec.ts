@@ -1484,7 +1484,12 @@ test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) =
   const vias = page.locator("figure.viz").filter({ hasText: "o que fazer com os iguais" });
   await expect(vias.locator(".ms-op").nth(0)).toContainText("28 comparações · profundidade 8");
   await expect(vias.locator(".ms-op").nth(1)).toContainText("16 comparações · profundidade 1");
-  await expect(vias.locator(".ms-op").nth(1)).toContainText("nenhum subproblema");
+  // A frase inteira, no nó dela: o ramo sem subproblema deixou de entrar no
+  // meio de uma moldura fixa, e a asserção antiga (`toContainText("nenhum
+  // subproblema")`) gravava justamente o texto quebrado.
+  await expect(vias.locator(".ms-op").nth(1).locator(".bb-formula-fim")).toHaveText(
+    "A primeira partição resolveu o array inteiro: não sobrou nada para a recursão."
+  );
   // sem repetidos ela não é melhor: mesma profundidade e o dobro de comparações
   await vias.getByRole("button", { name: /Sem repetição/ }).click();
   await expect(vias.locator(".ms-op").nth(0)).toContainText("18 comparações · profundidade 5");
