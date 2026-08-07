@@ -223,8 +223,16 @@ function Ancora({ href, className, children, ...props }: ComponentPropsWithoutRe
     );
   }
   if (link.tipo === "externo") {
+    // O `{...props}` vinha DEPOIS de `target`/`rel`, e em JSX quem vem depois
+    // vence: um `rel` escrito no MDX substituía "noopener noreferrer" inteiro e
+    // reabria o tabnabbing na aba nova. Agora o spread vem antes, e o `rel`
+    // final é a UNIÃO — o que o autor pediu mais as duas palavras que não são
+    // negociáveis quando a aba abre com `target="_blank"`.
+    const rel = new Set((props.rel ?? "").split(/\s+/).filter(Boolean));
+    rel.add("noopener");
+    rel.add("noreferrer");
     return (
-      <a className={classe} href={link.href} target="_blank" rel="noopener noreferrer" {...props}>
+      <a {...props} className={classe} href={link.href} target="_blank" rel={[...rel].join(" ")}>
         {children}
       </a>
     );
