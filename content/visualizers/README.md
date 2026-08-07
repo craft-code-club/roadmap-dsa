@@ -187,6 +187,11 @@ s=re.sub(r'<script.*?</script>','',s,flags=re.S)
 s=re.sub(r'<[^>]+>','\n',s)
 print('\n'.join(l.strip() for l in s.split('\n') if l.strip()))" "$1"; }
 
+# o "antes" é um build ANTES do rename — sem ele o diff abaixo não tem com o
+# que comparar, e sai "No such file or directory":
+npm run build && render out/topico/<slug>/index.html > /tmp/antes.txt
+
+# ... aplique o rename, e então:
 npm run build && render out/topico/<slug>/index.html > /tmp/depois.txt
 diff /tmp/antes.txt /tmp/depois.txt     # tem que sair vazio
 ```
@@ -320,7 +325,7 @@ foi tentado numa mesma rodada, e nas três por um motivo diferente**:
 | busca da skip list | **0px de diferença** com 14 elementos | a altura vem dos NÍVEIS, que têm teto (`MAX_LEVELS = 4`), e o padrão já batia nele; mais elementos só alargam o SVG, e o wrapper rola na horizontal |
 | reversão da lista | 4 nós = **979px**, 5 nós = 954px | o viewBox tem piso de largura, então menos nós = razão altura/largura maior = mais altura no esticão até a largura do corpo |
 | árvore do Fibonacci | `fib(8)` **com** cache (15 nós) é **81px mais alta** que sem cache (67 nós) | o eixo da altura é a PROFUNDIDADE, `n − 1`, igual nos dois; os nós viram largura. Desligar o cache — o movimento óbvio — dá o caso mais baixo |
-| árvore n-ária | três árvores com **9 nós e grau máximo 3** dão desenhos de 196, 196 e **332px** | o grau vira largura e a profundidade vira altura, então **a mais alta é a mais estreita**. O controle que parece o pior caso (o grau) é justamente o que não mexe na altura |
+| árvore n-ária | três árvores de **9 nós e grau máximo 3** dão desenhos de 196, 196 e **332px** — e o PR #46 dá **grau 4 e 10 nós** a uma delas, que segue nos mesmos **196px** | o grau vira largura e a profundidade vira altura, então **a mais alta é a mais estreita**. O controle que parece o pior caso (o grau) é justamente o que não mexe na altura: o quarto filho custou **96px de LARGURA** (592 → 688) e zero de altura |
 | BST | os quatro presets têm **sete nós**, e o SVG vai de 190px a **422px** | não existe campo para encher: o eixo é a ORDEM DE INSERÇÃO. Inserir 1,2,3,4,5… em sequência degenera a árvore em lista, com a mesma contagem de nós |
 | formatos de árvore binária | o preset mais alto é o de **menos nós** (4 nós, 1025px); o de 15 posições é **53px mais baixo** | a profundidade do desenho é fixa nesta peça, então nem a contagem nem a profundidade são o eixo — quem manda é **o tamanho da prosa dos vereditos** |
 
@@ -411,6 +416,28 @@ texto junto. Dois desenhos grandes desta série pareciam o mesmo caso e não era
 
 **Compare os dois números antes de escrever o teto.** Se forem iguais, ou se o
 renderizado for menor, não há vazio a devolver — o caminho é outro.
+
+**E uma peça de `<canvas>` nem entra nessa comparação: ela não estica.**
+`viewBox` e `preserveAspectRatio` são atributos **de SVG** — os dois lados da
+comparação acima só existem lá. Um `<canvas>` não tem tamanho natural para o
+renderizado ultrapassar (logo, nenhum vazio a recuperar) nem escala automática
+para um teto acionar: ele é **redesenhado** no tamanho medido, que é o que o
+`BigOChartVisualizer.tsx` faz com um `ResizeObserver` na largura
+(`cv.width = W * dpr`) e a altura como constante do componente
+(`expanded ? 400 : 300`). Nenhuma das receitas acima tem o que devolver ali.
+
+O que sobra é procurar o eixo **fora** do desenho, e nessa peça ele existe: o
+`.bigo-grid` é `repeat(auto-fit, minmax(158px, 1fr))` no `globals.css`, e o
+número de cartões é o número de famílias ligadas, de 1 a 8 — responde **sim** à
+pergunta que esta seção faz mais abaixo (*algo na tela repete com o número?*),
+enquanto o canvas responde não.
+
+Em troca, o canvas ganha uma asserção barata que vale a pena copiar em qualquer
+peça assim: **afirmar as duas alturas do desenho** (uma no artigo, outra no
+painel) prova que o `expanded` da casca chegou até o desenho, e não só até a
+moldura. É a regressão mais provável da migração — deixar o `ResizeObserver`
+dependendo do `expanded` antigo faz o canvas abrir o painel com a largura
+velha.
 
 ### O perfil de altura de um visualizador de grafo
 
@@ -556,13 +583,22 @@ o que está vendo no DOM e no CSS, não para digitar à mão.
 |---|---|---|
 | `.viz-fit` | no `<figure>` | liga a casca adaptativa (vem em `figureProps`) |
 | `data-codigo="on\|off"` | no `<figure>` | estado do bloco recolhível |
-| `data-anim="on\|off"` | no `<figure>` | liga as transições. `off` durante a medição e antes da primeira decisão |
+| `data-anim="on\|off"` | no `<figure>` | liga as transições. `off` durante a medição e antes da primeira decisão — e **`off` para sempre quando `collapsible: false`** (nota abaixo) |
 | `.viz-overlay-fit` | na `<div>` do overlay | flex column, miolo rolável, cabeçalho e rodapé parados (vem do `inPanel`) |
 | `.viz-foot` | irmão do `.viz-body` | os controles fora do miolo, para ficarem parados |
 | `.viz-code-slot` | envolve o `.viz-code` | recolhe a **altura** (grid `1fr → 0fr`) |
 | `.viz-vars.linha` | no painel de variáveis | vira fileira de fichas quando o código sai |
 | `.viz-atalhos` | no rodapé | dica das teclas; some no celular |
 | `.viz-toggle-codigo` | no botão do cabeçalho | estado visual pelo `aria-expanded` |
+
+**`data-anim` nunca vira `"on"` numa peça `collapsible: false`.** Quem o acende
+é o efeito de medição, e ele sai na primeira linha quando não há bloco para
+recolher (`src/lib/visualizer.tsx:265`): sem decisão a tomar não há recolhimento
+a congelar, e o atributo fica em `"off"` para sempre. Não é defeito — as
+transições que ele desliga são as do bloco que a peça não tem —, mas é contrato,
+porque **boa parte dos specs da série usa `data-anim="on"` como sinal de "a
+casca terminou de medir"**, e esse helper nunca resolve aqui. Numa peça sem
+bloco, espere por outra coisa: um rótulo do próprio miolo, ou o `⤢ Expandir`.
 
 **Não edite o bloco `viz-fit` do `globals.css` para acomodar um visualizador
 específico.** Ele é compartilhado por todos; regra que estende base compartilhada
@@ -711,6 +747,36 @@ inteiros — cerca de 90px a menos de peça — sem que o tamanho da entrada ten
 mudado. Um `measureOn: [n]` não pediria medição nova nessa travessia. O que
 resolveu foi `measureOn: [n, steps.length]`.
 
+### Um update por evento: o que deriva do passo entra no MESMO `setState`
+
+A §5 já manda usar a **forma funcional** do `setState` nos comandos de passo,
+porque a tecla repete muito mais rápido que o clique. Falta a metade que só
+apareceu medindo: **a forma funcional não basta se o evento disparar dois
+updates.**
+
+Escrever num `useEffect` separado qualquer coisa derivada do passo — o texto de
+uma região viva, um rótulo espelhado, um contador — custa uma renderização a
+mais por tecla, e essa renderização **engole evento**. Medido no PR #51: o
+percurso completo de setas do `tests/viz-quick-sort.spec.ts`, 114 teclas, passou
+a parar no passo **113**, reprodutível com `--workers=1` e verde na base. Dois
+experimentos isolaram a causa: um `setState` a mais **dentro do handler** passa;
+o mesmo texto escrito por um efeito **depois** reprova. O que morde não é a
+quantidade de estado, é o número de renderizações por evento.
+
+A consequência que impede a regressão é de **API**, e é o que faz uma assinatura
+parecer torta de propósito: o que alimenta um texto derivado do passo é uma
+**função do passo** (`(i) => steps[i].note`), não a string do passo corrente. O
+texto é montado dentro do updater que move o passo, e ali só existe o passo de
+**destino** — a renderização atual ainda é a de origem e não conhece a nota
+dele. Quem "simplificar" o campo para a string reintroduz o efeito separado sem
+perceber, e a tecla engolida volta com ele.
+
+> **Estado da API, para não citar o que ainda não existe.** Na `main` de hoje o
+> hook não tem região viva: o passo mora sozinho num `useState(0)` e não há
+> campo de nota. O `stepNote` (a função acima) e o `liveMessage` chegam com o
+> **PR #51**, ainda aberto. A regra do parágrafo vale desde já para qualquer
+> estado que o seu componente derive do passo.
+
 ## 7. Armadilhas medidas
 
 - **Zerar a trilha da coluna (`0fr`) tira a largura e NÃO a altura.** A linha do
@@ -767,16 +833,28 @@ rótulo.**
 Antes e depois, com o build servido (`npm run build` e um servidor estático):
 
 ```js
-// numa janela de 1512x900, com o painel expandido aberto
-const f = document.querySelector("figure.viz-fit");
-const b = f.querySelector(".viz-body");
-({
-  rola: b.scrollHeight > b.clientHeight,                       // o miolo tem sobra?
-  cabecaColada: Math.round(f.querySelector(".viz-head").getBoundingClientRect().top
-                           - f.getBoundingClientRect().top),   // <= 2
-  rodapeColado: Math.round(f.getBoundingClientRect().bottom
-                           - f.querySelector(".viz-foot").getBoundingClientRect().bottom),
-})
+// numa janela de 1512x900, com o painel expandido aberto.
+// Troque o 0 pelo índice da SUA peça: uma página chega a ter cinco figuras
+// `.viz-fit` (o `intervals`), e um `querySelector` devolveria sempre a
+// primeira — a armadilha descrita no fim desta seção.
+((i) => {
+  const figs = document.querySelectorAll("article figure.viz-fit");
+  const f = figs[i];
+  if (!f) return `não há .viz-fit no índice ${i}: a página tem ${figs.length}`;
+  const b = f.querySelector(".viz-body");
+  const foot = f.querySelector(".viz-foot");
+  return {
+    figuras: figs.length,                                        // confira que é a sua
+    rola: b.scrollHeight > b.clientHeight,                       // o miolo tem sobra?
+    cabecaColada: Math.round(f.querySelector(".viz-head").getBoundingClientRect().top
+                             - f.getBoundingClientRect().top),   // <= 2
+    // peça `total: 1` sem `children` no VizFooter não desenha `.viz-foot` (§6):
+    // "sem rodapé" NÃO é aprovação, é ausência de asserção.
+    rodapeColado: foot
+      ? Math.round(f.getBoundingClientRect().bottom - foot.getBoundingClientRect().bottom)
+      : "sem rodapé",
+  };
+})(0)
 ```
 
 Nos testes (`tests/`), o mínimo por visualizador adaptado:
@@ -786,11 +864,40 @@ Nos testes (`tests/`), o mínimo por visualizador adaptado:
 2. em tela baixa o botão diz **"Mostrar código"** e o bloco está recolhido;
 3. em tela alta ele já vem aberto;
 4. a escolha do aluno sobrevive a uma troca de estado que pediria medição nova;
-5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**.
+5. `←`/`→`/espaço andam a animação, **e não roubam a tecla de quem digita**;
+6. numa página com mais de um `figure.viz`, **um teste que afirma quantos**.
+   Escope todo locator pelo **conteúdo** da sua peça (o canvas, o SVG, um rótulo
+   que só ela tem), nunca por posição, e afirme a contagem nos **dois níveis**:
+   quantas figuras a página casa e quantas o seu seletor casa. É essa asserção
+   que avisa, em vez de quebrar, no dia em que um irmão for adaptado.
 
 Os itens 2, 3 e 4 — os três que falam do bloco recolhível — não existem quando
 `collapsible: false`. No lugar deles, prove que a ausência tem o rótulo certo:
-**nenhum botão pode prometer esconder um bloco que o visualizador não tem.**
+**nenhum botão pode prometer esconder um bloco que o visualizador não tem.** E
+não copie para essas peças o helper que espera `data-anim="on"` para saber que a
+casca terminou: ali o atributo nunca vira `"on"` (§4), e o teste morre num
+timeout antes da primeira asserção.
+
+E o inverso do item 6, que morde antes de você escrever teste nenhum: **adaptar
+uma peça quebra o teste de quem veio antes**. Pôr `viz-fit` numa figura faz um
+seletor como `figure.viz-fit` deixar de casar 1 e passar a casar 2 — em
+`page.locator()` isso é `strict mode violation`, que reprova alto; em
+`document.querySelector()` dentro de um `page.evaluate` é **a peça errada em
+silêncio**, e as medições saem nulas sem ninguém reclamar. Medido duas vezes na
+mesma rodada: o gráfico do Big O reprovou **5 testes** já existentes em
+`tests/navegacao.spec.ts`, e as cinco peças do grupo Ordenação reprovaram **16
+no merge sort e 11 no heap sort** ao voltar o seletor para `article
+figure.viz-fit`.
+
+Antes de pôr `viz-fit` numa peça, rode `grep -n 'figure\.viz-fit' tests/*.spec.ts`
+e abra os testes que visitam a sua página. E escolha o discriminante por
+**estabilidade conceitual**, não por conveniência: os quatro candidatos do
+gráfico do Big O casavam 1 nos quatro estados que aqueles testes atravessam
+(tela alta, tela baixa com `data-codigo="off"`, recolhido na mão e painel
+expandido), e o escolhido foi `:has(.viz-code-slot)` — o slot existe porque a
+peça **é** recolhível, enquanto o conteúdo dentro dele é o que um dia pode virar
+condicional. O grupo Ordenação chegou ao mesmo seletor por conta própria, em
+três arquivos de teste.
 
 Duas armadilhas medidas ao escrever esses testes:
 
@@ -804,7 +911,7 @@ Duas armadilhas medidas ao escrever esses testes:
   que `scrollHeight - clientHeight` passa de zero; senão o dia em que a peça
   encolher o teste vira decoração verde.
 
-E rode cada teste novo **contra o código quebrado** antes de confiar nele. Duas
+E rode cada teste novo **contra o código quebrado** antes de confiar nele. Três
 regras que custaram caro:
 
 - **Nunca silencie o build nessa hora.** Os testes rodam contra `out/`, e um
@@ -812,6 +919,20 @@ regras que custaram caro:
   navegador, o teste passa, e você conclui que o teste é inútil quando o inútil
   foi o experimento. Escolha uma quebra que **compile** (inverter uma condição,
   não acrescentar um `return` que deixa código inalcançável).
+- **`preventDefault()` sem `stopPropagation()` não tira a tecla de ninguém**, e
+  a quebra que conta com isso sai **inerte**. Os atalhos do painel são um
+  listener de **captura** no `document`
+  (`document.addEventListener("keydown", onKey, true)`, hoje em
+  `src/lib/visualizer.tsx:390`) que chama `preventDefault()` e segue: nada ali
+  interrompe a propagação, então o `onKeyDown` do React no seu elemento dispara
+  igual. **Peça com teclado próprio — canvas, slider — não perde a tecla para o
+  hook; ela ganha um `stepBy` invisível por cima.** Medido no gráfico do Big O:
+  quebrar `const hasSteps = total > 1` (`src/lib/visualizer.tsx:162`) para
+  `total >= 1`, esperando que o hook roubasse as setas de um canvas
+  `role="slider"`, saiu **0 failed / 5 passed** — o marcador andou como sempre.
+  Para provar que uma tecla é do componente, a quebra tem de estar **no
+  componente**; e quando a sua sair inerte, suspeite do experimento antes de
+  suspeitar do teste.
 - Use `npm run test:build`. `npm test` sozinho exercita o build anterior.
 
 E dois jeitos de escrever um teste **vazio** desta casca, os dois medidos aqui,
@@ -954,7 +1075,9 @@ mesmo número em dois lugares independentes confirma o **mecanismo** (o
 `padding-bottom` que passa de 18 para 14) e não só a medição.
 
 Quem citar o `+28` ou o `+10` sem medir a própria peça vai escrever o contrário
-do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*.
+do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*
+— e ela ainda não é a última: falta *esta peça já tinha botão no cabeçalho?*, na
+subseção seguinte.
 
 Nos dois a adaptação valeu, porque o que ela conserta é outra coisa — e só
 aparece **abaixo** da régua de 1512x900. Na busca da hash table, o `▶ Rodar` era
@@ -966,6 +1089,76 @@ Mas o número no artigo piora, e o relatório tem que dizer isso **com o
 número**, não arredondar para "sem mudança". A pergunta certa ao decidir o
 escopo de uma peça sem bloco não é "quanto ela encolhe", é "onde ficam os
 controles quando ela rola".
+
+### O número é previsível: some as parcelas antes de medir
+
+**E o `−4` da tabela acima não é o custo de uma peça `total: 1`. É o custo de
+uma peça que JÁ TINHA BOTÃO no cabeçalho.** Todas as peças daquela tabela
+chegaram à casca vindas de um overlay escrito à mão, com o `⤢ Expandir` já
+dentro do `.viz-head-right`, ao lado do `.viz-step`. Conferido no commit
+anterior ao de cada adaptação, nas cinco linhas e também no `BinarioDivisoes`
+do parágrafo do `−184`: **nenhuma delas pagou o cabeçalho**, e é por isso que
+essa parcela nunca apareceu por aqui.
+
+As cinco peças mudas do grupo Ordenação são as primeiras a chegar **sem botão
+nenhum** — `figure.viz` com `.viz-head-right` só de texto. Elas são o caso `−4`
+em tudo o mais (`collapsible: false`, `total: 1`, sem `children` no
+`VizFooter`, sem rodapé), e mediram **+8 em três e +36 em duas**, nas duas
+réguas de desktop.
+
+Medidas bloco a bloco nos dois builds, as parcelas são três:
+
+| parcela | quanto | quando é cobrada |
+|---|---:|---|
+| `.viz-body` | **−4px** | **sempre**: o `padding: 22px 20px 18px` da base vira `padding-bottom: 14px` em `.viz-fit .viz-body` (`globals.css`) |
+| `.viz-head` | **+12px** | quando a peça **não tinha botão**: 41 → 53px, porque entra um `<button>` onde só havia texto |
+| `.viz-head`, de novo | **+28px** | quando o rótulo é longo o bastante para o botão **quebrar a linha**: 53 → 81px |
+
+Somadas, elas explicam a série inteira **antes** de você abrir o navegador:
+`−4` para quem já tinha botão; `−4 + 12 = +8` para quem ganha o botão e cabe na
+linha; `−4 + 12 + 28 = +36` para quem ganha o botão e quebra. As cinco peças do
+grupo Ordenação fecham exatamente nas duas últimas contas.
+
+Conferir custa uma leitura só — esconda o `⤢ Expandir` e leia a figura duas
+vezes no mesmo carregamento, sem rebuild:
+
+```js
+// o custo do botão do cabeçalho, medido no artigo.
+// Troque o 0 pelo índice da SUA figura. Quantas a página tem:
+//   document.querySelectorAll("article figure.viz").length
+((i) => {
+  const figs = document.querySelectorAll("article figure.viz");
+  const f = figs[i];
+  if (!f) return `não há figura no índice ${i}: a página tem ${figs.length}`;
+  const b = [...f.querySelectorAll("button")].find((x) => /Expandir/.test(x.textContent));
+  if (!b) return "esta figura não tem ⤢ Expandir — confira o índice";
+  const com = f.getBoundingClientRect().height;
+  b.style.display = "none";
+  const sem = f.getBoundingClientRect().height;
+  b.style.display = "";
+  return { com, sem, delta: com - sem };   // delta = o custo do botão
+})(0)
+```
+
+O que decide entre `+8` e `+36` é o **comprimento do `children` do
+`VizHeader`**, porque `.viz-fit .viz-head-right` é `flex-wrap: wrap` no
+`globals.css`. E quem alonga esse `children` é a §6: num `total: 1` ele
+**substitui** o "passo 12 de 93" de uma dúzia de caracteres por uma frase
+inteira, com o rótulo junto do número. O corte medido fica perto de **40
+caracteres** — os rótulos de 34, 35 e 38 couberam na linha; os de 53 e 55 a
+quebraram.
+
+**A quarta parcela, a do `.viz-foot`, continua sem decomposição bloco a bloco**,
+e por isso não entra na soma acima. Cuidado ao juntar as duas aritméticas: como
+o `−4` do miolo vale para **toda** peça `.viz-fit`, os `+28`, `+10` e `+10` das
+três primeiras linhas da tabela já o trazem embutido — aquele `+10` é um
+**líquido** (rodapé menos miolo), não a parcela do rodapé sozinho. Quem precisar
+do custo do rodapé isolado tem de medi-lo como se mediram estas três.
+
+A 390x844 os sinais mudam de novo: lá o cabeçalho **já** tem duas linhas sem o
+botão (99px), a casca passa a **custar** +10 em vez de devolver 4, e o botão
+cobra +38 — o total vai de +20 a +60. Três réguas, três aritméticas, e nenhuma
+delas dispensa medir a sua peça.
 
 ### `measureOn` não enxerga o passo, e há peça cujo bloco mais alto cresce com ele
 
@@ -998,6 +1191,20 @@ sobre ele.
 Duas consequências práticas: **inclua na varredura um estado com o contador de
 três dígitos**, se a sua peça chegar lá; e, se a peça passar do orçamento por
 menos de 30px, confira se não é isto antes de procurar no miolo.
+
+**No `AStar` isso é caso de borda. Numa peça `total: 1` é o estado
+permanente.** Ali o `children` do `VizHeader` não divide a linha com o contador:
+ele **é** a linha, e a §6 pede que ele traga o rótulo junto do número, justamente
+para o número não perder o contexto. Medido no grupo Ordenação: `.viz-head` de
+41 para **81px** em 2 das 5 peças, em **todos** os estados e em **todas** as
+réguas — não em 19 de 514 e numa largura só. O custo disso no artigo é a
+terceira parcela da subseção *"O número é previsível"*, acima.
+
+A consequência é editorial, e vale tomar de olhos abertos: numa peça `total: 1`,
+encurtar o `children` em uma dúzia de caracteres pode valer **40px** de altura no
+artigo. Encurtar até o rótulo sumir não vale — a §6 existe porque número sem
+rótulo ensina errado —, mas escolher entre duas redações igualmente honestas,
+sabendo que uma delas quebra a linha, é decisão sua e não acidente.
 
 ### `children` do `VizHeader` numa peça COM linha do tempo
 
