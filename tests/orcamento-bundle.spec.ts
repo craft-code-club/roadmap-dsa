@@ -24,49 +24,55 @@ import { classificarLink } from "../mdx-components";
  * ficar de pé. Chunk buscado sob demanda depois da hidratação não entra. Script
  * de terceiro (Analytics) não tem arquivo local para medir e fica de fora.
  *
- * OS TETOS SÃO CATRACA, NÃO ALVO
+ * OS TETOS ACOMPANHAM O GANHO
  *
- * O alvo é `TETO_ALVO`, 250 KB gzip por rota: o piso da casca do site (~207 KB,
- * o que a home custa) com folga. Nenhuma rota de tópico chega perto hoje, e o
- * corte que faltava não cabe neste arquivo — está medido em `mdx-components.tsx`,
- * no bloco sobre os 86 visualizadores. Enquanto ele não vem, os tetos abaixo
- * estão logo acima do número de hoje, para que o problema **pare de crescer**:
- * cada tópico publicado engorda o mesmo chunk que TODAS as 47 rotas baixam, e
- * ainda faltam 11 tópicos para publicar.
+ * Eles foram baixados junto com o corte por rota (`src/components/VizLazy.tsx`).
+ * Teto escolhido para o estado anterior é teto que só guarda uma vez: depois de
+ * o pior caso cair de 382,5 KB para 235,7 KB, um teto de 400 KB deixaria caber
+ * de volta tudo o que acabou de sair. Quem melhorar estes números de novo desce
+ * os tetos no mesmo PR.
  */
 
 const OUT = path.join(process.cwd(), "out");
 const KB = 1024;
 
 /**
- * Teto por rota, em bytes gzipados do JS inicial. Medido em 2026-08-06: as 47
- * rotas de tópico estão em 391.698 B (382,5 KB) e as 6 rotas fixas em 212.412 B
- * (207,4 KB). 400 KB é 4,6% acima do pior caso de hoje — não passa a próxima
- * leva de visualizadores.
+ * Teto por rota, em bytes gzipados do JS inicial.
+ *
+ * A régua é o piso da casca do site mais ~20%: 207,4 KB é o que a home custa, e
+ * ela não tem visualizador nenhum. Medido depois do corte por rota: a pior das
+ * 53 rotas é `/topico/listas-ligadas/`, com 235,7 KB (folga de 6,1%), a mediana
+ * das rotas de tópico fica perto de 224 KB, e as 11 páginas "em breve" custam
+ * 213,3 KB. Antes do corte eram 382,5 KB em todas as 47 rotas de tópico.
+ *
+ * Este teto não atrapalha publicar tópico novo, e é de propósito: agora um
+ * visualizador só pesa na rota que o usa. O que ele barra é uma PÁGINA ficar
+ * pesada demais sozinha, que é o sinal certo para pedir medição.
  */
-const TETO_ROTA = 400 * KB;
+const TETO_ROTA = 250 * KB;
 
 /**
- * Onde o projeto quer chegar. É o piso da casca (207,4 KB, o custo da home, que
- * não tem visualizador nenhum) mais ~20% de folga. Não é o teto ativo porque o
- * corte por rota ainda não foi feito; quando for, este vira `TETO_ROTA`.
+ * Nenhum chunk sozinho passa disso, em bytes crus. O maior de hoje tem 226.344 B
+ * e é o do framework; os 86 chunks de visualizador ficam todos bem abaixo. 265 KB
+ * é esse maior mais ~20%.
+ *
+ * É o guarda contra a volta do defeito que motivou este arquivo: se alguém puser
+ * os visualizadores de volta no grafo de servidor, eles voltam a virar UM chunk,
+ * e o número dele era 692.459 B.
  */
-const TETO_ALVO = 250 * KB;
-
-/**
- * Nenhum chunk sozinho passa disso, em bytes crus. O maior de hoje tem 692.459 B
- * e é o dos 86 visualizadores; o segundo tem 226.344. Este é o guarda mais
- * direto do defeito: é ESTE chunk que engorda a cada tópico publicado.
- */
-const TETO_MAIOR_CHUNK = 700 * KB;
+const TETO_MAIOR_CHUNK = 265 * KB;
 
 /**
  * O que uma página de tópico `soon` baixa **a mais** que a home, em gzip. As
  * duas mostram um parágrafo e nenhum visualizador, então a diferença é
- * desperdício puro. Medido hoje: 179.286 B (175,1 KB) — exatamente o chunk dos
- * visualizadores. O teto trava esse número; o conserto o leva a ~0.
+ * desperdício puro. Era 179.286 B (175,1 KB), o chunk inteiro dos 86
+ * visualizadores; depois do corte é **5.997 B**, um chunk só, que é o da rota
+ * `/topico/[slug]` e carrega os 86 invólucros do `VizLazy`.
+ *
+ * O teto de 8 KB é esse número com folga para o mapa crescer: ele ganha uma
+ * linha por visualizador novo, o que dá alguns bytes gzipados cada.
  */
-const TETO_EXCEDENTE_SEM_VIZ = 180 * KB;
+const TETO_EXCEDENTE_SEM_VIZ = 8 * KB;
 
 /** Rota `soon` sem artigo e sem visualizador (ver `isEmptyTopic`). */
 const ROTA_SEM_VIZ = "topico/trie/index.html";
@@ -145,7 +151,7 @@ test("nenhuma rota estoura o teto de JS inicial", () => {
   expect(
     acima.length,
     `${acima.length} de ${medidas.length} rotas acima do teto de ${kb(TETO_ROTA)} gzip de JS inicial ` +
-      `(o alvo do projeto é ${kb(TETO_ALVO)}):\n${relatorio}`
+      `(a casca do site sozinha custa 207,4 KB):\n${relatorio}`
   ).toBe(0);
 });
 
@@ -191,17 +197,22 @@ test("página de tópico sem visualizador quase não paga a mais que a home", ()
 
 test("os visualizadores continuam renderizados no HTML estático", () => {
   // O HTML pré-renderizado é o ativo de SEO do projeto: o Google indexa o que
-  // está no arquivo, não o que a hidratação monta depois. Quem for cortar o
-  // chunk dos visualizadores pode adiar a INTERATIVIDADE; não pode adiar o
+  // está no arquivo, não o que a hidratação monta depois. O corte por rota
+  // (`src/components/VizLazy.tsx`) adia a INTERATIVIDADE, e não pode adiar o
   // conteúdo. Em `next/dynamic`, isso quer dizer: `ssr: false` é proibido.
   //
   // E a conta é POR FIGURA, não por página: cinco visualizadores neste
   // repositório já passaram por uma suíte verde sem um botão renderizado,
   // justamente porque a asserção era "existe um `figure.viz` na página".
   // Contar figura deixa passar figura oca.
+  //
+  // Perfis diferentes de propósito: cinco visualizadores num artigo denso, três
+  // num artigo comum, um só numa página de grafo, e dois num artigo do meio.
   const esperado: Record<string, number> = {
-    "topico/arrays/index.html": 3,
     "topico/intervals/index.html": 5,
+    "topico/arrays/index.html": 3,
+    "topico/hash-table/index.html": 2,
+    "topico/dijkstra/index.html": 1,
   };
   for (const [rota, quantos] of Object.entries(esperado)) {
     const html = readFileSync(path.join(OUT, rota), "utf8");
@@ -329,18 +340,25 @@ test("clicar num link do artigo não recarrega o documento", async ({ page }) =>
   ).toBe(true);
 });
 
-test("o visualizador continua interativo, e o passo anda nos dois sentidos", async ({ page }) => {
-  await page.goto("/topico/arrays/");
-  const viz = page.locator("figure.viz").first();
-  const passo = viz.locator(".viz-step");
-  const antes = await passo.textContent();
-  expect(antes, "o contador de passo não renderizou").toBeTruthy();
+// O visualizador agora chega ao navegador por um `import()` que só acontece
+// depois da hidratação. Renderizar no HTML é metade: o teste tem que CLICAR e
+// ver o passo mudar, senão ele só provou que a casca está lá. Três perfis, pelo
+// mesmo motivo de sempre — o que quebra num artigo denso não é o que quebra
+// numa página de um visualizador só.
+for (const rota of ["/topico/arrays/", "/topico/dijkstra/", "/topico/hash-table/"]) {
+  test(`${rota} continua interativo, e o passo anda nos dois sentidos`, async ({ page }) => {
+    await page.goto(rota);
+    const viz = page.locator("figure.viz").first();
+    const passo = viz.locator(".viz-step");
+    const antes = await passo.textContent();
+    expect(antes, "o contador de passo não renderizou").toBeTruthy();
 
-  const proximo = viz.getByRole("button", { name: "Próximo ›" });
-  await expect(proximo).toBeEnabled();
-  await proximo.click();
-  await expect(passo).not.toHaveText(antes ?? "");
+    const proximo = viz.getByRole("button", { name: "Próximo ›" });
+    await expect(proximo).toBeEnabled();
+    await proximo.click();
+    await expect(passo).not.toHaveText(antes ?? "");
 
-  await viz.getByRole("button", { name: "‹ Anterior" }).click();
-  await expect(passo).toHaveText(antes ?? "");
-});
+    await viz.getByRole("button", { name: "‹ Anterior" }).click();
+    await expect(passo).toHaveText(antes ?? "");
+  });
+}
