@@ -343,14 +343,23 @@ test("clicar num link do artigo não recarrega o documento", async ({ page }) =>
 
   const link = page.locator("article a.prose-a[href^='/topico/']").first();
   const destino = await link.getAttribute("href");
-  expect(destino, "o link do artigo precisa apontar para a URL final, sem 308").toMatch(/\/$/);
+  // A barra final é do CAMINHO, não do href inteiro: `classificarLink` produz
+  // `/topico/arrays/#quando-usar`, que é correto e não termina em "/". Afirmar
+  // sobre o href cru contradiria o contrato da própria função no dia em que um
+  // artigo linkar tópico com âncora (hoje: 0 dos 251 links `/topico/`).
+  const alvo = new URL(destino ?? "", "http://local");
+  expect(alvo.pathname, "o link do artigo precisa apontar para a URL final, sem 308").toMatch(
+    /\/$/
+  );
 
   await link.click();
-  // Comparação de caminho, não regex montada com a URL: `new RegExp(destino)`
-  // trataria `.`, `?` e `(` como metacaractere, e um href com query ou ponto
-  // casaria de menos (ou de mais) sem ninguém perceber. O predicado compara o
-  // `pathname` inteiro, que é exatamente o que se quer afirmar aqui.
-  await expect(page).toHaveURL((u) => u.pathname === destino);
+  // Comparação de URL destrinchada, não regex montada com ela: `new
+  // RegExp(destino)` trataria `.`, `?` e `(` como metacaractere. E compara as
+  // TRÊS partes, não só o `pathname`: com `/topico/x/#ancora` o caminho sozinho
+  // casaria mesmo se a âncora se perdesse na navegação.
+  await expect(page).toHaveURL(
+    (u) => u.pathname === alvo.pathname && u.search === alvo.search && u.hash === alvo.hash
+  );
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(
     await page.evaluate(
