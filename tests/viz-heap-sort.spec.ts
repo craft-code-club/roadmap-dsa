@@ -272,6 +272,7 @@ test.describe("heap-sort", () => {
             passos: number;
             erros: string[];
             comparacoes: number[];
+            passosVazios: number[];
             primeiroArr: number[];
             ultimoArr: number[];
             ultimoOrdenado: string;
@@ -282,6 +283,7 @@ test.describe("heap-sort", () => {
             ) as HTMLButtonElement;
             const erros: string[] = [];
             const comparacoes: number[] = [];
+            const passosVazios: number[] = [];
             let primeiroArr: number[] = [];
             let ultimoArr: number[] = [];
             let ultimoOrdenado = "";
@@ -328,20 +330,34 @@ test.describe("heap-sort", () => {
             const ler = () => {
               const { i } = contador();
               const txt = f.querySelector(".hs-fase-txt")!.textContent!.replace(/\s+/g, " ").trim();
-              const m = txt.match(/heap ativo: posições 0 a (\d+) · já ordenado: (\d+) de (\d+)/);
+              const n = parseInt(varDe("n (heap ativo)"), 10);
+
+              // O rótulo tem DOIS lados e os dois são afirmados. Com heap ativo
+              // ele nomeia a faixa de posições; com o heap vazio não há faixa a
+              // nomear, e prometer "posições 0 a 0" é dizer que a posição 0
+              // ainda está no heap. Cobrir só o lado de cima deixaria passar
+              // exatamente o defeito que este commit conserta.
+              const ativo = txt.match(/^heap ativo: posições 0 a (\d+) · já ordenado: (\d+) de (\d+)$/);
+              const vazio = txt.match(/^heap vazio · já ordenado: (\d+) de (\d+)$/);
+              const m = ativo ?? vazio;
               if (!m) {
                 erros.push(`passo ${i}: o cartao da fase nao casou: "${txt}"`);
                 return;
               }
-              const ultimo = parseInt(m[1], 10);
-              const ordenados = parseInt(m[2], 10);
-              const tamanho = parseInt(m[3], 10);
+              if (n === 0 && !vazio)
+                erros.push(`passo ${i}: n=0 e o cartao ainda anuncia uma faixa: "${txt}"`);
+              if (n > 0 && !ativo)
+                erros.push(`passo ${i}: n=${n} e o cartao diz que o heap esta vazio: "${txt}"`);
+              if (vazio) passosVazios.push(i);
 
-              const n = parseInt(varDe("n (heap ativo)"), 10);
+              const ultimo = ativo ? parseInt(ativo[1], 10) : -1;
+              const ordenados = parseInt(ativo ? ativo[2] : vazio![1], 10);
+              const tamanho = parseInt(ativo ? ativo[3] : vazio![2], 10);
+
               const celulas = [...f.querySelectorAll(".hp-cel")];
               const verdes = celulas.filter((c) => c.classList.contains("fixo")).length;
 
-              if (ultimo !== Math.max(n - 1, 0))
+              if (ativo && ultimo !== n - 1)
                 erros.push(`passo ${i}: cartao diz ate ${ultimo}, painel diz n=${n}`);
               if (ordenados !== tamanho - n)
                 erros.push(`passo ${i}: cartao diz ${ordenados} ordenados, n=${n} de ${tamanho}`);
@@ -369,7 +385,7 @@ test.describe("heap-sort", () => {
               ler();
               k++;
               if (k >= total) {
-                resolve({ passos: total, erros, comparacoes, primeiroArr, ultimoArr, ultimoOrdenado });
+                resolve({ passos: total, erros, comparacoes, passosVazios, primeiroArr, ultimoArr, ultimoOrdenado });
                 return;
               }
               prox.click();
@@ -396,6 +412,13 @@ test.describe("heap-sort", () => {
       // array final tem que ser o PRIMEIRO ordenado, o que exige as duas
       // coisas de uma vez: mesma multiplicidade de valores e ordem crescente.
       expect(leitura.ultimoArr.filter((v) => Number.isNaN(v)), "li NaN no lugar do valor").toEqual([]);
+
+      // O outro lado da condicional do rótulo: "heap vazio" acontece EXATAMENTE
+      // uma vez, e é o último passo. Sem esta asserção, um rótulo que dissesse
+      // "heap vazio" a animação inteira passaria pelas checagens acima.
+      expect(leitura.passosVazios, "o 'heap vazio' tem que ser so o ultimo passo").toEqual([
+        leitura.passos,
+      ]);
       expect(leitura.primeiroArr.length, "o array de entrada nao foi lido").toBeGreaterThan(1);
       expect(leitura.ultimoOrdenado).toBe(`${leitura.ultimoArr.length} de ${leitura.ultimoArr.length}`);
       expect(leitura.ultimoArr, "o heap sort terminou com o array fora de ordem").toEqual(
