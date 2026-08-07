@@ -149,9 +149,18 @@ test("no expandido da inserção, o Próximo › anda o passo depois da rolagem"
   );
   // Valor exato no nó do valor: na ficha inteira ("nivel3"), `toContainText("3")`
   // passa com 13 ou 30, e o nível é o número que a nota acima nomeia.
-  await expect(
-    painel.locator(".viz-var").filter({ hasText: "nivel" }).first().locator(".viz-var-val")
-  ).toHaveText("3");
+  //
+  // E a ficha é escolhida pelo NOME exato, não por substring: este painel
+  // mostra `nivel` e `nivel_max`, então `filter({ hasText: "nivel" })` casa as
+  // duas (medido: 2 fichas) e o `.first()` escolhia pela ordem do DOM. Hoje as
+  // duas valem 3, então a asserção passava pelo motivo errado e continuaria
+  // passando se a ordem virasse. O `toHaveCount(1)` abaixo é o que impede a
+  // ambiguidade de voltar calada.
+  const fichaNivel = painel
+    .locator(".viz-var")
+    .filter({ has: page.locator(".viz-var-name", { hasText: /^nivel$/ }) });
+  await expect(fichaNivel).toHaveCount(1);
+  await expect(fichaNivel.locator(".viz-var-val")).toHaveText("3");
 });
 
 test("no expandido dos níveis, a pirâmide gigante rola sozinha sob o cabeçalho parado", async ({
