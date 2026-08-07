@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
 // BinarioTresFormas, por que o complemento de dois venceu.
@@ -22,82 +23,98 @@ import { useMemo, useState } from "react";
 
 const N = 8;
 
-type Forma = "sinal" | "um" | "dois";
+// Os três valores da união nunca chegam à tela: eles indexam `NAMES` e `HOW`, e
+// viram `key` de lista. Ficam em português de propósito — `"sinal"` também é
+// classe do `.bn-bit` neste mesmo arquivo, e trocar um dos dois papéis pede a
+// reação que re-quebra o outro (contrato §0, "literal com dois papéis").
+type Form = "sinal" | "um" | "dois";
 
-const NOMES: Record<Forma, string> = {
+const NAMES: Record<Form, string> = {
   sinal: "Sinal e magnitude",
   um: "Complemento de um",
   dois: "Complemento de dois",
 };
 
-const COMO: Record<Forma, string> = {
+const HOW: Record<Form, string> = {
   sinal: "liga o bit da esquerda e deixa o resto como está",
   um: "inverte todos os bits",
   dois: "inverte todos os bits e soma 1",
 };
 
-const paraBits = (v: number) => Array.from({ length: N }, (_, k) => (v >> (N - 1 - k)) & 1);
-const paraNum = (b: number[]) => b.reduce((acc, x, k) => acc + (x << (N - 1 - k)), 0);
+const toBits = (v: number) => Array.from({ length: N }, (_, k) => (v >> (N - 1 - k)) & 1);
+const toNumber = (b: number[]) => b.reduce((acc, x, k) => acc + (x << (N - 1 - k)), 0);
 
-function negar(v: number, forma: Forma): number[] {
-  const b = paraBits(v);
-  if (forma === "sinal") return [1, ...b.slice(1)];
+function negate(v: number, form: Form): number[] {
+  const b = toBits(v);
+  if (form === "sinal") return [1, ...b.slice(1)];
   const inv = b.map((x) => 1 - x);
-  if (forma === "um") return inv;
-  return paraBits((paraNum(inv) + 1) & 0xff);
+  if (form === "um") return inv;
+  return toBits((toNumber(inv) + 1) & 0xff);
 }
 
 // Como cada convenção LÊ um padrão de bits de volta para um número. É a leitura
 // que fecha o par com a escrita, e é ela que diz se a convenção é coerente.
-function ler(b: number[], forma: Forma): number {
-  const semSinal = paraNum(b);
-  if (forma === "sinal") return b[0] === 1 ? -(semSinal - 128) : semSinal;
-  if (forma === "um") return b[0] === 1 ? -(255 - semSinal) : semSinal;
-  return b[0] === 1 ? semSinal - 256 : semSinal;
+function read(b: number[], form: Form): number {
+  const unsigned = toNumber(b);
+  if (form === "sinal") return b[0] === 1 ? -(unsigned - 128) : unsigned;
+  if (form === "um") return b[0] === 1 ? -(255 - unsigned) : unsigned;
+  return b[0] === 1 ? unsigned - 256 : unsigned;
 }
 
-const VALORES = [26, 1, 127, 0];
+const VALUES = [26, 1, 127, 0];
+
+// Fica no módulo, e não dentro do componente, porque é constante: lá dentro ele
+// seria recriado a cada render e alimentaria um `useMemo` que não o declara nas
+// dependências. Hoje funciona por acidente (o conteúdo nunca muda); no dia em
+// que a lista virar condicional, o memo devolve o valor velho sem avisar.
+// A ordem é conteúdo: ela é a ordem dos três cartões na tela.
+const FORMS: Form[] = ["sinal", "um", "dois"];
 
 export function BinarioTresFormas() {
-  const [valor, setValor] = useState(26);
-  const FORMAS: Forma[] = ["sinal", "um", "dois"];
+  const [value, setValue] = useState(26);
 
-  const linhas = useMemo(
+  const viz = useVisualizer({
+    title: "Visualizador · três formas de escrever um negativo, e três testes",
+    // As três convenções respondem juntas ao número escolhido: não há linha do
+    // tempo para o rodapé dirigir, e `total: 1` tira contador, atalhos e barra.
+    total: 1,
+    // Os três cartões SÃO o conteúdo; não há bloco dispensável para recolher.
+    collapsible: false,
+  });
+
+  const rows = useMemo(
     () =>
-      FORMAS.map((f) => {
-        const neg = negar(valor, f);
-        const pos = paraBits(valor);
+      FORMS.map((f) => {
+        const neg = negate(value, f);
+        const pos = toBits(value);
         // teste 1: quantos padrões de bits são lidos como zero
-        const zeros = Array.from({ length: 256 }, (_, k) => paraBits(k)).filter((b) => ler(b, f) === 0).length;
+        const zeros = Array.from({ length: 256 }, (_, k) => toBits(k)).filter((b) => read(b, f) === 0).length;
         // teste 2: somar os dois padrões (em 8 bits, descartando o vai-um) dá zero?
-        const soma = (paraNum(pos) + paraNum(neg)) & 0xff;
+        const sum = (toNumber(pos) + toNumber(neg)) & 0xff;
         // teste 3: quantos números DISTINTOS os 256 padrões conseguem escrever.
         // Zero duplicado é padrão desperdiçado, e o desperdício aparece aqui.
-        const distintos = new Set(Array.from({ length: 256 }, (_, k) => ler(paraBits(k), f))).size;
-        const faixa = Array.from({ length: 256 }, (_, k) => ler(paraBits(k), f));
-        return { forma: f, pos, neg, zeros, soma, distintos, min: Math.min(...faixa), max: Math.max(...faixa), lido: ler(neg, f) };
+        const distinct = new Set(Array.from({ length: 256 }, (_, k) => read(toBits(k), f))).size;
+        const range = Array.from({ length: 256 }, (_, k) => read(toBits(k), f));
+        return { form: f, pos, neg, zeros, sum, distinct, min: Math.min(...range), max: Math.max(...range), readBack: read(neg, f) };
       }),
-    [valor]
+    [value]
   );
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · três formas de escrever um negativo, e três testes</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {linhas.filter((l) => l.zeros === 1 && l.soma === 0 && l.distintos === 256).length} de 3 passam nos três testes
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem linha do tempo, o placar dos três testes ocupa o lugar do
+          "passo N de M" — com o rótulo junto, porque o número sozinho não diz
+          de que ele fala. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {rows.filter((l) => l.zeros === 1 && l.sum === 0 && l.distinct === 256).length} de 3 passam nos três testes
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {VALORES.map((v) => (
-            <button key={v} className={`bigo-chip${valor === v ? " on" : ""}`} onClick={() => setValor(v)} aria-pressed={valor === v}>
+          {VALUES.map((v) => (
+            <button key={v} className={`bigo-chip${value === v ? " on" : ""}`} onClick={() => setValue(v)} aria-pressed={value === v}>
               negar {v}
             </button>
           ))}
@@ -112,16 +129,16 @@ export function BinarioTresFormas() {
         </p>
 
         <div className="ms-operadores">
-          {linhas.map((l) => {
-            const passa = l.zeros === 1 && l.soma === 0 && l.distintos === 256;
+          {rows.map((l) => {
+            const passes = l.zeros === 1 && l.sum === 0 && l.distinct === 256;
             return (
-              <div className={`ms-op${passa ? " ok" : " quebrou"}`} key={l.forma}>
+              <div className={`ms-op${passes ? " ok" : " quebrou"}`} key={l.form}>
                 <div className="bb-formula-cab">
-                  <span className="bb-formula-tit">{NOMES[l.forma]}</span>
-                  <span className="bb-formula-selo">{passa ? "passa nos três" : "reprova"}</span>
+                  <span className="bb-formula-tit">{NAMES[l.form]}</span>
+                  <span className="bb-formula-selo">{passes ? "passa nos três" : "reprova"}</span>
                 </div>
                 <p className="bb-array-nota" style={{ marginBottom: 8 }}>
-                  Para negar, {COMO[l.forma]}.
+                  Para negar, {HOW[l.form]}.
                 </p>
                 <div className="bn-fita compacta">
                   {l.neg.map((b, k) => (
@@ -131,21 +148,21 @@ export function BinarioTresFormas() {
                   ))}
                 </div>
                 <p className="bb-formula-fim">
-                  Lido de volta: <strong>{l.lido}</strong>
-                  {l.lido === -valor ? "" : " (não bate com o esperado)"}
+                  Lido de volta: <strong>{l.readBack}</strong>
+                  {l.readBack === -value ? "" : " (não bate com o esperado)"}
                 </p>
                 <ol className="bb-passos">
                   <li className={l.zeros === 1 ? "" : "ruim"}>
                     <span>padrões de bits que valem zero</span>
                     <b>{l.zeros}</b>
                   </li>
-                  <li className={l.soma === 0 ? "" : "ruim"}>
+                  <li className={l.sum === 0 ? "" : "ruim"}>
                     <span>x + (-x) em 8 bits</span>
-                    <b>{l.soma}</b>
+                    <b>{l.sum}</b>
                   </li>
-                  <li className={l.distintos === 256 ? "" : "ruim"}>
+                  <li className={l.distinct === 256 ? "" : "ruim"}>
                     <span>números distintos nos 256 padrões</span>
-                    <b>{l.distintos}</b>
+                    <b>{l.distinct}</b>
                   </li>
                   <li>
                     <span>faixa que ela alcança</span>
@@ -180,6 +197,9 @@ export function BinarioTresFormas() {
           de propósito.
         </p>
       </div>
+
+      {/* `total: 1` e sem controles próprios: o `VizFooter` some inteiro. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }
