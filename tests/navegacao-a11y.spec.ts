@@ -60,3 +60,32 @@ test("um Tab e um Enter levam o foco para dentro do conteúdo", async ({ page })
     expect(await focoNoConteudo(page), `o Tab depois do pulo saiu do <main> em ${rota}`).toBe(true);
   }
 });
+
+test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ page }) => {
+  await page.goto("/topico/arrays/");
+
+  // Chegando pelo teclado, como o aluno que não usa mouse chega.
+  await tabularAte(page, ".side-search");
+  const busca = await page.evaluate(() => {
+    const s = getComputedStyle(document.activeElement as Element);
+    return { estilo: s.outlineStyle, largura: s.outlineWidth };
+  });
+  // `outlineWidth` sozinho NÃO serve de prova: com `outline: none` o Chrome
+  // devolve `3px` (a largura `medium` do padrão) e só o estilo vira `none`.
+  // Medido nesta branch, antes da correção: `{ largura: "3px", estilo: "none" }`.
+  expect(busca.estilo, "a busca da trilha ficou sem anel de foco").not.toBe("none");
+  expect(parseFloat(busca.largura)).toBeGreaterThan(0);
+
+  // Campo de visualizador: mesma regra, e é o campo de 41 páginas. Ele fica no
+  // meio do artigo, longe demais para tabular desde o topo; campo de texto casa
+  // `:focus-visible` em qualquer modalidade, então focar direto mede o mesmo.
+  const campo = page.locator(".viz-input").first();
+  await expect(campo).toBeVisible();
+  const viz = await campo.evaluate((e) => {
+    (e as HTMLElement).focus();
+    const s = getComputedStyle(e);
+    return { estilo: s.outlineStyle, largura: s.outlineWidth };
+  });
+  expect(viz.estilo, "o campo do visualizador ficou sem anel de foco").not.toBe("none");
+  expect(parseFloat(viz.largura)).toBeGreaterThan(0);
+});

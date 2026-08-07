@@ -151,7 +151,10 @@ html { scroll-behavior: smooth; }
   width: 100%; margin-top: 12px; padding: 8px 10px; border: 1px solid var(--ccc-line);
   border-radius: 8px; background: #101a27; color: var(--ccc-text); font: inherit; font-size: 13px;
 }
-.side-search:focus { border-color: var(--ccc-accent); outline: none; }
+/* Sem `outline: none`: a regra usava `:focus` (vale para o teclado) e tinha
+   especificidade maior que o `:focus-visible` global, então apagava justamente
+   o anel de quem navega sem mouse. A borda azul continua, somada ao anel. */
+.side-search:focus { border-color: var(--ccc-accent); }
 .side-scroll { flex: 1; overflow-y: auto; padding: 10px 10px 4px; }
 .side-group { margin-bottom: 2px; }
 .side-group-btn {
@@ -427,7 +430,9 @@ html { scroll-behavior: smooth; }
 .viz-field.grow { flex: 1; min-width: 240px; }
 .viz-field span { font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ccc-muted); }
 .viz-input { padding: 8px 11px; border: 1px solid var(--ccc-line); border-radius: 8px; background: #0e1725; color: var(--ccc-text); font-family: var(--mono); font-size: 13px; }
-.viz-input:focus { border-color: var(--ccc-accent); outline: none; }
+/* Mesmo motivo do `.side-search:focus`: o `outline: none` daqui apagava o anel
+   de foco dos campos de 41 visualizadores. */
+.viz-input:focus { border-color: var(--ccc-accent); }
 .viz-input.k { width: 74px; }
 .viz-btn { padding: 9px 13px; border: 1px solid var(--ccc-line); border-radius: 8px; background: transparent; color: #a9bcd4; font: inherit; font-size: 13px; cursor: pointer; }
 .viz-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); color: #fff; }
