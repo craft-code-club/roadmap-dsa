@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
+import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
 import { slugify } from "@/lib/slug";
 import { TopicComplete } from "@/components/TopicComplete";
@@ -19,14 +20,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const t = getTopic(slug);
   if (!t) return { title: "Tópico" };
+  // Passa pelo `pageMetadata` para declarar a própria URL: as 47 páginas de
+  // tópico montavam o metadata à mão e eram 47 das 48 rotas sem canonical nem
+  // `og:url`. `titleStyle: "template"` mantém o `<title>` idêntico ao de antes.
+  //
   // Não indexa páginas realmente vazias (sem vídeo, artigo ou visualização) para
-  // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram.
+  // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram
+  // — e o sitemap usa esta MESMA função para decidir quem ele convida.
   const emptyTopic = isEmptyTopic(t);
-  return {
+  return pageMetadata({
     title: t.name,
     description: t.description,
+    path: `/topico/${t.slug}/`,
+    titleStyle: "template",
+    ogImage: "raiz",
     ...(emptyTopic ? { robots: { index: false, follow: true } } : {}),
-  };
+  });
 }
 
 export default async function TopicoPage({ params }: { params: Promise<{ slug: string }> }) {

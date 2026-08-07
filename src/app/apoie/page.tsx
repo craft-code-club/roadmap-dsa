@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
 import { LINKS } from "@/lib/links";
+import { pageMetadata } from "@/lib/seo";
 import { fetchSupporters, initials, PARTNERS } from "./apoiadores";
 
-export const metadata: Metadata = {
-  title: "Seja um apoiador da Comunidade",
-  description:
-    "O Roadmap de Estruturas de Dados e Algoritmos da comunidade Craft & Code Club é livre, aberto e feito pela comunidade. Conheça os apoiadores e parceiros que mantêm tudo gratuito, e junte-se a eles.",
-};
+// Era `export const metadata` estático e, por isso, sem canonical nem `og:url` —
+// a quarta das 48 rotas que não diziam qual era a própria URL. Título e descrição
+// seguem os mesmos; `titleStyle: "template"` preserva o " · Roadmap DSA" do fim.
+export function generateMetadata(): Metadata {
+  return pageMetadata({
+    title: "Seja um apoiador da Comunidade",
+    description:
+      "O Roadmap de Estruturas de Dados e Algoritmos da comunidade Craft & Code Club é livre, aberto e feito pela comunidade. Conheça os apoiadores e parceiros que mantêm tudo gratuito, e junte-se a eles.",
+    path: "/apoie/",
+    titleStyle: "template",
+    ogImage: "raiz",
+  });
+}
 
 // Página estática: a lista de apoiadores é buscada na APOIA.se no build.
 export const dynamic = "force-static";
