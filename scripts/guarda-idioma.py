@@ -145,15 +145,26 @@ def main() -> None:
                     + [d / n for n in nomes if (d / n).exists()])
     vazio = {"tela": [], "codigo": []}
     quebrou = False
+    mexidos = 0
     for n in nomes:
         antes = dados.get(str(a / n), vazio)
         depois = dados.get(str(d / n), vazio)
         if antes == depois:
             continue
+        mexidos += 1
         print(n)
         quebrou |= comparar(antes, depois, recuo="  ")
     if not quebrou:
-        print(f"SUMIRAM: nenhuma / APARECERAM: nenhuma  ({len(nomes)} arquivos)")
+        # A ÚLTIMA linha é a que fica na tela de quem rodou, e ela não pode
+        # dizer "nenhuma" quando houve AVISO acima: aviso de literal de código
+        # é justamente o que o contrato manda conferir à mão no globals.css.
+        # Resumo tranquilizador em cima de achado é a mesma armadilha do guarda
+        # que sai 0 sem ter olhado nada.
+        if mexidos:
+            print(f"TELA intacta, mas {mexidos} de {len(nomes)} arquivo(s) mudaram "
+                  f"literais de CÓDIGO — veja os AVISO acima antes de seguir.")
+        else:
+            print(f"SUMIRAM: nenhuma / APARECERAM: nenhuma  ({len(nomes)} arquivos)")
     raise SystemExit(1 if quebrou else 0)
 
 
