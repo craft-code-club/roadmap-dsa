@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -84,12 +85,6 @@ const STEP_X = 52;
 const STEP_Y = 52;
 const MARGIN = 16;
 const TOP = 14;
-
-// Formatação determinística (nada de Intl, para o HTML do servidor bater com o
-// do cliente na hidratação).
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 function fibNum(n: number): number {
   let a = 0;
@@ -188,12 +183,12 @@ function generateSteps(nodes: TreeNode[], n0: number, withMemo: boolean): Step[]
       // porque fib(k-1) e fib(k-2) já estariam guardados.)
       const avoided = naiveCalls(node.k) - 1;
       pruned++;
-      note = `fib(${node.k}) já está no cache valendo ${num(node.value)}. Devolvo na hora e podo a subárvore inteira: sem cache, este mesmo ramo custaria ${num(avoided)} ${avoided === 1 ? "chamada" : "chamadas"} abaixo dele.`;
+      note = `fib(${node.k}) já está no cache valendo ${thousands(node.value)}. Devolvo na hora e podo a subárvore inteira: sem cache, este mesmo ramo custaria ${thousands(avoided)} ${avoided === 1 ? "chamada" : "chamadas"} abaixo dele.`;
     } else {
       line = withMemo ? 7 : 3;
       const size = node.end - node.id + 1;
       note = node.repeated
-        ? `fib(${node.k}) outra vez, e sem cache eu não tenho como saber disso. Vou refazer a subárvore inteira, mais ${num(size - 1)} ${size - 1 === 1 ? "chamada" : "chamadas"}, para chegar de novo no mesmo ${num(node.value)}.`
+        ? `fib(${node.k}) outra vez, e sem cache eu não tenho como saber disso. Vou refazer a subárvore inteira, mais ${thousands(size - 1)} ${size - 1 === 1 ? "chamada" : "chamadas"}, para chegar de novo no mesmo ${thousands(node.value)}.`
         : `Entro em fib(${node.k}). Não sei responder direto, então quebro em fib(${node.k - 1}) e fib(${node.k - 2}) e desço mais um nível.`;
     }
 
@@ -203,8 +198,8 @@ function generateSteps(nodes: TreeNode[], n0: number, withMemo: boolean): Step[]
   const total = nodes.length;
   const answer = nodes[0].value;
   const closing = withMemo
-    ? `fib(${n0}) = ${num(answer)} com ${num(total)} ${total === 1 ? "chamada" : "chamadas"}. Cada valor foi calculado uma vez só: o cache transformou a árvore numa espinha, e a complexidade caiu de exponencial para O(n).`
-    : `fib(${n0}) = ${num(answer)} depois de ${num(total)} ${total === 1 ? "chamada" : "chamadas"}, das quais ${num(repeats)} ${repeats === 1 ? "foi" : "foram"} para valores que a árvore já tinha calculado. Com cache seriam ${num(memoCalls(n0))}.`;
+    ? `fib(${n0}) = ${thousands(answer)} com ${thousands(total)} ${total === 1 ? "chamada" : "chamadas"}. Cada valor foi calculado uma vez só: o cache transformou a árvore numa espinha, e a complexidade caiu de exponencial para O(n).`
+    : `fib(${n0}) = ${thousands(answer)} depois de ${thousands(total)} ${total === 1 ? "chamada" : "chamadas"}, das quais ${thousands(repeats)} ${repeats === 1 ? "foi" : "foram"} para valores que a árvore já tinha calculado. Com cache seriam ${thousands(memoCalls(n0))}.`;
 
   out.push({ node: -1, line: withMemo ? 8 : 3, repeats, pruned, note: closing, ok: true });
   return out;
@@ -295,8 +290,8 @@ export function RecursionArvoreVisualizer() {
   const vars = [
     { name: "n (chamada atual)", value: current ? `${current.k}` : "-" },
     { name: "profundidade", value: current ? `${current.depth}` : "0" },
-    { name: "devolve", value: current && viz.step >= current.end ? num(current.value) : "pendente" },
-    { name: "chamadas", value: num(callsSoFar), best: true },
+    { name: "devolve", value: current && viz.step >= current.end ? thousands(current.value) : "pendente" },
+    { name: "chamadas", value: thousands(callsSoFar), best: true },
   ];
 
   const tableRows = [n, 10, 20, 30];
@@ -379,7 +374,7 @@ export function RecursionArvoreVisualizer() {
                   />
                   <text x={cx(node)} y={cyTop(node) + 13} textAnchor="middle">fib({node.k})</text>
                   <text x={cx(node)} y={cyTop(node) + 26} textAnchor="middle" className="rec-no-val">
-                    {resolved ? `= ${num(node.value)}` : "= ?"}
+                    {resolved ? `= ${thousands(node.value)}` : "= ?"}
                   </text>
                 </g>
               );
@@ -428,25 +423,25 @@ export function RecursionArvoreVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>chamadas até aqui</span>
-            <strong>{num(callsSoFar)}</strong>
+            <strong>{thousands(callsSoFar)}</strong>
           </div>
           <div className="bigo-stat">
             <span>chamadas no total</span>
-            <strong>{num(nodes.length)}</strong>
+            <strong>{thousands(nodes.length)}</strong>
           </div>
           <div className="bigo-stat">
             <span>{withMemo ? "acertos no cache" : "chamadas repetidas"}</span>
-            <strong>{num(withMemo ? p.pruned : p.repeats)}</strong>
+            <strong>{thousands(withMemo ? p.pruned : p.repeats)}</strong>
           </div>
           {/* O contraste que fecha a seção: a árvore tem dezenas de nós, mas a
               pilha nunca passa da profundidade. Tempo exponencial, espaço linear. */}
           <div className="bigo-stat">
             <span>pico da pilha</span>
-            <strong>{num(maxDepth + 1)}</strong>
+            <strong>{thousands(maxDepth + 1)}</strong>
           </div>
           <div className="bigo-stat">
             <span>fib({n})</span>
-            <strong>{num(nodes[0].value)}</strong>
+            <strong>{thousands(nodes[0].value)}</strong>
           </div>
         </div>
 
@@ -465,9 +460,9 @@ export function RecursionArvoreVisualizer() {
               {tableRows.map((v, i) => (
                 <tr key={`${v}-${i}`} className={i === 0 ? "on" : undefined}>
                   <td>{v}{i === 0 ? " (o seu)" : ""}</td>
-                  <td>{num(naiveCalls(v))}</td>
-                  <td>{num(memoCalls(v))}</td>
-                  <td>{num(Math.round(naiveCalls(v) / memoCalls(v)))}×</td>
+                  <td>{thousands(naiveCalls(v))}</td>
+                  <td>{thousands(memoCalls(v))}</td>
+                  <td>{thousands(Math.round(naiveCalls(v) / memoCalls(v)))}×</td>
                 </tr>
               ))}
             </tbody>
@@ -475,7 +470,7 @@ export function RecursionArvoreVisualizer() {
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
-          Sem cache, fib({n}) custa {num(naiveTotal)} chamadas; com cache, {num(memoTotal)}. Em fib(20) a diferença
+          Sem cache, fib({n}) custa {thousands(naiveTotal)} chamadas; com cache, {thousands(memoTotal)}. Em fib(20) a diferença
           é 21.891 contra 39.
         </p>
       </div>

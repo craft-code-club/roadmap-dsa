@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -271,10 +272,6 @@ function heightFor(n: number, k: number): number {
   if (k < 2) return n;
   return Math.ceil(Math.log(n * (k - 1) + 1) / Math.log(k));
 }
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 const DEGREES = [2, 4, 8, 16, 64, 256];
 const N_EXAMPLE = 1_000_000;
 
@@ -483,7 +480,7 @@ export function NAryTreeVisualizer() {
             duas aulas. Renomear a classe aqui quebraria a peça de lá. */}
         <div className="rec-comp-wrap">
           <table className="rec-comp">
-            <caption>Altura mínima para guardar {num(N_EXAMPLE)} nós, por grau</caption>
+            <caption>Altura mínima para guardar {thousands(N_EXAMPLE)} nós, por grau</caption>
             <thead>
               <tr>
                 <th>Grau (filhos por nó)</th>
@@ -496,7 +493,7 @@ export function NAryTreeVisualizer() {
                 <tr key={k} className={k === maxDegree ? "on" : undefined}>
                   <td>{k}{k === maxDegree ? " (o desta árvore)" : ""}</td>
                   <td>{heightFor(N_EXAMPLE, k)}</td>
-                  <td>~{num(heightFor(N_EXAMPLE, k) * Math.ceil(Math.log2(k)))}</td>
+                  <td>~{thousands(heightFor(N_EXAMPLE, k) * Math.ceil(Math.log2(k)))}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 
-import { comNumero } from "@/lib/format";
+import { comNumero, thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -58,11 +58,6 @@ function asciiDetail(s: string): string {
   const parts: string[] = [];
   for (const c of s) parts.push(String(c.codePointAt(0) ?? 0));
   return parts.join(" + ");
-}
-
-// Formatação determinística de milhar (nada de Intl no render).
-function thousands(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function build(names: string[], bad: boolean): Entry[][] {

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -88,10 +89,6 @@ type Step = {
 };
 
 type Summary = { copies: number; reallocs: number; ops: number; finalCap: number; avg: number };
-
-function thousands(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 // Média com uma casa decimal, sem Intl (o HTML do build tem que bater com o do
 // cliente na hidratação).

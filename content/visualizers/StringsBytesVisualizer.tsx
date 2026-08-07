@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -91,10 +92,6 @@ const DEFAULT_TEXT = "CCC";
 const MAX_CP = 20;
 
 const COLORS = ["#60a5fa", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#22d3ee"];
-
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 function hex2(b: number): string {
   const s = b.toString(16).toUpperCase();
@@ -192,7 +189,7 @@ export function StringsBytesVisualizer() {
           aqui: é o número que resume o estado desta peça. */}
       <VizHeader viz={viz}>
         <span className="viz-step">
-          {num(totals[enc])} bytes em {currentEnc.name}
+          {thousands(totals[enc])} bytes em {currentEnc.name}
         </span>
       </VizHeader>
 
@@ -236,7 +233,7 @@ export function StringsBytesVisualizer() {
                 aria-pressed={on}
               >
                 <span className="str-enc-nome">{e.name}</span>
-                <span className="str-enc-val">{num(totals[e.key])} bytes</span>
+                <span className="str-enc-val">{thousands(totals[e.key])} bytes</span>
                 <span className="str-enc-sub">
                   {loses
                     ? `perde ${lost} ${lost === 1 ? "caractere" : "caracteres"}, viram "?"`
@@ -250,19 +247,19 @@ export function StringsBytesVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>o que você vê (grafemas)</span>
-            <strong style={{ color: "#34d399" }}>{num(graphemes)}</strong>
+            <strong style={{ color: "#34d399" }}>{thousands(graphemes)}</strong>
           </div>
           <div className="bigo-stat">
             <span>code points (len no Python)</span>
-            <strong>{num(cps.length)}</strong>
+            <strong>{thousands(cps.length)}</strong>
           </div>
           <div className="bigo-stat">
             <span>unidades UTF-16 (Length no C#)</span>
-            <strong>{num(utf16Units)}</strong>
+            <strong>{thousands(utf16Units)}</strong>
           </div>
           <div className="bigo-stat">
             <span>bytes em {currentEnc.name}</span>
-            <strong style={{ color: "#93bbfd" }}>{num(totals[enc])}</strong>
+            <strong style={{ color: "#93bbfd" }}>{thousands(totals[enc])}</strong>
           </div>
         </div>
 
@@ -334,8 +331,8 @@ export function StringsBytesVisualizer() {
 
         <p className="viz-note">
           {graphemes === cps.length && cps.length === utf16Units
-            ? `Aqui os três números batem: ${num(graphemes)} ${graphemes === 1 ? "caractere" : "caracteres"} na tela, ${num(cps.length)} code ${cps.length === 1 ? "point" : "points"} e ${num(utf16Units)} ${utf16Units === 1 ? "unidade" : "unidades"} UTF-16. É o caso fácil, e é o único que a intuição acerta.`
-            : `Repare no desencontro: são ${num(graphemes)} ${graphemes === 1 ? "caractere" : "caracteres"} na tela, ${num(cps.length)} code points e ${num(utf16Units)} unidades UTF-16. Um contador de caracteres feito com o length errado corta o texto no lugar errado.`}
+            ? `Aqui os três números batem: ${thousands(graphemes)} ${graphemes === 1 ? "caractere" : "caracteres"} na tela, ${thousands(cps.length)} code ${cps.length === 1 ? "point" : "points"} e ${thousands(utf16Units)} ${utf16Units === 1 ? "unidade" : "unidades"} UTF-16. É o caso fácil, e é o único que a intuição acerta.`
+            : `Repare no desencontro: são ${thousands(graphemes)} ${graphemes === 1 ? "caractere" : "caracteres"} na tela, ${thousands(cps.length)} code points e ${thousands(utf16Units)} unidades UTF-16. Um contador de caracteres feito com o length errado corta o texto no lugar errado.`}
         </p>
       </div>
     </figure>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -43,10 +44,6 @@ const DEFAULT_NUMS = [12, 7, 45, 3, 20, 8, 31, 16];
 // o leitor que não clica em nada vê o caso em que a fórmula some. Antes da casca
 // isso era o `useState(3)` do componente.
 const INITIAL_INDEX = 3;
-
-function thousands(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 function hex(v: number): string {
   const t = Math.max(0, Math.round(v)).toString(16).toUpperCase();

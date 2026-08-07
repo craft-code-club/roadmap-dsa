@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { plural } from "@/lib/format";
+import { plural, thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -75,12 +75,6 @@ const DEFAULT_WORD = "CRAFTCODE";
 const MAX = 16;
 
 const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
-// Formatação determinística (nada de Intl, para o HTML do servidor bater com o
-// do cliente na hidratação).
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 function generateSteps(word: string, mode: Mode): Step[] {
   const chars = Array.from(word).slice(0, MAX);
@@ -246,13 +240,13 @@ export function StringsVisualizer() {
           { name: "s", value: `"${chars.slice(0, p.used).join("")}"` },
           { name: "len(s)", value: `${p.used}` },
           { name: "c", value: p.i >= 0 ? `"${chars[p.i]}"` : "-" },
-          { name: "cópias", value: num(p.copies), best: true },
+          { name: "cópias", value: thousands(p.copies), best: true },
         ]
       : [
           { name: "len(partes)", value: `${p.parts.length}` },
           { name: "c", value: p.i >= 0 ? `"${chars[p.i]}"` : "-" },
           { name: "strings novas", value: `${p.strings}` },
-          { name: "cópias", value: num(p.copies), best: true },
+          { name: "cópias", value: thousands(p.copies), best: true },
         ];
 
   const noteClass = "viz-note" + (p.ok ? " ok" : "");
@@ -352,19 +346,19 @@ export function StringsVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>caracteres copiados</span>
-            <strong style={{ color: cfg.color }}>{num(p.copies)}</strong>
+            <strong style={{ color: cfg.color }}>{thousands(p.copies)}</strong>
           </div>
           <div className="bigo-stat">
             <span>strings alocadas</span>
-            <strong>{num(p.strings)}</strong>
+            <strong>{thousands(p.strings)}</strong>
           </div>
           <div className="bigo-stat">
             <span>total com s = s + c</span>
-            <strong style={{ color: "#fbbf24" }}>{num(concatTotal)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{thousands(concatTotal)}</strong>
           </div>
           <div className="bigo-stat">
             <span>total com join</span>
-            <strong style={{ color: "#34d399" }}>{num(n)}</strong>
+            <strong style={{ color: "#34d399" }}>{thousands(n)}</strong>
           </div>
         </div>
 

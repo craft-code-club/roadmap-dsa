@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousandsSigned } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -78,12 +79,6 @@ const div2 = (v: number) => Math.trunc(v / 2);
 function bits32(v: number): string[] {
   const u = v >>> 0;
   return Array.from({ length: 32 }, (_, i) => ((u >>> (31 - i)) & 1 ? "1" : "0"));
-}
-
-function num(v: number): string {
-  const neg = v < 0;
-  const s = String(Math.abs(Math.trunc(v))).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return neg ? `-${s}` : s;
 }
 
 export function BuscaBinariaOverflow() {
@@ -191,17 +186,17 @@ export function BuscaBinariaOverflow() {
             <ol className="bb-passos">
               <li>
                 <span>esq + dir</span>
-                <b>{num(conta.somaReal)}</b>
+                <b>{thousandsSigned(conta.somaReal)}</b>
               </li>
               {conta.estourou && (
                 <li className="ruim">
                   <span>não cabe em 32 bits, dá a volta</span>
-                  <b>{num(conta.soma)}</b>
+                  <b>{thousandsSigned(conta.soma)}</b>
                 </li>
               )}
               <li className={conta.estourou ? "ruim" : ""}>
                 <span>dividido por 2</span>
-                <b>{num(conta.meioIngenuo)}</b>
+                <b>{thousandsSigned(conta.meioIngenuo)}</b>
               </li>
             </ol>
             <p className="bb-formula-fim">
@@ -225,15 +220,15 @@ export function BuscaBinariaOverflow() {
             <ol className="bb-passos">
               <li>
                 <span>dir - esq (a distância)</span>
-                <b>{num(conta.dist)}</b>
+                <b>{thousandsSigned(conta.dist)}</b>
               </li>
               <li>
                 <span>dividido por 2 (metade da distância)</span>
-                <b>{num(div2(conta.dist))}</b>
+                <b>{thousandsSigned(div2(conta.dist))}</b>
               </li>
               <li>
                 <span>somado a esq</span>
-                <b>{num(conta.meioSeguro)}</b>
+                <b>{thousandsSigned(conta.meioSeguro)}</b>
               </li>
             </ol>
             <p className="bb-formula-fim">
@@ -281,7 +276,7 @@ export function BuscaBinariaOverflow() {
         <p className={`viz-note${conta.iguais ? " ok" : " invalid"}`}>
           {conta.iguais ? (
             <>
-              As duas fórmulas devolveram <strong>{num(conta.meioSeguro)}</strong>. Com estes valores não há
+              As duas fórmulas devolveram <strong>{thousandsSigned(conta.meioSeguro)}</strong>. Com estes valores não há
               diferença nenhuma, e é por isso que o bug sobreviveu por quase uma década dentro do{" "}
               <code className="prose-code">java.util.Arrays</code>: nenhum teste com array de tamanho
               razoável consegue expô-lo.
@@ -289,8 +284,8 @@ export function BuscaBinariaOverflow() {
           ) : (
             <>
               Mesma entrada, respostas diferentes: a fórmula ingênua devolveu{" "}
-              <strong>{num(conta.meioIngenuo)}</strong> e a segura devolveu{" "}
-              <strong>{num(conta.meioSeguro)}</strong>. As duas são matematicamente equivalentes; o que separa
+              <strong>{thousandsSigned(conta.meioIngenuo)}</strong> e a segura devolveu{" "}
+              <strong>{thousandsSigned(conta.meioSeguro)}</strong>. As duas são matematicamente equivalentes; o que separa
               elas é que só uma sobrevive ao tipo de dado.
             </>
           )}
@@ -299,15 +294,15 @@ export function BuscaBinariaOverflow() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>teto do int de 32 bits</span>
-            <strong>{num(INT_MAX)}</strong>
+            <strong>{thousandsSigned(INT_MAX)}</strong>
           </div>
           <div className="bigo-stat">
             <span>piso do int de 32 bits</span>
-            <strong>{num(INT_MIN)}</strong>
+            <strong>{thousandsSigned(INT_MIN)}</strong>
           </div>
           <div className="bigo-stat">
             <span>folga até o teto</span>
-            <strong>{!limitado ? "não se aplica" : conta.estourou ? "estourada" : num(INT_MAX - conta.somaReal)}</strong>
+            <strong>{!limitado ? "não se aplica" : conta.estourou ? "estourada" : thousandsSigned(INT_MAX - conta.somaReal)}</strong>
           </div>
           <div className="bigo-stat">
             <span>array mínimo para quebrar</span>

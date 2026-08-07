@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { thousandsDecimal } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -73,21 +74,13 @@ const INPUT_SIZES = [10, 25, 50, 100, 250, 500, 1000, 5000, 10000, 100000, 10000
 
 const DEFAULT_KEYS = new Set(["c", "log", "n", "nlog", "n2"]);
 
-// Formatação determinística (nada de Intl, para o HTML do servidor e do
-// cliente baterem exatamente na hidratação).
-function num(v: number): string {
-  const r = Math.round(v * 10) / 10;
-  const txt = Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
-  return txt.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 function fmt(v: number): string {
   if (!isFinite(v)) return "grande demais";
   if (v >= 1e15) return `10^${Math.round(Math.log10(v))}`;
-  if (v >= 1e12) return `${num(v / 1e12)} tri`;
-  if (v >= 1e9) return `${num(v / 1e9)} bi`;
-  if (v >= 1e6) return `${num(v / 1e6)} mi`;
-  return num(Math.round(v));
+  if (v >= 1e12) return `${thousandsDecimal(v / 1e12)} tri`;
+  if (v >= 1e9) return `${thousandsDecimal(v / 1e9)} bi`;
+  if (v >= 1e6) return `${thousandsDecimal(v / 1e6)} mi`;
+  return thousandsDecimal(Math.round(v));
 }
 
 function fmtLog(log10v: number): string {
@@ -98,7 +91,7 @@ function fmtLog(log10v: number): string {
 // Rótulo do eixo Y em escala log: sempre uma potência de 10 redonda.
 function decade(exp: number): string {
   if (exp === 0) return "1";
-  if (exp <= 6) return num(Math.pow(10, exp));
+  if (exp <= 6) return thousandsDecimal(Math.pow(10, exp));
   return `10^${exp}`;
 }
 
@@ -334,7 +327,7 @@ export function BigOChartVisualizer() {
       {/* Sem linha do tempo, o número que resume o estado entra onde ficaria o
           "passo N de M" — com o rótulo junto, que é o que lhe dá contexto. */}
       <VizHeader viz={viz}>
-        <span className="viz-step">n = {num(nMarker)}</span>
+        <span className="viz-step">n = {thousandsDecimal(nMarker)}</span>
       </VizHeader>
 
       <div {...viz.bodyProps}>
@@ -367,7 +360,7 @@ export function BigOChartVisualizer() {
             aria-valuemin={1}
             aria-valuemax={nMax}
             aria-valuenow={nMarker}
-            aria-valuetext={`n igual a ${num(nMarker)}, ${readings.map((l) => `${l.value} operações em ${l.label}`).join(", ")}`}
+            aria-valuetext={`n igual a ${thousandsDecimal(nMarker)}, ${readings.map((l) => `${l.value} operações em ${l.label}`).join(", ")}`}
             onKeyDown={onCanvasKey}
             onPointerDown={(e) => { moveMarker(e); capture(e); }}
             onPointerMove={(e) => { if (e.buttons === 1) moveMarker(e); }}
@@ -377,7 +370,7 @@ export function BigOChartVisualizer() {
         </div>
 
         <p className="viz-note">
-          Com <strong>n = {num(nMarker)}</strong>, {readings.length === 1 ? "a família marcada faz" : "as famílias marcadas fazem"}{" "}
+          Com <strong>n = {thousandsDecimal(nMarker)}</strong>, {readings.length === 1 ? "a família marcada faz" : "as famílias marcadas fazem"}{" "}
           {readings.map((l, i) => (
             <span key={l.key}>
               {i > 0 ? (i === readings.length - 1 ? " e " : ", ") : ""}
@@ -405,7 +398,7 @@ export function BigOChartVisualizer() {
           desenha reprodução nenhuma, só estes controles. */}
       <VizFooter viz={viz}>
         <div className="viz-field grow">
-          <span>Entrada máxima: n até {num(nMax)}</span>
+          <span>Entrada máxima: n até {thousandsDecimal(nMax)}</span>
           <input
             type="range"
             min={0}
