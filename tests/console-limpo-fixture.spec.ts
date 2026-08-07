@@ -95,8 +95,10 @@ test("a tolerância de ERR_ABORTED vale para o site, e não para domínio de for
 // uma tolerância escrita para "o beacon do Google Analytics" pode, se o regex
 // for largo, acabar engolindo QUALQUER coisa do domínio do Google — inclusive um
 // 404, que é justamente o sintoma de recurso que sumiu do `out/`. Este teste
-// fixa os quatro lados: o que passa, e os três vizinhos que continuam
-// reprovando.
+// fixa os cinco lados: o que passa, os três vizinhos do mesmo host que continuam
+// reprovando, e o SÓSIA — o host de fora que carrega `google-analytics.com` no
+// meio da URL e não pode ser confundido com o Google nem por quem tolera nem por
+// quem confere.
 // ---------------------------------------------------------------------------
 
 /** O beacon de verdade: `/g/collect` com a query que o gtag.js monta. */
@@ -108,6 +110,33 @@ const GA_404 = "https://www.google-analytics.com/g/collect?v=2&tid=G-EXEMPLO&cas
 const GA_RECUSADO = "https://www.google-analytics.com/g/collect?v=2&tid=G-EXEMPLO&caso=recusa";
 /** Mesmo host, OUTRO caminho: a tolerância é do endpoint de coleta, não do domínio. */
 const GA_OUTRO_CAMINHO = "https://www.google-analytics.com/analytics.js";
+/** O SÓSIA: `google-analytics.com` aparece inteiro na URL, e o host é outro, de
+ *  outro dono. `.test` é reservado (RFC 2606) e nunca é resolvido. */
+const GA_SOSIA = "https://google-analytics.com.dominio-de-fora.test/g/collect?v=2&tid=G-EXEMPLO";
+
+/** O host da URL que a ocorrência carrega, ou `null` quando ela não é de rede.
+ *
+ *  Existe porque `ocorrencia.includes("google-analytics.com")` **não é** teste de
+ *  host: a mesma substring aparece em `https://google-analytics.com.dominio-de-
+ *  fora.test/`, que é outro host, de outro dono. Aqui a troca não abriria buraco
+ *  (a comparação logo abaixo é contra um array EXATO, então uma entrada a mais
+ *  reprovaria alto em vez de passar), mas o teste cujo assunto é "a tolerância
+ *  nomeia o host, e não o pedaço de texto" não pode ele mesmo identificar host
+ *  por pedaço de texto. O `URL` faz a separação que o `includes` não faz.
+ *
+ *  As duas formas que `coletarErros` produz com URL dentro:
+ *      requestfailed: <url> (<motivo>)
+ *      http <status>: <url>
+ *  As outras (`pageerror:`, `console.error:`) devolvem `null` e ficam de fora. */
+function hostDa(ocorrencia: string): string | null {
+  const m = ocorrencia.match(/^(?:requestfailed|http \d{3}): (\S+)/);
+  if (!m) return null;
+  try {
+    return new URL(m[1]).host;
+  } catch {
+    return null;
+  }
+}
 
 test("a tolerância do GA vale para o beacon abortado, e não para o 404 nem para o resto do domínio", async ({
   browser,
@@ -129,6 +158,7 @@ test("a tolerância do GA vale para o beacon abortado, e não para o 404 nem par
   await page.route(/google-analytics\.com/, (route) => route.abort("aborted"));
   await page.route(GA_404, (route) => route.fulfill({ status: 404, body: "" }));
   await page.route(GA_RECUSADO, (route) => route.abort("connectionrefused"));
+  await page.route(GA_SOSIA, (route) => route.abort("aborted"));
 
   await page.goto("/");
 
@@ -142,7 +172,7 @@ test("a tolerância do GA vale para o beacon abortado, e não para o 404 nem par
   expect((await resposta404).status(), "o cenário do 404 é o que dissemos que é").toBe(404);
 
   const motivos = new Map<string, string>();
-  for (const url of [GA_BEACON, GA_RECUSADO, GA_OUTRO_CAMINHO]) {
+  for (const url of [GA_BEACON, GA_RECUSADO, GA_OUTRO_CAMINHO, GA_SOSIA]) {
     const falhou = page.waitForEvent("requestfailed", (r) => r.url() === url);
     await page.evaluate((u) => {
       void fetch(u, { mode: "no-cors" }).catch(() => {});
@@ -157,8 +187,9 @@ test("a tolerância do GA vale para o beacon abortado, e não para o 404 nem par
   expect(motivos.get(GA_BEACON), "o beacon abortado").toBe("net::ERR_ABORTED");
   expect(motivos.get(GA_OUTRO_CAMINHO), "o outro caminho, abortado").toBe("net::ERR_ABORTED");
   expect(motivos.get(GA_RECUSADO), "a conexão recusada").toBe("net::ERR_CONNECTION_REFUSED");
+  expect(motivos.get(GA_SOSIA), "o sósia, abortado").toBe("net::ERR_ABORTED");
 
-  const registradas = ocorrencias.filter((o) => o.includes("google-analytics.com"));
+  const registradas = ocorrencias.filter((o) => hostDa(o) === "www.google-analytics.com");
   expect(
     registradas,
     "só o beacon abortado é tolerado: o 404, a recusa e o outro caminho do mesmo host reprovam"
@@ -167,6 +198,22 @@ test("a tolerância do GA vale para o beacon abortado, e não para o 404 nem par
     `requestfailed: ${GA_RECUSADO} (net::ERR_CONNECTION_REFUSED)`,
     `requestfailed: ${GA_OUTRO_CAMINHO} (net::ERR_ABORTED)`,
   ]);
+
+  // O sósia fecha os dois lados de uma vez, e é o caso que `includes` erraria:
+  //   · a TOLERÂNCIA não o engole (ele está entre as ocorrências registradas),
+  //     porque o regex ancora `https://www.google-analytics.com/`;
+  //   · o FILTRO deste teste não o confunde com o GA (ele ficou de fora do
+  //     `registradas`), porque compara host e não pedaço de texto.
+  // Com `o.includes("google-analytics.com")` a segunda linha cairia, e a
+  // comparação de cima passaria a esperar uma entrada que não é do Google.
+  expect(
+    ocorrencias,
+    "o sósia reprova: `google-analytics.com` no meio da URL não é o host do Google"
+  ).toContain(`requestfailed: ${GA_SOSIA} (net::ERR_ABORTED)`);
+  expect(
+    registradas.join("\n"),
+    "e o sósia não entra na conta do GA"
+  ).not.toContain("dominio-de-fora.test");
 
   await page.close();
 });
