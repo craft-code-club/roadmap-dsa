@@ -18,12 +18,69 @@ function contadorDePasso(fig: Locator): Locator {
   return fig.locator(".viz-step").filter({ hasText: /^passo \d+ de \d+$/ });
 }
 
-async function figuraDe(page: Page, url: string): Promise<Locator> {
+/**
+ * A peça que cada página deste arquivo exercita, pelo TÍTULO dela. É a chave dos
+ * seletores daqui, e a razão de existir está logo abaixo.
+ */
+const PECAS = {
+  "/topico/big-o/": "contando operações no mesmo array",
+  "/topico/merge-sort/": "a descida divide, a subida ordena",
+} as const;
+
+/**
+ * A figura DAQUELA peça, escolhida por qual ela é e nunca por onde ela está.
+ *
+ * Aqui havia `page.locator("figure.viz-fit").first()`, que é uma afirmação sobre
+ * a ORDEM no documento e só acerta enquanto a página tem uma figura na casca.
+ * Em `/topico/big-o/` o `[0]` passa a ser o gráfico das famílias assim que ele
+ * for adaptado: sem `Próximo ›`, sem `▶ Rodar`, sem `↺ Reiniciar`, sem slider, e
+ * com o `.viz-step` valendo "n = 62". Em `/topico/merge-sort/` o alvo é o `[0]`
+ * por acidente, ao lado de dois irmãos cujo `.viz-step` diz "4 rodadas de
+ * intercalação…" e "as duas versões se separam na decisão 2".
+ *
+ * A ironia é que o `contadorDePasso` acima já avisava disso, e este helper caía
+ * na mesma armadilha três linhas depois.
+ *
+ * **Escope por QUAL figura, nunca por QUANTAS têm a casca.** O título é
+ * identidade; contar figuras adaptadas seria afirmar o cronograma da migração,
+ * que muda a cada PR e não é o produto. E os dois modos de errar não custam o
+ * mesmo: título trocado reprova alto no `toHaveCount(1)`, ordem trocada mede a
+ * peça errada em silêncio.
+ */
+async function figuraDe(page: Page, url: keyof typeof PECAS): Promise<Locator> {
   await page.goto(url);
-  const fig = page.locator("figure.viz-fit").first();
+  const fig = page.locator("figure.viz-fit").filter({ hasText: PECAS[url] });
+  await expect(fig, `a peça "${PECAS[url]}" tem que ser única em ${url}`).toHaveCount(1);
   await expect(fig).toBeVisible();
   return fig;
 }
+
+test.describe("os seletores deste arquivo apontam para a peça certa", () => {
+  // O canário desta classe de defeito: ele reprova no dia em que um irmão da
+  // página entrar na casca e roubar o `[0]`, em vez de deixar os outros testes
+  // medirem a peça errada.
+  for (const [url, titulo] of Object.entries(PECAS) as [keyof typeof PECAS, string][]) {
+    test(`em ${url} o alvo é achado pelo título e tem a linha do tempo`, async ({ page }) => {
+      const fig = await figuraDe(page, url);
+      await expect(fig).toContainText(titulo);
+
+      // O que TODO teste deste arquivo exercita mora nesta figura, e é isso que
+      // a torna o alvo — não a posição dela.
+      await expect(contadorDePasso(fig)).toHaveCount(1);
+      await expect(fig.getByRole("button", { name: "Próximo ›" })).toHaveCount(1);
+      await expect(fig.getByRole("button", { name: "Reiniciar" })).toHaveCount(1);
+      await expect(fig.getByRole("slider", { name: /Velocidade/ })).toHaveCount(1);
+      await expect(fig.getByRole("status")).toHaveCount(1);
+
+      // Nada aqui afirma QUANTAS figuras a página tem na casca: seria asserção
+      // sobre o cronograma da migração. O que se afirma é que a peça alvo
+      // existe, é uma só, e que o `.viz-step` cru continua ambíguo dentro dela —
+      // que é por que o `contadorDePasso` filtra pelo texto.
+      expect(await page.locator("figure.viz-fit").count()).toBeGreaterThanOrEqual(1);
+      expect(await fig.locator(".viz-step").count()).toBeGreaterThanOrEqual(1);
+    });
+  }
+});
 
 test.describe("a região viva anuncia o passo", () => {
   test("o texto muda quando o aluno aperta Próximo ›", async ({ page }) => {
