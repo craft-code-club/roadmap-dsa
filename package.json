@@ -13,7 +13,7 @@
     "test:build": "next build && playwright test",
     "screenshots": "bash scripts/smoke-screenshots.sh",
     "lint": "eslint .",
-    "guarda:commit": "git log --format=%s origin/main..HEAD | python3 scripts/guarda-commit.py",
+    "guarda:commit": "base=${GUARDA_BASE:-origin/main}; git rev-parse --verify -q \"$base\" >/dev/null || { echo \"guarda:commit: a ref base '$base' nao existe. Rode 'git fetch' ou aponte outra em GUARDA_BASE (ex.: upstream/main).\" >&2; exit 2; }; test \"$(git rev-list --count \"$base\"..HEAD)\" -gt 0 || { echo \"guarda:commit: 0 commits em $base..HEAD - NADA foi checado.\" >&2; exit 2; }; git log --format=%s \"$base\"..HEAD | python3 scripts/guarda-commit.py",
     "guarda:idioma": "python3 scripts/guarda-idioma.py"
   },
   "dependencies": {
