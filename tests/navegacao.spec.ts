@@ -1614,12 +1614,11 @@ test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) =
   const selo = (i: number) => vias.locator(".ms-op").nth(i).locator(".bb-formula-selo");
   await expect(selo(0)).toHaveText("28 comparações · profundidade 8");
   await expect(selo(1)).toHaveText("16 comparações · profundidade 1");
-  // BUG DE PRODUTO (não é desta lane): o ramo sem subproblema entra no meio da
-  // frase e produz "sobram nenhum subproblema: acabou aqui para a recursão
-  // resolver" — QuickSortTresVias.tsx:186-192. A asserção grava o texto ATUAL,
-  // para que o conserto seja um diff visível em vez de passar despercebido.
+  // A frase inteira, no nó dela: o ramo sem subproblema deixou de entrar no
+  // meio de uma moldura fixa, e a asserção antiga (`toContainText("nenhum
+  // subproblema")`) gravava justamente o texto quebrado.
   await expect(vias.locator(".ms-op").nth(1).locator(".bb-formula-fim")).toHaveText(
-    "Depois da primeira partição sobram nenhum subproblema: acabou aqui para a recursão resolver."
+    "A primeira partição resolveu o array inteiro: não sobrou nada para a recursão."
   );
   // sem repetidos ela não é melhor: mesma profundidade e o dobro de comparações
   await vias.getByRole("button", { name: /Sem repetição/ }).click();

@@ -145,7 +145,16 @@ function tresVias(valores: number[]): Resultado {
       primeira = [...a];
       regioes = [];
       if (lt > lo) regioes.push({ de: lo, ate: lt - 1, cls: "menor", txt: "< pivô, volta para a recursão" });
-      regioes.push({ de: lt, ate: gt, cls: "pivo", txt: `= pivô, ${gt - lt + 1} já resolvidos` });
+      // A faixa do meio tem um elemento só quando não há repetidos do pivô, que
+      // é justamente o preset "Sem repetição": sem a concordância, a tela dizia
+      // "1 já resolvidos" bem no exemplo que existe para mostrar o contraponto.
+      const equalCount = gt - lt + 1;
+      regioes.push({
+        de: lt,
+        ate: gt,
+        cls: "pivo",
+        txt: `= pivô, ${equalCount} já resolvido${equalCount === 1 ? "" : "s"}`,
+      });
       if (hi > gt) regioes.push({ de: gt + 1, ate: hi, cls: "maior", txt: "> pivô, volta para a recursão" });
       restantes = [lt - lo, hi - gt].filter((x) => x > 0);
     }
@@ -158,6 +167,11 @@ function tresVias(valores: number[]): Resultado {
 }
 
 function Painel({ titulo, r, n, selo }: { titulo: string; r: Resultado; n: number; selo: string }) {
+  // Quantos elementos sobraram ao todo. É ele que rege o verbo e o plural: a
+  // moldura "sobram ... para a recursão resolver" só faz sentido quando existe
+  // o que sobrar, e no preset "Todos iguais" a partição de três vias não deixa
+  // nada — daí a frase inteira ser condicional, e não só o miolo dela.
+  const remainingTotal = r.restantes.reduce((sum, x) => sum + x, 0);
   return (
     <div className="ms-op">
       <div className="bb-formula-cab">
@@ -183,13 +197,20 @@ function Painel({ titulo, r, n, selo }: { titulo: string; r: Resultado; n: numbe
         })}
       </div>
       <p className="bb-formula-fim">
-        Depois da primeira partição sobram{" "}
         {r.restantes.length === 0 ? (
-          <strong>nenhum subproblema: acabou aqui</strong>
+          <>
+            A primeira partição resolveu o array inteiro:{" "}
+            <strong>não sobrou nada para a recursão</strong>.
+          </>
         ) : (
-          <strong>{r.restantes.join(" e ")} elementos</strong>
-        )}{" "}
-        para a recursão resolver.
+          <>
+            Depois da primeira partição {remainingTotal === 1 ? "sobra" : "sobram"}{" "}
+            <strong>
+              {r.restantes.join(" e ")} elemento{remainingTotal === 1 ? "" : "s"}
+            </strong>{" "}
+            para a recursão resolver.
+          </>
+        )}
       </p>
     </div>
   );
