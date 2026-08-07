@@ -185,6 +185,10 @@ function formaDosFilhosJsx(node) {
   return out;
 }
 
+// Arquivos que o parser não conseguiu ler inteiros. Ver o `process.exit(2)` no
+// fim: a lista existe para o motor poder REPROVAR, não só avisar.
+const invalidos = [];
+
 function extrair(caminho) {
   const fonte = readFileSync(caminho, "utf-8");
   const sf = ts.createSourceFile(
@@ -214,10 +218,15 @@ function extrair(caminho) {
   andar(sf);
 
   // Erro de sintaxe faz a AST sair truncada e o guarda ficar cego em silêncio.
+  // Avisar no stderr não bastava: o motor saía 0, a fachada comparava o que
+  // conseguiu extrair de um arquivo pela metade e imprimia 0 ("a tela não
+  // mudou") ou 1 ("mudou"), que é exatamente o "0 por não ter conseguido
+  // olhar" que o contrato proíbe. Agora entra na lista e o motor sai 2.
   const diags = sf.parseDiagnostics ?? [];
   if (diags.length) {
     const msg = ts.flattenDiagnosticMessageText(diags[0].messageText, " ");
     process.stderr.write(`guarda-idioma: ${caminho} não é TSX válido (${diags.length}): ${msg}\n`);
+    invalidos.push(caminho);
   }
 
   return achados;
@@ -232,5 +241,17 @@ process.stdin.on("end", () => {
   const { files } = JSON.parse(entrada);
   const saida = {};
   for (const f of files) saida[f] = extrair(f);
+
+  // Sai 2 ANTES de escrever o JSON: extração truncada não pode chegar à
+  // fachada com cara de resultado. A fachada lê o código != 0 e morre com 2,
+  // que é o código de "o guarda não conseguiu rodar" do contrato.
+  if (invalidos.length) {
+    process.stderr.write(
+      `guarda-idioma: ${invalidos.length} arquivo(s) sem TSX válido; ` +
+        `a extração ficaria truncada e o resultado seria mentira.\n`,
+    );
+    process.exit(2);
+  }
+
   process.stdout.write(JSON.stringify(saida));
 });
