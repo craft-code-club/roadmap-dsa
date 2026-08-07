@@ -148,12 +148,12 @@ function tresVias(valores: number[]): Resultado {
       // A faixa do meio tem um elemento só quando não há repetidos do pivô, que
       // é justamente o preset "Sem repetição": sem a concordância, a tela dizia
       // "1 já resolvidos" bem no exemplo que existe para mostrar o contraponto.
-      const iguais = gt - lt + 1;
+      const equalCount = gt - lt + 1;
       regioes.push({
         de: lt,
         ate: gt,
         cls: "pivo",
-        txt: `= pivô, ${iguais} já resolvido${iguais === 1 ? "" : "s"}`,
+        txt: `= pivô, ${equalCount} já resolvido${equalCount === 1 ? "" : "s"}`,
       });
       if (hi > gt) regioes.push({ de: gt + 1, ate: hi, cls: "maior", txt: "> pivô, volta para a recursão" });
       restantes = [lt - lo, hi - gt].filter((x) => x > 0);
@@ -171,7 +171,7 @@ function Painel({ titulo, r, n, selo }: { titulo: string; r: Resultado; n: numbe
   // moldura "sobram ... para a recursão resolver" só faz sentido quando existe
   // o que sobrar, e no preset "Todos iguais" a partição de três vias não deixa
   // nada — daí a frase inteira ser condicional, e não só o miolo dela.
-  const sobraram = r.restantes.reduce((soma, x) => soma + x, 0);
+  const remainingTotal = r.restantes.reduce((sum, x) => sum + x, 0);
   return (
     <div className="ms-op">
       <div className="bb-formula-cab">
@@ -204,9 +204,9 @@ function Painel({ titulo, r, n, selo }: { titulo: string; r: Resultado; n: numbe
           </>
         ) : (
           <>
-            Depois da primeira partição {sobraram === 1 ? "sobra" : "sobram"}{" "}
+            Depois da primeira partição {remainingTotal === 1 ? "sobra" : "sobram"}{" "}
             <strong>
-              {r.restantes.join(" e ")} elemento{sobraram === 1 ? "" : "s"}
+              {r.restantes.join(" e ")} elemento{remainingTotal === 1 ? "" : "s"}
             </strong>{" "}
             para a recursão resolver.
           </>
