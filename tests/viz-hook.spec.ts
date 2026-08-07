@@ -130,3 +130,22 @@ test.describe("a animação não roda para quem não está vendo", () => {
     expect(await contador.textContent()).toBe(voltaA);
   });
 });
+
+test.describe("os dois controles que não tinham nome", () => {
+  test("o ↺ se chama Reiniciar e volta ao passo 1", async ({ page }) => {
+    const fig = await figuraDe(page, "/topico/big-o/");
+    const contador = contadorDePasso(fig);
+    const proximo = fig.getByRole("button", { name: "Próximo ›" });
+
+    await proximo.click();
+    await proximo.click();
+    await expect(contador).toHaveText(/^passo 3 de \d+$/);
+
+    // O `title` não vira nome acessível quando o botão tem conteúdo: o glifo
+    // vence, e o leitor de tela anunciava o nome Unicode dele (ou nada).
+    const reiniciar = fig.getByRole("button", { name: "Reiniciar" });
+    await expect(reiniciar).toHaveCount(1);
+    await reiniciar.click();
+    await expect(contador).toHaveText(/^passo 1 de \d+$/);
+  });
+});

@@ -656,7 +656,11 @@ export function VizFooter({
   return (
     <div className="viz-foot">
       <div className="viz-controls">
-        <button className="viz-btn" title="Reiniciar" onClick={viz.reset}>↺</button>
+        {/* `aria-label` e não só `title`: o CONTEÚDO vence o `title` no cálculo
+            do nome acessível, então o leitor de tela anunciava o nome Unicode do
+            glifo (ou nada). Os quatro vizinhos desta linha têm texto; este era o
+            único mudo. */}
+        <button className="viz-btn" title="Reiniciar" aria-label="Reiniciar" onClick={viz.reset}>↺</button>
         <button
           className="viz-btn"
           disabled={viz.step === 0}
