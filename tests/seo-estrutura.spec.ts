@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { LINKS, SITE_URL } from "../src/lib/links";
-import { CONTEUDO_DA_ROTA, estadoDoHistorico } from "../src/app/sitemap";
+import { CONTEUDO_DA_ROTA } from "../src/app/sitemap";
 
 // Estrutura de SEO do site inteiro: canonical, sitemap e dados estruturados.
 //
@@ -252,33 +252,40 @@ function dataEsperada(arquivos: readonly string[]): number | undefined {
 
 test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const xml = sitemap();
-  const historico = estadoDoHistorico();
-  // O diagnóstico entra nas DUAS mensagens: quando este guarda erra, o que falta
-  // saber é o que ele viu, e o ambiente da CI não abre para inspeção depois.
-  const visto = `git deste processo: ${historico.motivo}; ` +
-    `datas distintas que ele resolve: ${new Set(
-      [...ALL_TOPICS.slice(0, 6).map((t) => `content/topics/${t.slug}.mdx`), "content/roadmap.ts"]
-        .map(dataDoGit)
-        .filter(Boolean)
-    ).size}`;
-  if (historico.raso) {
-    // Num clone `--depth 1` o `git log` de QUALQUER caminho devolve o commit do
-    // HEAD: as 40 URLs sairiam com a data do último deploy, que é justamente a
-    // mentira que o Google já aprendeu a ignorar. Sem campo é melhor que campo
-    // falso, e o guarda é isto aqui.
-    expect(xml, `clone raso não pode produzir lastmod. ${visto}`).not.toContain("<lastmod>");
+  const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  const lastmods = blocos.map((b) => b.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1]);
+
+  // O teste mede a MESMA capacidade que o `sitemap.ts` mede, e pelo mesmo
+  // caminho: quantas datas distintas o `git log` deste processo consegue
+  // resolver. Perguntar "o clone é raso?" foi o erro das duas versões
+  // anteriores — o `actions/checkout` deixa o marcador `.git/shallow` para trás
+  // mesmo com `fetch-depth: 0`, e a suíte reprovou num job com histórico bom.
+  const amostra = new Set(
+    [...ALL_TOPICS.slice(0, 8).map((t) => `content/topics/${t.slug}.mdx`), "content/roadmap.ts"]
+      .map(dataDoGit)
+      .filter(Boolean)
+  );
+  const gitDistingueCaminhos = amostra.size > 1;
+  const visto = `o git deste processo resolve ${amostra.size} data(s) distinta(s) na amostra`;
+
+  if (!gitDistingueCaminhos) {
+    // Histórico que responde o mesmo para todo caminho: o campo não sai, porque
+    // 40 URLs com o mesmo carimbo são a data do deploy disfarçada.
+    expect(lastmods.filter(Boolean), `sem histórico utilizável não pode haver lastmod. ${visto}`).toEqual([]);
     return;
   }
-  const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
-  const sem: string[] = [];
+
+  const sem = blocos.filter((_, i) => !lastmods[i]).map((b) => b.match(/<loc>([^<]+)<\/loc>/)![1]);
+  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível. ${visto}`).toEqual([]);
+  expect(
+    new Set(lastmods).size,
+    `as ${lastmods.length} URLs saíram com o mesmo lastmod, que é a data do último commit repetida`
+  ).toBeGreaterThan(1);
+
   const errados: string[] = [];
-  for (const bloco of blocos) {
+  for (const [i, bloco] of blocos.entries()) {
     const loc = bloco.match(/<loc>([^<]+)<\/loc>/)![1];
-    const lastmod = bloco.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
-    if (!lastmod) {
-      sem.push(loc);
-      continue;
-    }
+    const lastmod = lastmods[i]!;
     if (Number.isNaN(Date.parse(lastmod))) {
       errados.push(`${loc} → ${lastmod} não é uma data`);
       continue;
@@ -294,19 +301,11 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
         ? [`content/topics/${slug}.mdx`]
         : ["content/roadmap.ts"]
       : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA];
-    if (!arquivos) {
-      errados.push(`${loc} → nenhum arquivo de conteúdo declarado para a rota`);
-      continue;
-    }
     const esperada = dataEsperada(arquivos);
     if (esperada !== undefined && Date.parse(lastmod) !== esperada) {
-      errados.push(
-        `${loc} → ${lastmod}, mas o commit mais recente de [${arquivos.join(", ")}] ` +
-          `é ${new Date(esperada).toISOString()}`,
-      );
+      errados.push(`${loc} → ${lastmod}, o Git diz ${new Date(esperada).toISOString()}`);
     }
   }
-  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível. ${visto}`).toEqual([]);
   expect(errados, "lastmod que não bate com o commit do arquivo").toEqual([]);
 });
 

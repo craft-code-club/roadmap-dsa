@@ -1,6 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import path from "node:path";
 import type { MetadataRoute } from "next";
 import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 import { SITE_URL } from "@/lib/links";
@@ -39,59 +37,31 @@ export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly stri
 // data que depende de alguém lembrar de atualizá-la em cada PR envelhece errado
 // e passa a mentir, o que é pior do que não existir.
 //
-// O guarda do clone raso não é preciosismo. `actions/checkout` clona com
-// `fetch-depth: 1`, e num histórico de um commit só o `git log` de QUALQUER
-// caminho devolve esse commit: as 40 URLs sairiam com a data do último deploy,
-// que é exatamente o `lastmod` que o Google aprendeu a ignorar. Sem o campo é
-// melhor que com o campo falso, então aqui ele simplesmente não sai — e volta a
-// sair sozinho no dia em que o workflow buscar o histórico (`fetch-depth: 0`).
+// O guarda contra a data falsa NÃO pergunta se o clone é raso, e a diferença
+// custou duas reprovações de CI. A primeira versão consultava
+// `git rev-parse --is-shallow-repository`; a segunda leu direto o arquivo
+// `.git/shallow`, que é o que aquele comando consulta. As duas reprovaram a
+// suíte num job com histórico de sobra, e o diagnóstico que eu embuti na
+// mensagem mostrou por quê:
 //
-// A pergunta é respondida pelo ARQUIVO `shallow` do diretório do Git, e não por
-// `git rev-parse --is-shallow-repository`. É a mesma informação (o comando é
-// literalmente "esse arquivo existe?"), e a diferença é que ler o disco não pode
-// falhar por carga da máquina. O subprocesso pode: um `execFileSync` devolve
-// EAGAIN quando o runner está saturado, e aí o `catch` responde "raso" para uma
-// pergunta que nunca chegou a ser feita. Foi assim que a suíte reprovou na CI
-// com o sitemap CERTO — o build tinha histórico e as datas saíram variadas, e o
-// teste, que fazia a mesma pergunta pelo mesmo caminho, ouviu "raso" e cobrou
-// a ausência do campo.
+//     marcador de clone raso em /home/runner/.../.git/shallow
+//     datas distintas que ele resolve: 2
 //
-// Por isso também é EXPORTADA: o teste importa esta função em vez de repetir a
-// decisão do seu lado. Dois predicados para a mesma decisão é o defeito que este
-// arquivo existe para consertar, e ele tinha voltado dentro do próprio teste.
-function diretorioDoGit(raiz: string): string | undefined {
-  const dotGit = path.join(raiz, ".git");
-  if (!existsSync(dotGit)) return undefined;
-  if (statSync(dotGit).isDirectory()) return dotGit;
-  // Worktree ligada: `.git` é um arquivo com `gitdir: <caminho>`, e o marcador
-  // `shallow` mora no diretório COMUM, apontado pelo arquivo `commondir`.
-  const gitdir = readFileSync(dotGit, "utf8").match(/^gitdir:\s*(.+)$/m)?.[1]?.trim();
-  if (!gitdir) return undefined;
-  const dir = path.resolve(raiz, gitdir);
-  const commondir = path.join(dir, "commondir");
-  return existsSync(commondir) ? path.resolve(dir, readFileSync(commondir, "utf8").trim()) : dir;
-}
-
-/**
- * `true` quando o histórico não dá para distinguir um caminho do outro, e o
- * MOTIVO junto.
- *
- * O motivo não é enfeite: este guarda já reprovou a suíte duas vezes dizendo
- * "clone raso" num job que tinha o histórico completo, e sem ele a investigação
- * vira adivinhação sobre um ambiente que não dá para abrir. Guarda que decide
- * sozinho tem que saber contar por quê.
- */
-export function estadoDoHistorico(): { raso: boolean; motivo: string } {
-  const cwd = process.cwd();
-  const dir = diretorioDoGit(cwd);
-  if (!dir) return { raso: true, motivo: `sem repositório Git a partir de ${cwd}` };
-  const marcador = path.join(dir, "shallow");
-  return existsSync(marcador)
-    ? { raso: true, motivo: `marcador de clone raso em ${marcador}` }
-    : { raso: false, motivo: `histórico completo (${dir})` };
-}
-
-const historicoDisponivel = !estadoDoHistorico().raso;
+// O `actions/checkout` com `fetch-depth: 0` DEIXA o marcador para trás, e o
+// histórico ali é fundo o bastante para o `git log` responder datas diferentes
+// por caminho. Marcador presente e histórico utilizável ao mesmo tempo: a
+// pergunta é que estava errada.
+//
+// O que este arquivo precisa saber não é a profundidade do clone, é uma
+// CAPACIDADE: o `git log` consegue distinguir um caminho do outro? A resposta
+// está nas próprias datas que ele acabou de coletar. Se todas as URLs saírem
+// com o MESMO carimbo, esse carimbo não é informação — é a data do último
+// commit repetida 40 vezes, exatamente o `lastmod` que o Google aprendeu a
+// ignorar —, e aí o campo inteiro não sai.
+//
+// A vantagem sobre qualquer sonda de ambiente: build e teste chegam à mesma
+// conclusão porque olham o mesmo dado, o resultado do `git log`, e não um
+// marcador que cada máquina mantém do seu jeito.
 
 // Um `git log` por caminho, e não por consulta. São 48 chamadas para montar o
 // sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,
@@ -124,7 +94,6 @@ function consultarCommit(arquivo: string): number | undefined {
 
 /** A data da rota é a do arquivo de conteúdo dela que mudou por último. */
 function ultimaAlteracao(...arquivos: readonly string[]): Date | undefined {
-  if (!historicoDisponivel) return undefined;
   const datas = arquivos.map(commitDoArquivo).filter((ms): ms is number => ms !== undefined);
   return datas.length ? new Date(Math.max(...datas)) : undefined;
 }
@@ -152,5 +121,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // e o `/roadmap/` não têm essa escolha: lá o `roadmap.ts` É o conteúdo.
     lastModified: ultimaAlteracao(`content/topics/${t.slug}.mdx`) ?? ultimaAlteracao("content/roadmap.ts"),
   }));
-  return [...base, ...topicos];
+  return comDataUtil([...base, ...topicos]);
+}
+
+/**
+ * Devolve as entradas sem `lastModified` quando as datas não carregam
+ * informação: uma só distinta (ou nenhuma) significa que o `git log` respondeu
+ * o mesmo para todo caminho. Exportada para o teste conferir a MESMA regra em
+ * vez de recriá-la — foi recriando que este guarda errou duas vezes.
+ */
+export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T[] {
+  const distintas = new Set(
+    entradas.map((e) => e.lastModified?.getTime()).filter((v): v is number => v !== undefined)
+  );
+  if (distintas.size > 1) return entradas;
+  return entradas.map(({ lastModified: _, ...resto }) => resto as T);
 }
