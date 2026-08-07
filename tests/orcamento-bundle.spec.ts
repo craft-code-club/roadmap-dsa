@@ -2,9 +2,10 @@ import { test, expect } from "@playwright/test";
 import { gzipSync } from "node:zlib";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { classificarLink } from "../mdx-components";
 
 /**
- * Orçamento de bytes do build.
+ * Orçamento de bytes do build, e o comportamento dos links do artigo.
  *
  * POR QUE ESTE ARQUIVO EXISTE
  *
@@ -219,8 +220,114 @@ test("os visualizadores continuam renderizados no HTML estático", () => {
 });
 
 // ---------------------------------------------------------------------------
-// comportamento
+// links do artigo
 // ---------------------------------------------------------------------------
+
+/** Todas as âncoras de prosa (`className="prose-a"`) do build, com os atributos. */
+function ancorasDosArtigos() {
+  const achadas: { rota: string; tag: string; href: string }[] = [];
+  for (const rota of rotasDoBuild()) {
+    const html = readFileSync(path.join(OUT, rota), "utf8");
+    for (const m of html.matchAll(/<a\s[^>]*>/g)) {
+      const tag = m[0];
+      if (!/\bclass="[^"]*\bprose-a\b/.test(tag)) continue;
+      achadas.push({ rota, tag, href: tag.match(HREF)?.[1] ?? "" });
+    }
+  }
+  return achadas;
+}
+
+test("todo link interno de artigo já sai com a barra final", () => {
+  // `next.config.ts` tem `trailingSlash: true`. Link sem a barra toma 308 em
+  // produção (medido: `curl -o /dev/null -w '%{http_code}'
+  // https://dsa.craftcodeclub.io/topico/arrays` -> 308) antes de carregar
+  // qualquer byte útil.
+  const ancoras = ancorasDosArtigos();
+  expect(ancoras.length, "nenhuma âncora de prosa no build").toBeGreaterThan(200);
+
+  const internos = ancoras.filter((a) => a.href.startsWith("/"));
+  expect(internos.length, "nenhum link interno de artigo no build").toBeGreaterThan(200);
+
+  const semBarra = internos.filter((a) => !a.href.split(/[?#]/)[0].endsWith("/"));
+  const amostra = semBarra.slice(0, 5).map((a) => `  ${a.rota}: ${a.href}`).join("\n");
+  expect(
+    semBarra.length,
+    `${semBarra.length} de ${internos.length} links internos sem barra final (cada clique = um 308):\n${amostra}`
+  ).toBe(0);
+});
+
+test("todo link externo de artigo abre em nova aba com rel seguro", () => {
+  const externos = ancorasDosArtigos().filter((a) => /^https?:\/\//.test(a.href));
+  expect(externos.length, "nenhum link externo de artigo no build").toBeGreaterThan(5);
+
+  const frouxos = externos.filter(
+    (a) =>
+      !/\btarget="_blank"/.test(a.tag) ||
+      !/\brel="[^"]*\bnoopener\b/.test(a.tag) ||
+      !/\brel="[^"]*\bnoreferrer\b/.test(a.tag)
+  );
+  const amostra = frouxos.slice(0, 5).map((a) => `  ${a.rota}: ${a.tag}`).join("\n");
+  expect(
+    frouxos.length,
+    `${frouxos.length} de ${externos.length} links externos sem target/rel:\n${amostra}`
+  ).toBe(0);
+});
+
+test("classificarLink separa interno, externo e o que fica como <a> cru", () => {
+  // Os artigos de hoje só têm dois casos (251 links `/topico/...` e 12 `https://`),
+  // mas a condição precisa estar certa para os que ainda vão aparecer: âncora da
+  // própria página, `mailto:`, arquivo estático com extensão, caminho relativo.
+  const casos: [string | undefined, ReturnType<typeof classificarLink>][] = [
+    ["/topico/arrays", { tipo: "interno", href: "/topico/arrays/" }],
+    ["/topico/arrays/", { tipo: "interno", href: "/topico/arrays/" }],
+    ["/topico/arrays#quando-usar", { tipo: "interno", href: "/topico/arrays/#quando-usar" }],
+    ["/roadmap?g=1#x", { tipo: "interno", href: "/roadmap/?g=1#x" }],
+    ["/", { tipo: "interno", href: "/" }],
+    ["#nesta-pagina", { tipo: "cru", href: "#nesta-pagina" }],
+    ["mailto:oi@craftcodeclub.io", { tipo: "cru", href: "mailto:oi@craftcodeclub.io" }],
+    ["tel:+5511999999999", { tipo: "cru", href: "tel:+5511999999999" }],
+    ["/imagens/arvore.png", { tipo: "cru", href: "/imagens/arvore.png" }],
+    ["/sitemap.xml", { tipo: "cru", href: "/sitemap.xml" }],
+    ["./vizinho", { tipo: "cru", href: "./vizinho" }],
+    [
+      "https://leetcode.com/problems/two-sum/",
+      { tipo: "externo", href: "https://leetcode.com/problems/two-sum/" },
+    ],
+    ["http://exemplo.com", { tipo: "externo", href: "http://exemplo.com" }],
+    ["//cdn.exemplo.com/x.js", { tipo: "externo", href: "//cdn.exemplo.com/x.js" }],
+    [undefined, { tipo: "cru", href: "" }],
+  ];
+  for (const [entrada, esperado] of casos) {
+    expect(classificarLink(entrada), `href ${JSON.stringify(entrada)}`).toEqual(esperado);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// comportamento: o ganho do next/link
+// ---------------------------------------------------------------------------
+
+test("clicar num link do artigo não recarrega o documento", async ({ page }) => {
+  await page.goto("/topico/a-star/");
+  // A marca morre em qualquer navegação de documento. Se ela sobreviver, a
+  // troca de página foi do router, sem recarregar a aplicação inteira.
+  await page.evaluate(() => {
+    (window as unknown as { __semRecarga?: boolean }).__semRecarga = true;
+  });
+
+  const link = page.locator("article a.prose-a[href^='/topico/']").first();
+  const destino = await link.getAttribute("href");
+  expect(destino, "o link do artigo precisa apontar para a URL final, sem 308").toMatch(/\/$/);
+
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`${destino}$`));
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __semRecarga?: boolean }).__semRecarga === true
+    ),
+    "o documento recarregou: a navegação não passou pelo router"
+  ).toBe(true);
+});
 
 test("o visualizador continua interativo, e o passo anda nos dois sentidos", async ({ page }) => {
   await page.goto("/topico/arrays/");
