@@ -55,7 +55,22 @@ const historicoDisponivel = (() => {
   }
 })();
 
+// Um `git log` por caminho, e não por consulta. São 48 chamadas para montar o
+// sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,
+// 1,39s no total): `content/roadmap.ts` sozinho é consultado 6 vezes, uma por
+// rota fixa que o lista e uma por tópico sem artigo que cai no fallback. O
+// cache vale por build — o `git log` de um caminho não muda no meio dele.
+const cacheDeCommit = new Map<string, number | undefined>();
+
 function commitDoArquivo(arquivo: string): number | undefined {
+  const emCache = cacheDeCommit.get(arquivo);
+  if (emCache !== undefined || cacheDeCommit.has(arquivo)) return emCache;
+  const valor = consultarCommit(arquivo);
+  cacheDeCommit.set(arquivo, valor);
+  return valor;
+}
+
+function consultarCommit(arquivo: string): number | undefined {
   try {
     const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", arquivo], {
       encoding: "utf8",
