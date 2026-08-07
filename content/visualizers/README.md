@@ -489,13 +489,22 @@ o que está vendo no DOM e no CSS, não para digitar à mão.
 |---|---|---|
 | `.viz-fit` | no `<figure>` | liga a casca adaptativa (vem em `figureProps`) |
 | `data-codigo="on\|off"` | no `<figure>` | estado do bloco recolhível |
-| `data-anim="on\|off"` | no `<figure>` | liga as transições. `off` durante a medição e antes da primeira decisão |
+| `data-anim="on\|off"` | no `<figure>` | liga as transições. `off` durante a medição e antes da primeira decisão — e **`off` para sempre quando `collapsible: false`** (nota abaixo) |
 | `.viz-overlay-fit` | na `<div>` do overlay | flex column, miolo rolável, cabeçalho e rodapé parados (vem do `inPanel`) |
 | `.viz-foot` | irmão do `.viz-body` | os controles fora do miolo, para ficarem parados |
 | `.viz-code-slot` | envolve o `.viz-code` | recolhe a **altura** (grid `1fr → 0fr`) |
 | `.viz-vars.linha` | no painel de variáveis | vira fileira de fichas quando o código sai |
 | `.viz-atalhos` | no rodapé | dica das teclas; some no celular |
 | `.viz-toggle-codigo` | no botão do cabeçalho | estado visual pelo `aria-expanded` |
+
+**`data-anim` nunca vira `"on"` numa peça `collapsible: false`.** Quem o acende
+é o efeito de medição, e ele sai na primeira linha quando não há bloco para
+recolher (`src/lib/visualizer.tsx:265`): sem decisão a tomar não há recolhimento
+a congelar, e o atributo fica em `"off"` para sempre. Não é defeito — as
+transições que ele desliga são as do bloco que a peça não tem —, mas é contrato,
+porque **boa parte dos specs da série usa `data-anim="on"` como sinal de "a
+casca terminou de medir"**, e esse helper nunca resolve aqui. Numa peça sem
+bloco, espere por outra coisa: um rótulo do próprio miolo, ou o `⤢ Expandir`.
 
 **Não edite o bloco `viz-fit` do `globals.css` para acomodar um visualizador
 específico.** Ele é compartilhado por todos; regra que estende base compartilhada
@@ -758,7 +767,10 @@ Nos testes (`tests/`), o mínimo por visualizador adaptado:
 
 Os itens 2, 3 e 4 — os três que falam do bloco recolhível — não existem quando
 `collapsible: false`. No lugar deles, prove que a ausência tem o rótulo certo:
-**nenhum botão pode prometer esconder um bloco que o visualizador não tem.**
+**nenhum botão pode prometer esconder um bloco que o visualizador não tem.** E
+não copie para essas peças o helper que espera `data-anim="on"` para saber que a
+casca terminou: ali o atributo nunca vira `"on"` (§4), e o teste morre num
+timeout antes da primeira asserção.
 
 E o inverso do item 6, que morde antes de você escrever teste nenhum: **adaptar
 uma peça quebra o teste de quem veio antes**. Pôr `viz-fit` numa figura faz um
