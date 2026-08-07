@@ -72,11 +72,37 @@ entrada, com a mesma linha de comando. Ele coleta:
 | literal de string e template **em qualquer nível de aninhamento** | o texto, com cada `${…}` virando `§` |
 | nós de texto JSX, **inclusive dividindo a linha com uma interpolação** | os filhos do elemento num item só: `Nós no ciclo: §` |
 | valor de atributo que o aluno lê (`alt`, `title`, `placeholder`, `aria-label`, …) | texto de tela |
-| `className`, `viewBox`, `style`, `d`, chave de tipo, especificador de import | **código**, num bloco `AVISO` separado que **não reprova** |
+| `className`, `class`, `key`, `ref`, chave de tipo, especificador de import, nome de propriedade escrito como literal | **código** em **qualquer** elemento, componente inclusive — num bloco `AVISO` separado que **não reprova** |
+| atributo de **elemento HTML** fora da lista de texto (`viewBox`, `style`, `d`, `type`, `role`, `fill`, …) | **código**, pelo mesmo `AVISO` |
 
 O `AVISO` existe por causa da armadilha do literal-que-vira-classe (mais abaixo):
 antes ele se misturava ao texto de tela e pedia a reação que **re-quebra** o
 rename. Agora ele fica à parte, dizendo "confira no `globals.css`".
+
+**A segunda linha vale só para elemento HTML** (`<div>`, `<svg>`, `<path>`), e a
+distinção é medível. Elemento HTML tem vocabulário fixo, então o que não está na
+lista de texto é código. **Prop de componente nosso** (`<VizFooter>`, `<Icone>`)
+cai em **tela**, porque um componente pode ter prop de rótulo com qualquer nome,
+e o falso negativo é justamente o defeito que este guarda existe para não ter.
+Consequência prática: mudar o valor de um `d=` **de componente** REPROVA, ao
+contrário do que a linha de cima sugere isoladamente. Medido no motor desta
+branch, com as mesmas três props nos dois lados:
+
+```
+<svg   viewBox="0 0 100 mesmo" style="cor" d="M0 zero L1 um" />  → codigo, codigo, codigo
+<Icone viewBox="0 0 100 mesmo" style="cor" d="M0 zero L1 um"
+       className="cx" />                                        → tela, tela, tela + codigo (só o className)
+```
+
+Os casos **12 e 13** de `scripts/testa-guarda-idioma.py` fixam esse par: a mesma
+troca de `d=`, no `<path>` passa e no `<Icone>` reprova. A regra mora em
+`elementoIntrinseco()` e `classificar()`, em `scripts/extrai-textos-tsx.mjs`.
+Hoje ninguém esbarra nela — varredura pela AST nos 87 `.tsx` de
+`content/visualizers`: **zero** ocorrências de `viewBox`/`style`/`d` em tag não
+intrínseca —, mas quem escrever a primeira precisa saber. Duas bordas do mesmo
+critério: tag com ponto (`<motion.div>`) **não** conta como intrínseca, porque o
+teste exige um `Identifier` simples; e um atributo com namespace (`xlink:href`)
+só vira código no elemento HTML, pela mesma porta.
 
 **Este guarda já passou verde CINCO vezes com a aula estragada**, sempre por
 olhar de menos. Os buracos que ele tapou dizem onde procurar o próximo:

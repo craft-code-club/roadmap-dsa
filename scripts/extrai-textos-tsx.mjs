@@ -71,11 +71,21 @@ const ATRIBUTOS_DE_CODIGO = new Set(["key", "ref", "className", "class"]);
 function nomeDoAtributo(attr) {
   const n = attr.name;
   if (ts.isIdentifier(n)) return n.text;
-  // JSX namespaced (`xlink:href`) — sempre código neste repo.
+  // JSX namespaced (`xlink:href`). O nome composto não está em nenhuma das duas
+  // listas, então quem decide é a mesma porta de todo mundo: código no elemento
+  // HTML, tela na prop de componente. Medido: `<use xlink:href="…">` sai em
+  // `codigo`, `<Icone xlink:href="…">` sai em `tela`.
   return `${n.namespace?.text ?? ""}:${n.name?.text ?? ""}`;
 }
 
-/** `<div>` é intrínseco (vocabulário fixo); `<VizFooter>` é componente. */
+/**
+ * `<div>` é intrínseco (vocabulário fixo); `<VizFooter>` é componente.
+ *
+ * Tag com ponto (`<motion.div>`) devolve `false`, porque `tagName` é um
+ * `PropertyAccessExpression` e não um `Identifier` — ela cai no default `tela`.
+ * É o lado conservador do critério, e hoje custa zero: a varredura pela AST nos
+ * 87 `.tsx` de `content/visualizers` não acha nenhuma tag com ponto.
+ */
 function elementoIntrinseco(attr) {
   const dono = attr.parent?.parent; // JsxAttributes -> JsxOpening/SelfClosing
   const tag = dono?.tagName;
