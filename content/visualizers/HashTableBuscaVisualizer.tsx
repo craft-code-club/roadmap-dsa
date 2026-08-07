@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 
+import { comNumero } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -64,10 +65,6 @@ function thousands(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function plural(v: number, one: string, many: string): string {
-  return `${v} ${v === 1 ? one : many}`;
-}
-
 function build(names: string[], bad: boolean): Entry[][] {
   const buckets: Entry[][] = Array.from({ length: CAP }, () => [] as Entry[]);
   for (const name of names) {
@@ -84,7 +81,7 @@ function generateListSteps(names: string[], target: string): ListStep[] {
     comparisons: 0,
     found: false,
     done: false,
-    note: `${plural(names.length, "nome guardado", "nomes guardados")} e nenhuma ordem que me ajude: não dá para cortar nada. Vou comparar "${target}" com a posição 0, depois a 1, e assim por diante.`,
+    note: `${comNumero(names.length, "nome guardado", "nomes guardados")} e nenhuma ordem que me ajude: não dá para cortar nada. Vou comparar "${target}" com a posição 0, depois a 1, e assim por diante.`,
   });
   for (let j = 0; j < names.length; j++) {
     const same = names[j] === target;
@@ -94,7 +91,7 @@ function generateListSteps(names: string[], target: string): ListStep[] {
       found: same,
       done: same,
       note: same
-        ? `Posição ${j}: "${names[j]}" é o alvo. Achei, depois de ${plural(j + 1, "comparação", "comparações")}.`
+        ? `Posição ${j}: "${names[j]}" é o alvo. Achei, depois de ${comNumero(j + 1, "comparação", "comparações")}.`
         : `Posição ${j}: "${names[j]}" não é "${target}". Passo para a próxima.`,
     });
     if (same) return out;
@@ -104,7 +101,7 @@ function generateListSteps(names: string[], target: string): ListStep[] {
     comparisons: names.length,
     found: false,
     done: true,
-    note: `Cheguei ao fim da lista: "${target}" não está aqui. Só que precisei de ${plural(names.length, "comparação", "comparações")} para ter certeza disso.`,
+    note: `Cheguei ao fim da lista: "${target}" não está aqui. Só que precisei de ${comNumero(names.length, "comparação", "comparações")} para ter certeza disso.`,
   });
   return out;
 }
@@ -130,7 +127,7 @@ function generateHashSteps(buckets: Entry[][], target: string, bad: boolean): Ha
     found: false,
     done: false,
     note: bad
-      ? `Endereço 0, igual a todas as outras chaves: ${plural(buckets[0].length, "chave está amontoada", "chaves estão amontoadas")} no bucket 0 e os outros ${CAP - 1} estão vazios.`
+      ? `Endereço 0, igual a todas as outras chaves: ${comNumero(buckets[0].length, "chave está amontoada", "chaves estão amontoadas")} no bucket 0 e os outros ${CAP - 1} estão vazios.`
       : `${sum} % ${CAP} = ${i}. Salto direto para o bucket ${i} e nem olho os outros ${CAP - 1}.`,
   });
   const chain = buckets[i];
@@ -154,7 +151,7 @@ function generateHashSteps(buckets: Entry[][], target: string, bad: boolean): Ha
       found: same,
       done: same,
       note: same
-        ? `"${chain[k].key}" bate com o alvo. ${plural(k + 1, "comparação", "comparações")} e acabou.`
+        ? `"${chain[k].key}" bate com o alvo. ${comNumero(k + 1, "comparação", "comparações")} e acabou.`
         : `"${chain[k].key}" caiu no mesmo bucket, mas não é "${target}". Ando um nó na corrente.`,
     });
     if (same) return out;
@@ -241,8 +238,8 @@ export function HashTableBuscaVisualizer() {
   const chain = ph.index == null ? [] : buckets[ph.index];
 
   const summary = bad
-    ? `Com todas as chaves no mesmo bucket, a tabela hash faz ${plural(ph.comparisons, "comparação", "comparações")}, o mesmo trabalho da lista. Esse é o O(n) do pior caso, e ele não vem de azar: vem de uma função de hash que não distribui.`
-    : `A lista gastou ${plural(pl.comparisons, "comparação", "comparações")} e a tabela hash gastou ${plural(ph.comparisons, "comparação", "comparações")}. O que importa não é a diferença aqui, é o que acontece quando a entrada cresce: a lista acompanha n, a tabela hash não se mexe.`;
+    ? `Com todas as chaves no mesmo bucket, a tabela hash faz ${comNumero(ph.comparisons, "comparação", "comparações")}, o mesmo trabalho da lista. Esse é o O(n) do pior caso, e ele não vem de azar: vem de uma função de hash que não distribui.`
+    : `A lista gastou ${comNumero(pl.comparisons, "comparação", "comparações")} e a tabela hash gastou ${comNumero(ph.comparisons, "comparação", "comparações")}. O que importa não é a diferença aqui, é o que acontece quando a entrada cresce: a lista acompanha n, a tabela hash não se mexe.`;
 
   const frame = (
     <figure {...viz.figureProps} style={{ margin: 0 }}>
@@ -314,7 +311,7 @@ export function HashTableBuscaVisualizer() {
         <div className="ht-painel">
           <div className="ht-painel-tit">
             <span>1. Busca linear na lista</span>
-            <em>{plural(pl.comparisons, "comparação", "comparações")}</em>
+            <em>{comNumero(pl.comparisons, "comparação", "comparações")}</em>
           </div>
           <div className="ht-lista">
             {names.map((name, j) => {
@@ -335,7 +332,7 @@ export function HashTableBuscaVisualizer() {
         <div className="ht-painel">
           <div className="ht-painel-tit">
             <span>2. Busca na tabela hash ({CAP} buckets)</span>
-            <em>{plural(ph.comparisons, "comparação", "comparações")}</em>
+            <em>{comNumero(ph.comparisons, "comparação", "comparações")}</em>
           </div>
           <div className="ht-strip">
             {buckets.map((b, i) => (

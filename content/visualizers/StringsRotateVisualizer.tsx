@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { plural } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -76,10 +77,6 @@ const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
 function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
-function plural(n: number, one: string, many: string): string {
-  return n === 1 ? one : many;
 }
 
 // Quantos caracteres batem antes de divergir. Serve para o contador de

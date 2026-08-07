@@ -1,0 +1,220 @@
+import { test, expect, type Page } from "@playwright/test";
+
+import { thousands, thousandsDecimal, thousandsSigned, plural, comNumero } from "../src/lib/format";
+
+// Os utilitários que estavam copiados em `content/visualizers/`, agora em
+// `src/lib/format.ts` — e a prova de que unificar não mexeu numa palavra da tela.
+//
+// A parte que importa NÃO é o teste de unidade lá embaixo. É a primeira metade:
+// as frases são montadas em EXECUÇÃO, dentro de template literal, e o HTML do
+// build só carrega o passo 0. Só percorrendo a animação e lendo a frase inteira
+// dá para ver a diferença entre "Achei, depois de 1 comparação." e "Achei,
+// depois de comparação." — as duas compilam, e as duas passam por qualquer
+// contagem de elemento.
+//
+// Por isso cada asserção aqui lê a FRASE, com o número junto da palavra, nos
+// presets que exercitam singular E plural. Trocar `comNumero` por `plural` (ou
+// o contrário) reprova com o texto quebrado no `Received`.
+
+const CONGELA =
+  "*, *::before, *::after { transition: none !important; animation: none !important; }";
+
+async function preparar(page: Page) {
+  await page.evaluate(() => document.fonts.ready);
+  await page.addStyleTag({ content: CONGELA });
+}
+
+/** Abre o painel expandido da peça `i` da página e devolve o `<figure>` dele. */
+async function expandir(page: Page, url: string, i: number) {
+  await page.goto(url);
+  await preparar(page);
+  await page.locator("article figure.viz").nth(i).getByRole("button", { name: /Expandir/ }).click();
+  const painel = page.locator(".viz-overlay figure.viz");
+  await expect(painel).toBeVisible();
+  await preparar(page);
+  return painel;
+}
+
+// ---------------------------------------------------------------------------
+// 1 · O plural que TRAZ o número: HashTableBuscaVisualizer
+//
+// Aqui a frase não escreve o número em separado — quem escreve é a função. Se
+// ela passar a devolver só a palavra, sai "Achei, depois de comparações." e o
+// `tsc` não reclama, porque a assinatura é a mesma.
+// ---------------------------------------------------------------------------
+
+const HASH = "/topico/hash-table/";
+
+/**
+ * A ordem das peças na página, que é o que o `nth()` endereça.
+ *
+ * Em `/topico/hash-table/` o `HashTableOperacoes` é tabela estática, sem casca
+ * e sem overlay: ele não conta. Em `/topico/strings/` as três peças contam.
+ */
+const HASH_BUSCA = 1;
+const STRINGS_CONCAT = 1; // 0 é o StringsBytesVisualizer
+const STRINGS_ROTATE = 2;
+
+/** Clica "Próximo ›" enquanto ele estiver habilitado, no máximo `max` vezes. */
+async function avancar(painel: import("@playwright/test").Locator, max: number) {
+  const proximo = painel.getByRole("button", { name: /Próximo/ });
+  for (let k = 0; k < max; k++) {
+    if (await proximo.isDisabled()) return;
+    await proximo.click();
+  }
+}
+
+test("busca linear: a frase de acerto traz o número junto da palavra, no singular e no plural", async ({
+  page,
+}) => {
+  const painel = await expandir(page, HASH, HASH_BUSCA);
+  const nota = painel.locator(".ht-painel").first().locator("p.viz-note");
+  const proximo = painel.getByRole("button", { name: /Próximo/ });
+
+  // Cenário com o alvo na PRIMEIRA posição: uma comparação só, singular.
+  await painel.getByRole("button", { name: "Alvo na primeira posição" }).click();
+  for (let k = 0; k < 12; k++) {
+    if ((await nota.innerText()).includes("é o alvo")) break;
+    await proximo.click();
+  }
+  expect(await nota.innerText()).toContain('Posição 0: "Ana" é o alvo. Achei, depois de 1 comparação.');
+
+  // Mesmo visualizador, alvo no FIM: oito comparações, plural.
+  await painel.getByRole("button", { name: "Alvo no fim da lista" }).click();
+  for (let k = 0; k < 12; k++) {
+    if ((await nota.innerText()).includes("é o alvo")) break;
+    await proximo.click();
+  }
+  expect(await nota.innerText()).toContain('Posição 7: "Mia" é o alvo. Achei, depois de 8 comparações.');
+});
+
+test("busca linear: a abertura e o cartão de comparações escrevem o número que a palavra concorda", async ({
+  page,
+}) => {
+  const painel = await expandir(page, HASH, HASH_BUSCA);
+  await painel.getByRole("button", { name: "Alvo no fim da lista" }).click();
+
+  // Passo 0, antes de qualquer clique: a nota abre contando os nomes.
+  const nota = painel.locator(".ht-painel").first().locator("p.viz-note");
+  expect(await nota.innerText()).toContain("8 nomes guardados e nenhuma ordem que me ajude");
+
+  // O cartão ao lado do título do painel: número E palavra no mesmo elemento.
+  // Ler só o número aprovaria "8" debaixo de "comparação".
+  const cartao = painel.locator(".ht-painel").first().locator(".ht-painel-tit em");
+  expect(await cartao.innerText()).toBe("0 comparações");
+
+  const proximo = painel.getByRole("button", { name: /Próximo/ });
+  await proximo.click();
+  expect(await cartao.innerText()).toBe("1 comparação");
+  await proximo.click();
+  expect(await cartao.innerText()).toBe("2 comparações");
+});
+
+test("o resumo do pior caso compara os dois números sem perder a palavra", async ({ page }) => {
+  const painel = await expandir(page, HASH, HASH_BUSCA);
+  await painel.getByRole("button", { name: "Com hash ruim" }).click();
+
+  const resumo = painel.locator("p.viz-note").last();
+  await avancar(painel, 30);
+
+  expect(await resumo.innerText()).toContain(
+    "Com todas as chaves no mesmo bucket, a tabela hash faz 8 comparações, o mesmo trabalho da lista."
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 2 · O plural que devolve SÓ a palavra: StringsVisualizer e Strings Rotate
+//
+// Aqui o número já está escrito na frase, ao lado da chamada. Se a função
+// passar a trazer o número, sai "aloco uma string nova de 1 1 caractere".
+// ---------------------------------------------------------------------------
+
+test("montar string caractere a caractere: a volta 1 fala no singular e a volta 2 no plural", async ({
+  page,
+}) => {
+  const painel = await expandir(page, "/topico/strings/", STRINGS_CONCAT);
+  const nota = painel.locator("p.viz-note");
+  const proximo = painel.getByRole("button", { name: /Próximo/ });
+
+  await proximo.click();
+  await expect(nota).toContainText("Volta 1: aloco uma string nova de 1 caractere,");
+  expect(await nota.innerText()).toContain("1 cópia nesta volta, 1 no total.");
+
+  await proximo.click();
+  await expect(nota).toContainText("Volta 2: aloco uma string nova de 2 caracteres,");
+  expect(await nota.innerText()).toContain("2 cópias nesta volta, 3 no total.");
+});
+
+test("rotate string: o prefixo que bate concorda sem duplicar o número", async ({ page }) => {
+  const painel = await expandir(page, "/topico/strings/", STRINGS_ROTATE);
+  const nota = painel.locator("p.viz-note");
+  const proximo = painel.getByRole("button", { name: /Próximo/ });
+
+  // A primeira nota de rotação escreve o tamanho da fatia copiada.
+  for (let k = 0; k < 10; k++) {
+    if ((await nota.innerText()).includes("Rotação 1:")) break;
+    await proximo.click();
+  }
+  const texto = await nota.innerText();
+  expect(texto).toContain("Rotação 1: s[1:] já é uma string nova com 4 caracteres copiados");
+  // O número aparece UMA vez antes da palavra, nunca duas.
+  expect(texto).not.toMatch(/\b(\d+) \1 /);
+});
+
+// ---------------------------------------------------------------------------
+// 3 · As três variantes do formatador de milhar
+//
+// Elas tinham o MESMO nome (`num`) em arquivos diferentes e produziam texto de
+// tela diferente. Estes casos fixam o que cada uma faz, para a próxima pessoa
+// não "unificar" as três em uma.
+// ---------------------------------------------------------------------------
+
+test("thousands arredonda e agrupa; thousandsDecimal guarda a casa; thousandsSigned guarda o sinal", () => {
+  // O caso comum: contador de operações, de cópias, de bytes.
+  expect(thousands(0)).toBe("0");
+  expect(thousands(999)).toBe("999");
+  expect(thousands(1000)).toBe("1.000");
+  expect(thousands(1234567)).toBe("1.234.567");
+  expect(thousands(1234.6)).toBe("1.235"); // arredonda, não trunca
+
+  // A variante do gráfico do Big O: sem ela, "1,4 bi" sairia como "1 bi".
+  expect(thousandsDecimal(1.4)).toBe("1,4");
+  expect(thousandsDecimal(2)).toBe("2"); // inteiro não ganha ",0"
+  expect(thousandsDecimal(1234.56)).toBe("1.234,6");
+  // O ponto do milhar não pode invadir a casa decimal.
+  expect(thousandsDecimal(12345.6)).toBe("12.345,6");
+
+  // A variante do overflow: o "-" fica FORA do agrupamento, senão desloca os
+  // pontos e INT_MIN sai como "-2.14.748.3648".
+  expect(thousandsSigned(-2147483648)).toBe("-2.147.483.648");
+  expect(thousandsSigned(2147483647)).toBe("2.147.483.647");
+  expect(thousandsSigned(0)).toBe("0");
+  expect(thousandsSigned(-1)).toBe("-1");
+  // Trunca, não arredonda: é o que a soma que estoura precisa.
+  expect(thousandsSigned(-1999.9)).toBe("-1.999");
+
+  // A prova de que as três NÃO são a mesma função com nomes diferentes.
+  expect(thousandsDecimal(1234.56)).not.toBe(thousands(1234.56));
+  expect(thousandsSigned(-1234)).not.toBe(thousands(-1234));
+});
+
+test("plural devolve só a palavra e comNumero devolve número mais palavra", () => {
+  expect(plural(1, "caractere", "caracteres")).toBe("caractere");
+  expect(plural(0, "caractere", "caracteres")).toBe("caracteres");
+  expect(plural(2, "caractere", "caracteres")).toBe("caracteres");
+
+  expect(comNumero(1, "comparação", "comparações")).toBe("1 comparação");
+  expect(comNumero(0, "comparação", "comparações")).toBe("0 comparações");
+  expect(comNumero(8, "comparação", "comparações")).toBe("8 comparações");
+
+  // O erro que o `tsc` aprovava: mesma assinatura, retorno incompatível.
+  expect(`Achei depois de ${comNumero(3, "comparação", "comparações")}.`).toBe(
+    "Achei depois de 3 comparações."
+  );
+  expect(`${3} ${plural(3, "cópia", "cópias")}`).toBe("3 cópias");
+  // Trocados, sairia isto — e é o que as asserções acima impedem.
+  expect(`Achei depois de ${plural(3, "comparação", "comparações")}.`).toBe(
+    "Achei depois de comparações."
+  );
+  expect(`${3} ${comNumero(3, "cópia", "cópias")}`).toBe("3 3 cópias");
+});
