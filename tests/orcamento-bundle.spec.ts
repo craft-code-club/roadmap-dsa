@@ -156,9 +156,15 @@ test("nenhuma rota estoura o teto de JS inicial", () => {
 });
 
 test("nenhum chunk sozinho passa do teto", () => {
-  const chunks = readdirSync(path.join(OUT, "_next/static/chunks"))
+  // `recursive: true` não é detalhe: sem ele a listagem pega só o primeiro
+  // nível e um chunk emitido em `chunks/app/...` passaria pelo teto sem
+  // reprovar — um guarda que parece varredura e não é. Hoje o build põe os 98
+  // chunks no nível 1 e nenhum em subpasta, então isto não muda o resultado;
+  // muda o que acontece no dia em que o Next mudar o layout de saída.
+  const base = path.join(OUT, "_next/static/chunks");
+  const chunks = readdirSync(base, { recursive: true, encoding: "utf-8" })
     .filter((n) => n.endsWith(".js"))
-    .map((n) => ({ n, raw: statSync(path.join(OUT, "_next/static/chunks", n)).size }))
+    .map((n) => ({ n, raw: statSync(path.join(base, n)).size }))
     .sort((a, b) => b.raw - a.raw);
 
   const gordos = chunks.filter((c) => c.raw > TETO_MAIOR_CHUNK);
@@ -330,7 +336,11 @@ test("clicar num link do artigo não recarrega o documento", async ({ page }) =>
   expect(destino, "o link do artigo precisa apontar para a URL final, sem 308").toMatch(/\/$/);
 
   await link.click();
-  await expect(page).toHaveURL(new RegExp(`${destino}$`));
+  // Comparação de caminho, não regex montada com a URL: `new RegExp(destino)`
+  // trataria `.`, `?` e `(` como metacaractere, e um href com query ou ponto
+  // casaria de menos (ou de mais) sem ninguém perceber. O predicado compara o
+  // `pathname` inteiro, que é exatamente o que se quer afirmar aqui.
+  await expect(page).toHaveURL((u) => u.pathname === destino);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(
     await page.evaluate(
