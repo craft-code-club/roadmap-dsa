@@ -97,14 +97,16 @@ export function HeapIndicesVisualizer() {
   // quadro com a seleção fora da faixa antes de corrigir.
   //
   // O `Math.min` abaixo é rede, não a regra: é ele que segura o quadro em que o
-  // ajuste ainda não rodou. Quem apagar o bloco acima achando que o `Math.min`
+  // ajuste ainda não rodou. Quem apagar a linha abaixo achando que o `Math.min`
   // já resolve troca o comportamento sem nenhum erro aparecer — a seleção
   // deixaria de ser fixada e voltaria sozinha ao encolher e crescer de novo.
-  const [nAnterior, setNAnterior] = useState(n);
-  if (nAnterior !== n) {
-    setNAnterior(n);
-    if (sel >= n) setSel(Math.max(0, n - 1));
-  }
+  //
+  // A condição basta sozinha, sem guardar o `n` anterior: nenhum outro caminho
+  // põe `sel` fora da faixa (o clique nasce de um índice que existe, e o teclado
+  // já é limitado por `n` em `aoTeclar`), então ela só é verdadeira no render
+  // seguinte a um `n` menor. E ela termina: o `n` vem de um `range` de 3 a 16,
+  // então `n - 1 >= 2` e a escrita sempre deixa `sel < n`.
+  if (sel >= n) setSel(Math.max(0, n - 1));
   const i = Math.min(sel, n - 1);
 
   const pai = i === 0 ? -1 : Math.floor((i - 1) / k);
