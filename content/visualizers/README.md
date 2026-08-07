@@ -102,6 +102,11 @@ s=re.sub(r'<script.*?</script>','',s,flags=re.S)
 s=re.sub(r'<[^>]+>','\n',s)
 print('\n'.join(l.strip() for l in s.split('\n') if l.strip()))" "$1"; }
 
+# o "antes" é um build ANTES do rename — sem ele o diff abaixo não tem com o
+# que comparar, e sai "No such file or directory":
+npm run build && render out/topico/<slug>/index.html > /tmp/antes.txt
+
+# ... aplique o rename, e então:
 npm run build && render out/topico/<slug>/index.html > /tmp/depois.txt
 diff /tmp/antes.txt /tmp/depois.txt     # tem que sair vazio
 ```
@@ -741,16 +746,28 @@ rótulo.**
 Antes e depois, com o build servido (`npm run build` e um servidor estático):
 
 ```js
-// numa janela de 1512x900, com o painel expandido aberto
-const f = document.querySelector("figure.viz-fit");
-const b = f.querySelector(".viz-body");
-({
-  rola: b.scrollHeight > b.clientHeight,                       // o miolo tem sobra?
-  cabecaColada: Math.round(f.querySelector(".viz-head").getBoundingClientRect().top
-                           - f.getBoundingClientRect().top),   // <= 2
-  rodapeColado: Math.round(f.getBoundingClientRect().bottom
-                           - f.querySelector(".viz-foot").getBoundingClientRect().bottom),
-})
+// numa janela de 1512x900, com o painel expandido aberto.
+// Troque o 0 pelo índice da SUA peça: uma página chega a ter cinco figuras
+// `.viz-fit` (o `intervals`), e um `querySelector` devolveria sempre a
+// primeira — a armadilha descrita no fim desta seção.
+((i) => {
+  const figs = document.querySelectorAll("article figure.viz-fit");
+  const f = figs[i];
+  if (!f) return `não há .viz-fit no índice ${i}: a página tem ${figs.length}`;
+  const b = f.querySelector(".viz-body");
+  const foot = f.querySelector(".viz-foot");
+  return {
+    figuras: figs.length,                                        // confira que é a sua
+    rola: b.scrollHeight > b.clientHeight,                       // o miolo tem sobra?
+    cabecaColada: Math.round(f.querySelector(".viz-head").getBoundingClientRect().top
+                             - f.getBoundingClientRect().top),   // <= 2
+    // peça `total: 1` sem `children` no VizFooter não desenha `.viz-foot` (§6):
+    // "sem rodapé" NÃO é aprovação, é ausência de asserção.
+    rodapeColado: foot
+      ? Math.round(f.getBoundingClientRect().bottom - foot.getBoundingClientRect().bottom)
+      : "sem rodapé",
+  };
+})(0)
 ```
 
 Nos testes (`tests/`), o mínimo por visualizador adaptado:
@@ -1019,16 +1036,21 @@ Conferir custa uma leitura só — esconda o `⤢ Expandir` e leia a figura duas
 vezes no mesmo carregamento, sem rebuild:
 
 ```js
-// o custo do botão do cabeçalho, medido no artigo
-(() => {
-  const f = document.querySelectorAll("article figure.viz")[N];
+// o custo do botão do cabeçalho, medido no artigo.
+// Troque o 0 pelo índice da SUA figura. Quantas a página tem:
+//   document.querySelectorAll("article figure.viz").length
+((i) => {
+  const figs = document.querySelectorAll("article figure.viz");
+  const f = figs[i];
+  if (!f) return `não há figura no índice ${i}: a página tem ${figs.length}`;
   const b = [...f.querySelectorAll("button")].find((x) => /Expandir/.test(x.textContent));
+  if (!b) return "esta figura não tem ⤢ Expandir — confira o índice";
   const com = f.getBoundingClientRect().height;
   b.style.display = "none";
   const sem = f.getBoundingClientRect().height;
   b.style.display = "";
   return { com, sem, delta: com - sem };   // delta = o custo do botão
-})()
+})(0)
 ```
 
 O que decide entre `+8` e `+36` é o **comprimento do `children` do
