@@ -218,7 +218,37 @@ test("Big O traz o gráfico de crescimento, o contador de operações e a tabela
 // com o botão ainda escrito "Mostrar código" ensina errado do mesmo jeito.
 // ---------------------------------------------------------------------------
 
-const CONTADOR = "figure.viz-fit";
+// A página do Big O tem DUAS peças na casca desde que o gráfico de curvas
+// entrou, e o gráfico vem ANTES no DOM. `figure.viz-fit` sozinho casa 2: em
+// `page.locator()` isso é violação de strict mode, e nos `querySelector` abaixo
+// seria a peça errada EM SILÊNCIO — ela não tem `.viz-foot` nem `.viz-code`, e
+// as medições sairiam nulas sem ninguém reclamar.
+//
+// O discriminante é o SLOT do bloco recolhível, não o bloco: `.viz-code-slot`
+// existe porque a peça É recolhível (`collapsible: true`), enquanto o conteúdo
+// dentro dele é o que um dia pode virar condicional. Medido nos quatro estados
+// que estes testes atravessam — tela alta, tela baixa com o código já recolhido
+// pela medição, código recolhido na mão e painel expandido —, ele casa 1 nos
+// quatro: o contrato mantém o bloco no DOM mesmo recolhido, que é o que permite
+// medir o pior caso de altura.
+const CONTADOR = "figure.viz-fit:has(.viz-code-slot)";
+const GRAFICO = "figure.viz-fit:has(canvas)";
+
+test("Big O: o seletor do contador separa as duas peças da casca na página", async ({ page }) => {
+  await page.goto("/topico/big-o/");
+  // Se algum dia esta asserção cair, é porque uma peça entrou ou saiu da casca
+  // nesta página, e todo `CONTADOR` daqui para baixo precisa ser reconferido.
+  await expect(page.locator("figure.viz-fit")).toHaveCount(2);
+  await expect(page.locator(CONTADOR)).toHaveCount(1);
+  await expect(page.locator(GRAFICO)).toHaveCount(1);
+  // E são peças diferentes, lidas pelo rótulo do cabeçalho.
+  await expect(page.locator(`${CONTADOR} .viz-head-title`)).toHaveText(
+    "Visualizador · contando operações no mesmo array"
+  );
+  await expect(page.locator(`${GRAFICO} .viz-head-title`)).toHaveText(
+    "Visualizador · como cada família cresce"
+  );
+});
 
 /** Caixas do quadro, do cabeçalho e do rodapé + o estado da rolagem do miolo. */
 function medirCasca(page: import("@playwright/test").Page) {
@@ -303,11 +333,11 @@ test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal",
   const fugas: string[] = [];
   for (let i = 0; i < 24; i++) {
     await page.keyboard.press("Tab");
-    const onde = await page.evaluate(() => {
+    const onde = await page.evaluate((sel) => {
       const a = document.activeElement;
-      const fig = document.querySelector("figure.viz-fit");
+      const fig = document.querySelector(sel);
       return { dentro: !!(fig && a && fig.contains(a)), quem: a?.className || a?.tagName || "?" };
-    });
+    }, CONTADOR);
     if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
   }
   expect(fugas, "o foco vazou do painel").toEqual([]);
@@ -316,10 +346,10 @@ test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal",
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   expect(
-    await page.evaluate(() => {
-      const fig = document.querySelector("figure.viz-fit");
+    await page.evaluate((sel) => {
+      const fig = document.querySelector(sel);
       return !!(fig && document.activeElement && fig.contains(document.activeElement));
-    })
+    }, CONTADOR)
   ).toBe(true);
 
   // O código recolhido some para leitor de tela, não só para o teclado.
