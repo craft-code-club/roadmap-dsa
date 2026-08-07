@@ -84,7 +84,7 @@ const DEFAULT_TARGET = 16;
 // par, n-1 somas) e uma borda em que todo elemento é igual.
 type Preset = { key: string; label: string; nums: number[]; target: number };
 const PRESETS: Preset[] = [
-  { key: "encontro", label: "Do encontro: alvo 16", nums: DEFAULT_NUMS, target: DEFAULT_TARGET },
+  { key: "encontro", label: "Alvo 16: os dois ponteiros andam", nums: DEFAULT_NUMS, target: DEFAULT_TARGET },
   { key: "pontas", label: "Acerta de cara: alvo 22", nums: DEFAULT_NUMS, target: 22 },
   { key: "sem", label: "Sem solução: alvo 100", nums: DEFAULT_NUMS, target: 100 },
   { key: "iguais", label: "Tudo igual: alvo 11", nums: [5, 5, 5, 5], target: 11 },

@@ -66,7 +66,7 @@ const DEFAULT_NUMS = [10, 30, 20, 45, 60, 40, 50];
 type Preset = { label: string; nums: number[]; i: number; j: number };
 
 const PRESETS: Preset[] = [
-  { label: "Encontro: soma(1, 4)", nums: DEFAULT_NUMS, i: 1, j: 4 },
+  { label: "O exemplo do artigo: soma(1, 4)", nums: DEFAULT_NUMS, i: 1, j: 4 },
   { label: "Miolo: soma(2, 3)", nums: DEFAULT_NUMS, i: 2, j: 3 },
   { label: "Do início: soma(0, 2)", nums: DEFAULT_NUMS, i: 0, j: 2 },
   { label: "Um elemento: soma(3, 3)", nums: DEFAULT_NUMS, i: 3, j: 3 },

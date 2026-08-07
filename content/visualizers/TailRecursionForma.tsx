@@ -101,7 +101,7 @@ const CASES: Case[] = [
     recursive: true,
     pending: "nada",
     reading:
-      "É a função do encontro. O caso base virou uma cláusula separada por pattern matching, e [head | tail] decompõe a lista sem copiar nada: tail é um ponteiro para o resto, não uma cópia como o nums[1:] do Python.",
+      "É a forma idiomática em Elixir. O caso base virou uma cláusula separada por pattern matching, e [head | tail] decompõe a lista sem copiar nada: tail é um ponteiro para o resto, não uma cópia como o nums[1:] do Python.",
     fix: "A BEAM aplica a otimização sozinha, sem anotação nenhuma: lista de 1.000 elementos, 1 frame.",
     stack: "O(1), a BEAM otimiza",
   },
@@ -115,7 +115,7 @@ const CASES: Case[] = [
     recursive: false,
     pending: "nada",
     reading:
-      "Chamada de cauda não precisa ser recursiva. Aqui a última instrução chama outra função, e o frame de validar também não serve mais para nada depois disso. Foi exatamente a pergunta do Giovani no encontro, e a resposta é sim: a otimização vale igual.",
+      "Chamada de cauda não precisa ser recursiva. Aqui a última instrução chama outra função, e o frame de validar também não serve mais para nada depois disso. A pergunta natural é se a otimização vale nesse caso, e a resposta é sim: vale igual.",
     fix: "Nada a consertar. Só repare no vocabulário: isto é tail call, e tail recursion é o caso em que a função chamada é ela mesma.",
     stack: "O(1) com TCO",
   },
@@ -169,7 +169,7 @@ const CASES: Case[] = [
     recursive: true,
     pending: "[nums[0] * 2] + ?",
     reading:
-      "Mesmo formato da soma comum, só que juntando listas em vez de números. E é o caso que o Tiago mediu no encontro: aqui a versão de cauda saiu mais lenta, porque ela monta a lista ao contrário e precisa de um reverse no fim.",
+      "Mesmo formato da soma comum, só que juntando listas em vez de números. E é o caso em que a medição surpreende: aqui a versão de cauda sai mais lenta, porque ela monta a lista ao contrário e precisa de um reverse no fim.",
     fix: "Dá para transformar (acc=[] e reverse no fim), só que o conserto custa uma passada extra. Nem toda recursão quer virar de cauda.",
     stack: "O(n) sempre",
   },

@@ -209,7 +209,7 @@ type Preset = { key: string; label: string; target: number; values: number[]; he
 const PRESETS: Preset[] = [
   {
     key: "encontro",
-    label: "Do encontro: procurar o 73",
+    label: "A escada completa: procurar o 73",
     target: 73,
     values: DEFAULT_VALUES,
     heights: defaultHeights(DEFAULT_VALUES.length),

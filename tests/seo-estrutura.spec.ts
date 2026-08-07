@@ -229,11 +229,20 @@ test("o sitemap lista exatamente as rotas indexáveis, nem mais nem menos", () =
   expect(doSitemap).toEqual(esperadas);
 });
 
+// Um `git log` por caminho, e não por consulta: o teste pergunta a mesma data
+// até três vezes por rota (o guarda de capacidade, o `?` do fallback e a
+// agregação), e cada processo novo custa ~29ms.
+const cacheDoGit = new Map<string, string>();
+
 function dataDoGit(arquivo: string): string {
-  return execFileSync("git", ["log", "-1", "--format=%cI", "--", arquivo], {
+  const emCache = cacheDoGit.get(arquivo);
+  if (emCache !== undefined) return emCache;
+  const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", arquivo], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
+  cacheDoGit.set(arquivo, iso);
+  return iso;
 }
 
 /** A data esperada de uma rota: o mais recente dos arquivos que a alimentam. */
@@ -299,17 +308,43 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
   // essa diferença? Se não, ele está achatando o histórico e não serve de
   // referência — conferir contra ele acusaria o build de um erro que é do
   // ambiente de medição.
-  const datasDoGit = new Set(
-    ALL_TOPICS.filter((t) => !isEmptyTopic(t))
-      .slice(0, 8)
-      .map((t) => dataDoGit(`content/topics/${t.slug}.mdx`))
-      .filter(Boolean)
-  );
+  //
+  // A pergunta NÃO é "quantas datas distintas ele resolve", e a diferença
+  // custou uma CI vermelha inteira. Naquele job o git deste processo achatou 39
+  // dos 42 caminhos na data do merge da base (16:43:05Z) e resolveu a data de
+  // verdade para os TRÊS que o próprio PR tinha tocado, porque esses três estão
+  // no lado do histórico que o processo alcança. Um deles é `two-pointers.mdx`,
+  // o 5º artigo da lista: um caminho distinguível dentro de uma amostra de oito
+  // bastava para a contagem valer 2, o guarda concluir "o git enxerga" e o
+  // teste reprovar 37 URLs cujo `lastmod` estava certo.
+  //
+  // O sintoma do achatamento não é a contagem, é a CONCENTRAÇÃO: git cego
+  // devolve o MESMO segundo para quase tudo, porque devolve sempre o
+  // commit-fronteira. Então a medida é a fatia da moda, e sobre TODOS os
+  // caminhos que o teste vai comparar — amostra pequena é enviesável pelo PR da
+  // vez, que por definição mexeu em alguns desses arquivos.
+  //
+  // Margem medida: neste repositório com histórico de verdade são 42 caminhos,
+  // 22 datas distintas e moda de 6 (14,3%); no job achatado a moda era 39 de 42
+  // (92,9%). O corte em 50% fica longe dos dois, e cobre o caso antigo — git
+  // que resolve UMA data para tudo tem moda de 100%.
+  const caminhosConferidos = [
+    ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `content/topics/${t.slug}.mdx`),
+    ...Object.values(CONTEUDO_DA_ROTA).flat(),
+  ];
+  const porData = new Map<string, number>();
+  for (const caminho of caminhosConferidos) {
+    const d = dataDoGit(caminho);
+    if (d) porData.set(d, (porData.get(d) ?? 0) + 1);
+  }
+  const resolvidos = [...porData.values()].reduce((a, b) => a + b, 0);
+  const moda = porData.size ? Math.max(...porData.values()) : 0;
   test.skip(
-    datasDoGit.size <= 1,
-    `o git deste processo resolve ${datasDoGit.size} data(s) distinta(s) para 8 artigos ` +
-      "diferentes, ou seja, achata o histórico por caminho e não pode servir de " +
-      "referência. As invariantes do artefato acima já foram conferidas."
+    resolvidos === 0 || moda / resolvidos > 0.5,
+    `o git deste processo devolve a mesma data para ${moda} dos ${resolvidos} caminhos ` +
+      `conferidos (${porData.size} data(s) distinta(s) ao todo): ele achata o histórico no ` +
+      "commit-fronteira e não pode servir de referência. As invariantes do artefato acima " +
+      "já foram conferidas."
   );
 
   // Daqui para baixo o git deste processo enxerga o histórico, então dá para

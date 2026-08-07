@@ -168,7 +168,7 @@ const DEFAULT_LIST = [1, 2, 3, 4];
 
 type Preset = { key: string; label: string; nums: number[] };
 const PRESETS: Preset[] = [
-  { key: "encontro", label: "Do encontro: [1, 2, 3, 4]", nums: DEFAULT_LIST },
+  { key: "encontro", label: "Quatro números: [1, 2, 3, 4]", nums: DEFAULT_LIST },
   { key: "sete", label: "Sete números", nums: [5, 3, 8, 1, 9, 2, 7] },
   { key: "um", label: "Um elemento só", nums: [7] },
   { key: "vazia", label: "Lista vazia", nums: [] },

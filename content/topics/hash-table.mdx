@@ -82,7 +82,7 @@ class TabelaHash:
 
 Repare que a soma dos códigos **não é** o índice: ela é só um número grande e determinístico. Quem transforma esse número num endereço é o módulo, e é por isso que o tamanho da tabela participa da conta. Guarde isso: quando o tamanho mudar, todos os endereços mudam junto.
 
-Rode o visualizador abaixo passo a passo. Ele começa exatamente com o quadro do encontro: cinco nomes, cinco buckets, encadeamento. Acompanhe os dois passos de cada chave, primeiro a soma ASCII e depois o módulo, e repare no painel de variáveis: `soma` é sempre um número na casa das centenas, e `indice` é sempre um número de 0 a 4.
+Rode o visualizador abaixo passo a passo. Ele começa no cenário **"Cinco chaves, cinco buckets"**, com encadeamento ligado. Acompanhe os dois passos de cada chave, primeiro a soma ASCII e depois o módulo, e repare no painel de variáveis: `soma` é sempre um número na casa das centenas, e `indice` é sempre um número de 0 a 4.
 
 Depois pare de assistir e mexa nele. Troque a lista de chaves pelo seu nome e o de quem estiver perto, clique em **Sortear**, mude a capacidade de 5 para 8, e antes de avançar cada passo tente prever em que bucket a chave vai cair. Errar a previsão é justamente o momento em que o módulo entra na cabeça.
 

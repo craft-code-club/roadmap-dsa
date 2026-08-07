@@ -269,7 +269,7 @@ const PRESETS: Record<Variant, Preset[]> = {
   // vezes seguidas, a borda do elemento que sozinho estoura k, e o caso em que
   // nada estoura (a janela nunca encolhe).
   dynamic: [
-    { key: "encontro", label: "Do encontro: soma ≤ 15", nums: [2, 3, 4, 5, 6, 7, 9], k: 15 },
+    { key: "encontro", label: "Padrão: soma ≤ 15", nums: [2, 3, 4, 5, 6, 7, 9], k: 15 },
     { key: "encolhe", label: "Encolhe em série: soma ≤ 8", nums: [3, 1, 2, 7, 4, 2, 1, 1, 5], k: 8 },
     { key: "estoura", label: "Um elemento maior que k", nums: [1, 2, 20, 1, 1], k: 5 },
     { key: "nunca", label: "Nada estoura: k folgado", nums: [1, 1, 1, 1, 1], k: 9 },
