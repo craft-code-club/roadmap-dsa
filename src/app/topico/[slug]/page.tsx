@@ -246,9 +246,15 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
         </div>
       </article>
 
+      {/* `aria-labelledby`, e não `aria-label`, no índice abaixo: o rótulo visível
+          "Nesta página" já existe, e apontar para ele é o que garante que o nome
+          anunciado e o nome lido sejam o MESMO texto para sempre. Um `aria-label`
+          seria uma segunda cópia da string, livre para divergir da primeira sem
+          quebrar nada — a mesma armadilha dos dois predicados que este PR fecha
+          no sitemap. */}
       {toc.length > 0 && (
-        <nav className="toc">
-          <div className="toc-title">Nesta página</div>
+        <nav className="toc" aria-labelledby="toc-title">
+          <div className="toc-title" id="toc-title">Nesta página</div>
           <div className="toc-links">
             {toc.map((s) => (
               <a key={s} href={`#${slugify(s)}`}>{s}</a>
