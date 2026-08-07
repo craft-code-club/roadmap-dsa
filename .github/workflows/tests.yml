@@ -70,7 +70,7 @@ jobs:
   # entra no caminho crítico do PR.
   guardas:
     runs-on: ubuntu-latest
-    name: Guardas (idioma na tela)
+    name: Guardas (lint e idioma na tela)
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -90,6 +90,11 @@ jobs:
       # que já é devDependency do projeto.
       - name: Install dependencies
         run: npm ci
+
+      # PORTÃO. Reprova por ERRO; aviso aparece no log e não reprova. A
+      # calibragem por regra, com o passivo medido, está no `eslint.config.mjs`.
+      - name: ESLint
+        run: npm run lint
 
       # PORTÃO. Reprova o PR se a suíte do próprio guarda reprovar.
       #
