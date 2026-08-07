@@ -1837,7 +1837,26 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 @media (max-width: 1000px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
-  .sidebar.open { display: flex; position: fixed; top: var(--ccc-header-h); left: 0; right: 0; bottom: 0; z-index: 45; width: 100%; height: calc(100vh - var(--ccc-header-h)); }
+  /* A gaveta do celular tem duas alturas e as duas importam.
+     A primeira é a da JANELA: `100vh` é a viewport GRANDE, a de barra do
+     navegador recolhida, então numa barra visível a gaveta nasce mais alta que
+     o que se vê e o pé dela fica embaixo da barra. O arquivo já conhece o
+     remédio e usa duas linhas acima, no expandido do visualizador
+     (`max-height: calc(100vh…)` seguido de `calc(100dvh…)`); a gaveta tinha
+     ficado de fora. As duas declarações ficam: a de `vh` é o fallback de quem
+     não entende `dvh`.
+     A segunda é a do CONTEÚDO: o `.side-apoio` mora FORA do `.side-scroll`, e a
+     gaveta não rolava, então quando cabeçalho mais apoio passavam da altura o
+     card ficava inalcançável — não "mais embaixo", sem caminho. Medido em
+     844x300 e 390x260: o card terminava 35px e 111px abaixo da janela com 47 e
+     123px de sobra que ninguém conseguia rolar. `overflow-y: auto` é a rolagem
+     de último recurso; nas alturas normais a sobra é 0 e nada muda. */
+  .sidebar.open {
+    display: flex; position: fixed; top: var(--ccc-header-h); left: 0; right: 0; bottom: 0;
+    z-index: 45; width: 100%; overflow-y: auto;
+    height: calc(100vh - var(--ccc-header-h));
+    height: calc(100dvh - var(--ccc-header-h));
+  }
   .header-menu-toggle { display: grid; }
   .hero { padding: 48px 24px 40px; }
   .hero h1 { font-size: 40px; }

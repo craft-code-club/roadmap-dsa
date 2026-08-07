@@ -193,3 +193,94 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
     expect(await fonte(".ms-niveis .ms-seg"), "fora do celular o rótulo do merge sort volta").toBe("10px");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Defeito 2 — a gaveta do celular e o card que ficava sem caminho
+// ---------------------------------------------------------------------------
+
+async function abrirGaveta(page: Page, w: number, h: number) {
+  await abrir(page, "/topico/quick-sort/", w, h);
+  await page.getByRole("button", { name: "Abrir menu de tópicos" }).click();
+  await expect(page.locator(".sidebar.open")).toBeVisible();
+}
+
+/** Rola tudo o que a gaveta oferece para rolar. Se depois disto o card ainda
+ *  estiver fora da janela, ele é inalcançável — não é "fica mais embaixo". */
+async function rolarTudo(page: Page) {
+  await page.evaluate(() => {
+    document.querySelectorAll<HTMLElement>(".sidebar.open, .sidebar.open .side-scroll").forEach((e) => {
+      e.scrollTop = e.scrollHeight;
+    });
+  });
+  await page.waitForTimeout(100);
+}
+
+test.describe("gaveta do celular: o card de apoio é alcançável", () => {
+  for (const [w, h, porque] of [
+    [390, 844, "o celular em pé"],
+    [844, 390, "o celular deitado"],
+    // As duas últimas não são celulares: são a GEOMETRIA do caso em que
+    // cabeçalho mais apoio passam da altura da gaveta. Antes do conserto o card
+    // terminava 35px e 111px abaixo da janela, com 47 e 123px de sobra que
+    // ninguém conseguia rolar, porque o `.side-apoio` mora fora do
+    // `.side-scroll` e a gaveta não rolava.
+    [844, 300, "a gaveta apertada, onde o conteúdo passa da altura"],
+    [390, 260, "a gaveta muito apertada"],
+  ] as const) {
+    test(`${w}x${h}: ${porque}`, async ({ page }) => {
+      await abrirGaveta(page, w, h);
+      await rolarTudo(page);
+      const g = await page.evaluate(() => {
+        const gaveta = document.querySelector(".sidebar.open")!;
+        const card = document.querySelector(".side-apoio")!.lastElementChild!;
+        return {
+          rotulo: (card.textContent ?? "").trim().slice(0, 18),
+          topo: Math.round(card.getBoundingClientRect().top),
+          base: Math.round(card.getBoundingClientRect().bottom),
+          janela: window.innerHeight,
+          gavetaBase: Math.round(gaveta.getBoundingClientRect().bottom),
+        };
+      });
+
+      expect(g.rotulo, "é o card de apoio que está sendo medido").toContain("Seja um apoiador");
+      expect(
+        g.base - g.janela,
+        `${JSON.stringify(g.rotulo)} terminou em ${g.base}px numa janela de ${g.janela}px, depois de rolar tudo`
+      ).toBeLessThanOrEqual(0);
+      expect(g.topo, `o card começou em ${g.topo}px, acima do topo da janela`).toBeGreaterThanOrEqual(0);
+      // A gaveta termina onde a janela termina: é o que o `dvh` garante no
+      // celular de verdade, onde `100vh` é a viewport de barra recolhida.
+      expect(
+        g.gavetaBase - g.janela,
+        `a gaveta terminou em ${g.gavetaBase}px numa janela de ${g.janela}px`
+      ).toBeLessThanOrEqual(0);
+    });
+  }
+
+  test("a gaveta declara o fallback de viewport dinâmica", async ({ page }) => {
+    // Asserção de FOLHA DE ESTILO, e está aqui declarada como tal: em Chromium
+    // headless não existe barra de navegador dinâmica, então
+    // `100vh === 100dvh === innerHeight` e nenhuma medição de tela distingue as
+    // duas. O que dá para afirmar é que a regra da gaveta continua com as duas
+    // declarações — `vh` como fallback, `dvh` por cima —, que é o mesmo idioma
+    // que o expandido do visualizador já usa neste arquivo, e com a rolagem de
+    // último recurso que torna o card alcançável.
+    // A leitura é do ARQUIVO servido, não do CSSOM: `cssText` devolve uma
+    // declaração por propriedade e descarta a que foi sobrescrita, então ele
+    // mostra só o `dvh` e some justamente com o fallback que se quer garantir.
+    // Medido: o CSSOM devolve `height: calc(100dvh …)` sozinho enquanto o
+    // arquivo tem as duas linhas.
+    await abrir(page, "/topico/quick-sort/", 390, 844);
+    const folha = await page.evaluate(async () => {
+      const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')].map((l) => l.href);
+      const partes = await Promise.all(links.map((h) => fetch(h).then((r) => r.text())));
+      return partes.join("\n");
+    });
+
+    const regra = folha.match(/\.sidebar\.open\s*\{[^}]*\}/)?.[0];
+    expect(regra, "a regra da gaveta aberta chegou ao arquivo servido").toBeTruthy();
+    expect(regra, "a altura da gaveta usa a viewport dinâmica").toContain("100dvh");
+    expect(regra, "e mantém o fallback de quem não entende dvh").toContain("100vh");
+    expect(regra, "e a gaveta rola quando o conteúdo não cabe").toMatch(/overflow-y:\s*auto/);
+  });
+});
