@@ -3,6 +3,7 @@ import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import { ProgressProvider } from "@/components/ProgressProvider";
 import { Shell } from "@/components/Shell";
+import { JsonLd, organizationJsonLd, webSiteJsonLd } from "@/lib/jsonld";
 import { SITE_URL } from "@/lib/links";
 import { SITE_NAME, TITLE_TEMPLATE } from "@/lib/seo";
 
@@ -71,6 +72,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        {/* Quem publica o guia e qual é o site, em toda rota. Sai pronto no HTML
+            do export: `application/ld+json` não é executado, então nem este
+            bloco nem os das páginas custam um byte de JavaScript no cliente. */}
+        <JsonLd data={[organizationJsonLd(), webSiteJsonLd()]} />
         <ProgressProvider>
           <Shell>{children}</Shell>
         </ProgressProvider>

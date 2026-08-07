@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
+import { JsonLd, topicJsonLd } from "@/lib/jsonld";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
@@ -70,6 +71,7 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="topic-layout">
+      <JsonLd data={[topicJsonLd(t)]} />
       <article>
         <div className="breadcrumb">
           <span>{t.group}</span>

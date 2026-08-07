@@ -221,3 +221,79 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
   expect(errados, "lastmod que não bate com o commit do arquivo").toEqual([]);
 });
 
+// ---------------------------------------------------------------------------
+// 3. Dados estruturados: campo por nome, nunca contagem de <script>
+// ---------------------------------------------------------------------------
+
+test("toda rota traz Organization e WebSite com os perfis da comunidade", () => {
+  const sem: string[] = [];
+  for (const rota of TODAS_AS_ROTAS) {
+    const nos = jsonLd(rota);
+    const org = doTipo(nos, "Organization");
+    const site = doTipo(nos, "WebSite");
+    if (!org || !site) {
+      sem.push(`${rota} (Organization=${!!org}, WebSite=${!!site})`);
+      continue;
+    }
+    expect(org.name, rota).toBe("Craft & Code Club");
+    expect(org.url, rota).toBe(LINKS.site);
+    expect(org.sameAs, rota).toEqual(
+      expect.arrayContaining([LINKS.github, LINKS.youtube, LINKS.discord])
+    );
+    expect(site.name, rota).toBe("Roadmap DSA");
+    expect(site.url, rota).toBe(`${SITE_URL}/`);
+    expect(site.inLanguage, rota).toBe("pt-BR");
+  }
+  expect(sem, `${sem.length} de ${TODAS_AS_ROTAS.length} rotas sem Organization/WebSite`).toEqual([]);
+});
+
+test("cada página de tópico descreve o tópico, com os dados que estão na tela", () => {
+  const sem: string[] = [];
+  for (const t of ALL_TOPICS) {
+    const rota = `/topico/${t.slug}/`;
+    const recurso = doTipo(jsonLd(rota), "LearningResource");
+    if (!recurso) {
+      sem.push(rota);
+      continue;
+    }
+    expect(recurso["@context"], rota).toBe("https://schema.org");
+    expect(recurso.name, rota).toBe(t.name);
+    expect(recurso.description, rota).toBe(t.description);
+    expect(recurso.url, rota).toBe(urlAbsoluta(rota));
+    expect(recurso.inLanguage, rota).toBe("pt-BR");
+    // O selo de nível e o de tempo de leitura estão na tela, em `.topic-chips`.
+    expect(recurso.educationalLevel, rota).toBe(t.level);
+    if (t.readingTime) {
+      const minutos = t.readingTime.match(/^(\d+)\s*min$/)![1];
+      expect(recurso.timeRequired, rota).toBe(`PT${minutos}M`);
+    } else {
+      expect(recurso.timeRequired, `${rota}: sem tempo na tela, sem timeRequired`).toBeUndefined();
+    }
+    // `language` do tópico é a linguagem do CÓDIGO ("Python"), não o idioma.
+    if (t.language) expect(recurso.programmingLanguage, rota).toBe(t.language);
+    else expect(recurso.programmingLanguage, rota).toBeUndefined();
+    expect((recurso.about as No | undefined)?.name, rota).toBe(t.group);
+  }
+  expect(sem, `${sem.length} de ${ALL_TOPICS.length} tópicos sem LearningResource`).toEqual([]);
+});
+
+test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
+  const lista = doTipo(jsonLd("/roadmap/"), "ItemList");
+  expect(lista, "/roadmap/ sem ItemList").toBeTruthy();
+  expect(lista!.numberOfItems).toBe(ALL_TOPICS.length);
+  const itens = lista!.itemListElement as No[];
+  expect(itens.map((i) => i.name)).toEqual(ALL_TOPICS.map((t) => t.name));
+  expect(itens.map((i) => i.url)).toEqual(
+    ALL_TOPICS.map((t) => urlAbsoluta(`/topico/${t.slug}/`))
+  );
+  expect(itens.map((i) => i.position)).toEqual(ALL_TOPICS.map((_, i) => i + 1));
+});
+
+test("o JSON-LD do tópico não promete vídeo, que é o que falta para o VideoObject", () => {
+  // `VideoObject` exige `uploadDate`, que não existe no type `Topic`. Marcar o
+  // vídeo sem ele é marcação inválida; marcar com data inventada é pior.
+  const comVideo = ALL_TOPICS.find((t) => t.youtube)!;
+  const nos = jsonLd(`/topico/${comVideo.slug}/`);
+  expect(doTipo(nos, "VideoObject"), "VideoObject só entra quando houver uploadDate").toBeUndefined();
+});
+
