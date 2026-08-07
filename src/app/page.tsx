@@ -6,6 +6,7 @@ import {
   TOTAL_LEETCODE_PROBLEMS,
   TOTAL_PROBLEMS,
   TOTAL_TOPICS,
+  TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
 } from "@content/roadmap";
 import { LINKS } from "@/lib/links";
@@ -14,12 +15,20 @@ import { levelClass } from "@/lib/ui";
 
 // Os números saem do roadmap.ts (fonte única) em vez de escritos à mão: tópico
 // novo já entra no título e no card sem ninguém lembrar de atualizar o SEO.
+//
+// São DOIS números, e a escolha é frase a frase. `TOTAL_TOPICS` é o tamanho da
+// trilha, o que o roadmap mapeia: continua certo no título e no card de
+// estatística ("tópicos no roadmap"). `TOTAL_TOPICS_PRONTOS` é quem tem material
+// para o aluno abrir, e é ele que vale em toda frase que QUALIFICA os tópicos
+// pelo que eles entregam. Os 11 de diferença não têm vídeo, artigo nem
+// visualização: são exatamente os que o próprio site marca "em breve" e tira do
+// índice do Google, pela mesma `isEmptyTopic` de onde a constante deriva.
 export function generateMetadata(): Metadata {
   return pageMetadata({
     title: `Algoritmos e Estruturas de Dados: Guia Visual com ${TOTAL_TOPICS} Tópicos`,
-    description: `O guia mais completo de algoritmos e estruturas de dados em português: ${TOTAL_TOPICS} tópicos com visualização passo a passo, código Python e problemas do LeetCode para entrevistas. Grátis.`,
+    description: `O guia mais completo de algoritmos e estruturas de dados em português: ${TOTAL_TOPICS_PRONTOS} tópicos com visualização passo a passo, código Python e problemas do LeetCode para entrevistas. Grátis.`,
     ogTitle: "O maior guia visual de Algoritmos e Estruturas de Dados",
-    ogDescription: `${TOTAL_TOPICS} tópicos com o algoritmo rodando passo a passo, código em Python, vídeo e ${TOTAL_LEETCODE_PROBLEMS} problemas do LeetCode. Grátis, para sempre.`,
+    ogDescription: `${TOTAL_TOPICS_PRONTOS} tópicos com o algoritmo rodando passo a passo, código em Python, vídeo e ${TOTAL_LEETCODE_PROBLEMS} problemas do LeetCode. Grátis, para sempre.`,
     path: "/",
   });
 }
@@ -45,9 +54,9 @@ export default function Home() {
         <span className="hero-badge">Feito pela comunidade Craft &amp; Code Club · 100% grátis · open source</span>
         <h1><span className="accent">Visualização</span> e aprofundamento em cada estrutura</h1>
         <p>
-          O maior guia visual de algoritmos e estruturas de dados em português. Cada tópico traz o texto, o algoritmo
-          animado passo a passo com o código sincronizado, vídeo e uma lista de problemas do
-          LeetCode e do GeeksforGeeks.
+          O maior guia visual de algoritmos e estruturas de dados em português. Nos {TOTAL_TOPICS_PRONTOS} tópicos
+          já publicados você encontra o texto, o algoritmo animado passo a passo com o código
+          sincronizado, vídeo e uma lista de problemas do LeetCode e do GeeksforGeeks.
         </p>
         <div className="hero-actions">
           <Link href="/topico/big-o" className="btn btn-primary">
