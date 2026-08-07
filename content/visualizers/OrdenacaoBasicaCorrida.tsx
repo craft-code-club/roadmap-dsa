@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 import { ALGOS, NAMES, PRESETS, cost, inversions, type Algorithm } from "./OrdenacaoBasicaVisualizer";
 
 // ---------------------------------------------------------------------------
@@ -22,6 +23,11 @@ import { ALGOS, NAMES, PRESETS, cost, inversions, type Algorithm } from "./Orden
 // bubble paga 2 escritas por inversão, insertion paga 1 por inversão mais as
 // n - 1 colocações, e o selection não paga por inversão nenhuma. Sem ela as
 // barras seriam só três números bonitos sem explicação.
+//
+// Sobre a casca: `total: 1` e `collapsible: false`. Não há passo a passo nem
+// bloco dispensável — as seis barras e a lei das inversões SÃO o conteúdo. É a
+// peça da rodada em que a régua de 1512x900 mais engana: ali ela cabe (727px de
+// 816) e a 1440x700 passa do orçamento (748 de 616), que é o corolário da §3.
 // ---------------------------------------------------------------------------
 
 type Row = { algo: Algorithm; comps: number; writes: number };
@@ -53,21 +59,25 @@ export function OrdenacaoBasicaCorrida() {
   const floor = n - 1;
   const ceiling = (n * (n - 1)) / 2;
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · o mesmo array custa três preços diferentes</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {inv} inversões na entrada · piso {floor}, teto {ceiling} comparações
-          </span>
-        </div>
-      </div>
+  const viz = useVisualizer({
+    title: "Visualizador · o mesmo array custa três preços diferentes",
+    // Sem linha do tempo: a variável é a entrada, e as seis barras respondem juntas.
+    total: 1,
+    // Sem bloco dispensável: as barras e a lei das inversões são o conteúdo.
+    collapsible: false,
+  });
 
-      <div className="viz-body">
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem "passo N de M": entra o número que resume o estado, com o rótulo
+          junto, como manda a §6 do contrato. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {inv} inversões na entrada · piso {floor}, teto {ceiling} comparações
+        </span>
+      </VizHeader>
+
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
@@ -124,6 +134,9 @@ export function OrdenacaoBasicaCorrida() {
           não são intercambiáveis: O(n²) é o teto, não a conta.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o rodapé não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }
