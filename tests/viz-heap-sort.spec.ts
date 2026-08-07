@@ -272,6 +272,7 @@ test.describe("heap-sort", () => {
             passos: number;
             erros: string[];
             comparacoes: number[];
+            primeiroArr: number[];
             ultimoArr: number[];
             ultimoOrdenado: string;
           }>((resolve) => {
@@ -281,6 +282,7 @@ test.describe("heap-sort", () => {
             ) as HTMLButtonElement;
             const erros: string[] = [];
             const comparacoes: number[] = [];
+            let primeiroArr: number[] = [];
             let ultimoArr: number[] = [];
             let ultimoOrdenado = "";
 
@@ -306,6 +308,22 @@ test.describe("heap-sort", () => {
               if (!c) throw new Error(`nao achei o cartao "${nome}"`);
               return c.querySelector("strong")!.textContent!.trim();
             };
+            // A célula é `<span class="hp-cel"><i>4</i>6</span>`: o índice mora
+            // no <i> e o VALOR é um nó de texto irmão, sem elemento próprio.
+            // `textContent` concatena os dois ("46"), e fatiar isso com
+            // `replace(/^\d+/, "")` come a string inteira: o regex é guloso e
+            // não sabe onde o índice termina. Sobrava "" e `parseInt` devolvia
+            // NaN em TODAS as células. Descer até o nó do valor é o que faz a
+            // leitura existir.
+            const valorDe = (c: Element) =>
+              parseInt(
+                [...c.childNodes]
+                  .filter((x) => x.nodeType === 3)
+                  .map((x) => x.textContent ?? "")
+                  .join("")
+                  .trim(),
+                10
+              );
 
             const ler = () => {
               const { i } = contador();
@@ -335,7 +353,13 @@ test.describe("heap-sort", () => {
                 erros.push(`passo ${i}: o cartao de tamanho diz ${statDe("tamanho do array")}`);
 
               comparacoes.push(parseInt(statDe("comparações"), 10));
-              ultimoArr = celulas.map((c) => parseInt(c.textContent!.replace(/^\d+/, ""), 10));
+              const valores = celulas.map(valorDe);
+              if (valores.some((v) => Number.isNaN(v)))
+                erros.push(
+                  `passo ${i}: li NaN no array: "${celulas.map((c) => c.textContent).join("|")}"`
+                );
+              if (!primeiroArr.length) primeiroArr = valores;
+              ultimoArr = valores;
               ultimoOrdenado = `${ordenados} de ${tamanho}`;
             };
 
@@ -345,7 +369,7 @@ test.describe("heap-sort", () => {
               ler();
               k++;
               if (k >= total) {
-                resolve({ passos: total, erros, comparacoes, ultimoArr, ultimoOrdenado });
+                resolve({ passos: total, erros, comparacoes, primeiroArr, ultimoArr, ultimoOrdenado });
                 return;
               }
               prox.click();
@@ -365,9 +389,17 @@ test.describe("heap-sort", () => {
       expect(recuos, "o contador de comparacoes andou para tras").toEqual([]);
 
       // E no fim o array está ordenado, com a fronteira cobrindo tudo.
+      //
+      // Esta é a TESE da peça, e até aqui ela não era verificada: a leitura do
+      // valor da célula devolvia NaN, e `[NaN, NaN]` é igual a `[NaN, NaN]`
+      // ordenado, então a asserção passava com qualquer coisa na tela. Agora o
+      // array final tem que ser o PRIMEIRO ordenado, o que exige as duas
+      // coisas de uma vez: mesma multiplicidade de valores e ordem crescente.
+      expect(leitura.ultimoArr.filter((v) => Number.isNaN(v)), "li NaN no lugar do valor").toEqual([]);
+      expect(leitura.primeiroArr.length, "o array de entrada nao foi lido").toBeGreaterThan(1);
       expect(leitura.ultimoOrdenado).toBe(`${leitura.ultimoArr.length} de ${leitura.ultimoArr.length}`);
       expect(leitura.ultimoArr, "o heap sort terminou com o array fora de ordem").toEqual(
-        [...leitura.ultimoArr].sort((a, b) => a - b)
+        [...leitura.primeiroArr].sort((a, b) => a - b)
       );
     });
   });
