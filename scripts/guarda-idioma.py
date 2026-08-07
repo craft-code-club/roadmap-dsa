@@ -127,7 +127,7 @@ def comparar(antes: dict, depois: dict, recuo: str = "") -> bool:
 
 def main() -> None:
     if len(sys.argv) != 3:
-        morrer("uso: guarda-idioma.py <antes> <depois>  (arquivo ou diretório)")
+        morrer("uso: python3 scripts/guarda-idioma.py <antes> <depois>  (arquivo ou diretório)")
 
     a, d = Path(sys.argv[1]), Path(sys.argv[2])
     for p in (a, d):
