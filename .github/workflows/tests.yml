@@ -1,9 +1,20 @@
 name: Tests
 
+# `push: branches: ["main"]` saía daqui, e sair é o conserto.
+#
+# Este workflow e o `cloudflare-pages-deploy.yml` disparavam os DOIS em push
+# para a `main`, em paralelo, sem um único `needs` entre eles. Medido no push do
+# merge do #44: o deploy terminou às 03:13:17 e a suíte só às 03:17:37. São
+# 4m20 em que a página quebrada já estava no ar e o Playwright ainda estava
+# rodando. E não havia rede embaixo: `branches/main/protection` responde
+# "Branch not protected".
+#
+# Quem testa a `main` agora é o job `test` do `cloudflare-pages-deploy.yml`,
+# entre o `build` e o `deploy`, contra o MESMO artefato que vai ao ar. Aqui
+# ficou o portão do Pull Request, que constrói por conta própria: PR de fork não
+# recebe artefato, e o preview do revisor não deve esperar a suíte para aparecer.
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -16,6 +27,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Histórico completo. Num clone raso o `git log <caminho>` não falha,
+          # ele devolve a data do HEAD para todo mundo — e este job CONSTRÓI,
+          # então qualquer data derivada do histórico (o `lastmod` do sitemap)
+          # sairia igual nas 40 URLs, sem sinal nenhum de que está errada.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -42,3 +59,107 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 5
+
+  # Os guardas em Python existiam no repositório e não rodavam em lugar nenhum:
+  # `grep -rn guarda .github/ package.json` devolvia zero, e não há `.husky/`.
+  # O `guarda-idioma.py` é NORMATIVO no `content/visualizers/README.md` §0, e a
+  # única defesa contra a aula traduzida por engano era alguém lembrar de rodar
+  # um script à mão.
+  #
+  # Job separado de propósito: são segundos, roda em paralelo com a suíte e não
+  # entra no caminho crítico do PR.
+  guardas:
+    runs-on: ubuntu-latest
+    name: Guardas (lint e idioma na tela)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Obrigatório aqui, não é preferência: o guarda de idioma compara
+          # DUAS versões do mesmo arquivo, e o lado de lá é a base do PR. Num
+          # clone raso o `git archive <base>` nem encontra o objeto.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      # O motor do guarda (`scripts/extrai-textos-tsx.mjs`) importa `typescript`,
+      # que já é devDependency do projeto.
+      - name: Install dependencies
+        run: npm ci
+
+      # PORTÃO. Reprova por ERRO; aviso aparece no log e não reprova. A
+      # calibragem por regra, com o passivo medido, está no `eslint.config.mjs`.
+      - name: ESLint
+        run: npm run lint
+
+      # PORTÃO. Reprova o PR se a suíte do próprio guarda reprovar.
+      #
+      # O arquivo chega no PR #45, que reescreveu o guarda inteiro (fachada
+      # Python + analisador Node com a AST do TypeScript) e trouxe 11 fixtures.
+      # Enquanto ele não mergear, este passo AVISA que não olhou nada, em vez de
+      # passar calado — guarda que parece varredura e é opt-in silencioso já
+      # custou caro neste repositório.
+      - name: Suíte do próprio guarda de idioma
+        run: |
+          if [ ! -f scripts/testa-guarda-idioma.py ]; then
+            echo "::warning title=guarda de idioma::scripts/testa-guarda-idioma.py não existe nesta ref. A suíte do guarda entra sozinha quando o PR #45 mergear. Até lá, este passo NÃO olhou nada."
+            echo "⚠️ Suíte do guarda de idioma: **não rodou** (o arquivo chega no PR #45)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/testa-guarda-idioma.py
+
+      # RELATÓRIO, não portão — e a distinção é o ponto.
+      #
+      # O guarda responde "o texto de tela mudou entre estas duas versões?". Num
+      # PR de conteúdo a resposta "mudou" é legítima metade das vezes, então sair
+      # 1 aqui NÃO pode reprovar: um portão que acusa o trabalho normal é
+      # desligado na semana seguinte. O que ele entrega é a lista do que entrou e
+      # do que saiu da TELA, no resumo do job, que é justamente o que ninguém
+      # consegue extrair de um diff de 4 mil linhas a olho.
+      #
+      # Sai 2 quando o próprio guarda não conseguiu rodar; isso aparece no log
+      # como aviso, e continua sem reprovar.
+      # Roda em PR e em `workflow_dispatch`: no PR o lado de lá é a base do PR,
+      # no dispatch é o ponto em que a branch saiu da `main`. Dá para um
+      # mantenedor disparar isto em qualquer branch e ver o que mexeu na tela.
+      - name: O que mudou na tela dos visualizadores (relatório)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # O guarda desta ref (3ª versão, a de regex) só aceita ARQUIVO dos
+          # dois lados: apontar um diretório para ele estoura em
+          # `IsADirectoryError` e sai 1, que é o mesmo código de "o texto
+          # mudou". Ler traceback como achado é pior que não relatar, então o
+          # relatório por diretório só liga com o guarda do #45, que tem esse
+          # modo e o motor Node ao lado.
+          if [ ! -f scripts/extrai-textos-tsx.mjs ]; then
+            echo "::warning title=guarda de idioma::o relatório de texto de tela exige o guarda por diretório do PR #45. Nesta ref ele NÃO rodou."
+            echo "⚠️ Relatório de texto de tela: **não rodou** (depende do guarda por diretório do PR #45)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          base="${BASE_SHA:-$(git merge-base origin/main HEAD)}"
+          echo "comparando com $base"
+          rm -rf /tmp/antes && mkdir -p /tmp/antes
+          git archive "$base" content/visualizers | tar -x -C /tmp/antes
+          set +e
+          saida=$(python3 scripts/guarda-idioma.py /tmp/antes/content/visualizers content/visualizers 2>&1)
+          codigo=$?
+          set -e
+          echo "$saida"
+          {
+            echo "### Texto de tela dos visualizadores (guarda de idioma, informativo)"
+            echo
+            case "$codigo" in
+              0) echo "Nada mudou na tela. Se este PR renomeou identificador, é exatamente o resultado esperado." ;;
+              1) echo "Texto de tela **mudou**. Isso é legítimo em PR de conteúdo; num PR de _rename_ é defeito." ;;
+              *) echo "O guarda **não conseguiu rodar** (código $codigo). Não reprova, mas também não olhou nada." ;;
+            esac
+            echo
+            echo '```'
+            echo "$saida"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
