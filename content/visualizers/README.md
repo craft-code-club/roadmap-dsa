@@ -793,7 +793,7 @@ Duas armadilhas medidas ao escrever esses testes:
   que `scrollHeight - clientHeight` passa de zero; senão o dia em que a peça
   encolher o teste vira decoração verde.
 
-E rode cada teste novo **contra o código quebrado** antes de confiar nele. Duas
+E rode cada teste novo **contra o código quebrado** antes de confiar nele. Três
 regras que custaram caro:
 
 - **Nunca silencie o build nessa hora.** Os testes rodam contra `out/`, e um
@@ -801,6 +801,20 @@ regras que custaram caro:
   navegador, o teste passa, e você conclui que o teste é inútil quando o inútil
   foi o experimento. Escolha uma quebra que **compile** (inverter uma condição,
   não acrescentar um `return` que deixa código inalcançável).
+- **`preventDefault()` sem `stopPropagation()` não tira a tecla de ninguém**, e
+  a quebra que conta com isso sai **inerte**. Os atalhos do painel são um
+  listener de **captura** no `document`
+  (`document.addEventListener("keydown", onKey, true)`, hoje em
+  `src/lib/visualizer.tsx:390`) que chama `preventDefault()` e segue: nada ali
+  interrompe a propagação, então o `onKeyDown` do React no seu elemento dispara
+  igual. **Peça com teclado próprio — canvas, slider — não perde a tecla para o
+  hook; ela ganha um `stepBy` invisível por cima.** Medido no gráfico do Big O:
+  quebrar `const hasSteps = total > 1` (`src/lib/visualizer.tsx:162`) para
+  `total >= 1`, esperando que o hook roubasse as setas de um canvas
+  `role="slider"`, saiu **0 failed / 5 passed** — o marcador andou como sempre.
+  Para provar que uma tecla é do componente, a quebra tem de estar **no
+  componente**; e quando a sua sair inerte, suspeite do experimento antes de
+  suspeitar do teste.
 - Use `npm run test:build`. `npm test` sozinho exercita o build anterior.
 
 E dois jeitos de escrever um teste **vazio** desta casca, os dois medidos aqui,
