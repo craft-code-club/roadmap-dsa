@@ -328,6 +328,26 @@ test.describe("quick sort", () => {
     await expect(painelTres(fig).locator(".ms-seg.pivo")).toHaveText("= pivô, 8 já resolvidos");
   });
 
+  test("três vias: sem repetição a faixa do meio tem um elemento só, e a frase concorda", async ({
+    page,
+  }) => {
+    await abrirPagina(page, 1512, 900);
+    const fig = figTresVias(page);
+    await fig.getByRole("button", { name: /Sem repetição/ }).click();
+
+    // Sem repetidos, a faixa dos iguais é só o pivô: singular, no rótulo que
+    // existe justamente para mostrar o contraponto honesto da técnica.
+    await expect(painelTres(fig).locator(".ms-seg.pivo")).toHaveText("= pivô, 1 já resolvido");
+    // A moldura volta a valer, com os dois subproblemas que de fato sobraram.
+    await expect(painelTres(fig).locator(".bb-formula-fim")).toHaveText(
+      "Depois da primeira partição sobram 1 e 6 elementos para a recursão resolver."
+    );
+    // E a de duas vias, na mesma tela, com a mesma moldura e outros números.
+    await expect(painelDuas(fig).locator(".bb-formula-fim")).toHaveText(
+      "Depois da primeira partição sobram 1 e 6 elementos para a recursão resolver."
+    );
+  });
+
   test("no artigo a peça recolhida cabe no orçamento de uma tela", async ({ page }) => {
     await abrirPagina(page, 1512, 900);
     const fig = figArtigo(page);

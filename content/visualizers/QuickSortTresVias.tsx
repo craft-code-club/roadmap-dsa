@@ -145,7 +145,16 @@ function tresVias(valores: number[]): Resultado {
       primeira = [...a];
       regioes = [];
       if (lt > lo) regioes.push({ de: lo, ate: lt - 1, cls: "menor", txt: "< pivô, volta para a recursão" });
-      regioes.push({ de: lt, ate: gt, cls: "pivo", txt: `= pivô, ${gt - lt + 1} já resolvidos` });
+      // A faixa do meio tem um elemento só quando não há repetidos do pivô, que
+      // é justamente o preset "Sem repetição": sem a concordância, a tela dizia
+      // "1 já resolvidos" bem no exemplo que existe para mostrar o contraponto.
+      const iguais = gt - lt + 1;
+      regioes.push({
+        de: lt,
+        ate: gt,
+        cls: "pivo",
+        txt: `= pivô, ${iguais} já resolvido${iguais === 1 ? "" : "s"}`,
+      });
       if (hi > gt) regioes.push({ de: gt + 1, ate: hi, cls: "maior", txt: "> pivô, volta para a recursão" });
       restantes = [lt - lo, hi - gt].filter((x) => x > 0);
     }
