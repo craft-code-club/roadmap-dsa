@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import type { MetadataRoute } from "next";
 import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 import { SITE_URL } from "@/lib/links";
@@ -43,17 +45,41 @@ export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly stri
 // que é exatamente o `lastmod` que o Google aprendeu a ignorar. Sem o campo é
 // melhor que com o campo falso, então aqui ele simplesmente não sai — e volta a
 // sair sozinho no dia em que o workflow buscar o histórico (`fetch-depth: 0`).
-const historicoDisponivel = (() => {
-  try {
-    const raso = execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    return raso === "false";
-  } catch {
-    return false; // sem git, ou fora de um repositório
-  }
-})();
+//
+// A pergunta é respondida pelo ARQUIVO `shallow` do diretório do Git, e não por
+// `git rev-parse --is-shallow-repository`. É a mesma informação (o comando é
+// literalmente "esse arquivo existe?"), e a diferença é que ler o disco não pode
+// falhar por carga da máquina. O subprocesso pode: um `execFileSync` devolve
+// EAGAIN quando o runner está saturado, e aí o `catch` responde "raso" para uma
+// pergunta que nunca chegou a ser feita. Foi assim que a suíte reprovou na CI
+// com o sitemap CERTO — o build tinha histórico e as datas saíram variadas, e o
+// teste, que fazia a mesma pergunta pelo mesmo caminho, ouviu "raso" e cobrou
+// a ausência do campo.
+//
+// Por isso também é EXPORTADA: o teste importa esta função em vez de repetir a
+// decisão do seu lado. Dois predicados para a mesma decisão é o defeito que este
+// arquivo existe para consertar, e ele tinha voltado dentro do próprio teste.
+function diretorioDoGit(raiz: string): string | undefined {
+  const dotGit = path.join(raiz, ".git");
+  if (!existsSync(dotGit)) return undefined;
+  if (statSync(dotGit).isDirectory()) return dotGit;
+  // Worktree ligada: `.git` é um arquivo com `gitdir: <caminho>`, e o marcador
+  // `shallow` mora no diretório COMUM, apontado pelo arquivo `commondir`.
+  const gitdir = readFileSync(dotGit, "utf8").match(/^gitdir:\s*(.+)$/m)?.[1]?.trim();
+  if (!gitdir) return undefined;
+  const dir = path.resolve(raiz, gitdir);
+  const commondir = path.join(dir, "commondir");
+  return existsSync(commondir) ? path.resolve(dir, readFileSync(commondir, "utf8").trim()) : dir;
+}
+
+/** `true` quando o histórico não dá para distinguir um caminho do outro. */
+export function historicoRaso(): boolean {
+  const dir = diretorioDoGit(process.cwd());
+  if (!dir) return true; // sem repositório, nenhuma data é derivável
+  return existsSync(path.join(dir, "shallow"));
+}
+
+const historicoDisponivel = !historicoRaso();
 
 // Um `git log` por caminho, e não por consulta. São 48 chamadas para montar o
 // sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,

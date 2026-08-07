@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { LINKS, SITE_URL } from "../src/lib/links";
-import { CONTEUDO_DA_ROTA } from "../src/app/sitemap";
+import { CONTEUDO_DA_ROTA, historicoRaso } from "../src/app/sitemap";
 
 // Estrutura de SEO do site inteiro: canonical, sitemap e dados estruturados.
 //
@@ -229,19 +229,6 @@ test("o sitemap lista exatamente as rotas indexáveis, nem mais nem menos", () =
   expect(doSitemap).toEqual(esperadas);
 });
 
-/** O clone raso do `actions/checkout` responde a mesma data para todo caminho. */
-function repositorioRaso(): boolean {
-  try {
-    const r = execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    return r.trim() !== "false";
-  } catch {
-    return true; // sem git, sem data derivável
-  }
-}
-
 function dataDoGit(arquivo: string): string {
   return execFileSync("git", ["log", "-1", "--format=%cI", "--", arquivo], {
     encoding: "utf8",
@@ -265,7 +252,7 @@ function dataEsperada(arquivos: readonly string[]): number | undefined {
 
 test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const xml = sitemap();
-  if (repositorioRaso()) {
+  if (historicoRaso()) {
     // Num clone `--depth 1` o `git log` de QUALQUER caminho devolve o commit do
     // HEAD: as 40 URLs sairiam com a data do último deploy, que é justamente a
     // mentira que o Google já aprendeu a ignorar. Sem campo é melhor que campo
