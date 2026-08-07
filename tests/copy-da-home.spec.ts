@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ALL_TOPICS, TOTAL_TOPICS, isEmptyTopic } from "../content/roadmap";
 
 // A copy da home prometia "47 tópicos com visualização passo a passo, código
@@ -83,4 +85,50 @@ test("o total da trilha continua onde ele é verdade: título e card do roadmap"
   const cartao = page.locator(".stat").filter({ hasText: "tópicos no roadmap" });
   await expect(cartao).toHaveCount(1);
   await expect(cartao.locator(".stat-n")).toHaveText(`${TOTAL_TOPICS}`);
+});
+
+// ---------------------------------------------------------------------------
+// "open source" é verdade, e por isso tem que continuar dito.
+//
+// Este guarda já existiu ao contrário. Enquanto a licença era a PolyForm
+// Noncommercial 1.0.0 — que proíbe uso comercial e por isso NÃO é open source
+// pela definição da OSI —, um teste afirmava que a palavra não aparecia na
+// home. O PR #71 relicenciou o CÓDIGO como MIT, a premissa caiu, e a asserção
+// virou de lado: agora o risco não é prometer demais, é esconder algo
+// verdadeiro por hábito.
+//
+// A palavra aparece em TRÊS lugares, e é por isso que o teste olha os três: se
+// alguém consertar um e esquecer os outros, o site passa a dizer duas coisas
+// diferentes sobre a mesma licença. O terceiro é o card de compartilhamento
+// (`src/lib/og.tsx`), que já foi inventariado como "pendência a corrigir" na
+// época da PolyForm — ele agora está CERTO, e este teste é o bilhete para quem
+// for "consertá-lo" depois.
+//
+// Nota para quando o #71 estiver na `main`: o guarda mais forte é amarrar esta
+// copy ao arquivo `LICENSE`, reprovando se o repositório voltar a uma licença
+// que a OSI não reconhece. Não dá para escrever aqui ainda, porque nesta branch
+// o `LICENSE` ainda é o antigo e o teste nasceria vermelho.
+// ---------------------------------------------------------------------------
+
+const OG = join(__dirname, "..", "src", "lib", "og.tsx");
+
+test("a home diz 'open source' nos três lugares em que faz a afirmação", async ({ page }) => {
+  await page.goto("/");
+
+  // 1. O selo do topo. Pelo RÓTULO renderizado, não pelo HTML da fonte.
+  const selo = page.locator(".hero-badge");
+  await expect(selo).toHaveCount(1);
+  await expect(selo).toContainText("open source");
+
+  // 2. O rodapé. `.site-foot` é a mesma caixa que leva o link do GitHub, e a
+  //    frase é a legenda dele.
+  const rodape = page.locator(".site-foot .foot-text");
+  await expect(rodape).toContainText(/open source/i);
+
+  // 3. O card de compartilhamento. A imagem é gerada em build, então não há
+  //    DOM para ler: a fonte é o único lugar onde dá para afirmar isso.
+  expect(
+    readFileSync(OG, "utf-8"),
+    "src/lib/og.tsx perdeu o selo 'open source'; com MIT ele está correto e deve ficar"
+  ).toContain('"open source"');
 });
