@@ -243,6 +243,7 @@ test.describe("bellman-ford", () => {
       const { total } = await page.evaluate(passoAtual, ARTIGO);
       let fins = 0;
       let ultimaRodadaFechada = 0;
+      let prometidas = 0;
 
       for (let i = 1; i <= total; i++) {
         const tela = await page.evaluate((sel) => {
@@ -250,23 +251,36 @@ test.describe("bellman-ford", () => {
           const cab = [...f.querySelectorAll(".viz-step")].map((e) => e.textContent).join(" ");
           return {
             nota: f.querySelector(".viz-note")!.textContent!,
-            rodadaCab: parseInt(cab.match(/rodada (\d+)/)![1], 10),
+            // Pode ser um número ou a palavra "extra": a rodada de detecção não
+            // é uma das V-1 e não recebe número.
+            rodadaCab: cab.match(/rodada (\S+) ·/)![1],
             varRodada: f.querySelector(".viz-var .viz-var-val")!.textContent!,
             linhas: [...f.querySelectorAll(".bf-tab tbody tr > th")].map((e) => e.textContent!),
           };
         }, ARTIGO);
 
-        // O painel de variáveis e o cabeçalho contam a MESMA rodada. Invariante
-        // entre dois lugares da tela, sem nenhum número escrito na mão.
-        expect(tela.varRodada, `passo ${i}: cabecalho e painel discordam da rodada`).toMatch(
-          new RegExp(`^${tela.rodadaCab} de `)
-        );
+        // O painel de variáveis e o cabeçalho contam a MESMA rodada, nos dois
+        // lados da condicional. Invariante entre dois lugares da tela, sem
+        // nenhum número escrito na mão.
+        if (tela.rodadaCab === "extra") {
+          expect(tela.varRodada, `passo ${i}: a rodada extra virou fracao de novo`).toBe(
+            "extra (detecção)"
+          );
+          expect(tela.nota, `passo ${i}: o cabecalho diz extra e a nota nao`).toMatch(/^RODADA EXTRA/);
+        } else {
+          expect(tela.varRodada, `passo ${i}: cabecalho e painel discordam da rodada`).toMatch(
+            new RegExp(`^${tela.rodadaCab} de `)
+          );
+          // O denominador é V-1, e ele vem da TELA, num passo que é mesmo uma
+          // das rodadas numeradas.
+          prometidas = parseInt(tela.varRodada.match(/de (\d+)/)![1], 10);
+        }
 
         const fim = tela.nota.match(/^Fim da rodada (\d+)/);
         if (fim) {
           fins++;
           const n = parseInt(fim[1], 10);
-          expect(tela.rodadaCab, `passo ${i}: a nota fecha a rodada ${n} e o cabecalho diz outra`).toBe(n);
+          expect(tela.rodadaCab, `passo ${i}: a nota fecha a rodada ${n} e o cabecalho diz outra`).toBe(String(n));
           // A tabela guarda o histórico: uma linha "início", uma por rodada
           // fechada, e a linha "agora". A última numerada é a rodada da nota.
           const numeradas = tela.linhas.filter((t) => /^\d+$/.test(t));
@@ -286,11 +300,9 @@ test.describe("bellman-ford", () => {
 
       // E aqui está o número que eu ia escrever errado: o preset padrão promete
       // V-1 rodadas no painel ("N de 4") e para na 2, por early exit. Os dois
-      // números saem da TELA, não da minha cabeça.
-      const prometidas = await page.evaluate((sel) => {
-        const t = document.querySelector(`${sel} .viz-var .viz-var-val`)!.textContent!;
-        return parseInt(t.match(/de (\d+)/)![1], 10);
-      }, ARTIGO);
+      // números saem da TELA, não da minha cabeça — e o denominador foi lido num
+      // passo NUMERADO, porque o último não mostra mais fração nenhuma.
+      expect(prometidas, "nenhum passo numerado mostrou o total de rodadas").toBeGreaterThan(0);
       expect(fins, "nenhuma rodada fechou").toBeGreaterThan(0);
       expect(
         ultimaRodadaFechada,
@@ -299,6 +311,78 @@ test.describe("bellman-ford", () => {
       await expect(artigo.locator(".bf-tab tbody tr > th").nth(ultimaRodadaFechada)).toHaveText(
         String(ultimaRodadaFechada)
       );
+    });
+
+    // A rodada extra roda DEPOIS das V-1, então ela não é uma delas. O painel
+    // mostrava `{s.round} de {LABELS.length - 1}` com `round = V`, ou seja
+    // "5 de 4" — uma fração impossível, nos três presets. E o numerador nem era
+    // verdade: com early exit, dois dos três presets fecham a rodada 2.
+    //
+    // Os dois lados da condicional estão aqui: o passo numerado continua
+    // mostrando a fração, e o extra passa a se nomear.
+    test("a rodada extra se nomeia em vez de virar fracao, nos tres presets", async ({ page }) => {
+      expect(page.viewportSize()).toEqual({ width: 1512, height: 900 });
+      await abrirTopico(page);
+      const artigo = page.locator(ARTIGO);
+      const rodadaCab = artigo.locator(".viz-step").first();
+      // `hasText: "rodada"` casaria também o cartão "arestas por rodada": a
+      // âncora é o começo do texto do cartão, e a contagem prova que é um só.
+      const cartaoRodada = artigo.locator(".viz-var").filter({ hasText: /^rodada/ });
+      await expect(cartaoRodada).toHaveCount(1);
+      const rodadaVar = cartaoRodada.locator(".viz-var-val");
+
+      for (const preset of [
+        "Com peso negativo (funciona)",
+        "Ciclo negativo (detecta)",
+        "Só pesos positivos",
+      ]) {
+        await page.getByRole("button", { name: preset, exact: true }).click();
+        // A troca chegou à tela, e o passo voltou ao começo.
+        await expect(page.getByRole("button", { name: preset, exact: true })).toHaveAttribute(
+          "aria-pressed",
+          "true"
+        );
+
+        // Lado A: passo numerado, fração de verdade. O denominador é V-1 = 4.
+        await expect(rodadaCab).toHaveText("rodada 0 ·");
+        await expect(rodadaVar).toHaveText("0 de 4");
+        await artigo.getByRole("button", { name: "Próximo ›" }).click();
+        await expect(rodadaCab).toHaveText("rodada 1 ·");
+        await expect(rodadaVar).toHaveText("1 de 4");
+
+        // Lado B: o último passo, que é sempre a rodada extra.
+        await artigo.evaluate(async (f) => {
+          const esperar = () =>
+            new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+          for (let n = 0; n < 400; n++) {
+            const b = [...f.querySelectorAll("button")].find((x) =>
+              (x.textContent || "").includes("Próximo")
+            ) as HTMLButtonElement | undefined;
+            if (!b || b.disabled) break;
+            b.click();
+            await esperar();
+          }
+        });
+        // O laço chegou mesmo ao fim: sem isto a asserção seguinte pode estar
+        // olhando um passo do meio.
+        await expect(artigo.getByRole("button", { name: "Próximo ›" })).toBeDisabled();
+
+        await expect(rodadaVar, `${preset}: a fracao impossivel voltou`).toHaveText(
+          "extra (detecção)"
+        );
+        await expect(rodadaCab).toHaveText("rodada extra ·");
+        // O separador do §9 do contrato continua no fim: sem ele os dois
+        // `.viz-step` irmãos colam num texto só.
+        expect((await rodadaCab.textContent())!.trim().endsWith("·")).toBe(true);
+        await expect(artigo.locator(".viz-note")).toContainText("RODADA EXTRA");
+        // Nenhuma fração impossível sobrou no painel, em nenhum cartão.
+        await expect(artigo.locator(".viz-vars")).not.toContainText("5 de 4");
+        // E quem lê por leitor de tela ouve a mesma coisa que quem lê o painel.
+        await expect(artigo.locator("svg.tt-arv")).toHaveAttribute(
+          "aria-label",
+          /Bellman-Ford, rodada extra\./
+        );
+      }
     });
   });
 });

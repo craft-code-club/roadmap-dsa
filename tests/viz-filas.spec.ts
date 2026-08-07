@@ -346,11 +346,15 @@ test("o contador de movimentações separa a fila ingênua do buffer circular", 
 
   // Rótulo e valor no MESMO cartão: é o par que ensina, e é o par que um rename
   // com dois campos trocados de lugar quebraria sem o guarda de idioma acusar.
-  await expect(movs).toContainText("0");
+  // O `filter` prende o rótulo; o `<strong>` isola o valor, porque no card
+  // inteiro `toContainText("0")` passa com 10, 20 ou 70 — e "0 contra 7" é
+  // justamente o aha deste tópico.
+  const valorDe = (card: typeof movs) => card.locator("strong");
+  await expect(valorDe(movs)).toHaveText("0");
   await irAteOFim(peca);
   await expect(peca.locator(".viz-step")).toHaveText("passo 27 de 27");
-  await expect(movs).toContainText("7");
-  await expect(custo).toContainText("O(n)");
+  await expect(valorDe(movs)).toHaveText("7");
+  await expect(valorDe(custo)).toHaveText("O(n)");
   await expect(peca.locator(".viz-note")).toContainText("Repare no resíduo");
 
   // O mesmo roteiro no buffer circular: zero movimentação, e o custo muda de
@@ -358,7 +362,7 @@ test("o contador de movimentações separa a fila ingênua do buffer circular", 
   await peca.getByRole("button", { name: "buffer circular" }).click();
   await expect(peca.locator(".viz-step")).toHaveText("passo 1 de 27");
   await irAteOFim(peca);
-  await expect(movs).toContainText("0");
-  await expect(custo).toContainText("O(1)");
+  await expect(valorDe(movs)).toHaveText("0");
+  await expect(valorDe(custo)).toHaveText("O(1)");
   await expect(peca.locator(".viz-var").filter({ hasText: "devolvido" })).toContainText("B");
 });

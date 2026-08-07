@@ -50,23 +50,106 @@ async function medicaoTerminou(alvo: Locator) {
 }
 
 /**
+ * Sobra de rolagem do miolo (`scrollHeight - clientHeight`) medida depois de ela
+ * PARAR de mudar.
+ *
+ * O bloco recolhível abre com transição — `grid-template-rows` em 0.32s no
+ * `.viz-code-slot` (`globals.css`) —, e o `expect.poll` de altura que vem antes
+ * devolve assim que o conteúdo cruza o limiar, ou seja no MEIO da transição.
+ * Amostrada quadro a quadro a partir desse instante, a sobra deste painel sobe
+ * 14 → 19 → 20 → 22 e só assenta ~145ms depois.
+ *
+ * Ler ali congela um número que a rolagem seguinte já não obedece, e era daí que
+ * vinha a reprovação intermitente: com a máquina carregada o `poll` volta ainda
+ * mais cedo, e a sobra congelada saiu 6, 19 e 20 (e 0) contra os 22 reais.
+ *
+ * O critério de parada é o valor repetido em quadros consecutivos, e não uma
+ * espera fixa, que erra dos dois lados.
+ *
+ * O teto de quadros **reprova**, e não devolve o que leu por último. Devolver
+ * seria entregar ao teste um número ainda em movimento — exatamente o defeito
+ * que esta função existe para fechar —, e o teste seguinte reprovaria (ou
+ * passaria) por um motivo que não é o dele. Reprovando aqui, a mensagem já traz
+ * a última sobra observada e diz que ela não assentou.
+ *
+ * O teto é folgado de propósito: medido em 24 execuções sob carga (12
+ * repetições dos dois testes, 6 workers), a sobra assentou entre 5 e 10
+ * quadros — 18x abaixo do teto. Ele é rede de segurança, não caminho normal.
+ */
+const TETO_DE_QUADROS = 180;
+
+async function sobraAssentada(miolo: Locator): Promise<number> {
+  return miolo.evaluate(
+    (el, teto) =>
+      new Promise<number>((resolve, reject) => {
+        let anterior = -1;
+        let repetidos = 0;
+        let quadros = 0;
+        const olhar = () => {
+          const sobra = el.scrollHeight - el.clientHeight;
+          repetidos = sobra === anterior ? repetidos + 1 : 0;
+          anterior = sobra;
+          if (repetidos >= 5) resolve(sobra);
+          else if (++quadros >= teto)
+            reject(
+              new Error(
+                // O número sai do próprio contador, não do teto: assim ele não
+                // pode divergir da condição que o produziu.
+                `a sobra de rolagem do miolo não assentou em ${quadros} quadros; ` +
+                  `última leitura: ${sobra}px (scrollHeight ${el.scrollHeight}, clientHeight ${el.clientHeight})`
+              )
+            );
+          else requestAnimationFrame(olhar);
+        };
+        requestAnimationFrame(olhar);
+      }),
+    TETO_DE_QUADROS
+  );
+}
+
+/**
  * Rola o miolo até uma fração da sobra e só volta quando o navegador aplicou a
  * rolagem e pintou o quadro seguinte. Espera fixa aqui erra dos dois lados: é
  * lenta quando a máquina está livre e insuficiente quando ela está carregada.
  *
- * O retorno é o `scrollTop` REAL, e conferi-lo não é preciosismo: se a rolagem
- * não acontecer, "o cabeçalho não se mexeu" vira verdade à toa e o teste passa
- * sem ter testado nada.
+ * Devolve o alvo E o `scrollTop` real, os dois do MESMO instante: o alvo sai da
+ * sobra lida na linha que aplica a rolagem, não de uma medição anterior. É a
+ * mesma forma que o `viz-intervals.spec.ts` já usa, e pelo mesmo motivo — quem
+ * compara o real contra uma sobra medida antes do laço mede outra coisa, porque
+ * a sobra muda entre as duas leituras.
+ *
+ * O real continua sendo o que importa: se a rolagem não acontecer, "o cabeçalho
+ * não se mexeu" vira verdade à toa e o teste passa sem ter testado nada.
  */
-async function rolarMiolo(miolo: Locator, fracao: number): Promise<number> {
+async function rolarMiolo(miolo: Locator, fracao: number): Promise<{ alvo: number; real: number }> {
   return miolo.evaluate(
     (el, f) =>
-      new Promise<number>((resolve) => {
-        el.scrollTop = (el.scrollHeight - el.clientHeight) * f;
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve(el.scrollTop)));
+      new Promise<{ alvo: number; real: number }>((resolve) => {
+        const alvo = (el.scrollHeight - el.clientHeight) * f;
+        el.scrollTop = alvo;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => resolve({ alvo, real: el.scrollTop }))
+        );
       }),
     fracao
   );
+}
+
+/**
+ * A rolagem chegou onde foi pedida, e aconteceu de verdade.
+ *
+ * O 1px de folga é para o arredondamento sub-pixel do `scrollTop`, não para a
+ * sobra ter mudado no meio do caminho — medido em 120 rolagens, o desvio entre
+ * alvo e real foi 0 ou 0,5px, nunca mais que isso. Afrouxar este número seria
+ * justamente parar de pegar o defeito que o teste existe para pegar.
+ *
+ * A segunda asserção é a que fecha a porta do verde à toa: num miolo parado no
+ * topo, "o cabeçalho não se mexeu" é verdade sem rolagem nenhuma. A metade da
+ * proporção é folga de sobra, para ela não virar a mesma armadilha do alvo.
+ */
+function conferirRolagem(rolagem: { alvo: number; real: number }, sobra: number, destino: number) {
+  expect(Math.abs(rolagem.real - rolagem.alvo)).toBeLessThanOrEqual(1);
+  expect(rolagem.real).toBeGreaterThan(sobra * destino * 0.5);
 }
 
 async function expandir(page: Page, n: number) {
@@ -94,8 +177,11 @@ test("rotate expandido: cabeçalho e rodapé não se mexem quando o miolo rola a
   await expect.poll(() => altura(p.locator(".viz-code"))).toBeGreaterThan(100);
 
   const miolo = p.locator(".viz-body");
-  const sobra = await miolo.evaluate((el) => el.scrollHeight - el.clientHeight);
-  // Sem sobra o teste não prova nada: ele precisa de conteúdo para rolar.
+  // Sem sobra o teste não prova nada: ele precisa de conteúdo para rolar. E a
+  // medição espera a transição do bloco de código terminar, senão ela lê o meio
+  // do caminho — inclusive o zero, que já reprovou aqui com o painel inteiro em
+  // ordem.
+  const sobra = await sobraAssentada(miolo);
   expect(sobra).toBeGreaterThan(0);
 
   const cabeca = p.locator(".viz-head");
@@ -112,8 +198,7 @@ test("rotate expandido: cabeçalho e rodapé não se mexem quando o miolo rola a
   // em vez de olhar só o instante depois de uma espera fixa.
   const desvios: number[] = [];
   for (const destino of [0.25, 0.5, 0.75, 1]) {
-    const real = await rolarMiolo(miolo, destino);
-    expect(Math.abs(real - sobra * destino)).toBeLessThanOrEqual(1);
+    conferirRolagem(await rolarMiolo(miolo, destino), sobra, destino);
     desvios.push(
       Math.abs((await cabeca.boundingBox())!.y - antes.cabeca),
       Math.abs((await rodape.boundingBox())!.y - antes.rodape),
@@ -337,15 +422,16 @@ test("bytes expandido: o cabeçalho fica parado enquanto a tabela aberta rola", 
   await expect.poll(() => altura(p.locator(".str-scroll"))).toBeGreaterThan(400);
 
   const miolo = p.locator(".viz-body");
-  const sobra = await miolo.evaluate((el) => el.scrollHeight - el.clientHeight);
+  // Mesma armadilha do teste do rotate: a tabela também abre com transição, e
+  // ler a sobra antes de ela assentar congela um número do meio do caminho.
+  const sobra = await sobraAssentada(miolo);
   expect(sobra).toBeGreaterThan(0);
 
   const cabeca = p.locator(".viz-head");
   const antes = (await cabeca.boundingBox())!.y;
   const desvios: number[] = [];
   for (const destino of [0.34, 0.67, 1]) {
-    const real = await rolarMiolo(miolo, destino);
-    expect(Math.abs(real - sobra * destino)).toBeLessThanOrEqual(1);
+    conferirRolagem(await rolarMiolo(miolo, destino), sobra, destino);
     desvios.push(Math.abs((await cabeca.boundingBox())!.y - antes));
   }
   expect(Math.max(...desvios)).toBeLessThanOrEqual(1);

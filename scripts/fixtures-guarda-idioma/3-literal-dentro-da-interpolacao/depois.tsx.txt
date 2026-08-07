@@ -1,0 +1,8 @@
+"use client";
+// Buraco da 2ª versão: a interpolação era apagada INTEIRA, e ternário dentro de
+// `${...}` é como metade das notas deste repo escolhe entre singular e plural.
+export function passo(cap: number, n: number) {
+  return `Array cheio (${n} de ${cap}): o próximo insert vai ${
+    n === cap ? "reservar a capacity certa" : "usar o espaço que sobra"
+  }.`;
+}

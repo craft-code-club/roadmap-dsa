@@ -159,9 +159,12 @@ test("árvore: mostrar o código sobrevive à troca de modo", async ({ page }) =
   await abrirPagina(page, 1440, 700);
   const fig = await figura(page, ARVORE);
   const cartao = fig.locator(".bigo-stat", { hasText: "nós da árvore inteira" });
+  // O card concatena rótulo e valor num nó só ("nós da árvore inteira8"), então
+  // `toContainText("8")` passa com 18 ou 80. O <strong> guarda só o número.
+  const valor = cartao.locator("strong");
 
   await expect(fig).toHaveAttribute("data-codigo", "off");
-  await expect(cartao).toContainText("8");
+  await expect(valor).toHaveText("8");
 
   await fig.locator(".viz-toggle-codigo").click();
   await expect(fig).toHaveAttribute("data-codigo", "on");
@@ -171,7 +174,7 @@ test("árvore: mostrar o código sobrevive à troca de modo", async ({ page }) =
   await fig.locator("button", { hasText: "Combinações de 2 entre 1, 2, 3, 4" }).click();
   // A troca aconteceu mesmo na tela: rótulo e valor no MESMO cartão.
   await expect(cartao).toContainText("nós da árvore inteira");
-  await expect(cartao).toContainText("10");
+  await expect(valor).toHaveText("10");
 
   await expect(fig).toHaveAttribute("data-codigo", "on");
   await expect(fig.locator(".viz-toggle-codigo")).toHaveText("Ocultar código");
@@ -181,10 +184,12 @@ test("sudoku: mostrar o código sobrevive à troca de preset", async ({ page }) 
   await abrirPagina(page, 1440, 700);
   const fig = await figura(page, SUDOKU);
   const cartao = fig.locator(".bigo-stat", { hasText: "lacunas do tabuleiro" });
+  // Mesmo motivo do teste acima: no card inteiro, "11" passa com 11, 110 ou 211.
+  const valor = cartao.locator("strong");
 
   await expect(fig).toHaveAttribute("data-codigo", "off");
   await expect(fig.locator(".bt-cel")).toHaveCount(16);
-  await expect(cartao).toContainText("11");
+  await expect(valor).toHaveText("11");
 
   await fig.locator(".viz-toggle-codigo").click();
   await expect(fig).toHaveAttribute("data-codigo", "on");
@@ -193,7 +198,7 @@ test("sudoku: mostrar o código sobrevive à troca de preset", async ({ page }) 
   await fig.locator("button", { hasText: "9x9 com 20 lacunas" }).click();
   await expect(fig.locator(".bt-cel")).toHaveCount(81);
   await expect(cartao).toContainText("lacunas do tabuleiro");
-  await expect(cartao).toContainText("20");
+  await expect(valor).toHaveText("20");
 
   await expect(fig).toHaveAttribute("data-codigo", "on");
   await expect(fig.locator(".viz-toggle-codigo")).toHaveText("Ocultar código");

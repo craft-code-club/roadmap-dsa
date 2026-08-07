@@ -310,9 +310,12 @@ test("os cartões da busca leem rótulo e valor juntos, no mesmo cartão", async
   await expect(cartao("pior caso · lista com 1 milhão")).toHaveText("1.000.000");
   await expect(cartao("pior caso · hash com 1 milhão")).toHaveText("1");
 
-  // O título de cada painel carrega o mesmo número do cartão dele.
-  await expect(peca.locator(".ht-painel-tit").first()).toContainText("2 comparações");
-  await expect(peca.locator(".ht-painel-tit").nth(1)).toContainText("1 comparação");
+  // O título de cada painel carrega o mesmo número do cartão dele. O <em> é o
+  // nó que guarda só o par número + unidade: no título inteiro,
+  // "2 comparações" passa com "12 comparações", que é o contrário da aula.
+  const selo = (i: number) => peca.locator(".ht-painel-tit").nth(i).locator("em");
+  await expect(selo(0)).toHaveText("2 comparações");
+  await expect(selo(1)).toHaveText("1 comparação");
 
   // E com o hash ruim os dois empatam: é o O(n) do pior caso aparecendo.
   await peca.getByRole("button", { name: "Com hash ruim" }).click();

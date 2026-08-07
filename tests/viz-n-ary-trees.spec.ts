@@ -315,11 +315,13 @@ test("n-ary: a marcha abre em 1.5x e a seta no slider é do slider", async ({ pa
 // O que a medição deste tópico contrariou, agora como regressão.
 //
 // Em árvore n-ária a tentação é medir o pior caso pelo GRAU ou pelo número de
-// nós. As três árvores desta peça têm exatamente **nove nós** e grau máximo
-// **três** — e mesmo assim os desenhos têm alturas diferentes, porque o eixo
-// que vira altura é a PROFUNDIDADE. A do DOM tem quatro níveis contra dois das
-// outras duas: ela é a mais ALTA e, ao mesmo tempo, a mais ESTREITA, porque tem
-// menos folhas. Aumentar o grau alarga sem subir.
+// nós. A árvore do artigo e a do DOM têm exatamente **nove nós** e grau máximo
+// **três**, e a de diretórios tem **dez nós e grau quatro** — e mesmo assim as
+// duas de profundidade 2 desenham a MESMA altura, porque o eixo que vira altura
+// é a PROFUNDIDADE. A do DOM tem quatro níveis: ela é a mais ALTA e, ao mesmo
+// tempo, a mais ESTREITA, porque tem menos folhas. Aumentar o grau alarga sem
+// subir — medido: o quarto filho da raiz de diretórios custou 96px de largura
+// (592 → 688) e 0px de altura.
 //
 // É esse fato que sustenta `measureOn: [treeKey, ...]`: sem ele alguém trocaria
 // a árvore por uma contagem de nós ou de grau e mediria a coisa errada.
@@ -329,14 +331,14 @@ test("n-ary: a altura do desenho vem da profundidade, não do grau nem do númer
   const fig = noArtigo(page);
   const svg = fig.locator("svg.tt-arv");
 
-  const medir = async (arvore: string) => {
+  const medir = async (arvore: string, grauEsperado: string, nosEsperados: string) => {
     await fig.getByRole("button", { name: arvore, exact: true }).click();
-    // Rótulo junto com o valor, no mesmo cartão: as três árvores têm o mesmo
-    // grau máximo e o mesmo número de nós, e é isso que dá sentido ao resto.
+    // Rótulo junto com o valor, no mesmo cartão: é a leitura do grau e da
+    // contagem de nós que dá sentido à comparação de alturas logo abaixo.
     const grau = fig.locator(".viz-var").filter({ hasText: "grau máximo" });
-    await expect(grau.locator(".viz-var-val")).toHaveText("3");
+    await expect(grau.locator(".viz-var-val")).toHaveText(grauEsperado);
     const nos = fig.locator(".viz-var").filter({ hasText: "processados" });
-    await expect(nos.locator(".viz-var-val")).toHaveText("0 de 9");
+    await expect(nos.locator(".viz-var-val")).toHaveText(`0 de ${nosEsperados}`);
     return svg.evaluate((el) => {
       const r = el.getBoundingClientRect();
       return {
@@ -347,12 +349,14 @@ test("n-ary: a altura do desenho vem da profundidade, não do grau nem do númer
     });
   };
 
-  const artigo = await medir("A árvore do artigo");
-  const diretorios = await medir("Uma árvore de diretórios");
-  const dom = await medir("Uma árvore DOM");
+  const artigo = await medir("A árvore do artigo", "3", "9");
+  const diretorios = await medir("Uma árvore de diretórios", "4", "10");
+  const dom = await medir("Uma árvore DOM", "3", "9");
 
-  // Mesmo número de nós, mesmo grau, mesma profundidade: mesma altura.
+  // Um nó a mais e um grau a mais, mesma profundidade: mesma altura ao pixel.
   expect(diretorios.alt).toBe(artigo.alt);
+  // E o que o grau a mais cobrou foi LARGURA, que rola sozinha no wrapper.
+  expect(diretorios.larg).toBeGreaterThan(artigo.larg);
   // Dois níveis a mais: 136px a mais de desenho.
   expect(dom.alt).toBeGreaterThan(artigo.alt + 100);
   // E a mais alta é a mais ESTREITA: menos folhas, menos largura.
@@ -364,6 +368,67 @@ test("n-ary: a altura do desenho vem da profundidade, não do grau nem do númer
   const [, , vw, vh] = dom.viewBox!.split(" ").map(Number);
   expect(dom.larg).toBe(vw);
   expect(dom.alt).toBe(vh);
+});
+
+// ---------------------------------------------------------------------------
+// A tabela de graus fala da árvore que está na tela — e a promessa é o sufixo
+// "(o desta árvore)" na linha destacada.
+//
+// Antes desta correção a promessa era morta: as três árvores tinham grau máximo
+// 3, e `DEGREES` é [2, 4, 8, 16, 64, 256], então `k === maxDegree` nunca era
+// verdade e nenhum aluno viu a linha acender em nenhum preset (medido no HTML do
+// build: `grep -c "o desta árvore"` dava 0). A árvore de diretórios passou a ter
+// grau 4 — uma pasta de projeto com src, testes, README e .gitignore —, que é o
+// menor empurrão possível e não mexe na altura do desenho.
+//
+// O teste cobre os DOIS lados da condicional, como manda o contrato §8: o preset
+// em que ela vale (grau na tabela: uma linha acesa, com o número certo) e os dois
+// em que não vale (grau fora da tabela: nenhuma linha acesa e nenhum sufixo
+// solto). Sem o segundo lado, um destaque em todas as linhas passaria verde.
+// ---------------------------------------------------------------------------
+test("n-ary: a linha destacada da tabela de graus é a do grau da árvore corrente", async ({ page }) => {
+  await abrir(page, ALTA);
+  const fig = noArtigo(page);
+  const tabela = fig.locator(".rec-comp");
+  // Os graus que a tabela desenha, lidos DELA: a progressão dobra o grau, e é
+  // por isso que 3 não está lá.
+  const graus = (await tabela.locator("tbody tr td:first-child").allTextContents()).map((t) =>
+    parseInt(t, 10)
+  );
+  expect(graus).toEqual([2, 4, 8, 16, 64, 256]);
+
+  const conferir = async (arvore: string, grauNaTela: string) => {
+    await fig.getByRole("button", { name: arvore, exact: true }).click();
+    // O grau vem do cartão, junto do rótulo: é o mesmo número que a tabela usa.
+    await expect(
+      fig.locator(".viz-var").filter({ hasText: "grau máximo" }).locator(".viz-var-val")
+    ).toHaveText(grauNaTela);
+
+    const acesas = tabela.locator("tbody tr.on");
+    if (graus.includes(Number(grauNaTela))) {
+      // Exatamente UMA linha acesa, e é a do grau desta árvore — com o texto.
+      await expect(acesas).toHaveCount(1);
+      await expect(acesas.locator("td").first()).toHaveText(`${grauNaTela} (o desta árvore)`);
+      // O sufixo é único na tabela: uma linha acesa não pode virar seis.
+      expect(
+        (await tabela.locator("tbody td").allTextContents()).filter((t) =>
+          t.includes("(o desta árvore)")
+        )
+      ).toHaveLength(1);
+      // E a linha acesa continua carregando a altura e as comparações do grau 4,
+      // que é o argumento da tabela.
+      await expect(acesas.locator("td")).toHaveText([`${grauNaTela} (o desta árvore)`, "11", "~22"]);
+    } else {
+      // O outro lado: grau fora da progressão não acende nada, e o sufixo não
+      // aparece solto em linha nenhuma.
+      await expect(acesas).toHaveCount(0);
+      await expect(tabela).not.toContainText("(o desta árvore)");
+    }
+  };
+
+  await conferir("A árvore do artigo", "3");
+  await conferir("Uma árvore de diretórios", "4");
+  await conferir("Uma árvore DOM", "3");
 });
 
 // ---------------------------------------------------------------------------

@@ -44,55 +44,140 @@ mesmo morando dentro de uma string no meio do código. Um `find & replace` de
 como "O array precisa estar sorted".
 
 Ao renomear em lote, **não revise o diff a olho** — ele tem centenas de linhas e
-o erro passa. Rode o guarda, que compara tudo que aparece na tela (literais de
-string **e nós de texto JSX**) antes e depois:
+o erro passa. Rode o guarda, que compara tudo que aparece na tela antes e
+depois:
 
 ```bash
 git show HEAD:content/visualizers/MeuVisualizador.tsx > /tmp/antes.tsx
 python3 scripts/guarda-idioma.py /tmp/antes.tsx content/visualizers/MeuVisualizador.tsx
+
+# ou o diretório inteiro de uma vez, com diretórios dos dois lados:
+mkdir -p /tmp/antes && git archive HEAD content/visualizers | tar -x -C /tmp/antes
+python3 scripts/guarda-idioma.py /tmp/antes/content/visualizers content/visualizers
 ```
 
-Ele sai com erro se qualquer texto de tela entrou ou saiu. O que sobrar tem que
-ser só nome de import, de hook e de prop.
+Ele sai **0** quando o texto de tela é idêntico, **1** quando mudou e **2**
+quando o próprio guarda não conseguiu rodar — nunca 0 por não ter conseguido
+olhar. O que sobrar tem que ser só nome de import, de hook e de prop.
 
-**Este guarda já passou verde três vezes com a aula estragada**, e as três por
-olhar de menos. Vale conhecer os buracos que ele tapou, porque eles dizem onde
-procurar o próximo:
+### O que o guarda olha
+
+Desde a 4ª versão ele **não casa texto por regex: ele parseia**. Quem lê o TSX é
+o compilador do TypeScript (`ts.createSourceFile`, num script Node irmão,
+`scripts/extrai-textos-tsx.mjs`); o `guarda-idioma.py` continua sendo a porta de
+entrada, com a mesma linha de comando. Ele coleta:
+
+| o quê | vira |
+|---|---|
+| literal de string e template **em qualquer nível de aninhamento** | o texto, com cada `${…}` virando `§` |
+| nós de texto JSX, **inclusive dividindo a linha com uma interpolação** | os filhos do elemento num item só: `Nós no ciclo: §` |
+| valor de atributo que o aluno lê (`alt`, `title`, `placeholder`, `aria-label`, …) | texto de tela |
+| `className`, `class`, `key`, `ref`, chave de tipo, especificador de import, nome de propriedade escrito como literal | **código** em **qualquer** elemento, componente inclusive — num bloco `AVISO` separado que **não reprova** |
+| atributo de **elemento HTML** fora da lista de texto (`viewBox`, `style`, `d`, `type`, `role`, `fill`, …) | **código**, pelo mesmo `AVISO` |
+
+O `AVISO` existe por causa da armadilha do literal-que-vira-classe (mais abaixo):
+antes ele se misturava ao texto de tela e pedia a reação que **re-quebra** o
+rename. Agora ele fica à parte, dizendo "confira no `globals.css`".
+
+**A segunda linha vale só para elemento HTML** (`<div>`, `<svg>`, `<path>`), e a
+distinção é medível. Elemento HTML tem vocabulário fixo, então o que não está na
+lista de texto é código. **Prop de componente nosso** (`<VizFooter>`, `<Icone>`)
+cai em **tela**, porque um componente pode ter prop de rótulo com qualquer nome,
+e o falso negativo é justamente o defeito que este guarda existe para não ter.
+Consequência prática: mudar o valor de um `d=` **de componente** REPROVA, ao
+contrário do que a linha de cima sugere isoladamente. Medido no motor desta
+branch, com as mesmas três props nos dois lados:
+
+```
+<svg   viewBox="0 0 100 mesmo" style="cor" d="M0 zero L1 um" />  → codigo, codigo, codigo
+<Icone viewBox="0 0 100 mesmo" style="cor" d="M0 zero L1 um"
+       className="cx" />                                        → tela, tela, tela + codigo (só o className)
+```
+
+Os casos **12 e 13** de `scripts/testa-guarda-idioma.py` fixam esse par: a mesma
+troca de `d=`, no `<path>` passa e no `<Icone>` reprova. A regra mora em
+`elementoIntrinseco()` e `classificar()`, em `scripts/extrai-textos-tsx.mjs`.
+Hoje ninguém esbarra nela — varredura pela AST nos 87 `.tsx` de
+`content/visualizers`: **zero** ocorrências de `viewBox`/`style`/`d` em tag não
+intrínseca —, mas quem escrever a primeira precisa saber. Duas bordas do mesmo
+critério: tag com ponto (`<motion.div>`) **não** conta como intrínseca, porque o
+teste exige um `Identifier` simples; e um atributo com namespace (`xlink:href`)
+só vira código no elemento HTML, pela mesma porta.
+
+**Este guarda já passou verde CINCO vezes com a aula estragada**, sempre por
+olhar de menos. Os buracos que ele tapou dizem onde procurar o próximo:
 
 | versão | o que não olhava | o que passou |
 |---|---|---|
 | 1ª | nós de texto JSX | `<span>Array (fica sorted)</span>` e mais dois rótulos |
 | 2ª | nó JSX **em mais de uma linha** | `inserir no fim` virou `inserir no done` |
 | 2ª | literal **dentro** de `${...}` | `reservar a capacidade certa` virou `capacity` |
+| 3ª | **crase aninhada** dentro de `${...}` | o pareamento das crases saía de sincronia e o texto do template interno **nunca era lido**: em `` `…${cycle > 0 ? `, e ${cycle} deles formam o ciclo` : ""}` `` (`LinkedListFloyd`), trocar `", e "` por `", and "` saía `SUMIRAM: nenhuma`. **27 dos 87 arquivos** têm crase aninhada, num total de 54 ocorrências (6 só no `LinkedListFloyd`) |
+| 3ª | **texto de tela colado numa interpolação** | o padrão exigia `>texto<` e o `{` cortava o casamento. Trocar `" de "` por `" of "` em `{s.round} de {LABELS.length - 1}` (`BellmanFordVisualizer:273`) saía `SUMIRAM: nenhuma / APARECERAM: nenhuma`, e o painel diria **"rodada 5 of 4"** com o guarda verde |
 
 Os dois da 2ª versão não são casos exóticos: o Prettier quebra a linha de
 qualquer elemento cujos atributos não cabem, e ternário dentro de interpolação
-é como metade das notas deste repo escolhe entre singular e plural.
+é como metade das notas deste repo escolhe entre singular e plural. Os dois da
+3ª também não: 31% do diretório tinha o gatilho do primeiro.
 
-**Mais dois buracos, medidos no `listas-ligadas`, e os dois continuam
-abertos** — porque tapá-los é reescrever o guarda com um analisador de verdade,
-e isso é PR de plataforma, não carona numa adaptação de tópico:
+**E a 3ª versão gritava, além de ser cega.** Num rename de quatro identificadores
+do `LinkedListFloyd` (`slow`/`fast`/`cycle`/`total`) ela emitia **38 linhas de
+achado, todas ruído**, com um blob de 4 mil caracteres de código no meio — e uma
+troca de rótulo de verdade escondida ali dentro. O mesmo rename no guarda novo
+emite **zero**. Um guarda que grita em tudo é tão inútil quanto um cego.
 
-| o que não olha | o que passa |
-|---|---|
-| **template dentro de `${...}`**: o casamento da crase é regex, então uma crase aninhada tira o pareamento de sincronia | o `LinkedListFloyd` tem 6 delas (``` `… ${cycle > 0 ? `, e ${cycle}…` : ""}` ```), e daí em diante o guarda compara **código** como se fosse tela: dezenas de linhas de ruído, e uma troca de rótulo de verdade some no meio |
-| **texto de tela que divide a linha com uma interpolação**: o padrão exige `>texto<`, e um `{` no meio corta o casamento | `<span>Nós no ciclo: {cycle === 0 ? … }</span>` — "Nós no ciclo: " não está em string nenhuma, não é visto pelo guarda, e um rename cego o estragaria **sem nenhum aviso** |
+### O que o guarda continua NÃO pegando
 
-O segundo é o mais perigoso dos dois, porque é silencioso: o primeiro pelo
-menos grita. E os dois têm a mesma consequência prática — **quando o arquivo
-tiver crase aninhada ou rótulo colado numa interpolação, o guarda não é prova;
-a prova é comparar o texto renderizado dos ESTADOS** (§8), que é o que pegou
-os dois aqui.
+Está aqui porque decidir com base numa promessa que ele não cumpre é como os
+cinco furos acima aconteceram. Cada linha tem um caso medido e uma fixture em
+`scripts/fixtures-guarda-idioma/`:
 
-**E um buraco continua aberto, por construção: ele compara o CONJUNTO de textos,
-não onde cada um aparece.** Trocar dois campos de lugar num rename (o subtítulo
-de um cartão indo para o corpo e vice-versa) mantém o conjunto idêntico e passa
-verde. Medido: com `{l.subtitle}` e `{l.body}` invertidos no
-`SubTypesVisualizer`, o guarda não acusa nada e a tela mente. Quem pega isso é
-teste que lê **rótulo e valor juntos**, no mesmo cartão — veja a §8.
+- **ele compara o CONJUNTO de textos, não onde cada um aparece.** Trocar dois
+  campos de lugar (o subtítulo de um cartão indo para o corpo e vice-versa)
+  mantém o conjunto idêntico e passa verde. Medido: com `{l.subtitle}` e
+  `{l.body}` invertidos no `SubTypesVisualizer`, o guarda não acusa nada e a tela
+  mente. Quem pega isso é teste que lê **rótulo e valor juntos**, no mesmo cartão
+  — veja a §8;
+- **valor de união que chega ao JSX cru** (`{p.conflict}` no
+  `BacktrackingSudoku`). O que o guarda vê é uma interpolação, e a união é um
+  tipo, ou seja, código: traduzi-la sai no `AVISO` e não reprova. A regra abaixo
+  — *procure onde os valores da união aparecem* — continua sendo sua;
+- **texto sem nenhuma letra** (`"→"`, `"3"`, `"·"`). São descartados de propósito,
+  senão toda cor em hexa e todo `path` de SVG entrariam no relatório;
+- **texto que não mora neste arquivo**: rótulo vindo do `content/roadmap.ts`, do
+  `.mdx` ou de outro componente. O guarda compara duas versões do **mesmo**
+  arquivo;
+- **texto montado por concatenação de identificador** (`"passo " + nome`), onde a
+  frase só existe em tempo de execução.
 
-Por isso, **a prova final de um rename não é o guarda, é o HTML do build**. Ele
-é o que o aluno recebe, e a comparação é objetiva:
+Quando o caso for um destes, **o guarda não é prova**: a prova é comparar o texto
+renderizado dos ESTADOS (§8) e o HTML do build (logo abaixo).
+
+### A suíte do próprio guarda
+
+Os onze casos acima — os cinco furos, o rename limpo que não pode reprovar, e os
+limites conhecidos — são executáveis:
+
+```bash
+python3 scripts/testa-guarda-idioma.py           # 11 de 11 ok
+python3 scripts/testa-guarda-idioma.py -v        # com a saída de cada caso
+python3 scripts/testa-guarda-idioma.py --guarda /tmp/versao-antiga.py
+```
+
+O `--guarda` é a prova de quebra: aponte para uma versão anterior e veja os casos
+falharem. **Guarda que você nunca viu falhar não é guarda.** Ao consertar um furo
+novo, acrescente o par `antes.tsx.txt` / `depois.tsx.txt` e a linha em `CASOS`
+antes de mexer no analisador. (A extensão é `.tsx.txt` de propósito: o
+`tsconfig.json` inclui `**/*.tsx`, e fixture com extensão de verdade entraria no
+`npx tsc --noEmit` com código que existe justamente para estar errado.)
+
+Custo: **0,22s** por par de arquivos e **0,45s** para os 87 arquivos de
+`content/visualizers/` de uma vez. Cabe em cada commit.
+
+### E a prova final continua sendo o HTML do build
+
+O guarda ficou muito melhor e **não virou a prova**: ele lê o arquivo, e o que o
+aluno recebe é a página. A comparação do HTML é objetiva:
 
 ```bash
 render() { python3 -c "
@@ -124,10 +209,12 @@ Três notas de execução, todas medidas:
   *é* conteúdo — enquanto o sufixo de classe *parece* conteúdo e *é* API. Antes
   de traduzir uma união, **procure onde os valores dela aparecem**: se algum
   chega ao JSX sem passar por um mapa, ele é texto de tela;
-- **qualquer literal que vira NOME DE CLASSE é contrato com o CSS**, e esse
-  ninguém guarda. Ele passa pelo `tsc` (o tipo continua coerente), pelo guarda
-  de idioma (não é texto de tela) e pelo teste (é cor). As três formas medidas,
-  em ordem de quão fácil é não vê-las:
+- **qualquer literal que vira NOME DE CLASSE é contrato com o CSS**, e nenhuma
+  ferramenta o **reprova**. Ele passa pelo `tsc` (o tipo continua coerente) e
+  pelo teste (é cor); o guarda de idioma agora o **mostra** — no bloco `AVISO`,
+  quando ele está num `className` —, mas não sai com erro, porque não dá para
+  saber de dentro do arquivo se aquela classe existe no `globals.css`. Conferir é
+  seu. As três formas medidas, em ordem de quão fácil é não vê-las:
 
   | forma | exemplo | o que aponta para ele |
   |---|---|---|

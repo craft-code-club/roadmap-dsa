@@ -215,7 +215,9 @@ test("memória contígua: clicar numa célula muda o índice, o endereço e a co
 
   // O rótulo ao lado do número, não só o número: base + 6 × 4 = 0x1018.
   await expect(fig.locator(".arr-formula")).toHaveText(/nums\[6\] = 0x1000 \+ 6 × 4 = 0x1018/);
-  await expect(fig.locator(".viz-var").filter({ hasText: "endereço" })).toContainText("0x1018");
+  await expect(
+    fig.locator(".viz-var").filter({ hasText: "endereço" }).locator(".viz-var-val")
+  ).toHaveText("0x1018");
   expect((await passo(fig))[0]).toBe(7);
   await expect(fig.locator(".viz-note")).toContainText("multiplico 6 × 4 = 24 bytes");
 });
@@ -252,7 +254,11 @@ test("array dinâmico: dobrar copia menos que crescer de um em um", async ({ pag
   const dobrar = await cartao("dobrar (×2)").locator(".bigo-card-val").innerText();
   const umPorVez = await cartao("uma vaga por vez (+1)").locator(".bigo-card-val").innerText();
   expect(parseFloat(dobrar.replace(",", "."))).toBeLessThan(parseFloat(umPorVez.replace(",", ".")));
-  await expect(cartao("capacidade reservada")).toContainText("0 realocações");
+  // A linha inteira, no nó que a guarda: "0 realocações" é substring de
+  // "10 realocações", e zero realocação é exatamente o que este preset promete.
+  await expect(cartao("capacidade reservada").locator(".bigo-card-ex").first()).toHaveText(
+    "0 cópias · 0 realocações · capacidade final 20"
+  );
 });
 
 test("array dinâmico: a nota do fim explica a capacidade reservada em português", async ({ page }) => {
@@ -261,7 +267,11 @@ test("array dinâmico: a nota do fim explica a capacidade reservada em portuguê
   await fig.getByRole("button", { name: "capacidade reservada" }).click();
 
   const proximo = fig.getByRole("button", { name: /Próximo/ });
+  // Depois do clique no preset, a leitura única de `isEnabled()` pode devolver
+  // o estado do fim da rodada anterior e pular o laço inteiro.
+  await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
   for (let i = 0; i < 60 && (await proximo.isEnabled()); i++) await proximo.click();
+  await expect(proximo, "a animação não chegou ao fim dentro do limite do laço").toBeDisabled();
 
   const [atual, total] = await passo(fig);
   expect(atual, "a animação não chegou ao último passo").toBe(total);
@@ -297,7 +307,9 @@ test("memória contígua: dois cliques rápidos param na célula clicada por úl
   // conta do endereço e o painel de variáveis. 0x1000 + 2 × 4 = 0x1008.
   expect((await passo(fig))[0]).toBe(3);
   await expect(fig.locator(".arr-formula")).toHaveText(/nums\[2\] = 0x1000 \+ 2 × 4 = 0x1008/);
-  await expect(fig.locator(".viz-var").filter({ hasText: "endereço" })).toContainText("0x1008");
+  await expect(
+    fig.locator(".viz-var").filter({ hasText: "endereço" }).locator(".viz-var-val")
+  ).toHaveText("0x1008");
   await expect(fig.getByRole("button", { name: "Índice 2, valor 45, endereço 0x1008" })).toHaveAttribute(
     "aria-pressed",
     "true"

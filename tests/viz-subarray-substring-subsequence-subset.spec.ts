@@ -163,17 +163,25 @@ test("trocar de Array para String troca o rótulo da fatia e as contagens", asyn
 
   // n = 4 → 10 fatias, 15 subsequências não-vazias, 16 subconjuntos.
   await expect(peca.locator(".viz-step")).toHaveText("n = 4");
+  // Número e rótulo lidos nos nós que guardam cada um: no cartão inteiro,
+  // `toContainText("10")` passa com 100 e `toContainText("16")` com 160 — e as
+  // três contagens (10, 15, 16) são a aula desta peça.
   const contas = peca.locator(".sub-conta");
-  await expect(contas.nth(0)).toContainText("10");
-  await expect(contas.nth(0)).toContainText("subarrays não-vazios · n(n+1)/2");
-  await expect(contas.nth(1)).toContainText("15");
-  await expect(contas.nth(2)).toContainText("16");
+  const val = (i: number) => contas.nth(i).locator(".sub-conta-val");
+  await expect(val(0)).toHaveText("10");
+  await expect(contas.nth(0).locator(".sub-conta-lbl")).toHaveText(
+    "subarrays não-vazios · n(n+1)/2"
+  );
+  await expect(val(1)).toHaveText("15");
+  await expect(val(2)).toHaveText("16");
 
   await peca.getByRole("button", { name: "String", exact: true }).click();
   // "code" também tem 4 elementos: o número não muda, o RÓTULO muda — que é o
   // ponto do botão (substring é subarray numa string).
   await expect(peca.locator(".viz-step")).toHaveText("n = 4");
-  await expect(contas.nth(0)).toContainText("substrings não-vazios · n(n+1)/2");
+  await expect(contas.nth(0).locator(".sub-conta-lbl")).toHaveText(
+    "substrings não-vazios · n(n+1)/2"
+  );
   await expect(veredito(peca, "Substring")).toBeVisible();
   await expect(veredito(peca, "Substring").locator(".sub-veredito-sub")).toHaveText(
     "em array, isso se chama subarray"
