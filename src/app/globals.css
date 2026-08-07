@@ -199,6 +199,9 @@ html { scroll-behavior: smooth; }
 .side-row:hover .side-item { color: #fff; }
 .side-row.on { background: var(--ccc-accent-soft); box-shadow: inset 2px 0 0 var(--ccc-accent); }
 .side-row .side-item { flex: 1; min-width: 0; padding-left: 0; background: none; box-shadow: none; }
+/* Busca sem resultado: coluna vazia não diz nada a ninguém. */
+.side-vazio { margin: 10px; font-size: 12.5px; line-height: 1.55; color: var(--ccc-muted); }
+.side-vazio strong { color: var(--ccc-text); font-weight: 600; }
 .side-intro-ico { display: grid; place-items: center; width: 16px; flex: none; font-size: 11px; color: var(--ccc-muted); }
 .badge-novo { padding: 1px 6px; border-radius: 5px; background: rgba(124, 58, 237, 0.2); color: #c4b5fd; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; }
 .badge-soon { padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: #7f93ad; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; }

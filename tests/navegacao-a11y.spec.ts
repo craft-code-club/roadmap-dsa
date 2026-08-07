@@ -90,6 +90,42 @@ test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ 
   expect(parseFloat(viz.largura)).toBeGreaterThan(0);
 });
 
+test("a busca acha pelo que o aluno digita, e avisa quando não acha", async ({ page }) => {
+  await page.goto("/topico/arrays/");
+  const campo = page.getByLabel("Buscar tópico");
+
+  // Nenhuma destas três palavras aparece em `name` nenhum: sem casar descrição,
+  // a busca devolvia vazio e o aluno concluía que o guia não tem o assunto.
+  await campo.fill("janela");
+  await expect(page.locator('.side-item[href="/topico/sliding-window/"]')).toBeVisible();
+
+  await campo.fill("ponteiro");
+  await expect(page.locator('.side-item[href="/topico/listas-ligadas/"]')).toBeVisible();
+
+  await campo.fill("memoização");
+  await expect(page.locator('.side-item[href="/topico/programacao-dinamica/"]')).toBeVisible();
+
+  // Sem acento acha com acento: quem digita rápido não põe til.
+  await campo.fill("recursao");
+  await expect(page.locator('.side-item[href="/topico/recursao/"]')).toBeVisible();
+
+  // Nome do grupo traz a lista dele inteira.
+  await campo.fill("manipulacao");
+  await expect(page.locator('.side-item[href="/topico/operacoes-bitwise/"]')).toBeVisible();
+
+  // Sem resultado, a mensagem — e não a coluna vazia, que não diz se o guia não
+  // tem o assunto ou se o menu quebrou.
+  await campo.fill("xilofone");
+  await expect(page.locator(".side-vazio")).toContainText("Nenhum tópico");
+  await expect(page.locator(".side-vazio")).toContainText("xilofone");
+  await expect(page.locator(".side-scroll .side-item")).toHaveCount(0);
+
+  // E o menu volta inteiro quando o campo esvazia.
+  await campo.fill("");
+  await expect(page.locator(".side-vazio")).toHaveCount(0);
+  await expect(page.locator(".side-scroll .side-item").first()).toBeVisible();
+});
+
 test("a marca de progresso não mora dentro do link, e o progresso sobrevive à recarga", async ({
   page,
 }) => {

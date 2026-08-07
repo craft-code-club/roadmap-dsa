@@ -56,6 +56,13 @@ function gravarAbertos(abertos: Record<string, boolean>) {
 const mesmaRota = (a: string | null | undefined, b: string) =>
   !!a && a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
 
+// Minúsculas e sem acento. NFD separa a letra da marca de acento em pontos de
+// código diferentes, e o `replace` joga fora só a marca: com isso "recursao"
+// acha "Recursão" e "memoizacao" acha "memoização". Fica fora do componente
+// para não virar dependência nova do `useMemo` a cada renderização.
+const semAcento = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
@@ -141,12 +148,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const feitosTotal = contarTopicos(GROUPS.flatMap((g) => g.topics.map((t) => t.slug)));
   const pct = hydrated && TOTAL_TOPICS ? Math.round((feitosTotal / TOTAL_TOPICS) * 100) : 0;
 
-  const b = busca.trim().toLowerCase();
+  const b = semAcento(busca.trim());
 
+  // A busca casa nome, descrição e nome do grupo. Só pelo nome ela mentia sobre
+  // o guia: "janela" (Sliding Window), "memoização" (Programação Dinâmica) e
+  // "ponteiro" (Listas Encadeadas) aparecem em `description` e em zero `name`,
+  // e quem digitava concluía que o tópico não existe aqui. Custo de bundle zero:
+  // as descrições já vêm no mesmo chunk que os nomes.
   const grupos = useMemo(
     () =>
       GROUPS.map((g) => {
-        const itens = g.topics.filter((t) => !b || t.name.toLowerCase().includes(b));
+        // Grupo que casa pelo nome entrega a lista inteira dele: quem digita
+        // "grafos" quer o grupo, não o subconjunto que repete a palavra.
+        const grupoCasa = !!b && semAcento(g.name).includes(b);
+        const itens = g.topics.filter(
+          (t) => !b || grupoCasa || semAcento(`${t.name} ${t.description}`).includes(b)
+        );
         return { ...g, itens, aberto: b ? itens.length > 0 : !!abertos[g.id] };
       }).filter((g) => !b || g.itens.length > 0),
     [b, abertos]
@@ -345,6 +362,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </div>
             );
           })}
+          {/* Sem isto, busca sem resultado devolvia uma coluna vazia, e a tela
+              não dizia se o guia não tem o assunto ou se o menu quebrou. */}
+          {b && grupos.length === 0 && (
+            <p className="side-vazio" role="status">
+              Nenhum tópico com <strong>{busca.trim()}</strong>. Tente outra palavra, como
+              &ldquo;janela&rdquo;, &ldquo;árvore&rdquo; ou &ldquo;ordenação&rdquo;.
+            </p>
+          )}
         </div>
 
         <div className="side-apoio">
