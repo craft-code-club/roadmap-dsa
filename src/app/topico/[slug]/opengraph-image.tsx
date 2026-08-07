@@ -20,17 +20,32 @@ export const dynamic = "force-static";
 // este export UMA vez: o `next-metadata-image-loader` monta um objeto com os
 // named exports do arquivo e usa `imageModule.alt` para as 47 páginas.
 //
-// O jeito de variar o alt por imagem é `generateImageMetadata`, e ele não cabe
-// aqui. Medido: ao exportar essa função, o Next passa a criar a rota
-// `/topico/[slug]/opengraph-image/[__metadata_id__]` e o build para com
+// O jeito de variar o alt por imagem é `generateImageMetadata`, e ele não sobe
+// neste segmento. O limite é estreito e vale escrever com precisão, porque a doc
+// do Next não diz isto em lugar nenhum (nem a página do `generateImageMetadata`,
+// cujo exemplo é justamente um `[id]/opengraph-image.tsx`, nem a lista de
+// "Unsupported Features" do export estático).
 //
-//   Error: Page "/topico/[slug]/opengraph-image/[__metadata_id__]" is missing
-//   "generateStaticParams()" so it cannot be used with "output: export" config.
+// Medido no Next 16.2.12, com log dentro das duas funções:
 //
-// porque o `generateStaticParams` que o loader gera nesse modo devolve só o
-// `__metadata_id__`, nunca o `slug`. Ou seja: daqui dá para ter um card por
-// tópico ou um alt por tópico, não os dois. Quem alcança os dois é o
-// `generateMetadata` da página, que recebe o `slug`.
+//   1. exportar `generateImageMetadata` faz o `next-metadata-route-loader` gerar
+//      um `generateStaticParams` PRÓPRIO, que substitui o daqui embaixo. O nosso
+//      não roda: o log dele nunca sai.
+//   2. o gerado devolve só `{ __metadata_id__ }`, e é chamado com `params = {}`
+//      — inclusive quando um `layout.tsx` do próprio `[slug]` exporta
+//      `generateStaticParams`. O `slug` nunca é enumerado.
+//   3. sem `slug`, a rota `/topico/[slug]/opengraph-image/[__metadata_id__]` sai
+//      com zero rotas pré-renderizadas, e aí sim cai na regra documentada
+//      ("Dynamic Routes without generateStaticParams()"):
+//
+//        Error: Page "/topico/[slug]/opengraph-image/[__metadata_id__]" is
+//        missing "generateStaticParams()" so it cannot be used with
+//        "output: export" config.
+//
+// Ou seja, não é "incompatível por projeto": é que os params do segmento pai não
+// chegam ao `generateStaticParams` gerado. Enquanto for assim, daqui dá para ter
+// um card por tópico ou um alt por tópico, não os dois. Quem alcança os dois sem
+// depender disso é o `generateMetadata` da página, que recebe o `slug`.
 export const alt =
   "Card do Roadmap DSA: o nome do tópico e o grupo dele, no guia visual e gratuito de Algoritmos e Estruturas de Dados em português";
 
