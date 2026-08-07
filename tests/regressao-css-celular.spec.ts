@@ -270,14 +270,28 @@ test.describe("gaveta do celular: o card de apoio é alcançável", () => {
     // mostra só o `dvh` e some justamente com o fallback que se quer garantir.
     // Medido: o CSSOM devolve `height: calc(100dvh …)` sozinho enquanto o
     // arquivo tem as duas linhas.
+    // E a leitura é só das folhas do PRÓPRIO app. A página também linka o CSS
+    // do Google Fonts (`src/app/layout.tsx`), que não tem uma linha da gaveta:
+    // baixá-lo poria a rede externa dentro de uma asserção sobre CSS local, e o
+    // dia em que ela caísse o teste reprovaria com um erro de `fetch` no lugar
+    // do que ele mede. Medido nesta página: 2 folhas, e só a de mesma origem
+    // (108.190 bytes) tem a regra — a do Google Fonts são 1.639 bytes com zero
+    // ocorrência de `sidebar`.
     await abrir(page, "/topico/quick-sort/", 390, 844);
     const folha = await page.evaluate(async () => {
-      const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')].map((l) => l.href);
+      const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')]
+        .map((l) => new URL(l.href, location.href))
+        .filter((u) => u.origin === location.origin)
+        .map((u) => u.href);
       const partes = await Promise.all(links.map((h) => fetch(h).then((r) => r.text())));
-      return partes.join("\n");
+      return { folhas: partes.length, css: partes.join("\n") };
     });
 
-    const regra = folha.match(/\.sidebar\.open\s*\{[^}]*\}/)?.[0];
+    // Sem isto, um filtro que não casasse nada faria a asserção seguinte culpar
+    // o CSS por um problema que é do filtro.
+    expect(folha.folhas, "há folha de estilo do próprio app para ler").toBeGreaterThan(0);
+
+    const regra = folha.css.match(/\.sidebar\.open\s*\{[^}]*\}/)?.[0];
     expect(regra, "a regra da gaveta aberta chegou ao arquivo servido").toBeTruthy();
     expect(regra, "a altura da gaveta usa a viewport dinâmica").toContain("100dvh");
     expect(regra, "e mantém o fallback de quem não entende dvh").toContain("100vh");
