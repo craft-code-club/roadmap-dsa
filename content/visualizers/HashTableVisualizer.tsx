@@ -348,7 +348,7 @@ type Preset = {
 };
 
 const PRESETS: Preset[] = [
-  { label: "Quadro do encontro", keys: "Ana, Bob, Lia, Leo, Eva", cap: 5, chained: true, resizes: false },
+  { label: "Cinco chaves, cinco buckets", keys: "Ana, Bob, Lia, Leo, Eva", cap: 5, chained: true, resizes: false },
   { label: "Sondagem linear", keys: "Ana, Bob, Lia, Leo, Eva", cap: 5, chained: false, resizes: false },
   { label: "Rehash acontecendo", keys: "Ana, Bob, Lia, Leo, Eva", cap: 4, chained: true, resizes: true },
   { label: "Anagramas: o pior caso", keys: "Lia, Ali, Ila, Lai", cap: 5, chained: true, resizes: false },
