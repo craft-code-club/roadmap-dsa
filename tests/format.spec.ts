@@ -241,7 +241,7 @@ test("plural devolve só a palavra e comNumero devolve número mais palavra", ()
 // ficaram como estavam.
 //
 // A prova de que isso não mudou nada tem duas partes: o padrão do hook continua
-// sendo AQUELE array (se alguém retunar `DEFAULT_SPEEDS`, este teste avisa, e
+// sendo AQUELE array (se alguém reafinar `DEFAULT_SPEEDS`, este teste avisa, e
 // aí a decisão volta a ser consciente), e a marcha continua NOMEADA na tela de
 // quem deixou de passar a prop.
 // ---------------------------------------------------------------------------
