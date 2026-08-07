@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 
 // Fixture: reprovar o teste quando a PÁGINA reclama.
 //
@@ -33,8 +33,15 @@ import { test as base, expect } from "@playwright/test";
 /** Uma ocorrência já formatada, do jeito que vai aparecer no `Received`. */
 type Ocorrencia = string;
 
+/** Escapa o que é metacaractere de regex, para interpolar URL em `RegExp`. */
+function escaparRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * Ruído tolerado, com o motivo escrito.
+ * Ruído tolerado, com o motivo escrito. **Depende do `baseURL`**, por isso é
+ * função e não constante: a tolerância vale para o site sob teste, e para mais
+ * nada.
  *
  * Medido antes de ligar o guarda, em 13 rotas (as 5 da amostra do axe mais as 8
  * do celular), desktop e 390x844: **zero** `pageerror`, **zero** `console.error`
@@ -43,39 +50,70 @@ type Ocorrencia = string;
  *
  * Regra para acrescentar: a entrada tem que ser específica (nada de `/./`) e
  * vir com comentário dizendo o que é e por que não dá para consertar agora.
+ *
+ * Sem `baseURL` definido a lista fica **vazia**, e nada é tolerado. É de
+ * propósito: um teste barulhento é melhor que um guarda que engole em silêncio
+ * porque a configuração mudou de baixo dele.
  */
-export const RUIDO_TOLERADO: RegExp[] = [
-  // O `<Link>` do Next dispara prefetch da rota apontada; sair da página antes
-  // de o prefetch terminar cancela a requisição, e o cancelamento chega aqui
-  // como `requestfailed ... net::ERR_ABORTED`. Medido: 104 ocorrências numa
-  // passagem por 13 rotas, todas em URL de rota do próprio site, e nenhuma com
-  // efeito nenhum na página. Só `ERR_ABORTED` entra: qualquer outro motivo
-  // (`ERR_CONNECTION_REFUSED`, `ERR_NAME_NOT_RESOLVED`, `ERR_FAILED`) continua
-  // reprovando. E recurso que de fato sumiu do `out/` não passa por aqui: ele
-  // vira `http 404`, que o listener de resposta pega.
-  /^requestfailed: .* \(net::ERR_ABORTED\)$/,
-];
+export function ruidoTolerado(baseURL: string | undefined): RegExp[] {
+  if (!baseURL) return [];
+  const origem = escaparRegex(baseURL.replace(/\/$/, ""));
+  return [
+    // O `<Link>` do Next dispara prefetch da rota apontada; sair da página antes
+    // de o prefetch terminar cancela a requisição, e o cancelamento chega aqui
+    // como `requestfailed ... net::ERR_ABORTED`. Medido: 104 ocorrências numa
+    // passagem por 13 rotas, todas em URL de rota do próprio site, e nenhuma com
+    // efeito nenhum na página. Só `ERR_ABORTED` entra: qualquer outro motivo
+    // (`ERR_CONNECTION_REFUSED`, `ERR_NAME_NOT_RESOLVED`, `ERR_FAILED`) continua
+    // reprovando. E recurso que de fato sumiu do `out/` não passa por aqui: ele
+    // vira `http 404`, que o listener de resposta pega.
+    //
+    // A âncora no `baseURL` é o que impede a tolerância de vazar: um
+    // `ERR_ABORTED` de domínio de fora (um `<script>` de terceiro, um `fetch`
+    // para uma API externa, um embed) **reprova**, porque ali o cancelamento não
+    // tem explicação conhecida. Antes desta âncora o padrão era `.*` e engolia
+    // qualquer host.
+    new RegExp(`^requestfailed: ${origem}(/[^\\s]*)? \\(net::ERR_ABORTED\\)$`),
+  ];
+}
+
+/**
+ * Liga os quatro listeners numa página e devolve o array **vivo** de
+ * ocorrências (ele cresce sozinho conforme a página fala).
+ *
+ * É exportado, e não escondido dentro da fixture, para que
+ * `console-limpo-fixture.spec.ts` consiga provar em Chromium de verdade o que a
+ * tolerância deixa passar e o que ela reprova — sem reimplementar a formatação
+ * da string, que é justamente onde um teste de regex puro descolaria do
+ * comportamento.
+ */
+export function coletarErros(page: Page, baseURL: string | undefined): Ocorrencia[] {
+  const tolerado = ruidoTolerado(baseURL);
+  const ocorrencias: Ocorrencia[] = [];
+  const registrar = (o: Ocorrencia) => {
+    if (!tolerado.some((r) => r.test(o))) ocorrencias.push(o);
+  };
+
+  page.on("pageerror", (erro) => {
+    registrar(`pageerror: ${erro.message}`);
+  });
+  page.on("console", (msg) => {
+    if (msg.type() === "error") registrar(`console.error: ${msg.text()}`);
+  });
+  page.on("requestfailed", (req) => {
+    registrar(`requestfailed: ${req.url()} (${req.failure()?.errorText ?? "sem motivo"})`);
+  });
+  page.on("response", (res) => {
+    if (res.status() >= 400) registrar(`http ${res.status()}: ${res.url()}`);
+  });
+
+  return ocorrencias;
+}
 
 export const test = base.extend<{ semErroDeConsole: void }>({
   semErroDeConsole: [
-    async ({ page }, use) => {
-      const ocorrencias: Ocorrencia[] = [];
-      const registrar = (o: Ocorrencia) => {
-        if (!RUIDO_TOLERADO.some((r) => r.test(o))) ocorrencias.push(o);
-      };
-
-      page.on("pageerror", (erro) => {
-        registrar(`pageerror: ${erro.message}`);
-      });
-      page.on("console", (msg) => {
-        if (msg.type() === "error") registrar(`console.error: ${msg.text()}`);
-      });
-      page.on("requestfailed", (req) => {
-        registrar(`requestfailed: ${req.url()} (${req.failure()?.errorText ?? "sem motivo"})`);
-      });
-      page.on("response", (res) => {
-        if (res.status() >= 400) registrar(`http ${res.status()}: ${res.url()}`);
-      });
+    async ({ page, baseURL }, use) => {
+      const ocorrencias = coletarErros(page, baseURL);
 
       await use();
 
