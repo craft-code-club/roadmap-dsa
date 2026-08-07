@@ -1617,7 +1617,25 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
 .ms-nivel { min-width: 0; }
 .ms-nivel-rot { display: block; margin-bottom: 2px; font-family: var(--mono); font-size: 10px; color: #4c5f79; }
 .ms-nivel-faixa { display: grid; gap: 3px; }
-.ms-seg { display: grid; place-items: center; min-width: 0; height: 22px; padding: 0 4px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 5px; background: #0f1826; font-family: var(--mono); font-size: 10px; color: #6b7f99; white-space: nowrap; overflow: hidden; transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
+/* O trecho QUEBRA LINHA e cresce em altura, e isso não é preferência de estilo.
+   A largura de um trecho é proporcional às posições do array que ele cobre — é
+   essa proporção que ensina "seis dos oito elementos são maiores que o pivô" —,
+   então um trecho de uma posição recebe 26px em 390px de tela e 31px em 1440,
+   por construção, e nenhuma redistribuição de largura muda isso sem apagar a
+   informação. Com `white-space: nowrap` mais `overflow: hidden` e SEM
+   `text-overflow`, o que sobrava era corte no meio da palavra e sem reticências:
+   medido com um Range sobre o conteúdo, `> pivô, volta para a recursão` pedia
+   174px e recebia 31px a 1440x700, e o aluno lia `> piv` achando que o rótulo
+   era aquilo. O caso mais caro é o `= pivô, N já resolvido(s)`: a concordância
+   escrita para o preset "Sem repetição" é justamente a que o corte comia.
+   Trocado por quebra de linha com `overflow-wrap: anywhere` (só ela chega a uma
+   coluna de 26px) e altura automática: medido, a faixa vai de 22px a 96px no
+   pior preset a 1440x700 e todo o texto passa a ser lido. As faixas do merge
+   sort não sentem nada — os rótulos delas (`0`, `10..15`) sempre couberam, e as
+   duas peças medem os mesmos 163 e 205px de antes em 390, 480, 561, 760, 1440 e
+   1512px. O `min-height` guarda o desenho de quem tem rótulo vazio ou
+   `font-size: 0` (a regra deliberada do celular, mais abaixo). */
+.ms-seg { display: grid; place-items: center; min-width: 0; min-height: 22px; padding: 2px 4px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 5px; background: #0f1826; font-family: var(--mono); font-size: 10px; line-height: 1.2; text-align: center; color: #6b7f99; overflow-wrap: anywhere; overflow: hidden; transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
 .ms-seg.folha { opacity: 0.6; }
 .ms-seg.pronto { border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.13); color: #a7f3d0; }
 .ms-seg.ativo { border-color: var(--ccc-accent); background: rgba(59, 130, 246, 0.28); color: #fff; opacity: 1; }

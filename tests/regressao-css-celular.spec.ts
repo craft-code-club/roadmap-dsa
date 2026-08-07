@@ -1,0 +1,195 @@
+import { test, expect, type Page, type Locator } from "@playwright/test";
+
+// Dois defeitos de CSS que uma suíte verde deixou passar, pelo mesmo motivo: as
+// verificações mediam OVERFLOW DA PÁGINA, e nenhum dos dois estoura a página.
+//
+//  1. `.ms-seg` cortava o rótulo no meio da palavra (`white-space: nowrap` mais
+//     `overflow: hidden`, sem `text-overflow`). Caixa com `overflow` escondido
+//     não estoura nada: o único número que pega o corte é a largura REAL do
+//     texto, medida com um `Range` sobre o conteúdo, contra a largura útil do
+//     elemento.
+//  2. A gaveta do celular media `100vh` — a viewport GRANDE, de barra do
+//     navegador recolhida — e o card de apoio mora FORA da área rolável, então
+//     ele podia ficar sem caminho nenhum: não "mais embaixo", inalcançável.
+//
+// Todas as asserções daqui comparam número com número e carregam o rótulo
+// junto. E a checagem de `font-size` computado está aqui porque o contrário do
+// defeito é o mesmo defeito: rótulo com fonte zerada também faz toda medição de
+// largura passar, e já deixou texto invisível neste repositório.
+
+const REGUAS = [
+  { w: 390, h: 844, nome: "390x844" },
+  { w: 1440, h: 700, nome: "1440x700" },
+  { w: 1512, h: 900, nome: "1512x900" },
+] as const;
+
+type Medida = { rotulo: string; precisa: number; recebe: number; linhas: number; fonte: string };
+
+/** A largura de cada linha do texto contra a largura útil da caixa.
+ *
+ *  `getClientRects()` de um `Range` devolve um retângulo por linha, então o
+ *  máximo é a linha mais larga — é assim que a medição continua valendo depois
+ *  que o rótulo passou a quebrar linha. `clientWidth` já desconta a borda, mas
+ *  não o padding: sem descontar, um rótulo encostado nos dois lados passaria.
+ *
+ *  Sem argumento mede a página inteira; com um elemento (que é o que o
+ *  `locator.evaluate` passa) mede só o que está dentro dele. */
+function medir(raiz?: Element): Medida[] {
+  const dono: Element | Document = raiz ?? document;
+  return [...dono.querySelectorAll(".ms-seg")].map((el) => {
+    const faixa = document.createRange();
+    faixa.selectNodeContents(el);
+    const linhas = [...faixa.getClientRects()];
+    const cs = getComputedStyle(el);
+    const padding = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    return {
+      rotulo: (el.textContent ?? "").trim(),
+      precisa: Math.round((linhas.length ? Math.max(...linhas.map((l) => l.width)) : 0) * 10) / 10,
+      recebe: Math.round((el.clientWidth - padding) * 10) / 10,
+      linhas: linhas.length,
+      fonte: cs.fontSize,
+    };
+  });
+}
+
+const cortadas = (m: Medida[]) => m.filter((x) => x.precisa - x.recebe > 0.5);
+
+async function abrir(page: Page, url: string, w: number, h: number) {
+  await page.setViewportSize({ width: w, height: h });
+  await page.goto(url);
+  expect(page.viewportSize(), "a janela pedida é a janela medida").toEqual({ width: w, height: h });
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+}
+
+/** Troca de preset esperando o re-render, e não o tick seguinte ao clique:
+ *  medir no mesmo tick lê o preset anterior e a asserção vira decoração. */
+async function trocarPreset(fig: Locator, i: number): Promise<string> {
+  const chip = fig.locator(".bigo-chip").nth(i);
+  const rotulo = (await chip.innerText()).trim();
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  return rotulo;
+}
+
+// ---------------------------------------------------------------------------
+// Defeito 1 — o rótulo das faixas cabe na faixa
+// ---------------------------------------------------------------------------
+
+test.describe("faixas: o rótulo cabe no trecho", () => {
+  for (const r of REGUAS) {
+    test(`quick sort, os dois painéis de três vias, todos os presets (${r.nome})`, async ({ page }) => {
+      await abrir(page, "/topico/quick-sort/", r.w, r.h);
+      const fig = page.locator("figure.viz").filter({ hasText: "o que fazer com os iguais ao pivô" });
+      await expect(fig).toHaveCount(1);
+
+      const chips = fig.locator(".bigo-chip");
+      expect(await chips.count(), "os quatro presets do comparador").toBe(4);
+      // Os DOIS painéis de uma vez: eles usam a mesma classe e o corte apareceu
+      // nos dois, então medir um só mediria metade do defeito.
+      expect(await fig.locator(".ms-op").count(), "duas vias e três vias, lado a lado").toBe(2);
+
+      for (let i = 0; i < 4; i++) {
+        const preset = await trocarPreset(fig, i);
+        const medidas = await fig.evaluate(medir);
+        expect(medidas.length, `${preset}: há trechos para medir`).toBeGreaterThan(1);
+        expect(
+          cortadas(medidas),
+          `${r.nome}, preset ${JSON.stringify(preset)}: rótulo cortado (precisa x recebe, em px)`
+        ).toEqual([]);
+      }
+    });
+
+    test(`quick sort, a invariante da partição, passo a passo (${r.nome})`, async ({ page }) => {
+      test.slow();
+      await abrir(page, "/topico/quick-sort/", r.w, r.h);
+      const fig = page.locator("figure.viz-fit");
+      await expect(fig).toHaveCount(1);
+
+      const chips = fig.locator(".bigo-chip");
+      expect(await chips.count(), "os quatro presets da partição").toBe(4);
+
+      for (let i = 0; i < 4; i++) {
+        const preset = await trocarPreset(fig, i);
+        const contador = fig.locator(".viz-step");
+        const passos = Number((await contador.innerText()).match(/de (\d+)/)![1]);
+        expect(passos, `${preset}: a linha do tempo tem passos`).toBeGreaterThan(1);
+
+        const proximo = fig.getByRole("button", { name: /Próximo/ });
+        for (let s = 1; s <= passos; s++) {
+          await expect(contador).toHaveText(new RegExp(`passo ${s} de ${passos}`));
+          expect(
+            cortadas(await fig.evaluate(medir)),
+            `${r.nome}, preset ${JSON.stringify(preset)}, passo ${s} de ${passos}: rótulo cortado`
+          ).toEqual([]);
+          if (s < passos) await proximo.click();
+        }
+        // Sem isto o laço pode sair calado no meio, e as asserções acima teriam
+        // rodado num punhado de passos do começo.
+        await expect(proximo).toBeDisabled();
+      }
+    });
+
+    test(`merge sort, os quatro tamanhos, e a faixa continua de uma linha (${r.nome})`, async ({ page }) => {
+      await abrir(page, "/topico/merge-sort/", r.w, r.h);
+      // A varredura aqui é pelo TAMANHO da entrada, e não pelo passo: os
+      // rótulos do merge sort (`0`, `10..15`) não mudam ao longo da animação —
+      // o que muda é a cor. O tamanho é que muda a largura de cada trecho.
+      const niveis = page.locator("figure.viz").filter({ hasText: "o n log n desenhado" });
+      await expect(niveis).toHaveCount(1);
+      expect(await niveis.locator(".bigo-chip").count(), "os quatro tamanhos de entrada").toBe(4);
+
+      for (let i = 0; i < 4; i++) {
+        const tamanho = await trocarPreset(niveis, i);
+        // A página inteira: as duas peças de merge sort dividem a classe.
+        const medidas = await page.locator("body").evaluate(medir);
+        expect(cortadas(medidas), `${r.nome}, ${tamanho}: rótulo cortado no mapa da recursão`).toEqual([]);
+
+        // O mapa da recursão tem que continuar com UMA linha por trecho. Se ele
+        // passar a quebrar, a peça dobra de altura sem ninguém ter pedido.
+        expect(
+          medidas.filter((x) => x.linhas > 1),
+          `${r.nome}, ${tamanho}: trecho quebrou linha`
+        ).toEqual([]);
+      }
+    });
+  }
+
+  test("o rótulo continua legível: font-size computado nos dois donos da classe", async ({ page }) => {
+    // A regra `.ms-niveis .ms-seg { font-size: 0 }` no celular é DELIBERADA e
+    // escopada: ela vale para o mapa da recursão do merge sort, onde o trecho
+    // mais estreito tem 13px, e NÃO para as faixas do quick sort, que ocupam a
+    // linha quase inteira. Este teste guarda os dois lados — o que some de
+    // propósito e o que precisa continuar aparecendo.
+    const fonte = (sel: string) =>
+      page.evaluate((s) => {
+        const el = document.querySelector(s);
+        if (!el) throw new Error(`sem elemento para ${s}`);
+        return getComputedStyle(el).fontSize;
+      }, sel);
+
+    await abrir(page, "/topico/merge-sort/", 390, 844);
+    expect(await fonte(".ms-niveis .ms-seg"), "celular: o mapa da recursão esconde o rótulo, de propósito").toBe("0px");
+
+    // ...e escondê-lo não pode colapsar o desenho. O número não é digitado: sai
+    // do próprio `min-height` computado, então ele sobrevive a mudança de CSS
+    // sem deixar de testar o que importa.
+    const desenho = await page.evaluate(() => {
+      const seg = document.querySelector(".ms-niveis .ms-seg")!;
+      const faixa = seg.closest(".ms-nivel-faixa")!;
+      return {
+        faixa: Math.round(faixa.getBoundingClientRect().height),
+        minima: parseFloat(getComputedStyle(seg).minHeight),
+      };
+    });
+    expect(desenho.faixa, "a faixa continua desenhada mesmo com o rótulo escondido").toBe(desenho.minima);
+
+    await abrir(page, "/topico/quick-sort/", 390, 844);
+    expect(
+      await fonte("figure.viz-fit .ms-nivel-faixa .ms-seg"),
+      "celular: a invariante do quick sort continua legível"
+    ).toBe("9px");
+
+    await abrir(page, "/topico/merge-sort/", 1440, 700);
+    expect(await fonte(".ms-niveis .ms-seg"), "fora do celular o rótulo do merge sort volta").toBe("10px");
+  });
+});
