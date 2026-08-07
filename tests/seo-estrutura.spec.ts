@@ -137,3 +137,87 @@ test("canonical e og:url saem com a barra final do trailingSlash", () => {
   expect(errados, "URL declarada sem a barra final").toEqual([]);
 });
 
+// ---------------------------------------------------------------------------
+// 2. O sitemap não convida o Google para o que ele mesmo manda ignorar
+// ---------------------------------------------------------------------------
+
+function sitemap(): string {
+  return readFileSync(path.join(OUT, "sitemap.xml"), "utf8");
+}
+
+function urlsDoSitemap(): string[] {
+  return [...sitemap().matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+}
+
+test("nenhuma URL do sitemap aponta para HTML noindex", () => {
+  const contraditorias: string[] = [];
+  for (const url of urlsDoSitemap()) {
+    const rota = url.replace(SITE_URL, "");
+    if (ehNoindex(html(rota))) contraditorias.push(rota);
+  }
+  expect(
+    contraditorias,
+    `${contraditorias.length} URLs do sitemap apontam para páginas com noindex ` +
+      `(cada uma vira um erro permanente no Search Console)`
+  ).toEqual([]);
+});
+
+test("o sitemap lista exatamente as rotas indexáveis, nem mais nem menos", () => {
+  const doSitemap = urlsDoSitemap().sort();
+  const esperadas = ROTAS_INDEXAVEIS.map(urlAbsoluta).sort();
+  expect(doSitemap).toEqual(esperadas);
+});
+
+/** O clone raso do `actions/checkout` responde a mesma data para todo caminho. */
+function repositorioRaso(): boolean {
+  try {
+    const r = execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return r.trim() !== "false";
+  } catch {
+    return true; // sem git, sem data derivável
+  }
+}
+
+function dataDoGit(arquivo: string): string {
+  return execFileSync("git", ["log", "-1", "--format=%cI", "--", arquivo], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
+}
+
+test("o lastmod do sitemap vem do Git, ou não existe", () => {
+  const xml = sitemap();
+  if (repositorioRaso()) {
+    // Num clone `--depth 1` o `git log` de QUALQUER caminho devolve o commit do
+    // HEAD: as 40 URLs sairiam com a data do último deploy, que é justamente a
+    // mentira que o Google já aprendeu a ignorar. Sem campo é melhor que campo
+    // falso, e o guarda é isto aqui.
+    expect(xml, "clone raso não pode produzir lastmod").not.toContain("<lastmod>");
+    return;
+  }
+  const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  const sem: string[] = [];
+  const errados: string[] = [];
+  for (const bloco of blocos) {
+    const loc = bloco.match(/<loc>([^<]+)<\/loc>/)![1];
+    const lastmod = bloco.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
+    if (!lastmod) {
+      sem.push(loc);
+      continue;
+    }
+    if (Number.isNaN(Date.parse(lastmod))) errados.push(`${loc} → ${lastmod} não é uma data`);
+    const slug = loc.match(/\/topico\/([^/]+)\//)?.[1];
+    if (slug) {
+      const esperada = dataDoGit(`content/topics/${slug}.mdx`);
+      if (esperada && Date.parse(lastmod) !== Date.parse(esperada)) {
+        errados.push(`${loc} → ${lastmod}, o Git diz ${esperada}`);
+      }
+    }
+  }
+  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível`).toEqual([]);
+  expect(errados, "lastmod que não bate com o commit do arquivo").toEqual([]);
+});
+
