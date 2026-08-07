@@ -362,5 +362,60 @@ test.describe("cartões que ensinavam o oposto", () => {
         "no grafo completo isso dá exatamente V²: os dois empatam, e é o mais caro que a lista chega a ficar."
       );
     });
+
+    test("o cartão 'células em zero' conta os zeros que a matriz desenha", async ({ page }) => {
+      const fig = await abrir(page, GRAFOS, FIG_GRAFO);
+      const zeros = cartao(fig, "células em zero").locator("strong");
+
+      // A invariante que faltava, e a que teria pego o defeito: o número do
+      // cartão é a contagem dos botões que mostram `0`. A expressão descontava
+      // a diagonal (`- V`), mas a diagonal É DESENHADA, como botão com o zero
+      // dentro — `opacity: .35` deixa apagado, não invisível.
+      const naTela = () =>
+        fig.evaluate((f) => {
+          const cel = [...f.querySelectorAll(".gr-cel")];
+          return {
+            botoes: cel.length,
+            zeros: cel.filter((b) => b.textContent!.trim() === "0").length,
+            diagonalEmZero: cel.filter(
+              (b) => b.classList.contains("diag") && b.textContent!.trim() === "0"
+            ).length,
+          };
+        });
+
+      const presets = ["Esparso (rede social)", "Denso", "Completo", "Caminho (o mínimo conexo)"];
+      const visto: string[] = [];
+
+      for (const modo of ["não dirigido", "dirigido"]) {
+        await fig.getByRole("button", { name: modo, exact: true }).click();
+        for (const preset of presets) {
+          await fig.getByRole("button", { name: preset, exact: true }).click();
+          const t = await naTela();
+
+          // A matriz sempre desenha V² botões, e a diagonal inteira sempre em
+          // zero: é ela que o `- V` descontava, e é ela que o aluno vê.
+          expect(t.botoes, `${modo}/${preset}: a matriz deixou de ter V² botões`).toBe(36);
+          expect(t.diagonalEmZero, `${modo}/${preset}: a diagonal saiu do zero`).toBe(6);
+
+          await expect(zeros, `${modo}/${preset}: o cartão discorda da tela`).toHaveText(
+            String(t.zeros)
+          );
+          visto.push(`${modo}/${preset}: ${t.zeros}`);
+        }
+      }
+
+      // E os números medidos, presos: a invariante sozinha passaria com os dois
+      // lados errados do mesmo jeito, e é a tela que manda.
+      expect(visto).toEqual([
+        "não dirigido/Esparso (rede social): 22",
+        "não dirigido/Denso: 10",
+        "não dirigido/Completo: 6",
+        "não dirigido/Caminho (o mínimo conexo): 26",
+        "dirigido/Esparso (rede social): 29",
+        "dirigido/Denso: 23",
+        "dirigido/Completo: 21",
+        "dirigido/Caminho (o mínimo conexo): 31",
+      ]);
+    });
   });
 });
