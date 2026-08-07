@@ -39,7 +39,48 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // Dois projetos, e a tag `@mobile` decide quem roda o quê.
+  //
+  // O projeto `chromium` continua sendo a suíte inteira, e é ele que segura os
+  // 37 arquivos que já existiam. O `mobile` roda **só** o que estiver marcado
+  // `@mobile` no título, num Pixel 7 de verdade (412x839, `isMobile`,
+  // `hasTouch`): o `grep`/`grepInvert` abaixo é o que impede que acrescentar
+  // celular dobre o tempo de CI de todo mundo.
+  //
+  // Custo medido em A/B, duas rodadas cada, mesma máquina:
+  //
+  //     só desktop (474 testes) ...... 79s, 77s
+  //     os dois    (499 testes) ...... 78s, 80s
+  //
+  // A diferença está dentro do ruído entre rodadas. Faz sentido: o projeto
+  // `mobile` sozinho leva 3,6s de tempo de teste, e os 6 workers absorvem isso.
+  // Também não custa instalação: `devices["Pixel 7"]` é `defaultBrowserType:
+  // "chromium"`, o mesmo navegador que o `tests.yml` já baixa.
+  //
+  // `isMobile` e `hasTouch` são o motivo de existir um projeto em vez de mais um
+  // `page.setViewportSize({ width: 390 })`: só eles ligam a viewport visual do
+  // Chromium e a consulta `@media (pointer: coarse)`, que o `globals.css` usa
+  // (linha 1791). Redimensionar a janela não liga nenhum dos dois.
+  //
+  // Ligar e desligar:
+  //
+  //     npm test                                 # os dois projetos
+  //     npx playwright test --project=chromium   # só desktop (desliga o celular)
+  //     npx playwright test --project=mobile     # só celular
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      // Sem isto, os testes `@mobile` rodariam TAMBÉM em desktop, medindo
+      // largura de celular numa janela de 1280 e reprovando por engano.
+      grepInvert: /@mobile/,
+    },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"] },
+      grep: /@mobile/,
+    },
+  ],
   // Testa o artefato real (SSG em ./out), não o dev server. Rode `npm run build`
   // antes de `npm test` (ou use `npm run test:build`).
   webServer: {
