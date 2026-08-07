@@ -4,6 +4,14 @@
    ========================================================================== */
 
 :root {
+  /* O tema é escuro e não tem alternância. Sem esta declaração, o navegador
+     assume claro para tudo que ele mesmo desenha: barra de rolagem, controles
+     de formulário e a cor de fundo antes do CSS chegar. As regras
+     `::-webkit-scrollbar` abaixo só maquiam o Chrome e o Safari; no Firefox,
+     que não as implementa, as barras saíam CLARAS sobre o fundo #0b111c,
+     inclusive a do menu lateral, que é o elemento mais rolado do produto.
+     Uma linha aqui resolve nos três, e é o gancho padrão para isso. */
+  color-scheme: dark;
   --ccc-accent: #3b82f6;
   --ccc-accent-soft: rgba(59, 130, 246, 0.14);
   --ccc-accent-2: #93bbfd;
