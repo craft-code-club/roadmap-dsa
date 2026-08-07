@@ -135,7 +135,18 @@ function classificar(node) {
   if (p && ts.isLiteralTypeNode(p)) return "codigo";
 
   // Nome de propriedade escrito como literal: `{ "data-x": 1 }`, `obj["k"]`.
-  if (p && (ts.isPropertyAssignment(p) || ts.isPropertySignature(p) || ts.isMethodDeclaration(p)) && p.name === node) {
+  // `MethodSignature` entra na lista pelo mesmo motivo que `PropertySignature`:
+  // nome de membro declarado em tipo ou interface é CÓDIGO, nunca texto que o
+  // aluno lê. Sem ele, `interface I { "faz-algo"(): void }` cairia no default
+  // `tela` e o guarda reprovaria um rename legítimo.
+  if (
+    p &&
+    (ts.isPropertyAssignment(p) ||
+      ts.isPropertySignature(p) ||
+      ts.isMethodDeclaration(p) ||
+      ts.isMethodSignature(p)) &&
+    p.name === node
+  ) {
     return "codigo";
   }
   if (p && ts.isElementAccessExpression(p) && p.argumentExpression === node) return "codigo";
