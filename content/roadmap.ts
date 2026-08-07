@@ -1141,7 +1141,7 @@ export const GROUPS: Group[] = [
         videoMinutes: "27:33",
         readingTime: "10 min",
         language: "Python",
-        description: "O sistema binário e a conversão decimal ⇄ binário.",
+        description: "O sistema binário e a conversão entre decimal e binário.",
         problems: [
           { id: "lc-191", name: "Number of 1 Bits", number: "191", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/number-of-1-bits/" },
           { id: "lc-67", name: "Add Binary", number: "67", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/add-binary/" },
