@@ -958,8 +958,8 @@ mesmo número em dois lugares independentes confirma o **mecanismo** (o
 
 Quem citar o `+28` ou o `+10` sem medir a própria peça vai escrever o contrário
 do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*
-— e, num `total: 1`, ela ainda não é a última: falta *quanto o rótulo do
-cabeçalho ocupa*, no fim desta subseção.
+— e ela ainda não é a última: falta *esta peça já tinha botão no cabeçalho?*, na
+subseção seguinte.
 
 Nos dois a adaptação valeu, porque o que ela conserta é outra coisa — e só
 aparece **abaixo** da régua de 1512x900. Na busca da hash table, o `▶ Rodar` era
@@ -972,15 +972,37 @@ número**, não arredondar para "sem mudança". A pergunta certa ao decidir o
 escopo de uma peça sem bloco não é "quanto ela encolhe", é "onde ficam os
 controles quando ela rola".
 
-**E existe um terceiro mecanismo, que numa peça `total: 1` domina os outros
-dois: a LINHA DO CABEÇALHO.** As cinco peças mudas do grupo Ordenação entraram
-todas como o caso `−4` desta tabela — `collapsible: false`, `total: 1` e sem
-`children` no `VizFooter`, ou seja, sem rodapé nenhum. Pela regra acima o número
-seria `−4px` nas cinco. Medido: **+8 em três delas e +36 nas outras duas**, nas
-duas réguas de desktop.
+### O número é previsível: some as parcelas antes de medir
 
-A decomposição fecha exatamente nas cinco, e sai de uma leitura só — esconda o
-`⤢ Expandir` e leia a figura duas vezes no mesmo carregamento, sem rebuild:
+**E o `−4` da tabela acima não é o custo de uma peça `total: 1`. É o custo de
+uma peça que JÁ TINHA BOTÃO no cabeçalho.** Todas as peças daquela tabela
+chegaram à casca vindas de um overlay escrito à mão, com o `⤢ Expandir` já
+dentro do `.viz-head-right`, ao lado do `.viz-step`. Conferido no commit
+anterior ao de cada adaptação, nas cinco linhas e também no `BinarioDivisoes`
+do parágrafo do `−184`: **nenhuma delas pagou o cabeçalho**, e é por isso que
+essa parcela nunca apareceu por aqui.
+
+As cinco peças mudas do grupo Ordenação são as primeiras a chegar **sem botão
+nenhum** — `figure.viz` com `.viz-head-right` só de texto. Elas são o caso `−4`
+em tudo o mais (`collapsible: false`, `total: 1`, sem `children` no
+`VizFooter`, sem rodapé), e mediram **+8 em três e +36 em duas**, nas duas
+réguas de desktop.
+
+Medidas bloco a bloco nos dois builds, as parcelas são três:
+
+| parcela | quanto | quando é cobrada |
+|---|---:|---|
+| `.viz-body` | **−4px** | **sempre**: o `padding: 22px 20px 18px` da base vira `padding-bottom: 14px` em `.viz-fit .viz-body` (`globals.css`) |
+| `.viz-head` | **+12px** | quando a peça **não tinha botão**: 41 → 53px, porque entra um `<button>` onde só havia texto |
+| `.viz-head`, de novo | **+28px** | quando o rótulo é longo o bastante para o botão **quebrar a linha**: 53 → 81px |
+
+Somadas, elas explicam a série inteira **antes** de você abrir o navegador:
+`−4` para quem já tinha botão; `−4 + 12 = +8` para quem ganha o botão e cabe na
+linha; `−4 + 12 + 28 = +36` para quem ganha o botão e quebra. As cinco peças do
+grupo Ordenação fecham exatamente nas duas últimas contas.
+
+Conferir custa uma leitura só — esconda o `⤢ Expandir` e leia a figura duas
+vezes no mesmo carregamento, sem rebuild:
 
 ```js
 // o custo do botão do cabeçalho, medido no artigo
@@ -992,20 +1014,25 @@ const sem = f.getBoundingClientRect().height;   // com − sem = o custo do bot�
 b.style.display = "";
 ```
 
-`−4` (a casca devolve, como esta seção mede) **+12** quando o `⤢ Expandir` cabe
-na linha do `.viz-step`, ou **+40** quando ele a quebra — o `.viz-head` vai de
-41px para 53 ou para 81. O que decide de que lado a peça cai é o **comprimento
-do `children` do `VizHeader`**, porque `.viz-fit .viz-head-right` é
-`flex-wrap: wrap` no `globals.css`. E quem alonga esse `children` é a §6: num
-`total: 1` ele **substitui** o "passo 12 de 93" de uma dúzia de caracteres por
-uma frase inteira, com o rótulo junto do número. O corte medido fica perto de
-**40 caracteres** — os rótulos de 34, 35 e 38 couberam na linha; os de 53 e 55
-a quebraram.
+O que decide entre `+8` e `+36` é o **comprimento do `children` do
+`VizHeader`**, porque `.viz-fit .viz-head-right` é `flex-wrap: wrap` no
+`globals.css`. E quem alonga esse `children` é a §6: num `total: 1` ele
+**substitui** o "passo 12 de 93" de uma dúzia de caracteres por uma frase
+inteira, com o rótulo junto do número. O corte medido fica perto de **40
+caracteres** — os rótulos de 34, 35 e 38 couberam na linha; os de 53 e 55 a
+quebraram.
 
-A 390x844 o sinal se inverte outra vez: lá o cabeçalho **já** tem duas linhas
-sem o botão (99px), a casca passa a **custar** +10 em vez de devolver 4, e o
-botão cobra +38 — o total vai de +20 a +60. Três réguas, três mecanismos, e
-nenhum deles dispensa medir a sua peça.
+**A quarta parcela, a do `.viz-foot`, continua sem decomposição bloco a bloco**,
+e por isso não entra na soma acima. Cuidado ao juntar as duas aritméticas: como
+o `−4` do miolo vale para **toda** peça `.viz-fit`, os `+28`, `+10` e `+10` das
+três primeiras linhas da tabela já o trazem embutido — aquele `+10` é um
+**líquido** (rodapé menos miolo), não a parcela do rodapé sozinho. Quem precisar
+do custo do rodapé isolado tem de medi-lo como se mediram estas três.
+
+A 390x844 os sinais mudam de novo: lá o cabeçalho **já** tem duas linhas sem o
+botão (99px), a casca passa a **custar** +10 em vez de devolver 4, e o botão
+cobra +38 — o total vai de +20 a +60. Três réguas, três aritméticas, e nenhuma
+delas dispensa medir a sua peça.
 
 ### `measureOn` não enxerga o passo, e há peça cujo bloco mais alto cresce com ele
 
@@ -1044,8 +1071,8 @@ permanente.** Ali o `children` do `VizHeader` não divide a linha com o contador
 ele **é** a linha, e a §6 pede que ele traga o rótulo junto do número, justamente
 para o número não perder o contexto. Medido no grupo Ordenação: `.viz-head` de
 41 para **81px** em 2 das 5 peças, em **todos** os estados e em **todas** as
-réguas — não em 19 de 514 e numa largura só. O custo no artigo está na subseção
-*"Adotar a casca…"* acima.
+réguas — não em 19 de 514 e numa largura só. O custo disso no artigo é a
+terceira parcela da subseção *"O número é previsível"*, acima.
 
 A consequência é editorial, e vale tomar de olhos abertos: numa peça `total: 1`,
 encurtar o `children` em uma dúzia de caracteres pode valer **40px** de altura no
