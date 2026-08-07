@@ -209,6 +209,18 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   const stepNoteRef = useRef(stepNote);
   useEffect(() => { totalRef.current = total; }, [total]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
+
+  // O ref acompanha na MESMA chamada, e não só no efeito. Enquanto ele só era
+  // escrito no efeito, todo `playing` recém-trocado tinha uma janela em que o
+  // ref ainda dizia o contrário — e quem lê o ref para DECIDIR nessa janela
+  // decide errado. Medido: `botao.click(); botao.click()` no mesmo tick
+  // deixava a peça em "❚❚ Pausar", porque o segundo clique leu `false` e voltou
+  // a mandar rodar em vez de pausar. O efeito acima continua, como rede para
+  // qualquer caminho que mexa em `playing` sem passar por aqui.
+  const setPlayingNow = useCallback((v: boolean) => {
+    playingRef.current = v;
+    setPlaying(v);
+  }, []);
   useEffect(() => { stepNoteRef.current = stepNote; }, [stepNote]);
 
   const stop = useCallback(() => {
@@ -270,35 +282,35 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
 
   const stepBy = useCallback((delta: number) => {
     stop();
-    setPlaying(false);
+    setPlayingNow(false);
     setPlayback((p) => {
       const alvo = naFaixa(naFaixa(p.step) + delta);
       const live = fala(alvo);
       return alvo === p.step && live === p.live ? p : { step: alvo, live };
     });
-  }, [stop, fala, naFaixa]);
+  }, [stop, fala, naFaixa, setPlayingNow]);
 
   const togglePlay = useCallback(() => {
     if (playingRef.current) {
       stop();
-      setPlaying(false);
+      setPlayingNow(false);
       setPlayback((p) => ({ ...p, live: `pausado no passo ${naFaixa(p.step) + 1} de ${totalRef.current}` }));
       return;
     }
-    setPlaying(true);
+    setPlayingNow(true);
     setPlayback((p) => {
       // no fim da animação, rodar de novo rebobina em vez de não fazer nada
       const atual = naFaixa(p.step);
       const de = atual >= totalRef.current - 1 ? 0 : atual;
       return { step: de, live: `rodando a partir do passo ${de + 1} de ${totalRef.current}` };
     });
-  }, [stop, naFaixa]);
+  }, [stop, naFaixa, setPlayingNow]);
 
   const reset = useCallback(() => {
     stop();
-    setPlaying(false);
+    setPlayingNow(false);
     setPlayback({ step: 0, live: fala(0) });
-  }, [stop, fala]);
+  }, [stop, fala, setPlayingNow]);
 
   useEffect(() => {
     stop();
@@ -319,9 +331,9 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
 
   useEffect(() => {
     if (!playing || step < total - 1) return;
-    setPlaying(false);
+    setPlayingNow(false);
     setPlayback((p) => ({ ...p, live: `fim da animação, passo ${total} de ${total}` }));
-  }, [playing, step, total]);
+  }, [playing, step, total, setPlayingNow]);
 
   // -------------------------------------------------------------------- casca
   const blockId = useId();
@@ -417,13 +429,24 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   //
   // Isto não conversa com a medição da casca: só mexe em `playing`, nunca em
   // `open`, `measuring` ou `measureTick`, e a medição é guardada por
-  // `measuredRound`. Na montagem `playing` é `false`, então a primeira chamada
-  // do observer (que reporta o estado atual) é um no-op.
+  // `measuredRound`.
+  //
+  // Idempotente de propósito, sem guarda por `playingRef`: o ref só é escrito
+  // num efeito, então existe uma janela — curta, e real — em que `playing` já é
+  // `true` e o ref ainda é `false`, e nela a guarda descartaria a pausa. As três
+  // linhas abaixo são no-op quando não há o que pausar (`stop` sem timer,
+  // `setPlaying` com o mesmo valor e o bail-out do `setPlayback`), então a
+  // primeira chamada do observer na montagem — que reporta o estado atual e
+  // acontece em toda peça abaixo da dobra — continua não custando renderização.
   const pauseOffscreen = useCallback(() => {
-    if (!playingRef.current) return;
     stop();
-    setPlaying(false);
-  }, [stop]);
+    setPlayingNow(false);
+    // A região viva ficava dizendo "rodando a partir do passo N" com a peça
+    // parada: a única pista de quem não enxerga afirmando o contrário do botão
+    // ao lado. Ela CALA em vez de anunciar, porque pausa automática não é ação
+    // do aluno — anunciá-la interromperia quem já está lendo outra coisa.
+    setPlayback((p) => (p.live === "" ? p : { ...p, live: "" }));
+  }, [stop, setPlayingNow]);
 
   useEffect(() => {
     const onHide = () => { if (document.hidden) pauseOffscreen(); };

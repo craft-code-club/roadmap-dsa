@@ -184,6 +184,34 @@ test.describe("a região viva anuncia o passo", () => {
   });
 });
 
+test.describe("o ▶ Rodar não perde o próprio estado", () => {
+  test("dois toques no mesmo tick voltam ao parado, em vez de mandar rodar duas vezes", async ({
+    page,
+  }) => {
+    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
+    const contador = contadorDePasso(fig);
+    await expect(rodar).toHaveText(/Rodar/);
+
+    // Os dois cliques no MESMO tick, que é o pior caso do estado lido por ref:
+    // o `playing` do primeiro ainda não chegou ao ref quando o segundo decide.
+    await rodar.evaluate((b: HTMLElement) => {
+      b.click();
+      b.click();
+    });
+
+    // Dois toques na mesma tecla se cancelam. Sem o conserto o segundo lia
+    // `playingRef.current === false` e voltava a MANDAR RODAR, e esta linha
+    // recebia "❚❚ Pausar".
+    await expect(rodar).toHaveText(/Rodar/);
+
+    // E parado é parado: o contador não anda depois de duas marchas de 650ms.
+    const parouEm = (await contador.textContent()) ?? "";
+    await page.waitForTimeout(1500);
+    expect(await contador.textContent()).toBe(parouEm);
+  });
+});
+
 test.describe("a animação não roda para quem não está vendo", () => {
   test("sair da tela pausa, e voltar NÃO retoma sozinho", async ({ page }) => {
     const fig = await figuraDe(page, "/topico/merge-sort/");
@@ -220,6 +248,34 @@ test.describe("a animação não roda para quem não está vendo", () => {
     const voltaA = (await contador.textContent()) ?? "";
     await page.waitForTimeout(2000);
     expect(await contador.textContent()).toBe(voltaA);
+  });
+
+  test("a pausa automática não deixa a região viva dizendo que ainda roda", async ({ page }) => {
+    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const status = fig.getByRole("status");
+    const contador = contadorDePasso(fig);
+    const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
+
+    const inicial = (await contador.textContent()) ?? "";
+    await rodar.click();
+    await expect(rodar).toHaveText(/Pausar/);
+    // Premissas: a animação começou, e a região disse isso.
+    await expect(contador).not.toHaveText(inicial);
+    await expect(status).toHaveText(/^rodando a partir do passo \d+ de \d+$/);
+
+    await page.evaluate(() =>
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" })
+    );
+    await expect(fig).not.toBeInViewport();
+    // Premissa: a pausa automática aconteceu mesmo — é ela que cria a incoerência.
+    await expect(rodar).toHaveText(/Rodar/);
+
+    // A asserção que carrega o sentido: sem o conserto a região continua
+    // afirmando "rodando a partir do passo 1 de 79" com a peça parada, ou seja,
+    // a única pista de quem não enxerga dizendo o contrário do botão ao lado.
+    // Ela CALA em vez de anunciar: pausa automática não é ação do aluno, e
+    // anunciá-la interromperia quem já está lendo outra coisa da página.
+    await expect(status).toHaveText("");
   });
 });
 
