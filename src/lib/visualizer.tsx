@@ -237,12 +237,34 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     return nota ? `${passo}. ${nota}` : passo;
   }, []);
 
+  // A faixa é aplicada na LEITURA do estado guardado, e não na escrita do
+  // `setStep`. Guardar o valor cru é o que faz um componente conseguir posicionar
+  // o passo de uma entrada que ainda não chegou ao `total`: o "20 inteiros" do
+  // `ArraysVisualizer` troca o array e pede o índice 16 no MESMO handler, com o
+  // `total` ainda em 8. Medido no build servido — limitando na escrita, o
+  // cabeçalho lê `passo 8 de 20` em vez de `passo 17 de 20`.
+  //
+  // Sem esta função, porém, o valor cru vaza do `step` (que é limitado na linha
+  // acima) para a aritmética das setas e para o texto dos anúncios, e aí o
+  // leitor de tela ouve um passo que não existe.
+  const naFaixa = useCallback(
+    (n: number) => Math.max(0, Math.min(n, totalRef.current - 1)),
+    []
+  );
+
   // Sem anúncio de propósito: quem chama isto é o componente (o step inicial de
   // uma peça, um salto calculado), não o aluno.
+  //
+  // "Sem anúncio" inclui não deixar de pé o anúncio ANTERIOR, que o salto acaba
+  // de tornar falso. Medido no `ArraysVisualizer`: o `viz.reset()` do "20
+  // inteiros" escreve "passo 1 de 8" e o `setStep(16)` da linha seguinte leva a
+  // peça para o passo 17 de 20 — a região viva ficava afirmando o passo e o
+  // total errados. O hook não tem como montar a frase certa aqui (o `total` novo
+  // só chega no render seguinte), então ele cala em vez de mentir.
   const setStep = useCallback((n: number | ((s: number) => number)) => {
     setPlayback((p) => {
       const alvo = typeof n === "function" ? n(p.step) : n;
-      return alvo === p.step ? p : { ...p, step: alvo };
+      return alvo === p.step && p.live === "" ? p : { step: alvo, live: "" };
     });
   }, []);
 
@@ -250,26 +272,27 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     stop();
     setPlaying(false);
     setPlayback((p) => {
-      const alvo = Math.max(0, Math.min(p.step + delta, totalRef.current - 1));
+      const alvo = naFaixa(naFaixa(p.step) + delta);
       const live = fala(alvo);
       return alvo === p.step && live === p.live ? p : { step: alvo, live };
     });
-  }, [stop, fala]);
+  }, [stop, fala, naFaixa]);
 
   const togglePlay = useCallback(() => {
     if (playingRef.current) {
       stop();
       setPlaying(false);
-      setPlayback((p) => ({ ...p, live: `pausado no passo ${p.step + 1} de ${totalRef.current}` }));
+      setPlayback((p) => ({ ...p, live: `pausado no passo ${naFaixa(p.step) + 1} de ${totalRef.current}` }));
       return;
     }
     setPlaying(true);
     setPlayback((p) => {
       // no fim da animação, rodar de novo rebobina em vez de não fazer nada
-      const de = p.step >= totalRef.current - 1 ? 0 : p.step;
+      const atual = naFaixa(p.step);
+      const de = atual >= totalRef.current - 1 ? 0 : atual;
       return { step: de, live: `rodando a partir do passo ${de + 1} de ${totalRef.current}` };
     });
-  }, [stop]);
+  }, [stop, naFaixa]);
 
   const reset = useCallback(() => {
     stop();
@@ -284,11 +307,15 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
       // O relógio anda o step e NÃO escreve na região viva. O `p` devolvido no
       // fim preserva o bail-out do React, que é o que impede a renderização
       // inútil a cada tick depois do último step.
-      () => setPlayback((p) => (p.step >= totalRef.current - 1 ? p : { ...p, step: p.step + 1 })),
+      () =>
+        setPlayback((p) => {
+          const atual = naFaixa(p.step);
+          return atual >= totalRef.current - 1 ? p : { ...p, step: atual + 1 };
+        }),
       speeds[speed]
     );
     return stop;
-  }, [playing, speed, speeds, stop]);
+  }, [playing, speed, speeds, stop, naFaixa]);
 
   useEffect(() => {
     if (!playing || step < total - 1) return;

@@ -25,6 +25,7 @@ function contadorDePasso(fig: Locator): Locator {
 const PECAS = {
   "/topico/big-o/": "contando operações no mesmo array",
   "/topico/merge-sort/": "a descida divide, a subida ordena",
+  "/topico/arrays/": "memória contígua e o endereço de nums[i]",
 } as const;
 
 /**
@@ -146,6 +147,40 @@ test.describe("a região viva anuncia o passo", () => {
     await expect(rodar).toHaveText(/Rodar/);
     await expect(status).toHaveText(/^pausado no passo \d+ de \d+$/);
     await expect(status).not.toHaveText(anuncioNoInicio);
+  });
+
+  test("um salto programático cala a região, em vez de deixar o anúncio velho de pé", async ({
+    page,
+  }) => {
+    const fig = await figuraDe(page, "/topico/arrays/");
+    const status = fig.getByRole("status");
+    const contador = contadorDePasso(fig);
+
+    // O `viz.step` desta peça É o índice lido, e o `total` É o tamanho do array.
+    await expect(contador).toHaveText("passo 4 de 8");
+    await expect(status).toHaveText("");
+
+    // "20 inteiros" é o caso que nenhum outro teste alcança: o mesmo handler
+    // troca o array (8 → 20 posições) E posiciona o índice. O `viz.reset()`
+    // escreve o anúncio com o total ANTIGO, e o `viz.setStep(16)` da linha
+    // seguinte leva a peça para outro passo — a região fica afirmando um par
+    // (passo, total) que a renderização não confirma.
+    await fig.getByRole("button", { name: "20 inteiros" }).click();
+
+    // Premissa: a peça mudou mesmo. Sem ela, o silêncio abaixo seria trivial.
+    await expect(contador).toHaveText("passo 17 de 20");
+
+    // A asserção que carrega o sentido: sem o conserto esta linha lê
+    // "passo 1 de 8" — o passo errado E o total errado, na única pista que o
+    // aluno cego tem de onde a peça está. O hook não consegue montar a frase
+    // certa aqui (o `total` novo só chega no render seguinte), então ele cala.
+    await expect(status).toHaveText("");
+
+    // E o silêncio é do salto, não da peça: a seta seguinte volta a falar, já
+    // com o total novo.
+    await fig.getByRole("button", { name: "Próximo ›" }).click();
+    await expect(contador).toHaveText("passo 18 de 20");
+    await expect(status).toHaveText(/^passo 18 de 20/);
   });
 });
 
