@@ -371,6 +371,11 @@ test("o quadradinho de progresso não herda o padding do <button>", async ({ pag
         ),
         marcaLargura: n(g.width),
         marcaAltura: n(g.height),
+        // O OUTRO padrão de `<button>` que morde: sem `type`, ele é `submit`.
+        // Lido da PROPRIEDADE, e não do atributo, porque é ela que o navegador
+        // consulta na hora de decidir se o clique envia o formulário — um botão
+        // sem o atributo devolve `"submit"` aqui, que é o defeito.
+        tipo: (el as HTMLButtonElement).type,
       };
     });
 
@@ -395,6 +400,10 @@ test("o quadradinho de progresso não herda o padding do <button>", async ({ pag
       (s.conteudoAltura - s.marcaAltura) % 2,
       `${onde}: sobram ${arred(s.conteudoAltura - s.marcaAltura)}px na vertical, que não dá para dividir em dois inteiros`
     ).toBe(0);
+    expect(
+      s.tipo,
+      `${onde}: sem \`type="button"\` o padrão do HTML é \`submit\`, e um dia dentro de um <form> marcar vira enviar`
+    ).toBe("button");
   };
 
   await conferir("trilha lateral", lateral);

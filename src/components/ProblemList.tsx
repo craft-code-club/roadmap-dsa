@@ -20,6 +20,10 @@ export function ProblemList({ problems }: { problems: Problem[] }) {
         return (
           <div className="problem-row" key={pr.id}>
             <button
+              // `type="button"` como no `Shell` e no `RoadmapGroups`: o padrão
+              // do HTML é `submit`, e um dia que este componente cair dentro de
+              // um `<form>` marcar um problema viraria envio de formulário.
+              type="button"
               className={`problem-check${feito ? " done" : ""}`}
               role="checkbox"
               aria-checked={feito}
