@@ -102,11 +102,26 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
     test(`quick sort, a invariante da partição, passo a passo (${r.nome})`, async ({ page }) => {
       test.slow();
       await abrir(page, "/topico/quick-sort/", r.w, r.h);
-      const fig = page.locator("figure.viz-fit");
-      await expect(fig).toHaveCount(1);
+      // Escopado por QUAL figura, e nunca por QUANTAS têm a casca. Contar
+      // `figure.viz-fit` era afirmar o cronograma da migração: a peça alvo era a
+      // única adaptada em `/topico/quick-sort/` quando isto foi escrito, e a
+      // asserção passou a reprovar no dia em que a peça do pivô ganhou a mesma
+      // casca — sem que nada do que este teste mede tivesse mudado. O título é
+      // identidade; a contagem é data.
+      //
+      // E os dois modos de errar não custam o mesmo: título trocado reprova alto
+      // no `toHaveCount(1)`, contagem trocada mede a peça errada em silêncio.
+      const fig = page
+        .locator("figure.viz-fit")
+        .filter({ hasText: "a partição e o pivô que fica pronto" });
+      await expect(fig, "a peça da partição tem que ser única em /topico/quick-sort/").toHaveCount(1);
 
       const chips = fig.locator(".bigo-chip");
       expect(await chips.count(), "os quatro presets da partição").toBe(4);
+      // A faixa é o objeto do teste. Sem esta linha, apontar para a figura
+      // errada faria `medir` devolver zero trechos e a comparação com `[]`
+      // passaria em silêncio — verde provando nada.
+      expect(await fig.locator(".ms-nivel-faixa").count(), "a faixa da invariante").toBe(1);
 
       for (let i = 0; i < 4; i++) {
         const preset = await trocarPreset(fig, i);
@@ -117,8 +132,13 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
         const proximo = fig.getByRole("button", { name: /Próximo/ });
         for (let s = 1; s <= passos; s++) {
           await expect(contador).toHaveText(new RegExp(`passo ${s} de ${passos}`));
+          const medidas = await fig.evaluate(medir);
           expect(
-            cortadas(await fig.evaluate(medir)),
+            medidas.length,
+            `${preset}, passo ${s}: há trecho para medir`
+          ).toBeGreaterThan(0);
+          expect(
+            cortadas(medidas),
             `${r.nome}, preset ${JSON.stringify(preset)}, passo ${s} de ${passos}: rótulo cortado`
           ).toEqual([]);
           if (s < passos) await proximo.click();
