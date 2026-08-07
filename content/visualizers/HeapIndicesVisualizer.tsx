@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 // ---------------------------------------------------------------------------
 // HeapIndicesVisualizer, a aritmética que substitui os ponteiros.
@@ -71,9 +71,21 @@ export function HeapIndicesVisualizer() {
   // Só encolher o array tira a seleção do intervalo válido: os índices vão de 0 a
   // n - 1 seja qual for o k. Trocar k muda quem é pai e quem é filho, nunca
   // quantas posições existem.
-  useEffect(() => {
+  //
+  // O ajuste roda na FASE DE RENDER e não num `useEffect`, que é o padrão
+  // documentado do React para estado derivado de outro estado — o mesmo que o
+  // §9 do contrato usa para o passo inicial. Com o efeito, o React pintava um
+  // quadro com a seleção fora da faixa antes de corrigir.
+  //
+  // O `Math.min` abaixo é rede, não a regra: é ele que segura o quadro em que o
+  // ajuste ainda não rodou. Quem apagar o bloco acima achando que o `Math.min`
+  // já resolve troca o comportamento sem nenhum erro aparecer — a seleção
+  // deixaria de ser fixada e voltaria sozinha ao encolher e crescer de novo.
+  const [nAnterior, setNAnterior] = useState(n);
+  if (nAnterior !== n) {
+    setNAnterior(n);
     if (sel >= n) setSel(Math.max(0, n - 1));
-  }, [n, sel]);
+  }
   const i = Math.min(sel, n - 1);
 
   const pai = i === 0 ? -1 : Math.floor((i - 1) / k);
