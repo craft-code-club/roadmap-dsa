@@ -97,7 +97,21 @@ export type VisualizerOptions = {
    * redimensionar já entram sozinhos.
    */
   measureOn?: readonly unknown[];
+  /**
+   * A nota de um step, em português: o mesmo texto que o aluno vidente lê no
+   * `.viz-note`. Sem ela a região viva diz só "passo N de M", que é o esqueleto
+   * da aula e não a aula.
+   *
+   * É uma FUNÇÃO do step, e não a nota do step atual, porque o anúncio é montado
+   * no mesmo `setState` que move o step (ver a nota da reprodução): o hook
+   * precisa da nota do step de DESTINO. A adoção é de uma linha —
+   * `stepNote: (i) => steps[i].note` — e é o próximo PR, não este.
+   */
+  stepNote?: (step: number) => string | undefined;
 };
+
+/** O step atual e o que a região viva está dizendo, num estado só. */
+type Playback = { step: number; live: string };
 
 export type Visualizer = {
   title: string;
@@ -116,6 +130,11 @@ export type Visualizer = {
   /** Volta ao step 0 e pausa. Chame quando a entrada do visualizador mudar. */
   reset: () => void;
   setSpeed: (i: number) => void;
+  /**
+   * O que a região viva do `VizHeader` está dizendo agora. Começa vazia: só a
+   * interação do aluno escreve nela.
+   */
+  liveMessage: string;
   // --- casca ---
   expanded: boolean;
   /** O blockName recolhível está à mostra? Sempre `true` quando `collapsible: false`. */
@@ -157,60 +176,119 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     blockName = "código",
     collapsible = true,
     measureOn = [],
+    stepNote,
   } = options;
 
   const hasSteps = total > 1;
 
   // --------------------------------------------------------------- reprodução
-  const [rawStep, setRawStep] = useState(0);
+  // O step e o texto da região viva moram no MESMO estado, e isso não é
+  // arrumação: escrever a região num efeito à parte custa uma renderização a
+  // mais por tecla, e essa renderização ENGOLE tecla. Medido, e reprodutível com
+  // `--workers=1`: o percurso de 114 setas do `viz-quick-sort.spec.ts` parava no
+  // passo 113. Com o anúncio montado dentro do mesmo `setState`, é um update por
+  // tecla — exatamente o que era antes desta mudança.
+  const [playback, setPlayback] = useState<Playback>({ step: 0, live: "" });
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(initialSpeed);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const step = Math.max(0, Math.min(rawStep, total - 1));
+  const step = Math.max(0, Math.min(playback.step, total - 1));
 
   // `total` e `playing` por ref porque a tecla REPETE muito mais rápido que o
   // clique: ler o valor do closure engoliria repetições.
   const totalRef = useRef(total);
   const playingRef = useRef(false);
+  // A nota chega por FUNÇÃO, e não por string, pela mesma razão: o anúncio é
+  // montado junto com o step, então o hook precisa da nota do step de DESTINO,
+  // que a renderização atual (a do step de origem) não conhece.
+  const stepNoteRef = useRef(stepNote);
   useEffect(() => { totalRef.current = total; }, [total]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
+  useEffect(() => { stepNoteRef.current = stepNote; }, [stepNote]);
 
   const stop = useCallback(() => {
     if (timer.current) { clearInterval(timer.current); timer.current = null; }
   }, []);
   useEffect(() => () => stop(), [stop]);
 
+  // ------------------------------------------------- anúncio (leitor de tela)
+  // O contador "passo N de M" é a única pista de que o algoritmo andou, e ele é
+  // só visual: sem região viva o aluno cego aperta "Próximo ›", o algoritmo
+  // anda, e ele não ouve nada — o visualizador vira um botão que não faz nada.
+  //
+  // A região começa VAZIA, e isso é parte do conserto: uma região viva já
+  // preenchida na montagem faz as cinco peças de `intervals.mdx` falarem juntas
+  // ao abrir a página, sem que ninguém tenha pedido. O HTML do build sai sem uma
+  // palavra a mais por causa disto.
+  //
+  // E ela é escrita pela INTERAÇÃO, não pelo relógio: `aria-live="polite"` a
+  // cada tick, na marcha 2x (250ms), enfileira falas que nunca alcançam a
+  // animação — o leitor de tela ainda estaria no passo 3 com a tela no 12, e
+  // ruído contínuo é pior que silêncio. Na reprodução automática a região diz só
+  // o começo, a pausa e o fim.
+  const fala = useCallback((n: number) => {
+    const passo = `passo ${n + 1} de ${totalRef.current}`;
+    const nota = stepNoteRef.current?.(n);
+    return nota ? `${passo}. ${nota}` : passo;
+  }, []);
+
+  // Sem anúncio de propósito: quem chama isto é o componente (o step inicial de
+  // uma peça, um salto calculado), não o aluno.
+  const setStep = useCallback((n: number | ((s: number) => number)) => {
+    setPlayback((p) => {
+      const alvo = typeof n === "function" ? n(p.step) : n;
+      return alvo === p.step ? p : { ...p, step: alvo };
+    });
+  }, []);
+
   const stepBy = useCallback((delta: number) => {
     stop();
     setPlaying(false);
-    setRawStep((s) => Math.max(0, Math.min(s + delta, totalRef.current - 1)));
-  }, [stop]);
+    setPlayback((p) => {
+      const alvo = Math.max(0, Math.min(p.step + delta, totalRef.current - 1));
+      const live = fala(alvo);
+      return alvo === p.step && live === p.live ? p : { step: alvo, live };
+    });
+  }, [stop, fala]);
 
   const togglePlay = useCallback(() => {
-    if (playingRef.current) { stop(); setPlaying(false); return; }
-    // no fim da animação, rodar de novo rebobina em vez de não fazer nada
-    setRawStep((s) => (s >= totalRef.current - 1 ? 0 : s));
+    if (playingRef.current) {
+      stop();
+      setPlaying(false);
+      setPlayback((p) => ({ ...p, live: `pausado no passo ${p.step + 1} de ${totalRef.current}` }));
+      return;
+    }
     setPlaying(true);
+    setPlayback((p) => {
+      // no fim da animação, rodar de novo rebobina em vez de não fazer nada
+      const de = p.step >= totalRef.current - 1 ? 0 : p.step;
+      return { step: de, live: `rodando a partir do passo ${de + 1} de ${totalRef.current}` };
+    });
   }, [stop]);
 
   const reset = useCallback(() => {
     stop();
     setPlaying(false);
-    setRawStep(0);
-  }, [stop]);
+    setPlayback({ step: 0, live: fala(0) });
+  }, [stop, fala]);
 
   useEffect(() => {
     stop();
     if (!playing) return;
     timer.current = setInterval(
-      () => setRawStep((s) => (s >= totalRef.current - 1 ? s : s + 1)),
+      // O relógio anda o step e NÃO escreve na região viva. O `p` devolvido no
+      // fim preserva o bail-out do React, que é o que impede a renderização
+      // inútil a cada tick depois do último step.
+      () => setPlayback((p) => (p.step >= totalRef.current - 1 ? p : { ...p, step: p.step + 1 })),
       speeds[speed]
     );
     return stop;
   }, [playing, speed, speeds, stop]);
 
   useEffect(() => {
-    if (playing && step >= total - 1) setPlaying(false);
+    if (!playing || step < total - 1) return;
+    setPlaying(false);
+    setPlayback((p) => ({ ...p, live: `fim da animação, passo ${total} de ${total}` }));
   }, [playing, step, total]);
 
   // -------------------------------------------------------------------- casca
@@ -417,11 +495,12 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     playing,
     speed,
     progress: total > 0 ? Math.round(((step + 1) / total) * 100) : 0,
-    setStep: setRawStep,
+    setStep,
     stepBy,
     togglePlay,
     reset,
     setSpeed: setSpeedClamped,
+    liveMessage: playback.live,
     expanded,
     open,
     collapsible,
@@ -474,6 +553,13 @@ export function VizHeader({
 }) {
   return (
     <div className="viz-head">
+      {/* A região viva do visualizador: invisível para o olho, lida em voz alta
+          quando o step muda. Ela mora aqui, ao lado do contador que duplica,
+          porque `.viz-head` é o único pedaço do `<figure>` que TODOS os
+          visualizadores da casca desenham. */}
+      <span className="viz-sr" role="status" aria-live="polite" aria-atomic="true">
+        {viz.liveMessage}
+      </span>
       <div className="viz-head-title">
         <span className="dot" style={color ? { background: color } : undefined} />
         <span>{viz.title}</span>
