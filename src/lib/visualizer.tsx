@@ -162,7 +162,12 @@ export type Visualizer = {
     onClick: () => void;
     children: string;
   };
-  expandButtonProps: { className: string; onClick: () => void; children: string };
+  expandButtonProps: {
+    className: string;
+    ref: React.RefObject<HTMLButtonElement | null>;
+    onClick: () => void;
+    children: string;
+  };
   /** Envolve o `<figure>` no overlay quando expanded. Use no `return`. */
   inPanel: (content: ReactNode) => ReactNode;
 };
@@ -294,6 +299,9 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   // -------------------------------------------------------------------- casca
   const blockId = useId();
   const figureRef = useRef<HTMLElement>(null);
+  // O ⤢ Expandir, para devolver o foco a ele ao fechar o painel (ver o efeito do
+  // foco abaixo). Ele é recriado na travessia do portal, e o ref acompanha.
+  const expandButtonRef = useRef<HTMLButtonElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const [expanded, setExpanded] = useState(false);
@@ -444,13 +452,27 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     return () => { body.style.overflow = prevOverflow; body.style.paddingRight = prevPadding; };
   }, [expanded]);
 
-  // O foco entra no panel ao abrir e volta para onde estava ao fechar, senão o
-  // teclado continua navegando o artigo escondido.
+  // O foco entra no panel ao abrir e volta para o botão que o abriu ao fechar,
+  // senão o teclado continua navegando o artigo escondido.
+  //
+  // A volta é pelo REF do botão, e não pelo `document.activeElement` guardado na
+  // abertura, que é o que estava aqui e não funcionava: aquele nó era o
+  // `⤢ Expandir` de dentro da `<figure>` que o `createPortal` DESMONTA, então o
+  // `focus()` da limpeza rodava num nó destacado — no-op silencioso — e o foco
+  // caía no `<body>`. Medido em `/topico/big-o/` (a peça de referência do
+  // contrato), `/topico/merge-sort/` e `/topico/intervals/`, pelas duas saídas:
+  // `document.activeElement.tagName` era `BODY` nas seis leituras.
+  //
+  // Guardar a referência não resolve porque o botão é RECRIADO no fechamento; é
+  // preciso reencontrá-lo depois. Ref e não seletor porque ref é IDENTIDADE:
+  // `.viz-expand` casa DOIS botões (este e o de mostrar/ocultar o bloco), e
+  // qualquer discriminante de texto ou de ordem quebra no dia em que o rótulo
+  // mudar. O ref aponta sempre para o nó vivo daquele elemento, e é `null` se
+  // não houver nenhum.
   useEffect(() => {
     if (!expanded) return;
-    const previous = document.activeElement as HTMLElement | null;
     figureRef.current?.focus();
-    return () => previous?.focus?.();
+    return () => expandButtonRef.current?.focus();
   }, [expanded]);
 
   // Teclado do panel: Esc fecha, o Tab circula DENTRO dele, e as setas e o
@@ -567,6 +589,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     },
     expandButtonProps: {
       className: "viz-expand",
+      ref: expandButtonRef,
       onClick: toggleExpanded,
       children: expanded ? "✕ Fechar" : "⤢ Expandir",
     },

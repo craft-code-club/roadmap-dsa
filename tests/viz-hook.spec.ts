@@ -131,6 +131,52 @@ test.describe("a animação não roda para quem não está vendo", () => {
   });
 });
 
+test.describe("o foco volta para o botão que abriu o painel", () => {
+  // O contrato (`content/visualizers/README.md` §5) promete "entra no painel ao
+  // abrir, volta para onde estava ao fechar". O `<figure>` atravessa um portal,
+  // e o nó guardado na abertura é destruído nessa travessia: o `focus()` da
+  // limpeza rodava num nó destacado, sem erro nenhum, e o foco caía no `<body>`.
+  //
+  // As duas saídas são testadas porque são dois caminhos diferentes: no `Esc` o
+  // foco está no `<figure>`, e no `✕ Fechar` está no próprio botão que some.
+  for (const saida of ["Esc", "✕ Fechar"] as const) {
+    test(`fechando com ${saida}, o foco volta para o ⤢ Expandir`, async ({ page }) => {
+      const fig = await figuraDe(page, "/topico/big-o/");
+      const expandir = fig.getByRole("button", { name: /Expandir/ });
+
+      // Abrir pelo TECLADO: é o público desta correção.
+      await expandir.focus();
+      await expect(expandir).toBeFocused();
+      await page.keyboard.press("Enter");
+
+      const painel = page.locator(".viz-overlay figure.viz-fit");
+      await expect(painel).toHaveCount(1);
+      // Premissa: o foco entrou no painel. Sem ela, "voltou" não quer dizer nada.
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const f = document.querySelector(".viz-overlay figure.viz-fit");
+            return !!f && (f === document.activeElement || f.contains(document.activeElement));
+          })
+        )
+        .toBe(true);
+
+      if (saida === "Esc") await page.keyboard.press("Escape");
+      else await painel.getByRole("button", { name: /Fechar/ }).click();
+      await expect(painel).toHaveCount(0);
+
+      // O valor primeiro, para a falha DIZER o que aconteceu: sem o conserto
+      // esta linha recebe "BODY".
+      await expect
+        .poll(() => page.evaluate(() => document.activeElement?.tagName ?? "NULO"))
+        .toBe("BUTTON");
+      // E a identidade: é o botão que abriu o painel, localizado pelo NOME
+      // acessível, e não pelo glifo nem pela posição na linha.
+      await expect(expandir).toBeFocused();
+    });
+  }
+});
+
 test.describe("os dois controles que não tinham nome", () => {
   test("o ↺ se chama Reiniciar e volta ao passo 1", async ({ page }) => {
     const fig = await figuraDe(page, "/topico/big-o/");
