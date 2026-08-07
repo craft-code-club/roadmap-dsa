@@ -144,12 +144,25 @@ def main() -> None:
     dados = extrair([a / n for n in nomes if (a / n).exists()]
                     + [d / n for n in nomes if (d / n).exists()])
     vazio = {"tela": [], "codigo": []}
+
+    def mesmo_conjunto(x: dict, y: dict) -> bool:
+        """O guarda compara CONJUNTO, não posição — igual ao `comparar`.
+
+        Com `x == y` cru a comparação era por lista ordenada, então trocar dois
+        trechos de lugar contava o arquivo como mexido: saía o nome dele, sem
+        SUMIRAM, sem APARECERAM e sem AVISO, e o resumo final ainda mandava ver
+        blocos AVISO que não existiam. O limite "conjunto, não posição" já era o
+        contrato (fixture 10); só este laço não seguia ele.
+        """
+        return (Counter(x["tela"]) == Counter(y["tela"])
+                and Counter(x["codigo"]) == Counter(y["codigo"]))
+
     quebrou = False
     mexidos = 0
     for n in nomes:
         antes = dados.get(str(a / n), vazio)
         depois = dados.get(str(d / n), vazio)
-        if antes == depois:
+        if mesmo_conjunto(antes, depois):
             continue
         mexidos += 1
         print(n)
