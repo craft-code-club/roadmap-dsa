@@ -3,7 +3,9 @@ import "./globals.css";
 import { Analytics } from "@/components/Analytics";
 import { ProgressProvider } from "@/components/ProgressProvider";
 import { Shell } from "@/components/Shell";
+import { JsonLd, organizationJsonLd, webSiteJsonLd } from "@/lib/jsonld";
 import { SITE_URL } from "@/lib/links";
+import { SITE_NAME, TITLE_TEMPLATE } from "@/lib/seo";
 
 // Só o que é global de verdade mora aqui. Título, descrição e Open Graph são de
 // cada rota (ver `src/lib/seo.ts`): quando `openGraph.title`/`description` eram
@@ -16,15 +18,19 @@ import { SITE_URL } from "@/lib/links";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Roadmap DSA · Craft & Code Club",
-    template: "%s · Roadmap DSA",
+    default: `${SITE_NAME} · Craft & Code Club`,
+    // O template vem do `seo.ts` porque o `pageMetadata` precisa saber compor o
+    // mesmo título para o card social das rotas que não definem OG próprio. Duas
+    // cópias da mesma string é o começo de duas verdades diferentes.
+    template: TITLE_TEMPLATE,
   },
   description:
     "O maior guia visual e gratuito de Algoritmos e Estruturas de Dados em português. Cada tópico com o algoritmo rodando passo a passo, artigo, vídeo e problemas do LeetCode e GeeksforGeeks. Feito pela comunidade Craft & Code Club.",
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "Roadmap DSA",
+    // Mesma constante do `title` e do JSON-LD: o nome do site é um valor só.
+    siteName: SITE_NAME,
   },
   twitter: {
     card: "summary_large_image",
@@ -67,6 +73,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        {/* Quem publica o guia e qual é o site, em toda rota. Sai pronto no HTML
+            do export: `application/ld+json` não é executado, então nem este
+            bloco nem os das páginas custam um byte de JavaScript no cliente. */}
+        <JsonLd data={[organizationJsonLd(), webSiteJsonLd()]} />
         <ProgressProvider>
           <Shell>{children}</Shell>
         </ProgressProvider>

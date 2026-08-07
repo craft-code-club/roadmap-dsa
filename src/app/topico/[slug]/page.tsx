@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
+import { breadcrumbJsonLd, JsonLd, topicJsonLd } from "@/lib/jsonld";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
+import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
 import { slugify } from "@/lib/slug";
 import { TopicComplete } from "@/components/TopicComplete";
@@ -19,14 +21,34 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const t = getTopic(slug);
   if (!t) return { title: "Tópico" };
+  // Passa pelo `pageMetadata` para declarar a própria URL: as 47 páginas de
+  // tópico montavam o metadata à mão e eram 47 das 48 rotas sem canonical nem
+  // `og:url`. `titleStyle: "template"` mantém o `<title>` idêntico ao de antes.
+  //
   // Não indexa páginas realmente vazias (sem vídeo, artigo ou visualização) para
-  // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram.
+  // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram
+  // — e o sitemap usa esta MESMA função para decidir quem ele convida.
+  //
+  // SEM `ogImage`, de propósito, e a ausência é a parte importante. Esta rota já
+  // teve `ogImage: "raiz"`, um contorno que nasceu quando descobri que definir
+  // `openGraph` na página corta a herança da imagem da raiz e deixava as 47
+  // páginas sem `og:image` nenhuma. Naquele momento o card da raiz era o único
+  // que existia, então apontar para ele era o melhor disponível.
+  //
+  // Agora existe o conserto de verdade: um `opengraph-image.tsx` neste segmento,
+  // com um card por tópico. E o contorno ANULA o conserto — o `images` explícito
+  // vence o arquivo do segmento, e as 47 páginas voltariam ao mesmo card. Medido
+  // na integração das duas mudanças: 1 imagem distinta em vez de 47.
+  //
+  // Ou seja: o valor certo aqui é nenhum, para o arquivo do segmento poder valer.
   const emptyTopic = isEmptyTopic(t);
-  return {
+  return pageMetadata({
     title: t.name,
     description: t.description,
+    path: `/topico/${t.slug}/`,
+    titleStyle: "template",
     ...(emptyTopic ? { robots: { index: false, follow: true } } : {}),
-  };
+  });
 }
 
 export default async function TopicoPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -61,12 +83,31 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="topic-layout">
+      {/* O MESMO `isEmptyTopic` do `noindex` acima e do filtro do sitemap. Sem
+          este terceiro uso, a página de um tópico sem material declarava ser um
+          recurso de aprendizado e, duas tags adiante, pedia para não ser
+          indexada. O `noindex` vence no Google, então não é defeito de ranking —
+          é a mesma contradição que este PR foi escrito para fechar, e o
+          consumidor que lê JSON-LD sem olhar `robots` acredita na declaração. */}
+      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t), breadcrumbJsonLd(t)]} />}
       <article>
-        <div className="breadcrumb">
-          <span>{t.group}</span>
-          <span>/</span>
-          <span className="cur">{t.name}</span>
-        </div>
+        {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
+            leva ao roadmap e o tópico corrente se identifica com `aria-current`.
+            O `color: "inherit"` é o que mantém a trilha com a MESMA aparência de
+            antes — `globals.css:37` pinta toda âncora com a cor de destaque, e
+            este PR não pode tocar naquele arquivo. Dar às âncoras uma afirmação
+            visual de link (sublinhado no hover, por exemplo) é uma regra
+            `.breadcrumb a` de quem for dono do CSS.
+            O grupo aponta para `/roadmap/` porque a âncora `#<id>` do grupo não
+            existe: `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
+            não vira atributo. Quando o `id` existir, muda só o destino. */}
+        <nav className="breadcrumb" aria-label="Trilha de navegação">
+          <Link href="/" style={{ color: "inherit" }}>Início</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/roadmap/" style={{ color: "inherit" }}>{t.group}</Link>
+          <span aria-hidden="true">/</span>
+          <span className="cur" aria-current="page">{t.name}</span>
+        </nav>
         <h1 className="topic-h1">{t.name}</h1>
 
         <div className="topic-chips">
@@ -223,9 +264,15 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
         </div>
       </article>
 
+      {/* `aria-labelledby`, e não `aria-label`, no índice abaixo: o rótulo visível
+          "Nesta página" já existe, e apontar para ele é o que garante que o nome
+          anunciado e o nome lido sejam o MESMO texto para sempre. Um `aria-label`
+          seria uma segunda cópia da string, livre para divergir da primeira sem
+          quebrar nada — a mesma armadilha dos dois predicados que este PR fecha
+          no sitemap. */}
       {toc.length > 0 && (
-        <nav className="toc">
-          <div className="toc-title">Nesta página</div>
+        <nav className="toc" aria-labelledby="toc-title">
+          <div className="toc-title" id="toc-title">Nesta página</div>
           <div className="toc-links">
             {toc.map((s) => (
               <a key={s} href={`#${slugify(s)}`}>{s}</a>

@@ -1,7 +1,7 @@
-import { TOTAL_TOPICS } from "@content/roadmap";
-import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
+import { ogImage } from "@/lib/og";
+import { OG_ALT_RAIZ, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og-meta";
 
-export const alt = `Roadmap DSA: o maior guia visual de Algoritmos e Estruturas de Dados em português, com ${TOTAL_TOPICS} tópicos, grátis`;
+export const alt = OG_ALT_RAIZ;
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const dynamic = "force-static";
