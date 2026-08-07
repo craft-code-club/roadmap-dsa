@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { LINKS, SITE_URL } from "../src/lib/links";
+import { CONTEUDO_DA_ROTA } from "../src/app/sitemap";
 
 // Estrutura de SEO do site inteiro: canonical, sitemap e dados estruturados.
 //
@@ -188,6 +189,20 @@ function dataDoGit(arquivo: string): string {
   }).trim();
 }
 
+/** A data esperada de uma rota: o mais recente dos arquivos que a alimentam. */
+function dataEsperada(arquivos: readonly string[]): number | undefined {
+  const ms = arquivos
+    .map((a) => Date.parse(dataDoGit(a)))
+    .filter((n) => !Number.isNaN(n));
+  return ms.length ? Math.max(...ms) : undefined;
+}
+
+// O mapa das rotas fixas vem do PRÓPRIO `sitemap.ts`, importado. Com isso o
+// teste cobre a AGREGAÇÃO (a data da rota é a mais recente entre os arquivos
+// declarados) e não a declaração — se alguém esquecer de listar um arquivo de
+// conteúdo, os dois lados erram juntos e este teste passa. Essa parte é revisão
+// humana, e o comentário existe para não prometer mais do que o teste entrega.
+
 test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const xml = sitemap();
   if (repositorioRaso()) {
@@ -208,13 +223,31 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
       sem.push(loc);
       continue;
     }
-    if (Number.isNaN(Date.parse(lastmod))) errados.push(`${loc} → ${lastmod} não é uma data`);
+    if (Number.isNaN(Date.parse(lastmod))) {
+      errados.push(`${loc} → ${lastmod} não é uma data`);
+      continue;
+    }
+    // Toda URL é conferida, fixa ou de tópico. Antes só as de tópico eram, e as
+    // quatro fixas atravessavam a suíte sem que ninguém olhasse a data delas.
     const slug = loc.match(/\/topico\/([^/]+)\//)?.[1];
-    if (slug) {
-      const esperada = dataDoGit(`content/topics/${slug}.mdx`);
-      if (esperada && Date.parse(lastmod) !== Date.parse(esperada)) {
-        errados.push(`${loc} → ${lastmod}, o Git diz ${esperada}`);
-      }
+    const rota = loc.replace(SITE_URL, "");
+    // Tópico: a data é a do artigo, com o `roadmap.ts` de reserva para quem
+    // ainda não tem artigo — a mesma escolha, e o mesmo porquê, do `sitemap.ts`.
+    const arquivos = slug
+      ? dataDoGit(`content/topics/${slug}.mdx`)
+        ? [`content/topics/${slug}.mdx`]
+        : ["content/roadmap.ts"]
+      : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA];
+    if (!arquivos) {
+      errados.push(`${loc} → nenhum arquivo de conteúdo declarado para a rota`);
+      continue;
+    }
+    const esperada = dataEsperada(arquivos);
+    if (esperada !== undefined && Date.parse(lastmod) !== esperada) {
+      errados.push(
+        `${loc} → ${lastmod}, mas o commit mais recente de [${arquivos.join(", ")}] ` +
+          `é ${new Date(esperada).toISOString()}`,
+      );
     }
   }
   expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível`).toEqual([]);

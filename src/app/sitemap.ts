@@ -15,12 +15,19 @@ export const dynamic = "force-static";
 // primeira vez que a regra de "tópico vazio" mudasse de um lado só.
 const rotasFixas = ["/", "/introducao/", "/roadmap/", "/apoie/"] as const;
 
-// Arquivo que responde pelo conteúdo de cada rota, para a data sair do Git.
-const arquivoDaRota: Record<(typeof rotasFixas)[number], string> = {
-  "/": "src/app/page.tsx",
-  "/introducao/": "src/app/introducao/page.tsx",
-  "/roadmap/": "src/app/roadmap/page.tsx",
-  "/apoie/": "src/app/apoie/page.tsx",
+// Arquivos que respondem pelo conteúdo de cada rota, para a data sair do Git.
+//
+// É uma LISTA, e não um arquivo só, porque `page.tsx` quase nunca é onde o texto
+// mora. A home e o `/roadmap/` importam de `content/roadmap.ts`: mexer num
+// tópico muda as duas telas sem tocar em nenhum dos dois `page.tsx`, e o
+// `lastmod` ficava parado no dia em que o layout da página mudou pela última
+// vez. O `/apoie/` tem a mesma forma com `apoiadores.ts`, que é onde a lista de
+// nomes é mantida à mão. A data da rota é a MAIS RECENTE entre esses arquivos.
+export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly string[]> = {
+  "/": ["src/app/page.tsx", "content/roadmap.ts"],
+  "/introducao/": ["src/app/introducao/page.tsx"],
+  "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
+  "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
 };
 
 // `lastmod` é o único dos três campos opcionais que o Google declarou usar;
@@ -48,17 +55,25 @@ const historicoDisponivel = (() => {
   }
 })();
 
-function ultimaAlteracao(arquivo: string): Date | undefined {
-  if (!historicoDisponivel) return undefined;
+function commitDoArquivo(arquivo: string): number | undefined {
   try {
     const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", arquivo], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    return iso ? new Date(iso) : undefined;
+    if (!iso) return undefined; // caminho que nunca existiu no histórico
+    const ms = Date.parse(iso);
+    return Number.isNaN(ms) ? undefined : ms;
   } catch {
     return undefined;
   }
+}
+
+/** A data da rota é a do arquivo de conteúdo dela que mudou por último. */
+function ultimaAlteracao(...arquivos: readonly string[]): Date | undefined {
+  if (!historicoDisponivel) return undefined;
+  const datas = arquivos.map(commitDoArquivo).filter((ms): ms is number => ms !== undefined);
+  return datas.length ? new Date(Math.max(...datas)) : undefined;
 }
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -66,7 +81,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${SITE_URL}${rota}`,
     priority: rota === "/" ? 1 : rota === "/apoie/" ? 0.5 : 0.9,
     changeFrequency: rota === "/" || rota === "/roadmap/" ? ("weekly" as const) : ("monthly" as const),
-    lastModified: ultimaAlteracao(arquivoDaRota[rota]),
+    lastModified: ultimaAlteracao(...CONTEUDO_DA_ROTA[rota]),
   }));
   const topicos = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => ({
     url: `${SITE_URL}/topico/${t.slug}/`,
@@ -74,6 +89,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly" as const,
     // O artigo é o corpo da página; o tópico sem artigo cai no `roadmap.ts`, que
     // é onde mora cada palavra que essa página mostra.
+    //
+    // Aqui é `??` e NÃO o `max(...)` das rotas fixas, e a diferença foi medida:
+    // os 36 `.mdx` do repositório são todos mais antigos que o último commit do
+    // `roadmap.ts`, então `max` daria a MESMA data às 36 páginas de tópico e
+    // qualquer edição no `roadmap.ts` (marcar um `isNew`, mexer num link)
+    // reescreveria o `lastmod` das 40 URLs de uma vez. Isso é exatamente o
+    // "lastmod = data do último deploy" que o Google aprendeu a ignorar. A home
+    // e o `/roadmap/` não têm essa escolha: lá o `roadmap.ts` É o conteúdo.
     lastModified: ultimaAlteracao(`content/topics/${t.slug}.mdx`) ?? ultimaAlteracao("content/roadmap.ts"),
   }));
   return [...base, ...topicos];
