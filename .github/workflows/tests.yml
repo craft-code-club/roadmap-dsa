@@ -1,9 +1,20 @@
 name: Tests
 
+# `push: branches: ["main"]` saía daqui, e sair é o conserto.
+#
+# Este workflow e o `cloudflare-pages-deploy.yml` disparavam os DOIS em push
+# para a `main`, em paralelo, sem um único `needs` entre eles. Medido no push do
+# merge do #44: o deploy terminou às 03:13:17 e a suíte só às 03:17:37. São
+# 4m20 em que a página quebrada já estava no ar e o Playwright ainda estava
+# rodando. E não havia rede embaixo: `branches/main/protection` responde
+# "Branch not protected".
+#
+# Quem testa a `main` agora é o job `test` do `cloudflare-pages-deploy.yml`,
+# entre o `build` e o `deploy`, contra o MESMO artefato que vai ao ar. Aqui
+# ficou o portão do Pull Request, que constrói por conta própria: PR de fork não
+# recebe artefato, e o preview do revisor não deve esperar a suíte para aparecer.
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
 

@@ -55,6 +55,17 @@ jobs:
           # do TXT no DNS. Vale em qualquer branch: é uma meta tag inerte.
           NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
 
+      # Prova de que o que se testa é o que se publica. O mesmo comando roda nos
+      # três jobs; se os três hashes baterem, ninguém reconstruiu no meio do
+      # caminho. É a diferença entre reaproveitar o artefato e dizer que
+      # reaproveitou.
+      - name: Impressão digital do out/
+        run: |
+          arquivos=$(find out -type f | wc -l | tr -d " ")
+          hash=$(find out -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1)
+          echo "out/: $arquivos arquivos, sha256 do conjunto = $hash"
+          echo "\`build\`: **$arquivos** arquivos, sha256 do conjunto \`$hash\`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload artifact
         if: github.event.pull_request.head.repo.fork == false
         uses: actions/upload-artifact@v7
@@ -67,9 +78,81 @@ jobs:
         if: github.event.pull_request.head.repo.fork == true
         run: echo "Skipping artifact upload for forked PR"
 
-  deploy:
+  # O portão que faltava. Antes, `tests.yml` e este workflow disparavam os DOIS
+  # em `push: main`, em paralelo e sem nenhum `needs` entre eles: medido no push
+  # do merge do #44, o deploy terminou às 03:13:17 e a suíte só às 03:17:37.
+  # São 4m20 de produção no ar sem ninguém ter olhado — o CI avisava, não
+  # barrava. E não havia via indireta: `branches/main/protection` responde
+  # "Branch not protected".
+  #
+  # Este job roda ENTRE o build e o deploy, e testa o artefato JÁ CONSTRUÍDO em
+  # vez de reconstruir. Os dois motivos:
+  #   · o que se testa passa a ser byte a byte o que se publica (a `impressao
+  #     digital` abaixo prova isso, comparando o hash nos três jobs);
+  #   · o `npm run build` deixa de rodar duas vezes por push.
+  test:
     runs-on: ubuntu-latest
     needs: build
+    name: Playwright (no artefato que vai ao ar)
+    # Só fora de PR. Em PR quem testa é o `tests.yml`, que constrói por conta
+    # própria — e precisa continuar assim, porque PR de fork não recebe
+    # artefato (o `Upload artifact` acima é bloqueado para fork) e porque o
+    # preview do revisor não deve esperar 5 minutos de suíte para aparecer.
+    if: github.event_name != 'pull_request'
+    steps:
+      # Sem `fetch-depth: 0` de propósito: este job não constrói e não lê o
+      # histórico. Ele só precisa de `tests/`, do `playwright.config.ts` e das
+      # dependências.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright (chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Download a Build Artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ./out
+
+      - name: Impressão digital do out/
+        run: |
+          arquivos=$(find out -type f | wc -l | tr -d " ")
+          hash=$(find out -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1)
+          echo "out/: $arquivos arquivos, sha256 do conjunto = $hash"
+          echo "\`test\`: **$arquivos** arquivos, sha256 do conjunto \`$hash\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # `npm test`, NUNCA `npm run test:build`. O `test:build` reconstrói, e
+      # reconstruir aqui desfaz a razão de este job existir: a suíte passaria a
+      # exercitar um build diferente do que o `deploy` publica.
+      - name: Run tests
+        run: npm test
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-deploy
+          path: playwright-report/
+          retention-days: 5
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    # `needs` com job pulado pula o dependente junto, e o `test` é pulado em PR
+    # de propósito. `!failure() && !cancelled()` é o idioma para dependência
+    # opcional: roda quando nenhum dos dois REPROVOU. Se o `test` reprovar,
+    # `failure()` é verdadeiro e o deploy não acontece — que é o ponto.
+    if: ${{ !failure() && !cancelled() }}
     name: Deploy to Cloudflare Pages
     permissions:
       contents: read
@@ -86,6 +169,14 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ./out
+
+      - name: Impressão digital do out/
+        if: github.event.pull_request.head.repo.fork == false
+        run: |
+          arquivos=$(find out -type f | wc -l | tr -d " ")
+          hash=$(find out -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1)
+          echo "out/: $arquivos arquivos, sha256 do conjunto = $hash"
+          echo "\`deploy\`: **$arquivos** arquivos, sha256 do conjunto \`$hash\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy
         id: deploy
