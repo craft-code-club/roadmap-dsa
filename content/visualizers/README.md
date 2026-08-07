@@ -644,6 +644,36 @@ inteiros — cerca de 90px a menos de peça — sem que o tamanho da entrada ten
 mudado. Um `measureOn: [n]` não pediria medição nova nessa travessia. O que
 resolveu foi `measureOn: [n, steps.length]`.
 
+### Um update por evento: o que deriva do passo entra no MESMO `setState`
+
+A §5 já manda usar a **forma funcional** do `setState` nos comandos de passo,
+porque a tecla repete muito mais rápido que o clique. Falta a metade que só
+apareceu medindo: **a forma funcional não basta se o evento disparar dois
+updates.**
+
+Escrever num `useEffect` separado qualquer coisa derivada do passo — o texto de
+uma região viva, um rótulo espelhado, um contador — custa uma renderização a
+mais por tecla, e essa renderização **engole evento**. Medido no PR #51: o
+percurso completo de setas do `tests/viz-quick-sort.spec.ts`, 114 teclas, passou
+a parar no passo **113**, reprodutível com `--workers=1` e verde na base. Dois
+experimentos isolaram a causa: um `setState` a mais **dentro do handler** passa;
+o mesmo texto escrito por um efeito **depois** reprova. O que morde não é a
+quantidade de estado, é o número de renderizações por evento.
+
+A consequência que impede a regressão é de **API**, e é o que faz uma assinatura
+parecer torta de propósito: o que alimenta um texto derivado do passo é uma
+**função do passo** (`(i) => steps[i].note`), não a string do passo corrente. O
+texto é montado dentro do updater que move o passo, e ali só existe o passo de
+**destino** — a renderização atual ainda é a de origem e não conhece a nota
+dele. Quem "simplificar" o campo para a string reintroduz o efeito separado sem
+perceber, e a tecla engolida volta com ele.
+
+> **Estado da API, para não citar o que ainda não existe.** Na `main` de hoje o
+> hook não tem região viva: o passo mora sozinho num `useState(0)` e não há
+> campo de nota. O `stepNote` (a função acima) e o `liveMessage` chegam com o
+> **PR #51**, ainda aberto. A regra do parágrafo vale desde já para qualquer
+> estado que o seu componente derive do passo.
+
 ## 7. Armadilhas medidas
 
 - **Zerar a trilha da coluna (`0fr`) tira a largura e NÃO a altura.** A linha do
