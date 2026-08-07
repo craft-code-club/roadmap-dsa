@@ -325,12 +325,14 @@ texto junto. Dois desenhos grandes desta série pareciam o mesmo caso e não era
 **Compare os dois números antes de escrever o teto.** Se forem iguais, ou se o
 renderizado for menor, não há vazio a devolver — o caminho é outro.
 
-**E uma peça de `<canvas>` nem entra nessa comparação: ela não estica.** Sem
-`viewBox` não existe tamanho natural que o renderizado possa ultrapassar, e sem
-`preserveAspectRatio` não existe o encolhimento que faria o teto funcionar. A
-altura do desenho é a constante que o componente escreve: no
-`BigOChartVisualizer.tsx` ela é `expanded ? 400 : 300`, e nenhuma das receitas
-acima tem o que devolver ali.
+**E uma peça de `<canvas>` nem entra nessa comparação: ela não estica.**
+`viewBox` e `preserveAspectRatio` são atributos **de SVG** — os dois lados da
+comparação acima só existem lá. Um `<canvas>` não tem tamanho natural para o
+renderizado ultrapassar (logo, nenhum vazio a recuperar) nem escala automática
+para um teto acionar: ele é **redesenhado** no tamanho medido, que é o que o
+`BigOChartVisualizer.tsx` faz com um `ResizeObserver` na largura
+(`cv.width = W * dpr`) e a altura como constante do componente
+(`expanded ? 400 : 300`). Nenhuma das receitas acima tem o que devolver ali.
 
 O que sobra é procurar o eixo **fora** do desenho, e nessa peça ele existe: o
 `.bigo-grid` é `repeat(auto-fit, minmax(158px, 1fr))` no `globals.css`, e o
@@ -1018,12 +1020,15 @@ vezes no mesmo carregamento, sem rebuild:
 
 ```js
 // o custo do botão do cabeçalho, medido no artigo
-const f = document.querySelectorAll("article figure.viz")[N];
-const b = [...f.querySelectorAll("button")].find((x) => /Expandir/.test(x.textContent));
-const com = f.getBoundingClientRect().height;
-b.style.display = "none";
-const sem = f.getBoundingClientRect().height;   // com − sem = o custo do botão
-b.style.display = "";
+(() => {
+  const f = document.querySelectorAll("article figure.viz")[N];
+  const b = [...f.querySelectorAll("button")].find((x) => /Expandir/.test(x.textContent));
+  const com = f.getBoundingClientRect().height;
+  b.style.display = "none";
+  const sem = f.getBoundingClientRect().height;
+  b.style.display = "";
+  return { com, sem, delta: com - sem };   // delta = o custo do botão
+})()
 ```
 
 O que decide entre `+8` e `+36` é o **comprimento do `children` do
