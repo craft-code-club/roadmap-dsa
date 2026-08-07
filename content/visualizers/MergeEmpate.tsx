@@ -30,7 +30,7 @@ import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 type Rec = { key: number; tag: string; orig: number };
 
-type Decision = { left: Rec | null; right: Rec | null; tie: boolean; chosen: Rec; side: "left" | "right" };
+type Decision = { left: Rec | null; right: Rec | null; tie: boolean; chosen: Rec };
 
 type Preset = { key: string; label: string; data: [number, string][]; hint: string };
 
@@ -89,7 +89,6 @@ function merge(left: Rec[], right: Rec[], strict: boolean): { output: Rec[]; dec
       right: hasRight ? right[j] : null,
       tie: hasLeft && hasRight && left[i].key === right[j].key,
       chosen,
-      side: takeLeft ? "left" : "right",
     });
     output.push(chosen);
     if (takeLeft) i++;
