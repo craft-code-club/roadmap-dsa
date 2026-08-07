@@ -135,7 +135,8 @@ Duas licenças, porque são duas coisas:
   Pegue o motor dos visualizadores e construa o que quiser.
 - **O conteúdo** — [CC BY-NC-SA 4.0](./LICENSE-CONTENT). Os artigos e o material didático
   (inclusive as explicações que moram dentro dos visualizadores): livres para estudar, ensinar
-  e adaptar, com crédito e sem uso comercial.
+  e adaptar, desde que com crédito (BY), sem uso comercial (NC) e com a adaptação distribuída
+  sob esta mesma licença (SA).
 
 A fronteira entre os dois **não é por diretório** — ela atravessa arquivos. A seção
 [Onde passa a fronteira](./LICENSE) explica com exemplos, e a pergunta que decide é: se esta

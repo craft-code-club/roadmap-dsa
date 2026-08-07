@@ -28,7 +28,7 @@
 # tem formulário e não tem ação destrutiva atrás de um clique. O risco é
 # republicação: envelopar o guia inteiro num iframe de um site com anúncios e
 # servir o nosso conteúdo como se fosse dele. O conteúdo didático está sob
-# CC BY-NC-SA 4.0, e esse uso contraria as duas cláusulas de uma vez: é
+# CC BY-NC-SA 4.0, e esse uso contraria duas das três cláusulas de uma vez: é
 # comercial (NC) e sem crédito (BY). `DENY` é o único cabeçalho que o navegador
 # aplica sem depender de o outro site colaborar.
 #

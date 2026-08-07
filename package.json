@@ -4,7 +4,7 @@
   "private": true,
   "description": "DSA Visual — o guia visual e gratuito de Algoritmos e Estruturas de Dados, feito pela comunidade Craft & Code Club.",
   "license": "MIT",
-  "licenseNote": "O CÓDIGO deste pacote é MIT. O CONTEÚDO didático do repositório (artigos MDX e as strings didáticas dentro dos visualizadores) é CC BY-NC-SA 4.0. A fronteira está definida em ./LICENSE.",
+  "licenseNote": "O CÓDIGO deste pacote é MIT. O CONTEÚDO didático do repositório (artigos MDX e as strings didáticas dentro dos visualizadores) é CC BY-NC-SA 4.0: crédito (BY), sem uso comercial (NC) e adaptação distribuída sob esta mesma licença (SA). A fronteira está definida em ./LICENSE.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
