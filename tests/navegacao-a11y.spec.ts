@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { GROUPS } from "../content/roadmap";
+import { ALL_TOPICS, GROUPS } from "../content/roadmap";
 
 // Acessibilidade da casca de navegação: link de pular, anel de foco, nome dos
 // campos e dos landmarks, e a marca de progresso fora do link.
@@ -121,10 +121,13 @@ test("a busca acha pelo que o aluno digita, e avisa quando não acha", async ({ 
   await expect(page.locator(".side-vazio")).toContainText("xilofone");
   await expect(page.locator(".side-scroll .side-item")).toHaveCount(0);
 
-  // E o menu volta inteiro quando o campo esvazia.
+  // E o menu volta inteiro quando o campo esvazia: os 47 tópicos de volta ao
+  // DOM, com o grupo da página aberto. (O primeiro `.side-item` da lista é o do
+  // grupo de cima, que está fechado — daí a asserção ser sobre o item da rota.)
   await campo.fill("");
   await expect(page.locator(".side-vazio")).toHaveCount(0);
-  await expect(page.locator(".side-scroll .side-item").first()).toBeVisible();
+  await expect(page.locator('.sidebar a[href^="/topico/"]')).toHaveCount(ALL_TOPICS.length);
+  await expect(page.locator('.side-item[href="/topico/arrays/"]')).toBeVisible();
 });
 
 test("a marca de progresso não mora dentro do link, e o progresso sobrevive à recarga", async ({
@@ -206,6 +209,79 @@ test("o botão do menu diz se o menu está aberto", async ({ page }) => {
   await botao.click();
   await expect(botao).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#menu-lateral")).toBeHidden();
+});
+
+test("o menu leva os 47 tópicos em toda página, com o grupo fechado ou aberto", async ({ page }) => {
+  // Antes, o menu era `{g.aberto && ...}`: os itens do grupo fechado não
+  // existiam no DOM. Medido no build, nas 47 páginas de tópico: MÍNIMO 1 link
+  // (programacao-dinamica, backtracking, big-o, greedy, matematica, hash-table),
+  // mediana 5, máximo 9, e 24 páginas com 5 ou menos. O menu é a única lista de
+  // tópicos que a página carrega.
+  const total = ALL_TOPICS.length;
+
+  for (const rota of ["/topico/matematica/", "/topico/big-o/", "/", "/roadmap/"]) {
+    await page.goto(rota);
+    await expect(page.locator('.sidebar a[href^="/topico/"]'), rota).toHaveCount(total);
+  }
+
+  // E continua sendo uma lista COM grupos fechados: o visual não mudou.
+  await page.goto("/topico/big-o/");
+  const ocultos = page.locator(".side-items[hidden]");
+  expect(await ocultos.count()).toBeGreaterThan(0);
+  await expect(page.locator('.sidebar a[href="/topico/dijkstra/"]')).toBeHidden();
+  await expect(page.locator('.sidebar a[href="/topico/big-o/"]')).toBeVisible();
+});
+
+test("o item do grupo fechado não é pintado nem alcançado pelo teclado", async ({ page }) => {
+  // As duas armadilhas do `hidden`: uma regra de `display` no seletor do item
+  // derruba o atributo (e aí o menu "fechado" aparece aberto), e item oculto que
+  // continua focável transforma o conserto do rastreador em regressão do link de
+  // pular que este PR acabou de entregar.
+  for (const [w, h] of [
+    [1512, 900],
+    [1440, 700],
+    [390, 844],
+  ]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto("/topico/big-o/");
+    if (w < 1000) await page.locator(".header-menu-toggle").click();
+    await expect(page.locator(".sidebar")).toBeVisible();
+
+    const medida = await page.evaluate(() => {
+      const oculto = document.querySelector<HTMLElement>(".side-items[hidden]")!;
+      const link = oculto.querySelector<HTMLElement>(".side-item")!;
+      link.focus();
+      const r = oculto.getBoundingClientRect();
+      return {
+        display: getComputedStyle(oculto).display,
+        altura: r.height,
+        largura: r.width,
+        recebeuFoco: document.activeElement === link,
+      };
+    });
+    expect(medida.display, `${w}x${h}: o CSS sobrepôs o atributo hidden`).toBe("none");
+    expect(medida.altura, `${w}x${h}: o grupo fechado ainda ocupa altura`).toBe(0);
+    expect(medida.largura).toBe(0);
+    expect(medida.recebeuFoco, `${w}x${h}: item oculto recebeu foco`).toBe(false);
+  }
+
+  // A prova de comportamento: tabulando desde o começo, o foco nunca cai dentro
+  // de um grupo fechado, e sair do menu inteiro continua custando o que custava.
+  await page.setViewportSize({ width: 1512, height: 900 });
+  await page.goto("/topico/big-o/");
+  const visitados: string[] = [];
+  for (let i = 0; i < 45; i++) {
+    await page.keyboard.press("Tab");
+    const onde = await page.evaluate(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body) return "corpo";
+      return a.closest(".side-items[hidden]") ? "OCULTO" : a.closest("main") ? "conteudo" : "casca";
+    });
+    visitados.push(onde);
+    if (onde === "conteudo") break;
+  }
+  expect(visitados.filter((v) => v === "OCULTO"), "o teclado entrou num grupo fechado").toEqual([]);
+  expect(visitados.at(-1), "o foco não chegou ao conteúdo em 45 tabulações").toBe("conteudo");
 });
 
 test("cada grupo do roadmap tem âncora própria, e ela para abaixo do cabeçalho", async ({

@@ -128,7 +128,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // precisa. `block: nearest` na mão: distância mínima, sem centralizar nada.
   useEffect(() => {
     const lista = listaRef.current;
-    const atual = lista?.querySelector<HTMLElement>(".side-item.on");
+    // `:not([hidden])` porque o item do grupo fechado agora existe no DOM: sem o
+    // filtro, o `getBoundingClientRect` de um elemento oculto devolve zeros e a
+    // conta abaixo rolaria o menu para o topo sem motivo.
+    const atual = lista?.querySelector<HTMLElement>(".side-items:not([hidden]) .side-item.on");
     if (!lista || !atual) return;
     const item = atual.getBoundingClientRect();
     const caixa = lista.getBoundingClientRect();
@@ -309,56 +312,60 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <span style={{ flex: 1 }}>{g.name}</span>
                   <span className="side-count">{feitos}/{g.topics.length}</span>
                 </button>
-                {g.aberto && (
-                  <div className="side-items">
-                    {g.intro && (
-                      <Link
-                        href={g.intro.href}
-                        className={`side-item${navOn(g.intro.href) ? " on" : ""}`}
-                        aria-current={navOn(g.intro.href) ? "page" : undefined}
-                      >
-                        <span className="side-intro-ico" aria-hidden="true">✦</span>
-                        <span className="side-item-name">{g.intro.name}</span>
-                      </Link>
-                    )}
-                    {g.itens.map((t) => {
-                      const feito = isTopico(t.slug);
-                      const ativo = slugAtivo === t.slug;
-                      // "Em breve" é só para quem ainda não tem nada: se já existe vídeo,
-                      // artigo ou visualização, o tópico é navegável como qualquer outro.
-                      const vazio = isEmptyTopic(t);
-                      return (
-                        // A marca de concluído é IRMÃ do link, não filha: widget
-                        // focável dentro de `<a>` é estado inválido pela ARIA, e
-                        // dava dois destinos para o mesmo Tab. É o arranjo que o
-                        // `ProblemList` já usa. Quem pinta o estado da linha
-                        // passa a ser a `.side-row`, para o ✓ continuar dentro
-                        // do realce de "você está aqui".
-                        <div className={`side-row${ativo ? " on" : ""}`} key={t.slug}>
-                          <button
-                            type="button"
-                            className={`side-check${feito ? " done" : ""}`}
-                            role="checkbox"
-                            aria-checked={feito}
-                            aria-label={`Marcar ${t.name} como concluído`}
-                            onClick={() => toggleTopico(t.slug)}
-                          >
-                            {feito ? "✓" : ""}
-                          </button>
-                          <Link
-                            href={`/topico/${t.slug}`}
-                            className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
-                            aria-current={ativo ? "page" : undefined}
-                          >
-                            <span className="side-item-name">{t.name}</span>
-                            {t.isNew && <span className="badge-novo">NOVO</span>}
-                            {vazio && <span className="badge-soon">em breve</span>}
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* O grupo fechado esconde os itens, e não deixa de renderizá-los:
+                    o menu era a única lista de tópicos de toda página, e com
+                    `{g.aberto && ...}` ela chegava ao rastreador com 1 link no pior
+                    caso. `hidden` (mais a regra que vence o `display: flex` no CSS)
+                    dá o mesmo visual, tira os itens ocultos da ordem de foco e
+                    entrega os 47 tópicos em toda página. */}
+                <div className="side-items" hidden={!g.aberto}>
+                  {g.intro && (
+                    <Link
+                      href={g.intro.href}
+                      className={`side-item${navOn(g.intro.href) ? " on" : ""}`}
+                      aria-current={navOn(g.intro.href) ? "page" : undefined}
+                    >
+                      <span className="side-intro-ico" aria-hidden="true">✦</span>
+                      <span className="side-item-name">{g.intro.name}</span>
+                    </Link>
+                  )}
+                  {g.itens.map((t) => {
+                    const feito = isTopico(t.slug);
+                    const ativo = slugAtivo === t.slug;
+                    // "Em breve" é só para quem ainda não tem nada: se já existe vídeo,
+                    // artigo ou visualização, o tópico é navegável como qualquer outro.
+                    const vazio = isEmptyTopic(t);
+                    return (
+                      // A marca de concluído é IRMÃ do link, não filha: widget
+                      // focável dentro de `<a>` é estado inválido pela ARIA, e
+                      // dava dois destinos para o mesmo Tab. É o arranjo que o
+                      // `ProblemList` já usa. Quem pinta o estado da linha
+                      // passa a ser a `.side-row`, para o ✓ continuar dentro
+                      // do realce de "você está aqui".
+                      <div className={`side-row${ativo ? " on" : ""}`} key={t.slug}>
+                        <button
+                          type="button"
+                          className={`side-check${feito ? " done" : ""}`}
+                          role="checkbox"
+                          aria-checked={feito}
+                          aria-label={`Marcar ${t.name} como concluído`}
+                          onClick={() => toggleTopico(t.slug)}
+                        >
+                          {feito ? "✓" : ""}
+                        </button>
+                        <Link
+                          href={`/topico/${t.slug}`}
+                          className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
+                          aria-current={ativo ? "page" : undefined}
+                        >
+                          <span className="side-item-name">{t.name}</span>
+                          {t.isNew && <span className="badge-novo">NOVO</span>}
+                          {vazio && <span className="badge-soon">em breve</span>}
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
