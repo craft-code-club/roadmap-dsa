@@ -36,14 +36,46 @@ const SEM_CARD_PROPRIO = ["/", "/apoie/"];
 const CARD_DA_RAIZ = "/opengraph-image";
 const ASSINATURA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+/**
+ * Todos os `<meta>` do documento, lidos POR ATRIBUTO e não por posição.
+ *
+ * A primeira versão disto casava a linha inteira
+ * (`<meta (?:property|name)="X" content="(...)"`), o que amarrava o teste à
+ * ordem exata em que o Next serializa o `<head>` hoje. E o modo de falhar era o
+ * pior possível: mudando a ordem, o `match` devolve `null`, o leitor não acha
+ * nenhuma meta, e um teste menos cuidadoso passaria por vacuidade em vez de
+ * reprovar. Um teste de SEO que para de ler o `<head>` sem avisar é pior que
+ * não ter teste.
+ *
+ * Agora cada tag é recortada primeiro e os atributos dela viram um mapa, então
+ * ordem, atributo extra e `>` dentro de valor aspado não mudam o resultado.
+ */
+function metasDoHtml(html: string): Map<string, string> {
+  const encontradas = new Map<string, string>();
+  // `(?:[^>"]|"[^"]*")*` deixa o valor aspado conter ">" sem cortar a tag no meio.
+  for (const [tag] of html.matchAll(/<meta\b(?:[^>"]|"[^"]*")*>/g)) {
+    const atributos = new Map<string, string>();
+    for (const [, nome, valor] of tag.matchAll(/([a-zA-Z:-]+)\s*=\s*"([^"]*)"/g)) {
+      atributos.set(nome.toLowerCase(), valor);
+    }
+    const chave = atributos.get("property") ?? atributos.get("name");
+    const conteudo = atributos.get("content");
+    if (chave !== undefined && conteudo !== undefined) encontradas.set(chave, conteudo);
+  }
+  return encontradas;
+}
+
 /** Devolve um leitor de `<meta>` do HTML já baixado da rota. */
 async function metasDe(request: APIRequestContext, rota: string): Promise<(nome: string) => string> {
   const resposta = await request.get(rota);
   expect(resposta.status(), `GET ${rota}`).toBe(200);
-  const html = await resposta.text();
+  const metas = metasDoHtml(await resposta.text());
   return (nome) => {
-    const achado = html.match(new RegExp(`<meta (?:property|name)="${nome}" content="([^"]*)"`));
-    return achado ? achado[1] : `<sem ${nome}>`;
+    const valor = metas.get(nome);
+    // Falta de meta é reprovação aqui, na origem, e não um valor de mentira que
+    // viaja até uma comparação que talvez nem olhe para ele.
+    expect(valor, `${rota}: o <meta> "${nome}" não está no HTML`).toBeDefined();
+    return valor as string;
   };
 }
 
@@ -57,6 +89,41 @@ function rotaLocal(urlAbsoluta: string): string {
 function tamanhoReal(png: Buffer): { width: number; height: number } {
   return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
 }
+
+// A forma posicional que o `metasDoHtml` aposentou, guardada de propósito: é
+// contra ela que o teste abaixo mede, e é o que prova que a troca resolveu algo.
+const LEITOR_POSICIONAL = (nome: string) =>
+  new RegExp(`<meta (?:property|name)="${nome}" content="([^"]*)"`);
+
+test("o leitor de <meta> não depende da ordem nem do número de atributos", () => {
+  // `achavaAntes` é o que a forma posicional fazia com cada caso. Ele está aqui
+  // escrito à mão de propósito: foi ele que reprovou o primeiro rascunho deste
+  // teste, onde eu tinha suposto que a tag sem a barra final também escapava da
+  // forma antiga. Não escapava.
+  const casos = [
+    { nome: "a ordem que o Next serializa hoje", html: '<meta property="og:image" content="/a"/>', achavaAntes: true },
+    { nome: "sem a barra final", html: '<meta property="og:image" content="/a">', achavaAntes: true },
+    { nome: "ordem invertida", html: '<meta content="/a" property="og:image"/>', achavaAntes: false },
+    { nome: "atributo extra no meio", html: '<meta property="og:image" data-x="1" content="/a"/>', achavaAntes: false },
+    { nome: "quebra de linha entre os atributos", html: '<meta property="og:image"\n      content="/a"/>', achavaAntes: false },
+  ];
+
+  for (const caso of casos) {
+    // O leitor novo acha em todos.
+    expect(metasDoHtml(caso.html).get("og:image"), `novo: ${caso.nome}`).toBe("/a");
+
+    // E o antigo achava em dois de cinco. Nos outros três devolvia `null`, que é
+    // o silêncio que este teste existe para não deixar acontecer de novo.
+    const antigo = caso.html.match(LEITOR_POSICIONAL("og:image"));
+    if (caso.achavaAntes) expect(antigo?.[1], `antigo: ${caso.nome}`).toBe("/a");
+    else expect(antigo, `antigo: ${caso.nome}`).toBeNull();
+  }
+
+  // Valor com ">" dentro das aspas não corta a tag no meio.
+  const comMaior = '<meta name="description" content="quando a > b, troque"/><meta property="og:image" content="/b"/>';
+  expect(metasDoHtml(comMaior).get("description")).toBe("quando a > b, troque");
+  expect(metasDoHtml(comMaior).get("og:image")).toBe("/b");
+});
 
 test("cada página de tópico aponta para o card dela, e não para o da raiz", async ({ request }) => {
   test.setTimeout(120_000);
