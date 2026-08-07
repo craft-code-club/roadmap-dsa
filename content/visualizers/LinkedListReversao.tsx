@@ -107,7 +107,7 @@ const VB_HEIGHT = 140;
 
 type Preset = { key: string; label: string; nodes: string[] };
 const PRESETS: Preset[] = [
-  { key: "encontro", label: "Do encontro: a b c d", nodes: ["a", "b", "c", "d"] },
+  { key: "encontro", label: "Quatro nós: a b c d", nodes: ["a", "b", "c", "d"] },
   { key: "cinco", label: "Cinco nós: 1 a 5", nodes: ["1", "2", "3", "4", "5"] },
   { key: "dois", label: "Só dois nós", nodes: ["a", "b"] },
   { key: "um", label: "Um nó só", nodes: ["a"] },
