@@ -255,6 +255,11 @@ async function marcados(page: Page) {
   return { lateral, problema };
 }
 
+// Três larguras de desktop, e não uma. O desnível do código de antes MUDAVA com
+// a largura da janela — 0,20px em 1280x720 e 1,80px em 1440x700 no mesmo
+// elemento —, então uma tela só teria contado meia verdade. O celular tem teste
+// próprio logo abaixo, porque lá a trilha lateral é gaveta e não dá para chegar
+// nela pelo mesmo caminho.
 const TELAS = [
   { nome: "1280x720", width: 1280, height: 720 },
   { nome: "1440x700", width: 1440, height: 700 },
@@ -293,6 +298,47 @@ for (const tela of TELAS) {
     }
   });
 }
+
+// No celular a trilha lateral é uma gaveta fechada, então o caminho de cima não
+// serve. Sobram os dois quadradinhos que aparecem sem abrir nada: o do card do
+// /roadmap e o da lista de problemas. Vale medir mesmo com a largura sem efeito
+// sobre o quadrado, porque quem muda no celular é a ALTURA das linhas e do card,
+// e é ela que empurra o quadradinho para outro offset — que foi exatamente o que
+// fazia o número do código de antes variar.
+test("o ✓ fica centralizado no celular (390x844)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto("/roadmap/");
+  const card = page
+    .locator(".topic-card-wrap")
+    .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
+  if ((await card.getAttribute("aria-checked")) === "false") await card.click();
+  await expect(card).toHaveAttribute("aria-checked", "true");
+  const noCard = await medir(page, card);
+
+  await page.goto("/topico/two-pointers/");
+  const problema = page.locator(".problem-check").first();
+  if ((await problema.getAttribute("aria-checked")) === "false") await problema.click();
+  await expect(problema).toHaveAttribute("aria-checked", "true");
+  const naLista = await medir(page, problema);
+
+  const medidas: [string, Medida][] = [
+    ["card do /roadmap (.tcard-check)", noCard],
+    ["lista de problemas (.problem-check)", naLista],
+  ];
+  for (const [onde, m] of medidas) console.log(`390x844  ${onde.padEnd(38)} ${JSON.stringify(m)}`);
+
+  for (const [onde, m] of medidas) {
+    expect(
+      m.desnivelV,
+      `${onde} em 390x844: o ✓ não está no meio na vertical — ${m.folgaTopo}px em cima contra ${m.folgaBaixo}px embaixo`
+    ).toBeLessThanOrEqual(TOLERANCIA);
+    expect(
+      m.desnivelH,
+      `${onde} em 390x844: o ✓ não está no meio na horizontal — ${m.folgaEsq}px à esquerda contra ${m.folgaDir}px à direita`
+    ).toBeLessThanOrEqual(TOLERANCIA);
+  }
+});
 
 // O erro de hoje nasceu de o `<button>` chegar com `padding: 1px 6px` do agente
 // do usuário e ninguém zerar. Num quadrado de 16px com 1px de borda isso deixa
