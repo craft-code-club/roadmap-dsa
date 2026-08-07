@@ -223,10 +223,28 @@ liberar a execução.
 
 ## <a name="licenca"></a> Licença
 
-Ao contribuir, você concorda que a sua contribuição será licenciada sob a
-**[PolyForm Noncommercial License 1.0.0](./LICENSE)** — livre para qualquer uso
-**não comercial** (estudo, ensino, comunidade, outros projetos livres). Uso
-comercial não é permitido.
+O repositório tem **duas licenças**, e a sua contribuição entra sob a que
+corresponde ao que você escreveu:
 
-Na prática, é o que garante que o guia siga aberto e gratuito para quem quer
-aprender, sem virar produto de ninguém.
+- **Código** → **[MIT](./LICENSE)**. Componentes, hooks, testes, scripts,
+  configuração, e toda a maquinaria dos visualizadores.
+- **Conteúdo** → **[CC BY-NC-SA 4.0](./LICENSE-CONTENT)**. Artigos MDX,
+  descrições de tópico, e o material didático que mora dentro dos
+  visualizadores: as notas de passo, o código exibido na tela, os rótulos que
+  explicam.
+
+Ao abrir um PR, você concorda com isso para as duas partes — a maioria dos PRs
+daqui mexe nas duas ao mesmo tempo, porque um visualizador é as duas coisas no
+mesmo arquivo.
+
+**A fronteira não é por diretório.** Ela atravessa arquivos individuais, e está
+definida com exemplos na seção "Onde passa a fronteira" do
+[LICENSE](./LICENSE). A pergunta que decide: se esta linha sumisse, quebraria o
+**programa** (código) ou a **aula** (conteúdo)?
+
+Na prática, é o que garante as duas coisas de uma vez: o código é open source
+de verdade, e o conteúdo intelectual segue gratuito para quem quer aprender,
+sem virar produto de ninguém.
+
+Você continua sendo autor do que escreveu. A licença é permissão para o projeto
+e para quem o usa, não transferência de copyright.

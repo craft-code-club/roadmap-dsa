@@ -10,7 +10,12 @@ português, feito **pela comunidade Craft & Code Club**. Cada tópico tem: algor
 a passo (visualizador), artigo, vídeo, problemas (LeetCode/GeeksforGeeks) e referências.
 
 - Domínio: `https://dsa.craftcodeclub.io`. Repo: `craft-code-club/roadmap-dsa`.
-- Licença: **PolyForm Noncommercial 1.0.0** (uso não comercial). Contribuições sob a mesma.
+- Licença: **dupla**. Código sob **MIT** (open source, uso comercial permitido); conteúdo
+  didático sob **CC BY-NC-SA 4.0**. A fronteira **não é por diretório** — ela atravessa
+  arquivos: num visualizador, o componente é código e as strings didáticas (notas de passo,
+  Python da tela, rótulos que explicam) são conteúdo. Regra completa e exemplos em
+  [`LICENSE`](./LICENSE) e [`LICENSE-CONTENT`](./LICENSE-CONTENT). Contribuições entram sob a
+  licença correspondente ao que a mudança toca.
 
 ## Stack e comandos
 
