@@ -296,6 +296,14 @@ export function HeapSortVisualizer() {
   const phaseLabel =
     s.phase === "build" ? "fase 1 · virando max-heap" : s.phase === "sort" ? "fase 2 · arrancando o maior" : "pronto";
 
+  // Com o heap vazio não existe faixa de posições a nomear. O `Math.max(n-1,0)`
+  // que estava aqui fabricava um "posições 0 a 0" no último passo, afirmando
+  // que a posição 0 ainda está no heap: exatamente o que o desenho ao lado nega
+  // ("heap vazio: tudo virou resultado"). E o pior é que essa frase é a MESMA
+  // do passo com n = 1, onde ela é verdadeira: dois estados diferentes com o
+  // mesmo texto, e um deles mentindo.
+  const heapRange = s.n > 0 ? `heap ativo: posições 0 a ${s.n - 1}` : "heap vazio";
+
   return viz.inPanel(
     <figure {...viz.figureProps} style={{ margin: 0 }}>
       <VizHeader viz={viz} />
@@ -322,7 +330,7 @@ export function HeapSortVisualizer() {
         <div className={`hs-fase f-${PHASE_CLASS[s.phase]}`}>
           <span className="hs-fase-selo">{phaseLabel}</span>
           <span className="hs-fase-txt">
-            heap ativo: posições 0 a {Math.max(s.n - 1, 0)} · já ordenado: {sortedCount} de {s.arr.length}
+            {heapRange} · já ordenado: {sortedCount} de {s.arr.length}
           </span>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 import { segments } from "./MergeSortVisualizer";
 
 // ---------------------------------------------------------------------------
@@ -18,9 +19,16 @@ import { segments } from "./MergeSortVisualizer";
 // move menos que n e o card viraria uma meia verdade.
 //
 // Interativo sem linha do tempo: a variável é o TAMANHO da entrada, não o tempo.
+//
+// Sobre a casca: `total: 1` (não há passo a passo, e o número que resume o
+// estado entra no lugar do contador) e `collapsible: false` (não há bloco
+// dispensável — as faixas, os cartões e a tabela SÃO o conteúdo). O que a peça
+// ganha é o painel expandido com o cabeçalho parado enquanto o miolo rola, que
+// é justamente o que falta a ela: com n = 64 ela pede 1.001px de um orçamento
+// de 816 a 1512x900, e 1.015 de 616 a 1440x700.
 // ---------------------------------------------------------------------------
 
-const TAMANHOS = [8, 16, 32, 64];
+const SIZES = [8, 16, 32, 64];
 
 // Formatador determinístico: Intl.NumberFormat diverge entre build e cliente e
 // quebra a hidratação.
@@ -28,7 +36,7 @@ function num(v: number): string {
   return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-function compacto(v: number): string {
+function compact(v: number): string {
   if (v >= 1e15) return `${num(v / 1e15)} quatri`;
   if (v >= 1e12) return `${num(v / 1e12)} tri`;
   if (v >= 1e9) return `${num(v / 1e9)} bi`;
@@ -36,32 +44,40 @@ function compacto(v: number): string {
   return num(v);
 }
 
-const ESCALAS = [1_000, 1_000_000, 1_000_000_000];
+const SCALES = [1_000, 1_000_000, 1_000_000_000];
 
 export function MergeSortNiveis() {
   const [n, setN] = useState(16);
-  const niveis = useMemo(() => segments(n), [n]);
-  const rodadas = Math.log2(n); // n é sempre potência de 2 aqui
-  const movimentos = n * rodadas;
-  const quadratico = (n * (n - 1)) / 2;
+  const levels = useMemo(() => segments(n), [n]);
+  const rounds = Math.log2(n); // n é sempre potência de 2 aqui
+  const moves = n * rounds;
+  const quadratic = (n * (n - 1)) / 2;
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · o n log n desenhado: altura vezes largura</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            {rodadas} rodadas de intercalação x {n} elementos = {movimentos} movimentos
-          </span>
-        </div>
-      </div>
+  const viz = useVisualizer({
+    title: "Visualizador · o n log n desenhado: altura vezes largura",
+    // Sem linha do tempo: a variável é o tamanho da entrada, não o tempo.
+    total: 1,
+    // Sem bloco dispensável: as faixas, os cartões e a tabela são o conteúdo.
+    collapsible: false,
+    // `measureOn` fica de fora: com `collapsible: false` não há decisão a tomar
+    // e o hook nem espera as fontes. Passar a lista anunciaria uma medição que
+    // não acontece — e o eixo de altura desta peça (o `n`) é real, então a
+    // tentação de listá-lo é grande.
+  });
 
-      <div className="viz-body">
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      {/* Sem "passo N de M": o número que resume o estado entra no lugar dele,
+          com o rótulo junto, como manda a §6 do contrato. */}
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          {rounds} rodadas de intercalação x {n} elementos = {moves} movimentos
+        </span>
+      </VizHeader>
+
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          {TAMANHOS.map((t) => (
+          {SIZES.map((t) => (
             <button key={t} className={`bigo-chip${n === t ? " on" : ""}`} onClick={() => setN(t)} aria-pressed={n === t}>
               n = {t}
             </button>
@@ -76,19 +92,19 @@ export function MergeSortNiveis() {
 
         <div className="hp-bloco">
           <div className="tt-painel-tit">
-            A recursão inteira <em>cada faixa soma {n} elementos, e são {rodadas} rodadas de intercalação</em>
+            A recursão inteira <em>cada faixa soma {n} elementos, e são {rounds} rodadas de intercalação</em>
           </div>
           <div className="ms-niveis">
-            {niveis.map((segs, prof) => (
-              <div className="ms-nivel" key={prof}>
+            {levels.map((segs, depth) => (
+              <div className="ms-nivel" key={depth}>
                 <span className="ms-nivel-rot">
-                  nível {prof} · {segs.length} trecho{segs.length === 1 ? "" : "s"} de {n / segs.length}
+                  nível {depth} · {segs.length} trecho{segs.length === 1 ? "" : "s"} de {n / segs.length}
                 </span>
                 <div className="ms-nivel-faixa" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
                   {segs.map((s) => (
                     <span
                       key={`${s.lo}-${s.hi}`}
-                      className={`ms-seg${prof === niveis.length - 1 ? " folha" : ""}`}
+                      className={`ms-seg${depth === levels.length - 1 ? " folha" : ""}`}
                       style={{ gridColumn: `${s.lo + 1} / ${s.hi + 2}` }}
                     >
                       {n <= 16 ? (s.lo === s.hi ? s.lo : `${s.lo}..${s.hi}`) : ""}
@@ -107,23 +123,23 @@ export function MergeSortNiveis() {
           </div>
           <div className="bigo-stat">
             <span>rodadas de intercalação</span>
-            <strong>{rodadas}</strong>
+            <strong>{rounds}</strong>
           </div>
           <div className="bigo-stat">
             <span>movimentos totais</span>
-            <strong>{num(movimentos)}</strong>
+            <strong>{num(moves)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso de um O(n²)</span>
-            <strong>{num(quadratico)}</strong>
+            <strong>{num(quadratic)}</strong>
           </div>
         </div>
 
         <p className="viz-note ok">
-          Com {n} elementos dá para partir ao meio <strong>{rodadas} vezes</strong> antes de sobrar um elemento
-          por trecho, porque {n} = 2<sup>{rodadas}</sup>. Cada rodada de intercalação toca cada elemento uma vez
-          e só uma, então o trabalho de uma rodada é sempre {n}. O total é o produto: {n} x {rodadas} ={" "}
-          {num(movimentos)} movimentos. É literalmente isso que a notação n log n descreve, e é por isso que ela
+          Com {n} elementos dá para partir ao meio <strong>{rounds} vezes</strong> antes de sobrar um elemento
+          por trecho, porque {n} = 2<sup>{rounds}</sup>. Cada rodada de intercalação toca cada elemento uma vez
+          e só uma, então o trabalho de uma rodada é sempre {n}. O total é o produto: {n} x {rounds} ={" "}
+          {num(moves)} movimentos. É literalmente isso que a notação n log n descreve, e é por isso que ela
           vale no melhor, no médio e no pior caso: a estrutura da recursão não olha para os dados.
         </p>
 
@@ -143,21 +159,21 @@ export function MergeSortNiveis() {
                 </tr>
               </thead>
               <tbody>
-                {ESCALAS.map((e) => {
+                {SCALES.map((e) => {
                   const r = Math.ceil(Math.log2(e));
                   const ms = e * r;
                   const q = (e * (e - 1)) / 2;
                   return (
                     <tr key={e}>
-                      <td>{compacto(e)}</td>
+                      <td>{compact(e)}</td>
                       <td className="nums">{r}</td>
                       <td className="nums">
-                        <span className="hp-custo c-otimo">{compacto(ms)}</span>
+                        <span className="hp-custo c-otimo">{compact(ms)}</span>
                       </td>
                       <td className="nums">
-                        <span className="hp-custo c-ruim">{compacto(q)}</span>
+                        <span className="hp-custo c-ruim">{compact(q)}</span>
                       </td>
-                      <td className="nums">{compacto(q / ms)} vezes</td>
+                      <td className="nums">{compact(q / ms)} vezes</td>
                     </tr>
                   );
                 })}
@@ -173,6 +189,11 @@ export function MergeSortNiveis() {
           é a diferença entre 0,2 segundo e mais de uma hora.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o rodapé não desenha nada — é o
+          comportamento documentado do hook. Fica aqui para que acrescentar um
+          controle depois não passe por reescrever a casca à mão. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }
