@@ -170,7 +170,7 @@ test("rotate string: o prefixo que bate concorda sem duplicar o número", async 
 // não "unificar" as três em uma.
 // ---------------------------------------------------------------------------
 
-test("thousands arredonda e agrupa; thousandsDecimal guarda a casa; thousandsSigned guarda o sinal", () => {
+test("thousands arredonda e agrupa; thousandsDecimal guarda a casa; thousandsSigned trunca em vez de arredondar", () => {
   // O caso comum: contador de operações, de cópias, de bytes.
   expect(thousands(0)).toBe("0");
   expect(thousands(999)).toBe("999");
@@ -185,18 +185,30 @@ test("thousands arredonda e agrupa; thousandsDecimal guarda a casa; thousandsSig
   // O ponto do milhar não pode invadir a casa decimal.
   expect(thousandsDecimal(12345.6)).toBe("12.345,6");
 
-  // A variante do overflow: o "-" fica FORA do agrupamento, senão desloca os
-  // pontos e INT_MIN sai como "-2.14.748.3648".
+  // A variante do overflow, onde INT_MIN é o valor central.
   expect(thousandsSigned(-2147483648)).toBe("-2.147.483.648");
   expect(thousandsSigned(2147483647)).toBe("2.147.483.647");
   expect(thousandsSigned(0)).toBe("0");
   expect(thousandsSigned(-1)).toBe("-1");
-  // Trunca, não arredonda: é o que a soma que estoura precisa.
+
+  // O que separa essa variante da primeira é o TRUNCAR, e não o sinal. A cópia
+  // que ela substituiu afirmava o contrário, no comentário logo acima dela: que
+  // o "-" na frente desloca os pontos do agrupamento. Não desloca — em
+  // JavaScript `\B` nunca casa depois do "-", porque ali há fronteira de
+  // palavra. Estas duas linhas são a medição dessa afirmação, e elas reprovam
+  // se alguém "consertar" o agrupamento acreditando no comentário antigo.
+  expect(thousands(-2147483648)).toBe("-2.147.483.648");
+  expect(thousands(-1234567)).toBe(thousandsSigned(-1234567));
+
+  // A diferença que sobra, e é ela que impede fundir as duas: valor fracionário.
   expect(thousandsSigned(-1999.9)).toBe("-1.999");
+  expect(thousands(-1999.9)).toBe("-2.000");
+  expect(thousandsSigned(-999.6)).toBe("-999");
+  expect(thousands(-999.6)).toBe("-1.000");
 
   // A prova de que as três NÃO são a mesma função com nomes diferentes.
   expect(thousandsDecimal(1234.56)).not.toBe(thousands(1234.56));
-  expect(thousandsSigned(-1234)).not.toBe(thousands(-1234));
+  expect(thousandsSigned(-1999.9)).not.toBe(thousands(-1999.9));
 });
 
 test("plural devolve só a palavra e comNumero devolve número mais palavra", () => {

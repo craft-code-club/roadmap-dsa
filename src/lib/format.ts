@@ -5,8 +5,8 @@
  * `content/visualizers/`, e as cópias tinham divergido em silêncio:
  *
  * - o formatador de milhar aparecia sob DOIS nomes (`num` e `thousands`) com
- *   TRÊS comportamentos: o que arredonda, o que mostra uma casa decimal e o que
- *   preserva o sinal. Nome igual, texto de tela diferente;
+ *   TRÊS corpos: o que arredonda, o que mostra uma casa decimal e o que trunca.
+ *   Nome igual, texto de tela diferente;
  * - `plural(v, one, many)` tinha a MESMA assinatura e retorno incompatível. Em
  *   alguns arquivos devolvia `"3 comparações"` e em outros devolvia
  *   `"comparações"`. Mover uma linha de nota entre dois desses arquivos produzia
@@ -30,8 +30,9 @@ const agrupaMilhar = (s: string): string => s.replace(/\B(?=(\d{3})+(?!\d))/g, "
  * Arredonda para inteiro e agrupa o milhar: `1234567` vira `"1.234.567"`.
  *
  * É o formatador da grande maioria dos visualizadores: contadores de operações,
- * de comparações, de bytes. Para número negativo use {@link thousandsSigned},
- * porque aqui o `-` entra no agrupamento e desloca os pontos.
+ * de comparações, de bytes. Ele lida bem com negativo INTEIRO: `-2147483648`
+ * sai `"-2.147.483.648"`. O que ele NÃO faz é truncar — para isso existe
+ * {@link thousandsSigned}, e a nota de lá explica a diferença medida.
  */
 export function thousands(v: number): string {
   return agrupaMilhar(String(Math.round(v)));
@@ -51,12 +52,25 @@ export function thousandsDecimal(v: number): string {
 }
 
 /**
- * Trunca preservando o sinal e agrupa o milhar: `-2147483648` vira
- * `"-2.147.483.648"`.
+ * TRUNCA preservando o sinal e agrupa o milhar: `-2147483648` vira
+ * `"-2.147.483.648"` e `-999.6` vira `"-999"`.
  *
- * O sinal fica FORA do agrupamento de propósito: aplicar a regex na string com
- * o `-` na frente conta o traço como caractere e desloca os pontos. É o
- * formatador do visualizador de overflow, onde `INT_MIN` é o valor central.
+ * É o formatador do visualizador de overflow, onde `INT_MIN` é o valor central.
+ *
+ * ⚠️ O que separa esta função de {@link thousands} é o TRUNCAR, não o sinal, e a
+ * cópia que ela substituiu dizia o contrário: o comentário lá alegava que
+ * aplicar a regex com o `-` na frente deslocaria os pontos. Não desloca. Em
+ * JavaScript `\B` nunca casa logo depois do `-`, porque ali existe uma fronteira
+ * de palavra de verdade — `-2147483648` sai `"-2.147.483.648"` com ou sem o
+ * tratamento de sinal, e o mesmo vale para todo negativo INTEIRO. Medido em
+ * `tests/format.spec.ts`.
+ *
+ * A diferença que sobra é real e é só para valor fracionário: `-999.6` sai
+ * `"-999"` aqui e `"-1.000"` em {@link thousands}. Nenhum valor que o
+ * visualizador de overflow formata hoje é fracionário (as entradas são inteiras
+ * e `div2` trunca), então esta função existe pela intenção declarada dele —
+ * mostrar a conta que estoura sem arredondar por cima — e não por um texto de
+ * tela que mudaria se ela sumisse.
  */
 export function thousandsSigned(v: number): string {
   const negativo = v < 0;
