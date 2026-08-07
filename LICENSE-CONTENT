@@ -1,0 +1,87 @@
+Roadmap DSA — licença do CONTEÚDO
+Copyright © 2026 Craft & Code Club (https://craftcodeclub.io)
+
+O CONTEÚDO deste repositório — o material didático — está sob a licença
+
+    Creative Commons Atribuição-NãoComercial-CompartilhaIgual 4.0 Internacional
+    (CC BY-NC-SA 4.0)
+
+O CÓDIGO está sob MIT, e a fronteira entre os dois é definida no arquivo
+LICENSE, na seção "ONDE PASSA A FRONTEIRA". Leia-a antes de usar este texto:
+sem ela, este arquivo não diz a que se aplica.
+
+--------------------------------------------------------------------------------
+TEXTO CANÔNICO
+
+Este arquivo é um resumo de orientação, e não substitui a licença. Quem governa
+é o texto oficial da Creative Commons:
+
+    Português:  https://creativecommons.org/licenses/by-nc-sa/4.0/deed.pt-br
+    Inglês:     https://creativecommons.org/licenses/by-nc-sa/4.0/
+    Legal code: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+Em qualquer divergência entre este resumo e o texto canônico, o canônico vence.
+
+--------------------------------------------------------------------------------
+O QUE VOCÊ PODE FAZER
+
+  · COMPARTILHAR — copiar e redistribuir o material em qualquer suporte ou
+    formato.
+  · ADAPTAR — remixar, transformar e criar a partir do material, inclusive
+    traduzir para outro idioma.
+
+De graça, sem pedir permissão, para sempre, desde que respeitadas as três
+condições abaixo.
+
+--------------------------------------------------------------------------------
+AS TRÊS CONDIÇÕES
+
+  ATRIBUIÇÃO (BY)
+    Dê o crédito apropriado, com link para a licença e para a fonte, e indique
+    se mudanças foram feitas. Um crédito que cumpre isso:
+
+        "Roadmap DSA, da comunidade Craft & Code Club
+         (https://dsa.craftcodeclub.io) — CC BY-NC-SA 4.0.
+         Adaptado de <link para a página original>."
+
+    Se você adaptou, diga o que mudou. O crédito não pode sugerir que a
+    comunidade endossa você ou o seu uso.
+
+  NÃO COMERCIAL (NC)
+    Você não pode usar o material para fins primariamente comerciais nem
+    voltados a vantagem comercial ou compensação monetária. Vender um curso
+    montado com estes artigos, colocá-los atrás de um paywall ou usá-los como
+    material de um treinamento pago não é permitido. Usar numa aula gratuita,
+    num grupo de estudo, numa universidade ou num projeto pessoal é.
+
+  COMPARTILHA IGUAL (SA)
+    Se você remixar, transformar ou criar a partir do material, precisa
+    distribuir o resultado sob esta MESMA licença.
+
+E mais uma regra da própria CC: você não pode aplicar termos jurídicos ou
+medidas tecnológicas que restrinjam outras pessoas de fazer o que a licença
+permite.
+
+--------------------------------------------------------------------------------
+LEVAR UM VISUALIZADOR INTEIRO
+
+O caso prático que mais aparece. Um arquivo `content/visualizers/*.tsx` carrega
+as duas licenças ao mesmo tempo: o componente é MIT, as strings didáticas são
+CC BY-NC-SA. Então:
+
+  · Copiar o arquivo INTEIRO, com as notas e o Python da tela, carrega junto a
+    restrição NãoComercial — porque o conteúdo veio junto.
+
+  · Quer usar comercialmente? Fique com a máquina e troque o material didático
+    pelo seu: as notas de passo, o código exibido, os rótulos que explicam. O
+    que sobra é MIT, e é seu para o que quiser.
+
+Não é uma pegadinha, é a linha que a decisão desenhou: a engenharia é de todo
+mundo, a aula é da comunidade.
+
+--------------------------------------------------------------------------------
+SEM GARANTIA
+
+O material é oferecido "no estado em que se encontra", sem garantias de
+qualquer natureza, na maior extensão permitida por lei. A licença canônica
+detalha isenções de garantia e limitações de responsabilidade.

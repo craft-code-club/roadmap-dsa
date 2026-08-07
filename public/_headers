@@ -27,9 +27,10 @@
 # O risco aqui NÃO é sequestro de clique: o site é estático, não tem login, não
 # tem formulário e não tem ação destrutiva atrás de um clique. O risco é
 # republicação: envelopar o guia inteiro num iframe de um site com anúncios e
-# servir o nosso conteúdo como se fosse dele. A licença do repositório é
-# PolyForm Noncommercial 1.0.0, e esse uso a contraria. `DENY` é o único
-# cabeçalho que o navegador aplica sem depender de o outro site colaborar.
+# servir o nosso conteúdo como se fosse dele. O conteúdo didático está sob
+# CC BY-NC-SA 4.0, e esse uso contraria duas das três cláusulas de uma vez: é
+# comercial (NC) e sem crédito (BY). `DENY` é o único cabeçalho que o navegador
+# aplica sem depender de o outro site colaborar.
 #
 # Não quebra nada, e a direção é o que importa: o único iframe do projeto é de
 # SAÍDA (o embed do YouTube em `src/app/topico/[slug]/page.tsx`, que é a nossa

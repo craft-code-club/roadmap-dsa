@@ -1,85 +1,153 @@
 Roadmap DSA — o guia visual e gratuito de Algoritmos e Estruturas de Dados.
 Copyright © 2026 Craft & Code Club (https://craftcodeclub.io)
 
-This project (code and content) is licensed under the PolyForm Noncommercial
-License 1.0.0. You are free to use, copy, modify, and share it for ANY
-NONCOMMERCIAL purpose (personal study, education, community, research, other
-open/free projects). COMMERCIAL USE IS NOT PERMITTED.
+================================================================================
+DUAS LICENÇAS, PORQUE SÃO DUAS COISAS
+================================================================================
 
-Required Notice: Copyright © 2026 Craft & Code Club (https://craftcodeclub.io)
+Este repositório guarda duas coisas diferentes, e cada uma tem a sua licença:
+
+  O CÓDIGO      →  MIT
+                   Open source pela definição da OSI. Uso comercial permitido.
+                   Texto integral no fim deste arquivo.
+
+  O CONTEÚDO    →  CC BY-NC-SA 4.0
+                   (Atribuição · NãoComercial · CompartilhaIgual)
+                   O material didático. Ver o arquivo LICENSE-CONTENT.
+
+A intenção, em uma frase: o código é open source de verdade, e o conteúdo
+intelectual é da comunidade. Quem quiser pegar o motor dos visualizadores e
+construir outra coisa — inclusive um produto pago — pode. Quem quiser pegar os
+artigos e as explicações e vendê-los, não: eles foram escritos para ficar
+gratuitos para quem estuda.
+
+In short, for readers who do not speak Portuguese: the SOURCE CODE of this
+project is licensed under the MIT License (full text at the end of this file);
+the EDUCATIONAL CONTENT is licensed under Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International, see LICENSE-CONTENT.
+The section below defines exactly where the line between the two falls.
+
+
+================================================================================
+ONDE PASSA A FRONTEIRA
+================================================================================
+
+A fronteira NÃO é por diretório. Ela atravessa arquivos individuais, e é por
+isso que esta seção existe: sem ela, um leitor de boa-fé erra.
 
 --------------------------------------------------------------------------------
+A pergunta que decide
 
-# PolyForm Noncommercial License 1.0.0
+    Se esta linha sumisse, o que quebraria: o PROGRAMA ou a AULA?
 
-<https://polyformproject.org/licenses/noncommercial/1.0.0>
+  · Quebra o programa (não compila, o passo não avança, o painel some do
+    layout, o teste falha) ......................... é CÓDIGO      → MIT
 
-## Acceptance
+  · O programa continua rodando e o que se perde é o ENSINO (a explicação, o
+    exemplo, a frase que diz por que aquele passo importa) ..............
+    ............................................... é CONTEÚDO    → CC BY-NC-SA
 
-In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
+--------------------------------------------------------------------------------
+O caso que mais confunde: content/visualizers/*.tsx
 
-## Copyright License
+Cada visualizador é um componente React que ensina um algoritmo. Ele é as duas
+coisas ao mesmo tempo, no mesmo arquivo.
 
-The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
+É CÓDIGO (MIT) a máquina:
 
-## Distribution License
+  · o componente e os seus tipos — `type Step = { slots, n, writes, line, ... }`
+  · a casca compartilhada — `useVisualizer`, `VizHeader`, `VizFooter`, e todo o
+    `src/lib/visualizer.tsx` que está por trás deles
+  · o gerador de passos: o laço que produz a sequência, o estado, os handlers
+  · a interface genérica: classes de CSS, `role="group"`, `aria-label="Operação"`
 
-The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
+É CONTEÚDO (CC BY-NC-SA) o que aquela máquina ENSINA:
 
-## Notices
+  · as notas do passo a passo. Em `ArraysOperacoes.tsx`:
+        note: `Endereço = base + ${k} × tamanho. Leio ${nums[k]} e acabou:
+               1 operação, com 6 posições ou com 6 milhões. Isso é O(1).`
+    O campo `note` é código; a frase guardada dentro dele é conteúdo.
 
-You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
+  · o código Python que aparece na tela do aluno. Ainda em
+    `ArraysOperacoes.tsx`, a declaração `const CODE: Record<OpKey, string[]>` é
+    código, e cada linha dentro dela é conteúdo:
+        "    for i in range(n - 1, k - 1, -1):   # do fim até a posição k"
+    Ele não roda: ele é lido. É material didático que por acaso tem a forma de
+    um programa.
 
-> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+  · os títulos e rótulos que ensinam, e não apenas nomeiam:
+        title: "Visualizador · o que cada operação custa de verdade"
 
-## Changes and New Works License
+  · as legendas dos presets, os textos de conclusão, as explicações de cada
+    estado.
 
-The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
+E se eu quiser levar o arquivo inteiro? Ele carrega as duas licenças ao mesmo
+tempo, e isso tem consequência prática — ver LICENSE-CONTENT, seção "LEVAR UM
+VISUALIZADOR INTEIRO".
 
-## Patent License
+--------------------------------------------------------------------------------
+A fronteira também corta content/roadmap.ts
 
-The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
+Mesma lógica, na direção contrária. `export type Problem = { ... }` e a
+estrutura do arquivo são código (MIT). Já as descrições dos tópicos são texto
+didático (CC BY-NC-SA) — esta, por exemplo:
 
-## Noncommercial Purposes
+    "String é um array de caracteres com duas regras a mais: o elemento não é
+     um byte e você não pode escrever numa posição. É dessa imutabilidade que
+     nasce o O(n²) escondido em qualquer concatenação dentro de um laço."
 
-Any noncommercial purpose is a permitted purpose.
+Isso é uma aula em uma frase. Não vira código por morar num arquivo `.ts`.
 
-## Personal Uses
+--------------------------------------------------------------------------------
+Os casos fáceis, para referência
 
-Personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application, is use for a permitted purpose.
+  CONTEÚDO (CC BY-NC-SA 4.0)
+    · content/topics/*.mdx — os artigos, na íntegra. O componente `<Callout>` é
+      código; o texto escrito dentro dele é conteúdo.
+    · as descrições didáticas de content/roadmap.ts.
+    · as strings didáticas dentro de content/visualizers/*.tsx.
 
-## Noncommercial Organizations
+  CÓDIGO (MIT)
+    · src/** — aplicação, componentes, bibliotecas, CSS, ícone.
+    · tests/**, scripts/**, .github/**, public/**.
+    · os arquivos da raiz, sem exceção. Os de configuração (next.config.ts,
+      playwright.config.ts, eslint.config.mjs, commitlint.config.mjs,
+      tsconfig.json, package.json); o mdx-components.tsx, onde moram os
+      componentes que os artigos usam, como <Callout>; e a documentação do
+      projeto (README.md, CONTRIBUTING.md, CLAUDE.md, CODE_OF_CONDUCT.md,
+      SECURITY.md), que ensina a MEXER no projeto, não a matéria do guia.
+    · content/topics/index.ts, e o esqueleto de content/roadmap.ts.
+    · a maquinaria dos visualizadores, como descrito acima.
+    · a COPY DA INTERFACE em src/** (títulos de seção, botões, o texto da home).
+      Ela é a moldura do site, não a aula: viaja com o código, sob MIT.
 
-Use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is use for a permitted purpose regardless of the source of funding or obligations resulting from the funding.
+--------------------------------------------------------------------------------
+Ainda em dúvida?
 
-## Fair Use
+Abra uma issue em https://github.com/craft-code-club/roadmap-dsa/issues e
+pergunte. Uma dúvida sua é uma falha desta seção, e a gente conserta o texto.
 
-You may have "fair use" rights for the software under the law. These terms do not limit them.
 
-## No Other Rights
+================================================================================
+MIT License — aplica-se ao CÓDIGO deste repositório
+================================================================================
 
-These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+Copyright © 2026 Craft & Code Club (https://craftcodeclub.io)
 
-## Patent Defense
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-## Violations
-
-The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
-
-## No Liability
-
-***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
-
-## Definitions
-
-The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
-
-**You** refers to the individual or entity agreeing to these terms.
-
-**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization.  **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
-
-**Your licenses** are all the licenses granted to you for the software under these terms.
-
-**Use** means anything you do with the software requiring one of your licenses.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
