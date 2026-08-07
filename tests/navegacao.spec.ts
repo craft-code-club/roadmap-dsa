@@ -1133,7 +1133,7 @@ test("heap: trocar preset ou modo reabre com árvore, não com um nó solto", as
   await expect(nos).toHaveCount(4);
 
   // ↺ é o único que volta ao começo de verdade, que é o heap vazio
-  await viz.getByRole("button", { name: "↺" }).click();
+  await viz.getByRole("button", { name: "Reiniciar" }).click();
   await expect(nos).toHaveCount(1);
 });
 
