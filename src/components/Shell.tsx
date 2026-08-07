@@ -158,6 +158,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="shell">
+      {/* WCAG 2.4.1: antes desta linha eram 44 paradas de tabulação até o
+          primeiro parágrafo em /topico/dijkstra/, em toda página aberta. Ele é o
+          primeiro filho do shell de propósito, e some da tela sem sair da ordem
+          de foco (por isso não é `display: none`). */}
+      <a className="skip-link" href="#conteudo">
+        Ir para o conteúdo
+      </a>
       <header className="header">
         <div className="header-left">
           <button
@@ -327,7 +334,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      {/* `tabIndex={-1}` para o link de pular ter onde pousar o foco: sem ele o
+          navegador rola até o conteúdo e deixa o foco no começo da página, e o
+          Tab seguinte volta para o menu. */}
+      <main className="main" id="conteudo" tabIndex={-1}>
+        {children}
+      </main>
     </div>
   );
 }

@@ -62,6 +62,18 @@ html { scroll-behavior: smooth; }
 /* ------------------------------- shell ---------------------------------- */
 .shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); align-items: start; }
 
+/* Link de pular para o conteúdo (WCAG 2.4.1). Fica FORA da tela em vez de
+   `display: none`, que o tiraria da ordem de tabulação junto e o deixaria
+   inalcançável — que é o mesmo que não existir. `fixed` porque o `.shell` é
+   grid: em fluxo, ele ocuparia a primeira célula e empurraria o menu lateral. */
+.skip-link {
+  position: fixed; top: -100px; left: 12px; z-index: 60;
+  padding: 10px 16px; border-radius: 0 0 9px 9px;
+  background: var(--ccc-accent); color: #fff; font-size: 13.5px; font-weight: 600;
+  transition: top 0.15s;
+}
+.skip-link:focus { top: 0; color: #fff; }
+
 .header {
   position: sticky; top: 0; z-index: 40; grid-column: 1 / -1;
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
