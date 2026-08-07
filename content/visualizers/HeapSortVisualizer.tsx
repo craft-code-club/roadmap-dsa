@@ -34,7 +34,16 @@ type Step = {
   arr: number[];
   n: number; // tamanho do heap ativo: as posições >= n já estão ordenadas
   focus: number;
-  pair: number;
+  // Dois campos, e não um. Eles já foram um `pair` só, e o painel de variáveis
+  // chamava os três significados dele de "maior candidato": o maior filho (o
+  // único que o rótulo descrevia), a origem da subida depois de uma troca, e a
+  // posição que ACABOU DE SAIR do heap. Medido no gerador, nos quatro presets:
+  // dos 156 passos que mostravam um número, 95 mostravam um que não era
+  // candidato a nada. No passo 27 do preset padrão o cartão dizia "9" com a
+  // célula 9 pintada de verde, que é a cor de "resolvida para sempre" — o
+  // oposto exato da fronteira que esta peça existe para ensinar.
+  largest: number; // índice do maior entre pai e filhos; -1 quando o passo não compara
+  swapWith: number; // índice do parceiro da troca; -1 quando o passo não troca
   swapped: boolean;
   phase: Phase;
   comp: number;
@@ -108,7 +117,9 @@ function buildSteps(values: number[]): Step[] {
   let swaps = 0;
   let n = total;
   let phase: Phase = "build";
-  const base = () => ({ arr: [...a], n, focus: -1, pair: -1, swapped: false, phase, comp, swaps });
+  const base = () => ({
+    arr: [...a], n, focus: -1, largest: -1, swapWith: -1, swapped: false, phase, comp, swaps,
+  });
 
   // sift down com limite: tudo de `n` para a frente é resultado final e não existe
   // para o algoritmo. Empurrar os passos aqui dentro mantém o gerador puro.
@@ -137,12 +148,14 @@ function buildSteps(values: number[]): Step[] {
         text += `. A direita seria ${right}, que já caiu na parte ordenada, então nem olho`;
       }
       out.push({
-        ...base(), focus: i, pair: largest === i ? -1 : largest, line: right < n ? 14 : 13,
+        ...base(), focus: i, largest, line: right < n ? 14 : 13,
         note: `${text}. O maior da tríade é ${a[largest]}.`,
       });
       if (largest === i) {
         out.push({
-          ...base(), focus: i, line: 15, ok: true,
+          // `largest: i` é o `maior == i` da linha 16 do código na tela: o
+          // maior da tríade é o próprio pai, e é por isso que a descida para.
+          ...base(), focus: i, largest: i, line: 15, ok: true,
           note: `${a[i]} já é o maior entre pai e filhos: ${context} está válido daqui para baixo e paro a descida.`,
         });
         return;
@@ -153,7 +166,11 @@ function buildSteps(values: number[]): Step[] {
       const previous = i;
       i = largest;
       out.push({
-        ...base(), focus: i, pair: previous, swapped: true, line: 16,
+        // Sem `largest` aqui de propósito: a troca já aconteceu, e a posição
+        // que era a do maior passou a guardar o MENOR dos dois. Manter o
+        // rótulo aceso mostraria um índice cujo valor acabou de deixar de ser
+        // o maior. O fato deste passo é a troca, e é ela que tem rótulo.
+        ...base(), focus: i, swapWith: previous, swapped: true, line: 16,
         note: `${raised} sobe para ${previous} e ${a[i]} desce para ${i}. Sigo só por este ramo: o outro filho e a subárvore dele já estavam válidos e continuam.`,
       });
     }
@@ -187,14 +204,17 @@ function buildSteps(values: number[]): Step[] {
   // ---- fase 2 -------------------------------------------------------------
   phase = "sort";
   for (let end = total - 1; end > 0; end--) {
-    const largest = a[0];
+    // `topValue` é um VALOR (a raiz do heap), enquanto o `largest` do `siftDown`
+    // é um ÍNDICE. Eles se chamavam igual, e é dessa confusão que nasceu o
+    // rótulo mentindo: `end` entrava no mesmo campo do maior filho.
+    const topValue = a[0];
     const swappedOut = a[end];
     [a[0], a[end]] = [a[end], a[0]];
     swaps++;
     n = end;
     out.push({
-      ...base(), focus: 0, pair: end, swapped: true, line: 7,
-      note: `${largest} é o maior do heap, então o lugar dele é a última posição livre, a ${end}. Troco com ${swappedOut} e a posição ${end} está resolvida para sempre.`,
+      ...base(), focus: 0, swapWith: end, swapped: true, line: 7,
+      note: `${topValue} é o maior do heap, então o lugar dele é a última posição livre, a ${end}. Troco com ${swappedOut} e a posição ${end} está resolvida para sempre.`,
     });
     out.push({
       ...base(), focus: 0, line: 8,
@@ -265,6 +285,13 @@ export function HeapSortVisualizer() {
   };
   const cy = (i: number) => TOP_Y + NODE_R + depth(i) * LEVEL_Y;
 
+  // O "outro" índice destacado no desenho não é um conceito só: num passo de
+  // comparação é o maior filho, num passo de troca é o parceiro dela. O
+  // destaque pode juntar os dois, porque a cor só diz "olhe aqui" — quem diz o
+  // QUE é o número é o painel de variáveis, e lá eles aparecem separados, cada
+  // um com o seu rótulo.
+  const partner = s.swapWith >= 0 ? s.swapWith : s.largest !== s.focus ? s.largest : -1;
+
   const sortedCount = s.arr.length - s.n;
   const phaseLabel =
     s.phase === "build" ? "fase 1 · virando max-heap" : s.phase === "sort" ? "fase 2 · arrancando o maior" : "pronto";
@@ -314,7 +341,7 @@ export function HeapSortVisualizer() {
                 .map((f) => (
                   <line
                     key={`${i}-${f}`}
-                    className={`tt-aresta${(s.focus === i && s.pair === f) || (s.focus === f && s.pair === i) ? " ativa" : ""}`}
+                    className={`tt-aresta${(s.focus === i && partner === f) || (s.focus === f && partner === i) ? " ativa" : ""}`}
                     x1={cx(i)}
                     y1={cy(i) + NODE_R}
                     x2={cx(f)}
@@ -325,7 +352,7 @@ export function HeapSortVisualizer() {
             {s.arr.slice(0, s.n).map((v, i) => {
               const cls = ["tt-no"];
               if (i === s.focus) cls.push("on");
-              else if (i === s.pair) cls.push("aux");
+              else if (i === partner) cls.push("aux");
               return (
                 <g key={i} className={cls.join(" ")}>
                   <circle cx={cx(i)} cy={cy(i)} r={NODE_R} />
@@ -352,8 +379,8 @@ export function HeapSortVisualizer() {
               const cls = ["hp-cel"];
               if (i >= s.n) cls.push("fixo");
               else if (i === s.focus) cls.push("foco");
-              else if (i === s.pair) cls.push("par");
-              if (s.swapped && (i === s.focus || i === s.pair)) cls.push("troca");
+              else if (i === partner) cls.push("par");
+              if (s.swapped && (i === s.focus || i === partner)) cls.push("troca");
               return (
                 <span key={i} className={cls.join(" ")}>
                   <i>{i}</i>
@@ -390,9 +417,19 @@ export function HeapSortVisualizer() {
               <span className="viz-var-name">i (foco)</span>
               <span className="viz-var-val">{s.focus >= 0 ? s.focus : "-"}</span>
             </div>
+            {/* Os dois rótulos que antes eram um. `maior (índice)` é o `maior`
+                do código ao lado, que é índice como o `i`; `trocou com` é a
+                outra ponta da troca deste passo. Cada um mostra "-" quando o
+                seu fato não acontece no passo, e esse traço também informa:
+                numa folha não há comparação, e num passo de comparação não há
+                troca. */}
             <div className="viz-var">
-              <span className="viz-var-name">maior candidato</span>
-              <span className="viz-var-val">{s.pair >= 0 ? s.pair : "-"}</span>
+              <span className="viz-var-name">maior (índice)</span>
+              <span className="viz-var-val">{s.largest >= 0 ? s.largest : "-"}</span>
+            </div>
+            <div className="viz-var">
+              <span className="viz-var-name">trocou com</span>
+              <span className="viz-var-val">{s.swapWith >= 0 ? s.swapWith : "-"}</span>
             </div>
           </div>
         </div>
