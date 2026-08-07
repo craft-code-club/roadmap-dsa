@@ -46,6 +46,22 @@ type Step = {
    * de rodada precisa perguntar por este campo antes de mostrar o número.
    */
   summary?: boolean;
+  /**
+   * O gap da RODADA a que o passo pertence, que não é sempre o valor da
+   * variável `gap` naquele instante. O passo de fim de rodada roda o `gap //= 2`
+   * (linha 11), então a variável já vale o gap da PRÓXIMA rodada enquanto o
+   * passo ainda descreve a que acabou — e a faixa da fase lia a variável.
+   * Medido nos quatro passos de fim de rodada do preset padrão: a faixa dizia
+   * "gap 2" com a nota dizendo "Fim da rodada de gap 4", "gap 1" contra "gap 2",
+   * e no último "gap 0", uma rodada que não existe, pintada de âmbar
+   * (`f-ordenar`) sobre um array já ordenado.
+   *
+   * `gap` responde "quanto vale a variável", que é o que o painel de variáveis
+   * mostra; `roundGap` responde "de que rodada é este passo", que é o que a
+   * faixa e o cartão de subsequências perguntam. Dentro da rodada os dois são
+   * iguais; só o passo de fim de rodada os separa.
+   */
+  roundGap: number;
 };
 
 const CODE = [
@@ -112,6 +128,7 @@ export function generateSteps(values: number[]): Step[] {
   const base = () => ({
     arr: [...a],
     gap,
+    roundGap: gap,
     i: -1,
     j: -1,
     current: -1,
@@ -205,6 +222,9 @@ export function generateSteps(values: number[]): Step[] {
     gap = Math.floor(gap / 2);
     out.push({
       ...base(),
+      // A variável já caiu (é o que a linha 11 faz), mas o passo é o fim da
+      // rodada de `before`: é esse número que a faixa e o cartão mostram.
+      roundGap: before,
       line: 11,
       ok: true,
       note:
@@ -280,14 +300,14 @@ export function ShellSortVisualizer() {
             de anunciar uma rodada de gap 0, e a cor é a mesma do fim (`f-fim`,
             verde) em vez da de ordenar (`f-ordenar`, âmbar) — pintar de âmbar o
             array já ordenado é a mesma mentira, só que em cor. */}
-        <div className={`hs-fase ${s.summary || s.gap === 1 ? "f-fim" : "f-ordenar"}`}>
-          <span className="hs-fase-selo">{s.summary ? "ordenado" : `gap ${s.gap}`}</span>
+        <div className={`hs-fase ${s.summary || s.roundGap === 1 ? "f-fim" : "f-ordenar"}`}>
+          <span className="hs-fase-selo">{s.summary ? "ordenado" : `gap ${s.roundGap}`}</span>
           <span className="hs-fase-txt">
             {s.summary
               ? "acabaram as rodadas de gap: este passo é o resumo da execução"
-              : s.gap === 1
+              : s.roundGap === 1
                 ? "esta é a última rodada, e ela é o insertion sort puro"
-                : `o array é lido como ${s.gap} subsequências entrelaçadas, uma a cada ${s.gap} posições`}
+                : `o array é lido como ${s.roundGap} subsequências entrelaçadas, uma a cada ${s.roundGap} posições`}
           </span>
         </div>
 
@@ -362,8 +382,11 @@ export function ShellSortVisualizer() {
           <div className="bigo-stat">
             <span>subsequências deste gap</span>
             {/* No resumo não há rodada, então não há "este gap": o traço é o
-                mesmo que as variáveis usam para "não se aplica aqui". */}
-            <strong>{s.summary ? "-" : s.gap}</strong>
+                mesmo que as variáveis usam para "não se aplica aqui". E é o gap
+                DA RODADA, não a variável: no passo de fim de rodada ela já caiu
+                pela metade, e o cartão contava as subsequências da rodada
+                seguinte (ou 0, na última). */}
+            <strong>{s.summary ? "-" : s.roundGap}</strong>
           </div>
         </div>
 
