@@ -957,7 +957,9 @@ mesmo número em dois lugares independentes confirma o **mecanismo** (o
 `padding-bottom` que passa de 18 para 14) e não só a medição.
 
 Quem citar o `+28` ou o `+10` sem medir a própria peça vai escrever o contrário
-do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*.
+do que ela faz. A pergunta é *esta peça tem rodapé?*, não *esta peça tem bloco?*
+— e, num `total: 1`, ela ainda não é a última: falta *quanto o rótulo do
+cabeçalho ocupa*, no fim desta subseção.
 
 Nos dois a adaptação valeu, porque o que ela conserta é outra coisa — e só
 aparece **abaixo** da régua de 1512x900. Na busca da hash table, o `▶ Rodar` era
@@ -969,6 +971,41 @@ Mas o número no artigo piora, e o relatório tem que dizer isso **com o
 número**, não arredondar para "sem mudança". A pergunta certa ao decidir o
 escopo de uma peça sem bloco não é "quanto ela encolhe", é "onde ficam os
 controles quando ela rola".
+
+**E existe um terceiro mecanismo, que numa peça `total: 1` domina os outros
+dois: a LINHA DO CABEÇALHO.** As cinco peças mudas do grupo Ordenação entraram
+todas como o caso `−4` desta tabela — `collapsible: false`, `total: 1` e sem
+`children` no `VizFooter`, ou seja, sem rodapé nenhum. Pela regra acima o número
+seria `−4px` nas cinco. Medido: **+8 em três delas e +36 nas outras duas**, nas
+duas réguas de desktop.
+
+A decomposição fecha exatamente nas cinco, e sai de uma leitura só — esconda o
+`⤢ Expandir` e leia a figura duas vezes no mesmo carregamento, sem rebuild:
+
+```js
+// o custo do botão do cabeçalho, medido no artigo
+const f = document.querySelectorAll("article figure.viz")[N];
+const b = [...f.querySelectorAll("button")].find((x) => /Expandir/.test(x.textContent));
+const com = f.getBoundingClientRect().height;
+b.style.display = "none";
+const sem = f.getBoundingClientRect().height;   // com − sem = o custo do botão
+b.style.display = "";
+```
+
+`−4` (a casca devolve, como esta seção mede) **+12** quando o `⤢ Expandir` cabe
+na linha do `.viz-step`, ou **+40** quando ele a quebra — o `.viz-head` vai de
+41px para 53 ou para 81. O que decide de que lado a peça cai é o **comprimento
+do `children` do `VizHeader`**, porque `.viz-fit .viz-head-right` é
+`flex-wrap: wrap` no `globals.css`. E quem alonga esse `children` é a §6: num
+`total: 1` ele **substitui** o "passo 12 de 93" de uma dúzia de caracteres por
+uma frase inteira, com o rótulo junto do número. O corte medido fica perto de
+**40 caracteres** — os rótulos de 34, 35 e 38 couberam na linha; os de 53 e 55
+a quebraram.
+
+A 390x844 o sinal se inverte outra vez: lá o cabeçalho **já** tem duas linhas
+sem o botão (99px), a casca passa a **custar** +10 em vez de devolver 4, e o
+botão cobra +38 — o total vai de +20 a +60. Três réguas, três mecanismos, e
+nenhum deles dispensa medir a sua peça.
 
 ### `measureOn` não enxerga o passo, e há peça cujo bloco mais alto cresce com ele
 
@@ -1001,6 +1038,20 @@ sobre ele.
 Duas consequências práticas: **inclua na varredura um estado com o contador de
 três dígitos**, se a sua peça chegar lá; e, se a peça passar do orçamento por
 menos de 30px, confira se não é isto antes de procurar no miolo.
+
+**No `AStar` isso é caso de borda. Numa peça `total: 1` é o estado
+permanente.** Ali o `children` do `VizHeader` não divide a linha com o contador:
+ele **é** a linha, e a §6 pede que ele traga o rótulo junto do número, justamente
+para o número não perder o contexto. Medido no grupo Ordenação: `.viz-head` de
+41 para **81px** em 2 das 5 peças, em **todos** os estados e em **todas** as
+réguas — não em 19 de 514 e numa largura só. O custo no artigo está na subseção
+*"Adotar a casca…"* acima.
+
+A consequência é editorial, e vale tomar de olhos abertos: numa peça `total: 1`,
+encurtar o `children` em uma dúzia de caracteres pode valer **40px** de altura no
+artigo. Encurtar até o rótulo sumir não vale — a §6 existe porque número sem
+rótulo ensina errado —, mas escolher entre duas redações igualmente honestas,
+sabendo que uma delas quebra a linha, é decisão sua e não acidente.
 
 ### `children` do `VizHeader` numa peça COM linha do tempo
 
