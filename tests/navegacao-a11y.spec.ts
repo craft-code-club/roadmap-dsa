@@ -180,6 +180,46 @@ test("a marca de progresso não mora dentro do link, e o progresso sobrevive à 
   ).toHaveAttribute("aria-checked", "false");
 });
 
+// As TRÊS listas com marca de progresso são a mesma ideia repetida, e o teclado
+// só aprende o padrão se elas concordarem. O card do /roadmap era a única em que
+// a marca vinha DEPOIS do link: quem tabulava chegava ao card, entrava no
+// tópico, e só encontrava o "marcar como concluído" na volta. Como o ✓ é
+// `position: absolute` no canto superior direito, a ordem do DOM era também a
+// única coisa que dizia onde ele está — e ela dizia "no fim".
+//
+// O teste olha as três de uma vez porque a próxima lista com ✓ vai nascer
+// copiando uma delas, e copiando a errada se ninguém comparar.
+test("a marca de progresso vem antes do link nas três listas", async ({ page }) => {
+  const ordemEm = (seletor: string) =>
+    page.evaluate((sel) => {
+      const cont = document.querySelector(sel);
+      if (!cont) return ["SEM CONTAINER"];
+      return Array.from(cont.querySelectorAll("a,button")).map((e) => e.tagName);
+    }, seletor);
+
+  await page.goto("/roadmap/");
+  expect(await ordemEm(".topic-card-wrap"), "card do /roadmap").toEqual(["BUTTON", "A"]);
+
+  await page.goto("/topico/two-pointers/");
+  // Na trilha, o par é `button` + `a` dentro do item; o primeiro focável tem que
+  // ser o checkbox.
+  const naTrilha = await page.evaluate(() => {
+    const btn = document.querySelector('.sidebar [role="checkbox"]')!;
+    const link = btn.parentElement!.querySelector("a")!;
+    // `compareDocumentPosition` responde a pergunta certa: quem vem antes no DOM.
+    return (btn.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  });
+  expect(naTrilha, "na trilha lateral a marca tem que vir antes do link").toBe(true);
+
+  const naListaDeProblemas = await page.evaluate(() => {
+    const btn = document.querySelector('.problem-row [role="checkbox"], .problem-row button');
+    if (!btn) return "SEM LISTA DE PROBLEMAS";
+    const link = btn.closest("li,div")!.querySelector("a")!;
+    return (btn.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  });
+  expect(naListaDeProblemas, "na lista de problemas a marca tem que vir antes do link").toBe(true);
+});
+
 test("todo landmark de navegação tem nome próprio", async ({ page }) => {
   // Na home só existem os três da casca. Sem nome, o leitor de tela anuncia
   // "navegação" três vezes e o aluno não sabe qual é o menu de tópicos.

@@ -38,6 +38,23 @@ export function RoadmapGroups() {
                   // Ela sai do fluxo (o CSS a posiciona) para o card inteiro
                   // continuar sendo um alvo de clique só.
                   <div className="topic-card-wrap" key={t.slug}>
+                    {/* A marca vem ANTES do link no DOM, como na trilha lateral
+                        e no `ProblemList`. Ela é a primeira coisa do card em
+                        todas as outras listas, e aqui era a última: o teclado
+                        chegava ao card, entrava no tópico, e só encontrava o
+                        "marcar como concluído" na volta. `position: absolute`
+                        mantém o ✓ no mesmo canto — medido, 18px do topo e 17px
+                        da direita antes e depois. */}
+                    <button
+                      type="button"
+                      className={`side-check tcard-check${feito ? " done" : ""}`}
+                      role="checkbox"
+                      aria-checked={feito}
+                      aria-label={`Marcar ${t.name} como concluído`}
+                      onClick={() => toggleTopico(t.slug)}
+                    >
+                      {feito ? "✓" : ""}
+                    </button>
                     <Link href={`/topico/${t.slug}`} className={`topic-card${feito ? " done" : ""}`}>
                       <div className="topic-card-top">
                         <span className="topic-card-name">{t.name}</span>
@@ -50,16 +67,6 @@ export function RoadmapGroups() {
                         ))}
                       </div>
                     </Link>
-                    <button
-                      type="button"
-                      className={`side-check tcard-check${feito ? " done" : ""}`}
-                      role="checkbox"
-                      aria-checked={feito}
-                      aria-label={`Marcar ${t.name} como concluído`}
-                      onClick={() => toggleTopico(t.slug)}
-                    >
-                      {feito ? "✓" : ""}
-                    </button>
                   </div>
                 );
               })}
