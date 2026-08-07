@@ -493,28 +493,25 @@ test("a trilha marcada é a trilha desenhada", async ({ page }) => {
   }
 });
 
-test("todo landmark de navegação que a página de tópico renderiza tem nome", async ({ page }) => {
-  // Varredura, não asserção sobre um elemento: quem contar `<nav>` e conferir
-  // um deles pelo nome da classe deixa passar o próximo que alguém acrescentar.
-  // Este teste conta TODOS os `<nav>` dentro de `.topic-layout` e exige nome
-  // acessível em cada um, então a trilha, o índice e qualquer landmark futuro
-  // desta página entram na cobertura sozinhos.
+test("todo landmark de navegação da página de tópico tem nome próprio", async ({ page }) => {
+  // Varredura da PÁGINA INTEIRA, não de um elemento escolhido a dedo: conta
+  // todos os `<nav>` e exige nome acessível em cada um, então qualquer landmark
+  // que alguém acrescente entra na cobertura sozinho.
   //
-  // O escopo para em `.topic-layout` porque é o que ESTE arquivo renderiza. Os
-  // dois `.topnav` da casca são do `Shell.tsx`, que pertence a outra frente
-  // nesta rodada — e o nome deste teste diz exatamente o que ele prova, em vez
-  // de prometer a página inteira e medir só um pedaço.
+  // Este teste já teve escopo `.topic-layout`, porque os dois `.topnav` da casca
+  // eram anônimos e nomeá-los era de outra frente. Com aquela frente na `main`,
+  // o escopo caiu e o nome do teste passou a valer para a página toda — que era
+  // a promessa desde o começo.
   //
   // Roda num tópico `ready` (tem índice "Nesta página") e num `soon` (não tem):
   // sem o segundo, um regresso que sumisse com a trilha passaria calado.
   const pronto = ALL_TOPICS.find((t) => !isEmptyTopic(t))!;
   const vazio = ALL_TOPICS.find((t) => isEmptyTopic(t))!;
-  for (const [t, navsEsperados] of [[pronto, 2], [vazio, 1]] as const) {
+  for (const [t, navsEsperados] of [[pronto, 5], [vazio, 4]] as const) {
     await page.goto(`/topico/${t.slug}/`);
-    const regiao = page.locator(".topic-layout");
-    const total = await regiao.getByRole("navigation").count();
-    const comNome = await regiao.getByRole("navigation", { name: /\S/ }).count();
-    const anonimos = await regiao.locator("nav").evaluateAll((els) =>
+    const total = await page.getByRole("navigation").count();
+    const comNome = await page.getByRole("navigation", { name: /\S/ }).count();
+    const anonimos = await page.locator("nav").evaluateAll((els) =>
       els
         .filter((e) => !e.getAttribute("aria-label")?.trim() && !e.getAttribute("aria-labelledby")?.trim())
         .map((e) => `.${e.className || e.tagName}`)
@@ -533,7 +530,7 @@ test("todo landmark de navegação que a página de tópico renderiza tem nome",
       // pelo CSS, e o `innerText` devolve "NESTA PÁGINA". O nome acessível é o
       // texto do DOM, "Nesta página", e é ele que o leitor de tela anuncia —
       // comparar com o texto renderizado reprovaria por causa da caixa.
-      const indice = regiao.locator("nav.toc");
+      const indice = page.locator("nav.toc");
       const rotulo = ((await indice.locator(".toc-title").textContent()) ?? "").trim();
       expect(rotulo, "o índice tem que ter rótulo visível para ser apontado").not.toBe("");
       await expect(indice).toHaveAccessibleName(rotulo);
