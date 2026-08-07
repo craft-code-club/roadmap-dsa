@@ -1,10 +1,11 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-// A casca adaptativa nas duas peças de `backtracking`: a árvore de decisão e o
-// sudoku. A terceira figura da página (`BacktrackingPoda`) não tem overlay e
-// ficou fora — por isso todo seletor daqui é escopado na figura, e as contagens
-// são afirmadas nos dois níveis (página e figura). Sem isso, `.viz-step` casa
-// duas figuras e a leitura sai da peça errada.
+// A casca adaptativa nas duas peças de `backtracking` com linha do tempo: a
+// árvore de decisão e o sudoku. A terceira figura da página
+// (`BacktrackingPoda`) também está na casca, mas sem passo a passo — por isso
+// todo seletor daqui é escopado na figura, e as contagens são afirmadas nos
+// dois níveis (página e figura). Sem isso, `.viz-step` casa três figuras e a
+// leitura sai da peça errada.
 //
 // Medido antes de escrever: no expandido a figura inteira rolava, e o
 // `▶ Rodar` era desenhado 335px (árvore, 1512x900) e 590px (sudoku, 1440x600)
@@ -16,6 +17,8 @@ const URL = "/topico/backtracking/";
 
 const ARVORE = 0;
 const SUDOKU = 1;
+/** A peça sem linha do tempo, que usa `.viz-step` para outra coisa. */
+const PODA = 2;
 
 /** Folga de subpixel, igual à do hook. */
 const SLACK = 8;
@@ -27,16 +30,46 @@ async function abrirPagina(page: Page, w: number, h: number) {
   await expect(page.locator("article figure.viz")).toHaveCount(3);
 }
 
+/** O título de cada uma das três, na ordem dos índices acima. */
+const TITULOS = [
+  "backtracking: escolher, explorar, desfazer",
+  "o mesmo backtracking resolvendo sudoku",
+  "a poda: mesma resposta, uma fração do trabalho",
+];
+
 /** A figura da peça, com as contagens afirmadas nos dois níveis. */
 async function figura(page: Page, i: number): Promise<Locator> {
   const fig = page.locator("article figure.viz").nth(i);
+  // O índice diz ONDE, e esta linha diz QUAL. Nenhuma das asserções abaixo
+  // separa as duas peças — árvore e sudoku têm as duas a casca, o contador de
+  // passo e o bloco recolhível —, então sem ela o helper devolve a figura
+  // errada calado.
+  //
+  // Medido, e o resultado corrige o que eu ia escrever aqui: trocando ARVORE e
+  // SUDOKU de índice, a suíte reprova COM e SEM esta linha. Os testes lá
+  // embaixo são específicos o bastante (`passo 1 de 32` contra `passo 1 de 60`)
+  // para pegar a troca. O que esta linha muda é ONDE a reprovação acontece: no
+  // helper, dizendo qual peça veio, em vez de três arquivos de asserção adiante
+  // com um número que não explica nada.
+  await expect(fig.locator(".viz-head-title"), `a figura ${i} é a peça certa`).toContainText(
+    TITULOS[i]
+  );
   await expect(fig).toHaveClass(/viz-fit/);
   // Na página `.viz-step` casa TRÊS, e o terceiro não é um contador de passo: o
   // `BacktrackingPoda` usa a mesma classe para dizer "6 rainhas · 4 soluções ·
   // 2.6x menos nós com poda". Escopar na figura não é preciosismo — sem isso a
   // leitura sai da peça errada e o teste fica verde medindo outra coisa.
   await expect(page.locator("article figure.viz .viz-step")).toHaveCount(3);
-  await expect(page.locator("article figure.viz:not(.viz-fit) .viz-step")).not.toContainText("passo");
+  // Escopado por QUAL figura, e não por `:not(.viz-fit)` como já foi: as três
+  // estão na casca agora, aquele seletor passou a casar ZERO, e
+  // `not.toContainText` num locator vazio REPROVA (`element(s) not found`) em
+  // vez de passar. O que continua verdade — e é o que importa — é que o
+  // `.viz-step` da poda não é um contador de passo.
+  const poda = page
+    .locator("article figure.viz")
+    .filter({ has: page.locator(".viz-head-title", { hasText: TITULOS[PODA] }) });
+  await expect(poda).toHaveCount(1);
+  await expect(poda.locator(".viz-step")).not.toContainText("passo");
   await expect(fig.locator(".viz-step")).toHaveCount(1);
   await expect(fig.locator(".viz-step")).toContainText("passo");
   // O bloco recolhível existe só nas duas peças adaptadas.

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
 // ---------------------------------------------------------------------------
 // BuscaBinariaOverflow, o bug que ficou nove anos dentro da biblioteca do Java.
 //
@@ -16,6 +18,18 @@ import { useMemo, useState } from "react";
 // sendo a certa, e no momento em que a busca binária deixa de ser sobre índices
 // e passa a ser sobre um espaço de respostas (onde os limites podem ser
 // qualquer número), o problema volta em qualquer linguagem.
+//
+// Sobre a casca (contrato em `content/visualizers/README.md`):
+//   · `total: 1` — não há linha do tempo. O eixo é a ENTRADA (esq, dir e o tipo
+//     do inteiro), não um passo a passo, e o resumo do estado ("as duas
+//     concordam" / "as duas discordam") entra como `children` do `VizHeader`.
+//   · `collapsible: false` — as duas fórmulas e a fita de bits são o conteúdo,
+//     não um bloco dispensável. Sem bloco para recolher, `measureOn` não teria
+//     efeito nenhum e fica de fora.
+//   · os dois campos numéricos são o motivo de esta peça agradecer o `total: 1`
+//     por um segundo caminho: o hook só sequestra seta e espaço quando há linha
+//     do tempo, então digitar em `esq` e `dir` dentro do painel continua sendo
+//     digitar.
 // ---------------------------------------------------------------------------
 
 const INT_MAX = 2147483647;
@@ -78,6 +92,12 @@ export function BuscaBinariaOverflow() {
   const [dir, setDir] = useState(2000000000);
   const [limitado, setLimitado] = useState(true);
 
+  const viz = useVisualizer({
+    title: "Visualizador · as duas formas de achar o meio, e por que só uma serve",
+    total: 1,
+    collapsible: false,
+  });
+
   const aplicar = (p: Preset) => {
     setPresetKey(p.key);
     setEsq(p.esq);
@@ -98,19 +118,13 @@ export function BuscaBinariaOverflow() {
   const valido = esq >= 0 && dir >= esq;
   const bits = bits32(conta.soma);
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · as duas formas de achar o meio, e por que só uma serve</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">{conta.iguais ? "as duas concordam" : "as duas discordam"}</span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz}>
+        <span className="viz-step">{conta.iguais ? "as duas concordam" : "as duas discordam"}</span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((p) => (
             <button key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => aplicar(p)} aria-pressed={presetKey === p.key}>
@@ -308,6 +322,9 @@ export function BuscaBinariaOverflow() {
           enormes desde a primeira linha. A fórmula segura custa a mesma coisa: use ela sempre.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o `VizFooter` não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }
