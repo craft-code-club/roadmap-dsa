@@ -396,6 +396,33 @@ test.describe("o foco volta para o botão que abriu o painel", () => {
       await expect(expandir).toBeFocused();
     });
   }
+
+  // A outra metade do contrato, e a que só existe por causa da FORMA do
+  // conserto: a devolução do foco mora no CORPO do efeito (quando `expanded`
+  // vira `false`), e não na limpeza dele. Na montagem `expanded` já é `false`,
+  // então sem a guarda `esteveExpandido` este mesmo caminho rodaria no load e
+  // toda peça da página puxaria o foco para o próprio `⤢ Expandir` — o leitor
+  // abriria o artigo com o cursor no meio de um visualizador.
+  //
+  // Quem diz que a casca já hidratou e mediu é o `data-anim="on"`, o mesmo sinal
+  // que o resto da suíte usa: quando ele acende, os efeitos do hook JÁ rodaram,
+  // e o roubo de foco (se houvesse) já teria acontecido.
+  test("abrir a página não move o foco para dentro de um visualizador", async ({ page }) => {
+    const fig = await figuraDe(page, "/topico/big-o/");
+    await expect(fig).toHaveAttribute("data-anim", "on");
+
+    // O valor primeiro, e dizendo QUEM roubou: sem a guarda esta linha recebe o
+    // rótulo do botão que ficou com o foco, em vez de "BODY (nada focado)".
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const a = document.activeElement;
+          if (!a || a === document.body) return "BODY (nada focado)";
+          return `${a.tagName} "${(a.textContent ?? "").trim()}"`;
+        })
+      )
+      .toBe("BODY (nada focado)");
+  });
 });
 
 test.describe("os dois controles que não tinham nome", () => {
