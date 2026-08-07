@@ -12,6 +12,13 @@ guarda não conseguiu rodar. **Nunca sai 0 por não ter conseguido olhar**: o
 histórico deste arquivo é de passar verde com a aula estragada, e um guarda que
 falha calado é pior que nenhum.
 
+Isso vale para a ENTRADA também, e era o buraco que sobrava. Um diretório sem
+nenhum `.tsx` dentro — o `git archive` que falhou, o caminho digitado errado —
+saía `SUMIRAM: nenhuma / APARECERAM: nenhuma (0 arquivos)` **com código 0**, que
+é o mesmo veredito de "comparei o tópico inteiro e nada mudou". Hoje isso é
+código 2. A fronteira: *não conseguiu olhar* é erro do guarda (2); *olhou e não
+achou texto de tela* é resultado, e continua sendo 0.
+
 O QUE MUDOU NESTA VERSÃO, E POR QUÊ
 -----------------------------------
 As três versões anteriores casavam texto por expressão regular, e as três
@@ -142,12 +149,27 @@ def main() -> None:
             morrer(f"não existe: {p}")
     if a.is_dir() != d.is_dir():
         morrer("os dois lados têm que ser ambos arquivo ou ambos diretório.")
+    # Comparar um caminho com ele mesmo passa SEMPRE, e por construção: os dois
+    # lados saem da mesma leitura. É verde sem ter olhado duas versões de nada.
+    if a.resolve() == d.resolve():
+        morrer(f"os dois lados são o mesmo caminho ({a.resolve()}) — "
+               "nada seria comparado. Aponte a versão de ANTES e a de DEPOIS.")
 
     if a.is_file():
         dados = extrair([a, d])
-        raise SystemExit(1 if comparar(dados[str(a)], dados[str(d)]) else 0)
+        mudou = comparar(dados[str(a)], dados[str(d)])
+        # Quantos itens o guarda olhou. Sem isto, `SUMIRAM: nenhuma /
+        # APARECERAM: nenhuma` tem duas leituras — "conferi tudo e está igual" e
+        # "não achei texto nenhum para conferir" — e a segunda é a que engana.
+        print(f"({len(dados[str(a)]['tela'])} texto(s) de tela em {a}, "
+              f"{len(dados[str(d)]['tela'])} em {d})")
+        raise SystemExit(1 if mudou else 0)
 
     nomes = sorted(set(arquivos_de(a)) | set(arquivos_de(d)))
+    if not nomes:
+        morrer(f"nenhum arquivo {'/'.join(EXTENSOES)} em {a} nem em {d} — "
+               "o guarda não olhou NADA. Confira os caminhos (e, na CI, se o "
+               "`git archive` da base extraiu alguma coisa).")
     dados = extrair([a / n for n in nomes if (a / n).exists()]
                     + [d / n for n in nomes if (d / n).exists()])
     vazio = {"tela": [], "codigo": []}
