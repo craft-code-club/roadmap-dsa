@@ -85,8 +85,6 @@ const UNREACHABLE = [
   "    return contagem(n + 1)",
 ];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 function factorialOf(n: number): number {
   let f = 1;
   for (let i = 2; i <= n; i++) f *= i;
@@ -452,7 +450,6 @@ export function RecursionVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · a pilha de chamadas: empilha na descida, resolve na subida",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (o código vai de 4 a 5 linhas e o
     // painel de variáveis troca de conteúdo) e, sobretudo, quantos frames cabem
     // na pilha — que é o produto de `n` com `limit`. O eixo que vira ALTURA

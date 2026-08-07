@@ -75,8 +75,6 @@ const MEMO_CODE = [
   "    return memo[n]",
 ];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 // Geometria da árvore. O SVG rola dentro do próprio container quando fica mais
 // largo que a tela, então dá para abrir n = 8 sem a página rolar na horizontal.
 const NODE_W = 46;
@@ -225,7 +223,6 @@ export function RecursionArvoreVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · a árvore de chamadas do Fibonacci e o retrabalho",
     total: steps.length,
-    speeds: SPEEDS,
     // A marcha inicial desta peça é a 4 ("1.5x"), não a 3 do hook: a árvore tem
     // dezenas de nós e no 1x a reprodução inteira fica longa demais para quem
     // só quer ver a forma do retrabalho. Era o valor que o componente já tinha.

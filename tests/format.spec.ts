@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { thousands, thousandsDecimal, thousandsSigned, plural, comNumero } from "../src/lib/format";
+import { DEFAULT_SPEEDS, SPEED_LABELS } from "../src/lib/visualizer";
 
 // Os utilitários que estavam copiados em `content/visualizers/`, agora em
 // `src/lib/format.ts` — e a prova de que unificar não mexeu numa palavra da tela.
@@ -217,4 +218,43 @@ test("plural devolve só a palavra e comNumero devolve número mais palavra", ()
     "Achei depois de comparações."
   );
   expect(`${3} ${comNumero(3, "cópia", "cópias")}`).toBe("3 3 cópias");
+});
+
+// ---------------------------------------------------------------------------
+// 4 · Os `SPEEDS` que já eram o padrão do hook
+//
+// Onze visualizadores declaravam `[0, 1400, 950, 650, 420, 250]` e passavam a
+// prop `speeds` com exatamente o valor que o hook já usa quando ninguém passa
+// nada. Eles pararam de passar. Os outros vinte e quatro têm marcha própria e
+// ficaram como estavam.
+//
+// A prova de que isso não mudou nada tem duas partes: o padrão do hook continua
+// sendo AQUELE array (se alguém retunar `DEFAULT_SPEEDS`, este teste avisa, e
+// aí a decisão volta a ser consciente), e a marcha continua NOMEADA na tela de
+// quem deixou de passar a prop.
+// ---------------------------------------------------------------------------
+
+test("o padrão do hook é o array que os onze visualizadores deixaram de repetir", () => {
+  expect([...DEFAULT_SPEEDS]).toEqual([0, 1400, 950, 650, 420, 250]);
+  expect(DEFAULT_SPEEDS.length).toBe(SPEED_LABELS.length);
+});
+
+test("sem a prop `speeds`, o controle de velocidade continua nomeando as marchas", async ({
+  page,
+}) => {
+  // A fila é uma das onze que deixaram de passar a prop.
+  const painel = await expandir(page, "/topico/filas/", 0);
+  const slider = painel.getByRole("slider", { name: "Velocidade" });
+
+  // Marcha inicial: a terceira do array, que a tela chama de "1x".
+  await expect(slider).toHaveAttribute("aria-valuetext", "1x");
+  expect(await painel.locator(".viz-speed .val").innerText()).toBe("1x");
+
+  await slider.fill("5");
+  await expect(slider).toHaveAttribute("aria-valuetext", "2x");
+  expect(await painel.locator(".viz-speed .val").innerText()).toBe("2x");
+
+  await slider.fill("1");
+  await expect(slider).toHaveAttribute("aria-valuetext", "0.5x");
+  expect(await painel.locator(".viz-speed .val").innerText()).toBe("0.5x");
 });

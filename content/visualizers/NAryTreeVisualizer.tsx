@@ -147,8 +147,6 @@ const ORDER_LABEL: Record<Order, string> = {
   level: "Por nível (BFS)",
 };
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 const STEP_X = 96;
 const STEP_Y = 68;
 const NODE_W = 84;
@@ -287,7 +285,6 @@ export function NAryTreeVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · o mesmo template quando os filhos viram uma lista",
     total: steps.length,
-    speeds: SPEEDS,
     // A marcha inicial desta peça é a 4 ("1.5x"), não a 3 do hook: o percurso
     // mais curto tem 19 passos e o mais longo 28, e no 1x a reprodução inteira
     // fica longa demais para quem só quer ver a forma do percurso. Era o valor

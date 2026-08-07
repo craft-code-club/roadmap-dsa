@@ -50,8 +50,6 @@ const CODE = [
   "    return True",
 ];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 function alnum(c: string): boolean {
   return /[a-zA-Z0-9]/.test(c);
 }
@@ -132,7 +130,6 @@ export function TwoPointersPalindromo() {
   const viz = useVisualizer({
     title: "Visualizador · palíndromo com ponteiros em ritmos diferentes",
     total: steps.length,
-    speeds: SPEEDS,
     initialSpeed: 4,
     // O que muda a altura da peça: a fita de caracteres some quando a string é
     // vazia e dá lugar ao aviso, que tem outra altura. O comprimento não muda a

@@ -74,8 +74,6 @@ const PRESETS: { label: string; text: string }[] = [
 const DEFAULT_WORD = "CRAFTCODE";
 const MAX = 16;
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 function generateSteps(word: string, mode: Mode): Step[] {
   const chars = Array.from(word).slice(0, MAX);
   const n = chars.length;
@@ -196,7 +194,6 @@ export function StringsVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · o custo de montar uma string",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (o join ganha a lista de pedaços, um
     // bloco inteiro a mais) e o tamanho da palavra (as células quebram linha).
     measureOn: [mode, n],

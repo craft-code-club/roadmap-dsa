@@ -46,7 +46,6 @@ type HashStep = {
 };
 
 const CAP = 11;
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
 
 function asciiSum(s: string): number {
   let t = 0;
@@ -199,7 +198,6 @@ export function HashTableBuscaVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · busca linear x busca por hash",
     total: Math.max(listSteps.length, hashSteps.length),
-    speeds: SPEEDS,
     // Sem `measureOn`: com `collapsible: false` não há bloco para recolher, o
     // hook não toma decisão nenhuma e a lista seria ruído sugerindo uma medição
     // que não acontece (contrato §6).

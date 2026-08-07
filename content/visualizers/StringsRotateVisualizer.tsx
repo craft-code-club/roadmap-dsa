@@ -73,8 +73,6 @@ const PRESETS: { label: string; s: string; goal: string }[] = [
 const WORDS = ["abcde", "craft", "codigo", "rotate", "banana"];
 
 const MAX = 10;
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 // Quantos caracteres batem antes de divergir. Serve para o contador de
 // comparações não mentir: comparar duas strings NÃO é uma operação só.
 function commonPrefix(a: string[], b: string[]): number {
@@ -289,7 +287,6 @@ export function StringsRotateVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · Rotate String, força bruta contra o truque",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (no truque a fita passa de n para 2n
     // células e quebra linha antes), o tamanho de s e o de goal — quando os dois
     // diferem o gerador para em dois passos e a peça encolhe.

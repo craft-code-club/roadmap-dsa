@@ -57,8 +57,6 @@ const CODE = [
   "    return saida",
 ];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 function generateSteps(nums: number[], k: number): Step[] {
   const out: Step[] = [];
   const dq: number[] = [];
@@ -207,7 +205,6 @@ export function QueueDequeMonotonico() {
   const viz = useVisualizer({
     title: "Visualizador · deque monotônico: o máximo de cada janela",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o tamanho do array (as células e as fichas
     // da saída quebram linha) e o k, que decide quantas janelas fecham. O
     // número de passos entra porque ele liga e desliga o rodapé inteiro.
