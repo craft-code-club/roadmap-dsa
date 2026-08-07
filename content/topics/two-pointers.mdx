@@ -90,7 +90,7 @@ def dois_ponteiros(nums, alvo):
 
 <TwoPointersVisualizer />
 
-Rode o visualizador passo a passo e acompanhe dois números do painel de baixo ao mesmo tempo: **somas avaliadas** e **pares na força bruta**. Com o preset do encontro ele termina em 6 contra 28. Depois experimente:
+Rode o visualizador passo a passo e acompanhe dois números do painel de baixo ao mesmo tempo: **somas avaliadas** e **pares na força bruta**. Com o preset **"Alvo 16: os dois ponteiros andam"** ele termina em 6 contra 28. Depois experimente:
 
 - **Acerta de cara: alvo 22.** O par está exatamente nas duas pontas, então uma única soma resolve. É o melhor caso, O(1).
 - **Sem solução: alvo 100.** Nenhum par existe e, mesmo assim, foram só **7 somas**, ou seja `n - 1`. Esse é o **pior caso** da técnica: cada soma queima um índice de vez, e depois de `n - 1` delas os ponteiros se encontram. A força bruta teria feito as 28 do mesmo jeito.
