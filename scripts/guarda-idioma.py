@@ -162,7 +162,7 @@ def main() -> None:
         # que sai 0 sem ter olhado nada.
         if mexidos:
             print(f"TELA intacta, mas {mexidos} de {len(nomes)} arquivo(s) mudaram "
-                  f"literais de CÓDIGO — veja os AVISO acima antes de seguir.")
+                  f"literais de CÓDIGO — veja os blocos AVISO acima antes de seguir.")
         else:
             print(f"SUMIRAM: nenhuma / APARECERAM: nenhuma  ({len(nomes)} arquivos)")
     raise SystemExit(1 if quebrou else 0)
