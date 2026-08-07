@@ -158,6 +158,11 @@ function tresVias(valores: number[]): Resultado {
 }
 
 function Painel({ titulo, r, n, selo }: { titulo: string; r: Resultado; n: number; selo: string }) {
+  // Quantos elementos sobraram ao todo. É ele que rege o verbo e o plural: a
+  // moldura "sobram ... para a recursão resolver" só faz sentido quando existe
+  // o que sobrar, e no preset "Todos iguais" a partição de três vias não deixa
+  // nada — daí a frase inteira ser condicional, e não só o miolo dela.
+  const sobraram = r.restantes.reduce((soma, x) => soma + x, 0);
   return (
     <div className="ms-op">
       <div className="bb-formula-cab">
@@ -183,13 +188,20 @@ function Painel({ titulo, r, n, selo }: { titulo: string; r: Resultado; n: numbe
         })}
       </div>
       <p className="bb-formula-fim">
-        Depois da primeira partição sobram{" "}
         {r.restantes.length === 0 ? (
-          <strong>nenhum subproblema: acabou aqui</strong>
+          <>
+            A primeira partição resolveu o array inteiro:{" "}
+            <strong>não sobrou nada para a recursão</strong>.
+          </>
         ) : (
-          <strong>{r.restantes.join(" e ")} elementos</strong>
-        )}{" "}
-        para a recursão resolver.
+          <>
+            Depois da primeira partição {sobraram === 1 ? "sobra" : "sobram"}{" "}
+            <strong>
+              {r.restantes.join(" e ")} elemento{sobraram === 1 ? "" : "s"}
+            </strong>{" "}
+            para a recursão resolver.
+          </>
+        )}
       </p>
     </div>
   );

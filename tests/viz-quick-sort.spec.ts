@@ -278,6 +278,56 @@ test.describe("quick sort", () => {
     expect(await cartao("comparações")).toEqual({ rotulo: "comparações", valor: "28" });
   });
 
+  // -------------------------------------------------------------------------
+  // As frases do comparador de três vias.
+  //
+  // Estas asserções são de TEXTO INTEIRO, com `toHaveText`, e isso é o ponto:
+  // as duas frases consertadas aqui passaram anos por uma suíte verde porque
+  // ninguém lia a frase, só pedaços dela. `toContainText("já resolvido")` casa
+  // com "1 já resolvidos", e `toContainText("elementos")` casa com a moldura
+  // engolindo o próprio miolo. Ler a frase inteira é o que separa uma coisa da
+  // outra.
+  //
+  // Cada condicional é conferida DOS DOIS LADOS: o preset em que o ramo dispara
+  // e o preset em que ele não dispara. Um ramo só testado onde ele vale não
+  // prova que o outro existe.
+  // -------------------------------------------------------------------------
+
+  /** O comparador de três vias é a 3ª figura da página, e não tem casca. */
+  const figTresVias = (page: Page) => page.locator("article figure.viz").nth(2);
+  /** Os dois painéis lado a lado, na ordem em que a peça os monta. */
+  const painelDuas = (fig: Locator) => fig.locator(".ms-op").nth(0);
+  const painelTres = (fig: Locator) => fig.locator(".ms-op").nth(1);
+
+  test("três vias: quando a partição resolve tudo, a frase não promete subproblema nenhum", async ({
+    page,
+  }) => {
+    await abrirPagina(page, 1512, 900);
+    const fig = figTresVias(page);
+    // A figura certa, antes de qualquer asserção: os três irmãos compartilham
+    // as classes, e medir o painel errado passaria despercebido.
+    await expect(fig.locator(".viz-head-title")).toHaveText(
+      "Visualizador · o que fazer com os iguais ao pivô"
+    );
+    await expect(painelTres(fig).locator(".bb-formula-tit")).toHaveText(
+      "Três vias (bandeira holandesa)"
+    );
+
+    // Preset "Todos iguais", o padrão: a partição de três vias resolve as oito
+    // posições de uma vez e NÃO sobra subproblema. É o ramo em que a moldura
+    // "sobram ... para a recursão resolver" não tem o que enquadrar.
+    await expect(painelTres(fig).locator(".bb-formula-fim")).toHaveText(
+      "A primeira partição resolveu o array inteiro: não sobrou nada para a recursão."
+    );
+    // O outro lado da MESMA condicional, na mesma tela: a de duas vias devolve
+    // sete elementos para a recursão, e aí a moldura vale inteira.
+    await expect(painelDuas(fig).locator(".bb-formula-fim")).toHaveText(
+      "Depois da primeira partição sobram 7 elementos para a recursão resolver."
+    );
+    // E a faixa do meio no plural, que é o lado em que a concordância acerta.
+    await expect(painelTres(fig).locator(".ms-seg.pivo")).toHaveText("= pivô, 8 já resolvidos");
+  });
+
   test("no artigo a peça recolhida cabe no orçamento de uma tela", async ({ page }) => {
     await abrirPagina(page, 1512, 900);
     const fig = figArtigo(page);
