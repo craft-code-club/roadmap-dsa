@@ -1,0 +1,13 @@
+"use client";
+// Elemento HTML tem vocabulário fixo: `d` não é rótulo, é geometria. Trocar o
+// traçado do caminho é refatoração de desenho, não mexida na aula — sai no
+// bloco AVISO e o guarda continua com exit 0. Compare com o caso 12: o MESMO
+// atributo, com o MESMO valor, num componente nosso.
+export function Exemplo() {
+  return (
+    <svg viewBox="0 0 40 outra" role="img">
+      <path d="M0 zero H20 vinte" fill="none" />
+      <title>Seta do ponteiro</title>
+    </svg>
+  );
+}

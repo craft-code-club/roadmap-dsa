@@ -46,6 +46,16 @@ CASOS = [
      "LIMITE: campos trocados de lugar mantêm o conjunto e passam"),
     ("11-limite-uniao-que-e-texto", False,
      "LIMITE: chave de tipo é código; quem pega o rename errado é o tsc"),
+    # 12 e 13 são um PAR e provam a mesma fronteira pelos dois lados: a mesma
+    # troca de `viewBox`/`d`, com os mesmos valores, muda de veredito só porque
+    # a tag é componente (`<Icone>`) ou elemento HTML (`<path>`). O contrato
+    # dizia que esses atributos eram código SEMPRE; o motor só faz isso no
+    # elemento HTML. Separados, os dois casos ficam frouxos: 12 sozinho passa
+    # com todo mundo em tela, 13 sozinho passa com todo mundo em código.
+    ("12-prop-de-componente-e-tela", True,
+     "prop de COMPONENTE é tela mesmo se chama `d`/`viewBox` (default conservador)"),
+    ("13-atributo-de-elemento-html-e-codigo", False,
+     "o MESMO `d`/`viewBox` num ELEMENTO HTML é código e não reprova"),
 ]
 
 
