@@ -188,6 +188,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <header className="header">
         <div className="header-left">
           <button
+            type="button"
             className="header-menu-toggle nav-icon"
             aria-label="Menu de tópicos"
             aria-expanded={mobileNav}
@@ -224,7 +225,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span className="dot" />Apoiar
           </Link>
           <span className="nav-more">
-            <button className="nav-icon" aria-label="Mais opções" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
+            <button type="button" className="nav-icon" aria-label="Mais opções" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
               </svg>
@@ -304,6 +305,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     e ele é decoração: sem o atributo, quem usa leitor de tela ouve só
                     "Grafos, botão" e não sabe se está abrindo ou fechando o grupo. */}
                 <button
+                  type="button"
                   className="side-group-btn"
                   aria-expanded={g.aberto}
                   onClick={() => setAbertos((a) => ({ ...a, [g.id]: !a[g.id] }))}

@@ -164,7 +164,12 @@ export type Visualizer = {
   blockProps: { id: string; inert: boolean; "aria-hidden": true | undefined };
   /** No panel de variáveis: vira fileira quando o blockName recolhe. */
   varsProps: { className: string };
+  // `type` faz parte do contrato, e não é higiene: o padrão do HTML para
+  // `<button>` é `submit`. Como estes dois objetos são espalhados em TODO
+  // visualizador, declarar aqui é o que faz o conserto valer para os 62 de uma
+  // vez, em vez de depender de cada arquivo lembrar.
   blockButtonProps: {
+    type: "button";
     className: string;
     "aria-expanded": boolean;
     "aria-controls": string;
@@ -172,6 +177,7 @@ export type Visualizer = {
     children: string;
   };
   expandButtonProps: {
+    type: "button";
     className: string;
     ref: React.RefObject<HTMLButtonElement | null>;
     onClick: () => void;
@@ -710,6 +716,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     blockProps: { id: blockId, inert: !open, "aria-hidden": !open || undefined },
     varsProps: { className: `viz-vars${open ? "" : " linha"}` },
     blockButtonProps: {
+      type: "button",
       className: "viz-expand viz-toggle-codigo",
       "aria-expanded": open,
       "aria-controls": blockId,
@@ -717,6 +724,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
       children: `${open ? "Ocultar" : "Mostrar"} ${blockName}`,
     },
     expandButtonProps: {
+      type: "button",
       className: "viz-expand",
       ref: expandButtonRef,
       onClick: toggleExpanded,
@@ -812,8 +820,9 @@ export function VizFooter({
             do nome acessível, então o leitor de tela anunciava o nome Unicode do
             glifo (ou nada). Os quatro vizinhos desta linha têm texto; este era o
             único mudo. */}
-        <button className="viz-btn" title="Reiniciar" aria-label="Reiniciar" onClick={viz.reset}>↺</button>
+        <button type="button" className="viz-btn" title="Reiniciar" aria-label="Reiniciar" onClick={viz.reset}>↺</button>
         <button
+          type="button"
           className="viz-btn"
           disabled={viz.step === 0}
           aria-keyshortcuts="ArrowLeft"
@@ -821,10 +830,11 @@ export function VizFooter({
         >
           ‹ Anterior
         </button>
-        <button className="viz-play" aria-keyshortcuts="Space" onClick={viz.togglePlay}>
+        <button type="button" className="viz-play" aria-keyshortcuts="Space" onClick={viz.togglePlay}>
           {viz.playing ? "❚❚ Pausar" : "▶ Rodar"}
         </button>
         <button
+          type="button"
           className="viz-btn"
           disabled={viz.step === viz.total - 1}
           aria-keyshortcuts="ArrowRight"

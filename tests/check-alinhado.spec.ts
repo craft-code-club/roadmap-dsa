@@ -441,3 +441,89 @@ test("o desenho do ✓ não entra no nome acessível", async ({ page }) => {
   await expect(card).toHaveAccessibleName("Marcar Two Pointers como concluído");
   await conferirAriaHidden("/roadmap");
 });
+
+// A VARREDURA DE CLASSE do achado acima.
+//
+// O revisor apontou UM `<button>` sem `type` (o da lista de problemas) e disse
+// que `Shell` e `RoadmapGroups` "já usam". Medido no repositório inteiro, não
+// usavam: das 211 tags `<button>` de `src/` e `content/`, só 5 declaravam
+// `type`. Na fronteira desta casa — o chassi do site e a casca do visualizador —
+// eram 10 sem, e não 1. As outras 196 vivem em `content/visualizers/`, que este
+// PR não toca.
+//
+// O teste lê a PROPRIEDADE `type` e não o atributo, porque é ela que o navegador
+// consulta na hora de decidir se o clique envia: um botão sem o atributo devolve
+// `"submit"` aqui. E é ela que enxerga através do `{...spread}` — os dois botões
+// da casca do visualizador (`⤢ Expandir` e `Mostrar código`) recebem as props de
+// `blockButtonProps`/`expandButtonProps`, então nenhuma varredura de texto no
+// código-fonte prova que eles foram consertados. Só o DOM prova.
+//
+// O piso de contagem (`minimo`) não é o teste — o teste é o `type` lido. Ele
+// existe porque um seletor errado casa com zero elementos, e "nenhum botão
+// errado entre zero botões" é verde vazio.
+type Grupo = { sel: string; onde: string; minimo: number };
+
+const CHASSI_TOPICO: Grupo[] = [
+  { sel: ".header-menu-toggle", onde: "abrir o menu de tópicos (Shell)", minimo: 1 },
+  { sel: ".nav-more .nav-icon", onde: "mais opções, no topo (Shell)", minimo: 1 },
+  { sel: ".side-group-btn", onde: "abrir/fechar grupo da trilha (Shell)", minimo: 5 },
+  { sel: ".side-check", onde: "quadradinho da trilha (Shell)", minimo: 1 },
+  { sel: ".btn-concluir, .btn-concluir-lg", onde: "marcar tópico concluído (TopicComplete)", minimo: 1 },
+  { sel: ".problem-check", onde: "quadradinho da lista de problemas (ProblemList)", minimo: 1 },
+  // A casca do visualizador. `.viz-expand` cobre os DOIS botões espalhados;
+  // `.viz-play` e `[aria-keyshortcuts]` cobrem o rodapé. Nenhuma dessas três
+  // âncoras aparece em `content/visualizers/` (o `.viz-btn` sozinho aparece, em
+  // 55 lugares, e por isso NÃO serve de seletor aqui).
+  { sel: ".viz-expand", onde: "expandir / mostrar código (casca do visualizador)", minimo: 1 },
+  { sel: ".viz-play", onde: "rodar/pausar (casca do visualizador)", minimo: 1 },
+  { sel: ".viz-foot [aria-keyshortcuts]", onde: "anterior/próximo/rodar (casca)", minimo: 3 },
+  { sel: '.viz-btn[aria-label="Reiniciar"]', onde: "reiniciar (casca do visualizador)", minimo: 1 },
+];
+
+const CHASSI_ROADMAP: Grupo[] = [
+  { sel: ".header-menu-toggle", onde: "abrir o menu de tópicos (Shell)", minimo: 1 },
+  { sel: ".tcard-check", onde: "quadradinho do card do roadmap (RoadmapGroups)", minimo: 10 },
+];
+
+async function varrer(page: Page, grupos: Grupo[], pagina: string) {
+  const achado = await page.evaluate(
+    (gs) =>
+      gs.map((g) => {
+        const els = Array.from(document.querySelectorAll<HTMLButtonElement>(g.sel));
+        return {
+          ...g,
+          total: els.length,
+          // Só o que está ERRADO volta, com nome acessível para o relatório
+          // dizer QUAL botão, e não só quantos.
+          errados: els
+            .filter((el) => el.type !== "button")
+            .map((el) => `${el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 28) ?? "?"} → type="${el.type}"`),
+        };
+      }),
+    grupos
+  );
+
+  for (const g of achado) {
+    expect(
+      g.total,
+      `${pagina}: o seletor \`${g.sel}\` (${g.onde}) casou com ${g.total} botões — menos que os ${g.minimo} esperados, então a varredura estaria verde por vazio`
+    ).toBeGreaterThanOrEqual(g.minimo);
+    expect(
+      g.errados,
+      `${pagina}: ${g.onde} — sem \`type="button"\` o padrão do HTML é \`submit\`, e dentro de um <form> o clique envia a página`
+    ).toEqual([]);
+  }
+  console.log(`${pagina.padEnd(24)} ${achado.reduce((s, g) => s + g.total, 0)} botões do chassi conferidos`);
+}
+
+test("nenhum <button> do chassi nem da casca do visualizador é submit por omissão", async ({ page }) => {
+  await page.goto("/topico/two-pointers/");
+  // A casca do visualizador só existe depois que o componente hidrata; sem
+  // esperar, a varredura passaria por não achar nada (e o piso acusaria).
+  await expect(page.locator(".viz-expand").first()).toBeVisible();
+  await varrer(page, CHASSI_TOPICO, "/topico/two-pointers");
+
+  await page.goto("/roadmap/");
+  await expect(page.locator(".tcard-check").first()).toBeVisible();
+  await varrer(page, CHASSI_ROADMAP, "/roadmap");
+});
