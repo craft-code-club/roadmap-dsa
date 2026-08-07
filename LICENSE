@@ -15,8 +15,8 @@ Este repositório guarda duas coisas diferentes, e cada uma tem a sua licença:
                    (Atribuição · NãoComercial · CompartilhaIgual)
                    O material didático. Ver o arquivo LICENSE-CONTENT.
 
-A intenção, em uma frase: **o código é open source de verdade, e o conteúdo
-intelectual é da comunidade.** Quem quiser pegar o motor dos visualizadores e
+A intenção, em uma frase: o código é open source de verdade, e o conteúdo
+intelectual é da comunidade. Quem quiser pegar o motor dos visualizadores e
 construir outra coisa — inclusive um produto pago — pode. Quem quiser pegar os
 artigos e as explicações e vendê-los, não: eles foram escritos para ficar
 gratuitos para quem estuda.
@@ -108,8 +108,14 @@ Os casos fáceis, para referência
     · as strings didáticas dentro de content/visualizers/*.tsx.
 
   CÓDIGO (MIT)
-    · src/** — aplicação, componentes, bibliotecas, CSS.
-    · tests/**, scripts/**, .github/**, e os arquivos de configuração da raiz.
+    · src/** — aplicação, componentes, bibliotecas, CSS, ícone.
+    · tests/**, scripts/**, .github/**, public/**.
+    · os arquivos da raiz, sem exceção. Os de configuração (next.config.ts,
+      playwright.config.ts, eslint.config.mjs, commitlint.config.mjs,
+      tsconfig.json, package.json); o mdx-components.tsx, onde moram os
+      componentes que os artigos usam, como <Callout>; e a documentação do
+      projeto (README.md, CONTRIBUTING.md, CLAUDE.md, CODE_OF_CONDUCT.md,
+      SECURITY.md), que ensina a MEXER no projeto, não a matéria do guia.
     · content/topics/index.ts, e o esqueleto de content/roadmap.ts.
     · a maquinaria dos visualizadores, como descrito acima.
     · a COPY DA INTERFACE em src/** (títulos de seção, botões, o texto da home).
