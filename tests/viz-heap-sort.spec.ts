@@ -10,7 +10,11 @@ import { test, expect, type Page } from "@playwright/test";
 // HeapSortEstabilidade (28 `.hp-cel` na página, 10 são desta peça). Tudo aqui
 // desce a partir da figura, nunca da página.
 
-const ARTIGO = "article figure.viz-fit";
+// As DUAS figuras da página estão na casca agora, então `figure.viz-fit` casava
+// 1 e passou a casar 2 — em `page.locator()` isso é violação de strict mode, e
+// em `document.querySelector()` seria a peça errada EM SILÊNCIO. O discriminante
+// é o bloco recolhível: só o passo a passo tem `.viz-code-slot`.
+const ARTIGO = "article figure.viz-fit:has(.viz-code-slot)";
 const PAINEL = ".viz-overlay-fit figure.viz-fit";
 
 /** Folga de subpixel, o mesmo valor que o hook usa para decidir. */
@@ -365,6 +369,149 @@ test.describe("heap-sort", () => {
       expect(leitura.ultimoArr, "o heap sort terminou com o array fora de ordem").toEqual(
         [...leitura.ultimoArr].sort((a, b) => a - b)
       );
+    });
+  });
+
+  // ------------------------------------------------------- a peça sem passos
+  // O `HeapSortEstabilidade` vestia `figure.viz` — a MESMA moldura do passo a
+  // passo — sem botão Expandir, sem diálogo, sem trava de rolagem, sem Esc e
+  // sem foco. Uma peça muda para uma que expandia, com aparência idêntica.
+  //
+  // Entra com `total: 1` e `collapsible: false`: não há passo a passo nem bloco
+  // dispensável. Sem rodapé, o controle cuja posição carrega o sentido da
+  // camada 1 é o `✕ Fechar`, que é a saída do diálogo.
+  //
+  // Réguas medidas antes de escrever (artigo, altura da peça): 696..720 a
+  // 1512x900 (orçamento 816: CABE), 696..720 a 1440x700 (orçamento 616: NÃO
+  // cabe) e 1.173..1.285 a 390x844 (orçamento 760). Sobra do miolo no painel:
+  // 0 a 1512x900, 34 a 1440x600 e 461 a 390x844 — por isso o teste de rolagem
+  // mora na régua de celular, que é onde existe o que rolar.
+  test.describe("estabilidade", () => {
+    const MUDA = 'o que "instável" significa na prática';
+    const muda = (page: Page) =>
+      page.locator("article figure.viz-fit").filter({ hasText: "significa na prática" });
+
+    test.describe("afordancia", () => {
+      test.use({ viewport: { width: 1512, height: 900 } });
+
+      test("as duas peças anunciam o mesmo botão, e o rótulo diz o que a peça mostra", async ({ page }) => {
+        await abrirTopico(page);
+        // era 1 Expandir para 2 figuras de aparência idêntica
+        await expect(page.locator("article figure.viz")).toHaveCount(2);
+        await expect(page.locator("article figure.viz-fit")).toHaveCount(2);
+        await expect(page.getByRole("button", { name: "⤢ Expandir" })).toHaveCount(2);
+        // o discriminante do passo a passo continua único
+        await expect(page.locator(ARTIGO)).toHaveCount(1);
+        await expect(page.locator("article .viz-code-slot")).toHaveCount(1);
+
+        const fig = muda(page);
+        await expect(fig).toHaveCount(1);
+        await expect(fig.locator(".viz-step")).toHaveCount(1);
+        // rótulo e valor no mesmo locator, e o número tem que bater com as
+        // células marcadas na fila do heap sort
+        await expect(fig.locator(".viz-step")).toHaveText("6 registros fora da ordem original");
+        await expect(fig.locator(".hs-fila").nth(2).locator(".hp-cel.reg.inverteu")).toHaveCount(6);
+      });
+
+      test("ela não promete esconder um bloco que não tem", async ({ page }) => {
+        await abrirTopico(page);
+        const fig = muda(page);
+        await expect(fig.locator(".viz-code-slot")).toHaveCount(0);
+        await expect(fig.locator(".viz-toggle-codigo")).toHaveCount(0);
+        await expect(fig.getByRole("button", { name: /código/ })).toHaveCount(0);
+        await expect(fig.locator(".viz-foot")).toHaveCount(0);
+        await expect(fig.locator(".viz-atalhos")).toHaveCount(0);
+        await expect(fig.getByRole("button", { name: /Rodar|Próximo|Anterior/ })).toHaveCount(0);
+        await expect(fig.locator(".viz-step")).not.toHaveText(/passo \d+ de \d+/);
+      });
+    });
+
+    test.describe("camada 1", () => {
+      test.use({ viewport: { width: 390, height: 844 } });
+
+      test("o cabeçalho e o ✕ Fechar ficam parados enquanto o miolo rola", async ({ page }) => {
+        expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
+        await abrirTopico(page);
+        const fig = muda(page);
+        await fig.getByRole("button", { name: "⤢ Expandir" }).click();
+        const painel = page.locator(PAINEL);
+        await expect(painel).toBeVisible();
+        // `toBeVisible()` não é "pronto para o teclado": o foco entrando é o
+        // sinal de que o commit do listener já rodou.
+        await expect(painel).toBeFocused();
+
+        // --- pré-condições ---
+        await expect(painel.locator(".viz-foot"), "esta peça não tem rodapé").toHaveCount(0);
+        const fechar = painel.getByRole("button", { name: "✕ Fechar" });
+        await expect(fechar).toHaveCount(1);
+
+        const antes = await painel.evaluate((f) => {
+          const b = f.querySelector(".viz-body") as HTMLElement;
+          // o click() do Playwright ROLA o contêiner para alcançar o alvo
+          f.scrollTop = 0;
+          b.scrollTop = 0;
+          const x = [...f.querySelectorAll("button")].find((n) => /Fechar/.test(n.textContent ?? ""))!;
+          return {
+            sobraMiolo: b.scrollHeight - b.clientHeight,
+            sobraFigura: f.scrollHeight - f.clientHeight,
+            head: f.querySelector(".viz-head")!.getBoundingClientRect().y,
+            fechar: x.getBoundingClientRect().y,
+          };
+        });
+        expect(antes.sobraMiolo, "o miolo precisa estourar para haver o que rolar").toBeGreaterThan(SLACK);
+        expect(antes.sobraFigura, "a figura não pode ter sobra própria").toBeLessThanOrEqual(SLACK);
+
+        // --- a ação ---
+        const depois = await painel.evaluate((f) => {
+          const b = f.querySelector(".viz-body") as HTMLElement;
+          b.scrollTop = b.scrollHeight;
+          const x = [...f.querySelectorAll("button")].find((n) => /Fechar/.test(n.textContent ?? ""))!;
+          return {
+            rolouMiolo: b.scrollTop,
+            rolouFigura: f.scrollTop,
+            head: f.querySelector(".viz-head")!.getBoundingClientRect().y,
+            fechar: x.getBoundingClientRect().y,
+          };
+        });
+        expect(depois.rolouMiolo, "quem rolou tem que ser o miolo").toBeGreaterThan(0);
+        expect(depois.rolouFigura, "a figura não pode rolar").toBe(0);
+
+        // --- as asserções que carregam o sentido ---
+        expect(Math.abs(depois.head - antes.head), "o cabeçalho andou junto com o miolo").toBeLessThanOrEqual(2);
+        expect(
+          Math.abs(depois.fechar - antes.fechar),
+          "o ✕ Fechar andou junto com o miolo"
+        ).toBeLessThanOrEqual(2);
+        await expect(fechar).toBeInViewport({ ratio: 1 });
+      });
+
+      test("o painel é um diálogo de verdade: foco, Tab preso, Esc e rolagem travada", async ({ page }) => {
+        await abrirTopico(page);
+        await muda(page).getByRole("button", { name: "⤢ Expandir" }).click();
+        const overlay = page.locator(".viz-overlay-fit");
+        await expect(overlay).toBeVisible();
+        await expect(overlay).toHaveAttribute("role", "dialog");
+        await expect(overlay).toHaveAttribute("aria-modal", "true");
+        // o rótulo do diálogo é o título DESTA peça, não um genérico
+        await expect(overlay).toHaveAttribute("aria-label", `Visualizador · ${MUDA}`);
+        expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
+
+        const fugas: string[] = [];
+        for (let i = 0; i < 14; i++) {
+          await page.keyboard.press("Tab");
+          const onde = await page.evaluate(() => {
+            const a = document.activeElement;
+            const f = document.querySelector(".viz-overlay-fit figure.viz-fit");
+            return { dentro: !!(f && a && f.contains(a)), quem: a?.className || a?.tagName || "?" };
+          });
+          if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
+        }
+        expect(fugas, "o foco vazou do painel").toEqual([]);
+
+        await page.keyboard.press("Escape");
+        await expect(page.locator(".viz-overlay-fit")).toHaveCount(0);
+        expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
+      });
     });
   });
 });
