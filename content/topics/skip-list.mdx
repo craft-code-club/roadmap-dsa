@@ -60,7 +60,7 @@ Quando você não puder mais descer (chegou ao nível 0), o único candidato pos
 
 <SkipListVisualizer />
 
-Comece pelo preset **"Do encontro: procurar o 73"**, que é o desenho que o pessoal usou na tela. A lista tem 12 elementos distribuídos em 4 níveis, na pirâmide exata da teoria: **12 nós no nível 0, 6 no nível 1, 3 no nível 2 e 1 no nível 3**. Rode passo a passo e acompanhe a linha azul, a escada. Ela sai do head lá em cima, pula direto para o 42, tenta seguir e não consegue, desce, desce de novo, anda até o 59 e só então cai no nível 0 para conferir o 73.
+Comece pelo preset **"A escada completa: procurar o 73"**. A lista tem 12 elementos distribuídos em 4 níveis, na pirâmide exata da teoria: **12 nós no nível 0, 6 no nível 1, 3 no nível 2 e 1 no nível 3**. Rode passo a passo e acompanhe a linha azul, a escada. Ela sai do head lá em cima, pula direto para o 42, tenta seguir e não consegue, desce, desce de novo, anda até o 59 e só então cai no nível 0 para conferir o 73.
 
 Agora olhe os dois contadores embaixo. A skip list gastou **6 comparações**. A mesma busca andando só pelo nível 0, que é exatamente o que uma lista encadeada comum faria, gastaria **10**. Com 12 elementos a diferença é uma curiosidade. Troque o preset para "Lá no fim: procurar o 92" e o placar fica **6 contra 12**: a skip list nem sentiu o alvo estar mais longe, e a lista comum sentiu tudo.
 
@@ -126,7 +126,7 @@ Basta anotar. É o vetor `update`, que a galera do encontro apelidou de *bread c
 
 <SkipListInsercao />
 
-Na aba **Inserir**, rode o preset **"Do encontro: inserir o 33 (altura 2)"** com calma e olhe o painel `update[]`. Ele já nasce inteiro apontando para o head, e cada descida da busca troca uma posição por um candidato de verdade. Ao fim da descida ele fica assim: `update[0] = 31`, `update[1] = 23`, `update[2] = 9`, `update[3] = head`, `update[4] = head`. Aí a moeda decide altura 2, e só os níveis 0 e 1 são religados: o 31 passa a apontar para o 33 no nível 0, o 23 passa a apontar para o 33 no nível 1. **Quatro ponteiros mudaram de lugar. Mais nada na lista se mexeu.**
+Na aba **Inserir**, rode o preset **"Caso comum: inserir o 33 (altura 2)"** com calma e olhe o painel `update[]`. Ele já nasce inteiro apontando para o head, e cada descida da busca troca uma posição por um candidato de verdade. Ao fim da descida ele fica assim: `update[0] = 31`, `update[1] = 23`, `update[2] = 9`, `update[3] = head`, `update[4] = head`. Aí a moeda decide altura 2, e só os níveis 0 e 1 são religados: o 31 passa a apontar para o 33 no nível 0, o 23 passa a apontar para o 33 no nível 1. **Quatro ponteiros mudaram de lugar. Mais nada na lista se mexeu.**
 
 ```python
 def inserir(self, valor):
@@ -178,7 +178,7 @@ O `break` no meio merece atenção, porque não é óbvio. Se o candidato de um 
 
 Troque para a aba **Remover** do visualizador e rode os quatro presets nesta ordem, prevendo cada um antes:
 
-- **"Do encontro: remover o 59"**. O `update` fica `[50, 42, 42, 42, head]`, e o 59 vive só nos níveis 0 e 1. Repare que o desligamento para no nível 2: ali quem vem depois do 42 é o 73, não o 59, e o `break` dispara. **Dois ponteiros reescritos**, embora o `update` tenha guardado um candidato nos quatro níveis: guardar é de graça, usar é que depende da altura do nó.
+- **"Caso comum: remover o 59 (altura 2)"**. O `update` fica `[50, 42, 42, 42, head]`, e o 59 vive só nos níveis 0 e 1. Repare que o desligamento para no nível 2: ali quem vem depois do 42 é o 73, não o 59, e o `break` dispara. **Dois ponteiros reescritos**, embora o `update` tenha guardado um candidato nos quatro níveis: guardar é de graça, usar é que depende da altura do nó.
 - **"O mais alto: remover o 42"**. Este é o único nó do nível 3. Os quatro níveis são desligados, o laço termina sem `break`, e aí o `while` do fim entra em ação: `head.forward[3]` virou `None`, então **`nivel_max` cai de 3 para 2** e a lista inteira ficou um andar mais baixa. Sem nenhuma rotação, sem nenhum vizinho promovido para tapar o buraco.
 - **"Só no nível 0: remover o 3"**. Todo o `update` é o head, e o `break` dispara já no nível 1.
 - **"Não existe: remover o 33"**. A busca roda inteira, o candidato do nível 0 é o 42, `42 != 33`, e a função devolve `False` sem tocar em ponteiro nenhum. Remover o que não existe custa exatamente uma busca.

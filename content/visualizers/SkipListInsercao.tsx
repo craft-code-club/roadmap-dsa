@@ -497,13 +497,13 @@ function buildRemove(
 type Preset = { key: string; label: string; value: number; height: number };
 const PRESETS: Record<Mode, Preset[]> = {
   inserir: [
-    { key: "meio", label: "Do encontro: inserir o 33 (altura 2)", value: 33, height: 2 },
+    { key: "meio", label: "Caso comum: inserir o 33 (altura 2)", value: 33, height: 2 },
     { key: "raso", label: "Só no nível 0: inserir o 80 (altura 1)", value: 80, height: 1 },
     { key: "teto", label: "Andar novo: inserir o 33 (altura 5)", value: 33, height: 5 },
     { key: "menor", label: "Menor que todos: inserir o 1 (altura 3)", value: 1, height: 3 },
   ],
   remover: [
-    { key: "r-meio", label: "Do encontro: remover o 59 (altura 2)", value: 59, height: 2 },
+    { key: "r-meio", label: "Caso comum: remover o 59 (altura 2)", value: 59, height: 2 },
     { key: "r-alto", label: "O mais alto: remover o 42 (altura 4)", value: 42, height: 4 },
     { key: "r-raso", label: "Só no nível 0: remover o 3", value: 3, height: 1 },
     { key: "r-nao", label: "Não existe: remover o 33", value: 33, height: 1 },
