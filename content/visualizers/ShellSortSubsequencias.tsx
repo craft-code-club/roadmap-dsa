@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
+
 // ---------------------------------------------------------------------------
 // ShellSortSubsequencias, o que uma rodada de gap h realmente faz.
 //
@@ -19,6 +21,19 @@ import { useMemo, useState } from "react";
 // de a propriedade ser prometida num parágrafo.
 //
 // Interativo sem linha do tempo: a variável é a RODADA, não o passo dentro dela.
+//
+// Sobre a casca (contrato em `content/visualizers/README.md`):
+//   · `total: 1`, e a tentação era passar `total: 3`, uma por rodada. Seria
+//     errado por dois motivos: a rodada não é um passo da animação (ela mostra
+//     antes e depois de uma vez, não um instante), e o contador do hook
+//     escreveria "passo N de 3" onde hoje está o selo de gap. Rótulo que mente
+//     ensina errado, então o resumo do estado continua sendo `children` do
+//     `VizHeader` e os chips de rodada continuam no miolo.
+//   · `collapsible: false` — as fitas SÃO o conteúdo, e sem bloco para recolher
+//     `measureOn` não faria nada.
+//   · o eixo de altura é o GAP, não a contagem de elementos: `subs` tem uma
+//     fila por resto, então a rodada 1 (gap 4) desenha quatro subsequências e a
+//     rodada 3 (gap 1) desenha uma só.
 // ---------------------------------------------------------------------------
 
 const ENTRADA = [5, 3, 21, 13, 1, 7, 6, 15];
@@ -63,6 +78,13 @@ const ESTADOS = (() => {
 
 export function ShellSortSubsequencias() {
   const [rodadaIdx, setRodadaIdx] = useState(0);
+
+  const viz = useVisualizer({
+    title: "Visualizador · uma rodada de gap h são h insertion sorts entrelaçados",
+    total: 1,
+    collapsible: false,
+  });
+
   const gap = GAPS[rodadaIdx];
   const antes = ESTADOS[rodadaIdx];
   const depois = ESTADOS[rodadaIdx + 1];
@@ -80,22 +102,16 @@ export function ShellSortSubsequencias() {
 
   const mudou = useMemo(() => antes.some((v, k) => v !== depois[k]), [antes, depois]);
 
-  return (
-    <figure className="viz" style={{ margin: 0 }}>
-      <div className="viz-head">
-        <div className="viz-head-title">
-          <span className="dot" />
-          <span>Visualizador · uma rodada de gap h são h insertion sorts entrelaçados</span>
-        </div>
-        <div className="viz-head-right">
-          <span className="viz-step">
-            gap {gap} · {gap} subsequência{gap === 1 ? "" : "s"} de {Math.ceil(n / gap)} elemento
-            {Math.ceil(n / gap) === 1 ? "" : "s"}
-          </span>
-        </div>
-      </div>
+  return viz.inPanel(
+    <figure {...viz.figureProps} style={{ margin: 0 }}>
+      <VizHeader viz={viz}>
+        <span className="viz-step">
+          gap {gap} · {gap} subsequência{gap === 1 ? "" : "s"} de {Math.ceil(n / gap)} elemento
+          {Math.ceil(n / gap) === 1 ? "" : "s"}
+        </span>
+      </VizHeader>
 
-      <div className="viz-body">
+      <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {GAPS.map((g, k) => (
             <button
@@ -207,6 +223,9 @@ export function ShellSortSubsequencias() {
           estabilidade como preço.
         </p>
       </div>
+
+      {/* Sem linha do tempo e sem botões extras, o `VizFooter` não desenha nada. */}
+      <VizFooter viz={viz} />
     </figure>
   );
 }
