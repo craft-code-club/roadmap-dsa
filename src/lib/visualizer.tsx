@@ -687,7 +687,12 @@ export function VizFooter({
           <kbd>←</kbd><kbd>→</kbd> passo <span>·</span> <kbd>espaço</kbd> roda
         </p>
         {!noSpeed && (
-          <div className="viz-speed">
+          // `<label>`, e não a `<div>` de antes: o rótulo "Velocidade" estava
+          // ao lado do slider e não ligado a ele, então o controle não tinha
+          // nome acessível nenhum. É o mesmo padrão dos outros campos do
+          // produto, e o CSS é por classe (`.viz-speed`), então a troca de tag
+          // não muda um pixel.
+          <label className="viz-speed">
             <span>Velocidade</span>
             <input
               type="range"
@@ -695,10 +700,17 @@ export function VizFooter({
               max={5}
               step={1}
               value={viz.speed}
+              // Sem isto o leitor de tela anuncia o índice cru ("3 de 5"), que
+              // não é o que a tela diz.
+              aria-valuetext={SPEED_LABELS[viz.speed]}
               onChange={(e) => viz.setSpeed(parseInt(e.target.value, 10))}
             />
-            <span className="val">{SPEED_LABELS[viz.speed]}</span>
-          </div>
+            {/* Fora do NOME do slider de propósito: dentro dele o nome mudaria
+                a cada arrastada ("Velocidade 1x" → "Velocidade 2x"). O valor
+                não se perde, ele é dito pelo `aria-valuetext` acima, que é o
+                lugar do valor de um slider. */}
+            <span className="val" aria-hidden="true">{SPEED_LABELS[viz.speed]}</span>
+          </label>
         )}
       </div>
       <div className="viz-progress">

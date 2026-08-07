@@ -148,4 +148,36 @@ test.describe("os dois controles que não tinham nome", () => {
     await reiniciar.click();
     await expect(contador).toHaveText(/^passo 1 de \d+$/);
   });
+
+  test("o slider de velocidade tem rótulo de verdade, e o layout não muda", async ({ page }) => {
+    const fig = await figuraDe(page, "/topico/big-o/");
+    const slider = fig.getByRole("slider", { name: /Velocidade/ });
+    await expect(slider).toHaveCount(1);
+
+    // Rótulo de VERDADE, não texto ao lado: um `<label>` passa o clique para o
+    // controle que ele envolve. É a diferença que o nome acessível sozinho não
+    // distingue de um `aria-label` colado numa `<div>`.
+    await fig.locator(".viz-speed > span").first().click();
+    await expect(slider).toBeFocused();
+
+    // O valor anunciado é o valor da tela, e não o índice cru do range (que
+    // diria "3 de 5" onde o aluno lê "1x").
+    const val = fig.locator(".viz-speed .val");
+    await expect(slider).toHaveAttribute("aria-valuetext", (await val.textContent())!);
+    await slider.press("ArrowRight");
+    await expect(val).not.toHaveText("1x");
+    await expect(slider).toHaveAttribute("aria-valuetext", (await val.textContent())!);
+
+    // E a troca de tag não move um pixel, porque o CSS é por classe. Sem número
+    // mágico: `display` é o valor que a classe declara, e a borda direita do
+    // slider coincide com a da linha de controles porque `.viz-speed` tem
+    // `margin-left: auto`. As duas caem se a classe deixar de alcançar a tag.
+    const caixaSpeed = fig.locator(".viz-speed");
+    expect(await caixaSpeed.evaluate((el) => getComputedStyle(el).display)).toBe("flex");
+    const speed = await caixaSpeed.boundingBox();
+    const controles = await fig.locator(".viz-controls").boundingBox();
+    expect(Math.round(speed!.x + speed!.width)).toBe(
+      Math.round(controles!.x + controles!.width)
+    );
+  });
 });
