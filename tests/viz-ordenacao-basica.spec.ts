@@ -25,9 +25,15 @@ const SLACK = 8;
 // o `.viz-code-slot` que diz isso — ele existe porque a peça É recolhível.
 const PRINCIPAL = "article figure.viz-fit:has(.viz-code-slot)";
 
-/** A minha peça é a PRIMEIRA das três figuras do artigo. */
+/**
+ * A minha peça, escolhida por QUAL figura é e não por posição. O `.first()` que
+ * estava aqui reprovava calado no dia em que a ordem das figuras do artigo
+ * mudasse: o resto da suíte passaria a medir a peça errada sem uma linha
+ * vermelha. Com o `PRINCIPAL`, um segundo bloco recolhível na página faz o
+ * locator casar duas figuras e o Playwright reclamar em voz alta.
+ */
 function noArtigo(page: Page): Locator {
-  return page.locator("article figure.viz").first();
+  return page.locator(PRINCIPAL);
 }
 
 /** Expandida, a figura vai para um portal no `body`, fora do `<article>`. */
