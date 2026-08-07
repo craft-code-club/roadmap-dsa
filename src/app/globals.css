@@ -189,6 +189,16 @@ html { scroll-behavior: smooth; }
 }
 .side-check.done { border-color: rgba(52, 211, 153, 0.6); background: rgba(52, 211, 153, 0.18); color: var(--ccc-green); }
 .side-item-name { flex: 1; }
+/* A linha do tópico: o ✓ é irmão do link (ver Shell.tsx), então quem pinta
+   hover e "você está aqui" passa a ser a linha, e não o link — senão o realce
+   começaria depois do ✓. A geometria é a mesma de antes: 9px de recuo, ✓ de
+   16px, 9px de intervalo, nome. Estas regras vêm DEPOIS de `.side-item.on` de
+   propósito: mesma especificidade, e quem vence é a última. */
+.side-row { display: flex; align-items: center; gap: 9px; padding-left: 9px; border-radius: 7px; }
+.side-row:hover { background: rgba(255, 255, 255, 0.05); }
+.side-row:hover .side-item { color: #fff; }
+.side-row.on { background: var(--ccc-accent-soft); box-shadow: inset 2px 0 0 var(--ccc-accent); }
+.side-row .side-item { flex: 1; min-width: 0; padding-left: 0; background: none; box-shadow: none; }
 .side-intro-ico { display: grid; place-items: center; width: 16px; flex: none; font-size: 11px; color: var(--ccc-muted); }
 .badge-novo { padding: 1px 6px; border-radius: 5px; background: rgba(124, 58, 237, 0.2); color: #c4b5fd; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; }
 .badge-soon { padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); color: #7f93ad; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; }
@@ -274,6 +284,15 @@ html { scroll-behavior: smooth; }
 .topic-card.done { background: rgba(52, 211, 153, 0.05); }
 .topic-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .topic-card-name { font-size: 15px; font-weight: 600; }
+/* O ✓ do card saiu de dentro do link (ver RoadmapGroups.tsx) e passou a irmão
+   dele. Sai do fluxo para o card continuar sendo um alvo de clique inteiro, nas
+   coordenadas medidas do arranjo antigo (17,5px do topo, 17px da direita, com o
+   1px de borda do card já contado); o título reserva a faixa dele para não
+   passar por baixo. `grid` no invólucro faz o card ocupar a linha toda da
+   grade, como ocupava quando era ele o item da grade. */
+.topic-card-wrap { position: relative; display: grid; }
+.topic-card-wrap .topic-card-top { padding-right: 25px; }
+.tcard-check { position: absolute; top: 17.5px; right: 17px; }
 .topic-card p { margin: 7px 0 0; font-size: 12.5px; line-height: 1.5; color: #8ea3bd; }
 .tcard-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
 .ttag { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--ccc-line); color: var(--ccc-muted); }

@@ -90,6 +90,56 @@ test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ 
   expect(parseFloat(viz.largura)).toBeGreaterThan(0);
 });
 
+test("a marca de progresso não mora dentro do link, e o progresso sobrevive à recarga", async ({
+  page,
+}) => {
+  // Widget focável dentro de `<a>` é estado inválido pela ARIA (`nested-interactive`
+  // do axe). Medido no build anterior: 7 em /topico/arrays/ e 48 em /roadmap/.
+  const aninhados = 'a button, a input, a [role="checkbox"], a [tabindex="0"]';
+
+  for (const rota of ["/topico/arrays/", "/roadmap/"]) {
+    await page.goto(rota);
+    await expect(page.locator(aninhados), `${rota} tem widget focável dentro de link`).toHaveCount(0);
+  }
+
+  // O progresso é dado que já está no navegador do aluno: a mudança é só de
+  // estrutura do DOM, e marcar continua marcando depois do F5.
+  await page.goto("/roadmap/");
+  // Escopo no card: o menu lateral do /roadmap pode estar mostrando o mesmo
+  // tópico (ele lembra o grupo aberto da visita anterior), e aí o mesmo nome
+  // acessível casa duas vezes.
+  const noCard = page
+    .locator(".topic-card-wrap")
+    .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
+  await expect(noCard).toHaveAttribute("aria-checked", "false");
+  await noCard.click();
+  await expect(noCard).toHaveAttribute("aria-checked", "true");
+  await page.reload();
+  await expect(
+    page.locator(".topic-card-wrap").getByRole("checkbox", { name: "Marcar Two Pointers como concluído" })
+  ).toHaveAttribute("aria-checked", "true");
+
+  // O mesmo tópico, marcado no /roadmap, aparece marcado no menu lateral: é o
+  // mesmo dado, e o card e a trilha continuam falando a mesma língua.
+  await page.goto("/topico/two-pointers/");
+  const noMenu = page
+    .locator(".sidebar")
+    .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
+  await expect(noMenu).toHaveAttribute("aria-checked", "true");
+
+  // Pelo teclado, e sem navegar junto: a barra de espaço marca o ✓ e a rota
+  // continua a mesma (o ✓ era filho do link, e o clique nele disputava com a
+  // navegação).
+  await noMenu.focus();
+  await page.keyboard.press(" ");
+  await expect(noMenu).toHaveAttribute("aria-checked", "false");
+  await expect(page).toHaveURL(/topico\/two-pointers/);
+  await page.reload();
+  await expect(
+    page.locator(".sidebar").getByRole("checkbox", { name: "Marcar Two Pointers como concluído" })
+  ).toHaveAttribute("aria-checked", "false");
+});
+
 test("todo landmark de navegação tem nome próprio", async ({ page }) => {
   // Na home só existem os três da casca. Sem nome, o leitor de tela anuncia
   // "navegação" três vezes e o aluno não sabe qual é o menu de tópicos.

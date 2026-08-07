@@ -311,27 +311,33 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       // artigo ou visualização, o tópico é navegável como qualquer outro.
                       const vazio = isEmptyTopic(t);
                       return (
-                        <Link
-                          key={t.slug}
-                          href={`/topico/${t.slug}`}
-                          className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
-                          aria-current={ativo ? "page" : undefined}
-                        >
-                          <span
+                        // A marca de concluído é IRMÃ do link, não filha: widget
+                        // focável dentro de `<a>` é estado inválido pela ARIA, e
+                        // dava dois destinos para o mesmo Tab. É o arranjo que o
+                        // `ProblemList` já usa. Quem pinta o estado da linha
+                        // passa a ser a `.side-row`, para o ✓ continuar dentro
+                        // do realce de "você está aqui".
+                        <div className={`side-row${ativo ? " on" : ""}`} key={t.slug}>
+                          <button
+                            type="button"
                             className={`side-check${feito ? " done" : ""}`}
                             role="checkbox"
                             aria-checked={feito}
-                            tabIndex={0}
                             aria-label={`Marcar ${t.name} como concluído`}
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); }}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); } }}
+                            onClick={() => toggleTopico(t.slug)}
                           >
                             {feito ? "✓" : ""}
-                          </span>
-                          <span className="side-item-name">{t.name}</span>
-                          {t.isNew && <span className="badge-novo">NOVO</span>}
-                          {vazio && <span className="badge-soon">em breve</span>}
-                        </Link>
+                          </button>
+                          <Link
+                            href={`/topico/${t.slug}`}
+                            className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
+                            aria-current={ativo ? "page" : undefined}
+                          >
+                            <span className="side-item-name">{t.name}</span>
+                            {t.isNew && <span className="badge-novo">NOVO</span>}
+                            {vazio && <span className="badge-soon">em breve</span>}
+                          </Link>
+                        </div>
                       );
                     })}
                   </div>

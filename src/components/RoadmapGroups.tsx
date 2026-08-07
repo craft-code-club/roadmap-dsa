@@ -31,29 +31,34 @@ export function RoadmapGroups() {
               {g.topics.map((t) => {
                 const feito = isTopico(t.slug);
                 return (
-                  <Link key={t.slug} href={`/topico/${t.slug}`} className={`topic-card${feito ? " done" : ""}`}>
-                    <div className="topic-card-top">
-                      <span className="topic-card-name">{t.name}</span>
-                      <span
-                        className={`side-check${feito ? " done" : ""}`}
-                        role="checkbox"
-                        aria-checked={feito}
-                        tabIndex={0}
-                        aria-label={`Marcar ${t.name} como concluído`}
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleTopico(t.slug); } }}
-                      >
-                        {feito ? "✓" : ""}
-                      </span>
-                    </div>
-                    <p>{t.description}</p>
-                    <div className="tcard-tags">
-                      <span className={`level ${levelClass(t.level)}`}>{t.level}</span>
-                      {topicTags(t).map((tag) => (
-                        <span key={tag.kind} className={`ttag ttag-${tag.kind}`}>{tag.label}</span>
-                      ))}
-                    </div>
-                  </Link>
+                  // A marca de concluído é IRMÃ do link, como no `ProblemList`:
+                  // widget focável dentro de `<a>` é estado inválido pela ARIA.
+                  // Ela sai do fluxo (o CSS a posiciona) para o card inteiro
+                  // continuar sendo um alvo de clique só.
+                  <div className="topic-card-wrap" key={t.slug}>
+                    <Link href={`/topico/${t.slug}`} className={`topic-card${feito ? " done" : ""}`}>
+                      <div className="topic-card-top">
+                        <span className="topic-card-name">{t.name}</span>
+                      </div>
+                      <p>{t.description}</p>
+                      <div className="tcard-tags">
+                        <span className={`level ${levelClass(t.level)}`}>{t.level}</span>
+                        {topicTags(t).map((tag) => (
+                          <span key={tag.kind} className={`ttag ttag-${tag.kind}`}>{tag.label}</span>
+                        ))}
+                      </div>
+                    </Link>
+                    <button
+                      type="button"
+                      className={`side-check tcard-check${feito ? " done" : ""}`}
+                      role="checkbox"
+                      aria-checked={feito}
+                      aria-label={`Marcar ${t.name} como concluído`}
+                      onClick={() => toggleTopico(t.slug)}
+                    >
+                      {feito ? "✓" : ""}
+                    </button>
+                  </div>
                 );
               })}
             </div>
