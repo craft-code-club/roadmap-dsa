@@ -27,7 +27,7 @@ const PERFIS = [
   { slug: "busca-binaria-avancada", perfil: "o nome mais longo do roadmap (36), e status soon" },
   { slug: "strings", perfil: "descrição de 213 caracteres, que o card corta na primeira frase" },
   { slug: "matematica", perfil: "o nome do tópico é o próprio nome do grupo" },
-  { slug: "binary-numbers", perfil: "descrição com símbolo que a fonte do card não tem" },
+  { slug: "binary-numbers", perfil: "a descrição que trazia o símbolo sem fonte, hoje em palavras" },
 ];
 
 /** As rotas que continuam caindo no card da raiz: nenhuma delas tem card próprio. */

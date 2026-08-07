@@ -46,29 +46,29 @@ export function generateStaticParams() {
 // A fonte do card não é a fonte do navegador.
 //
 // O Satori (motor do `next/og`) monta a fonte baixando só o que o texto pede, e
-// há glifo que ele não consegue. Medido: o "⇄" da descrição de Números Binários
-// devolve `Failed to download dynamic font. Status: 400` no build, o build passa
-// verde, e o card sai com um retângulo vazio no lugar ("a conversão decimal ▯
-// binário"). O jeito de nunca mais descobrir isso olhando as 47 imagens uma a
-// uma é manter a copy do card dentro do Latin-1: o que já se sabe que falta é
-// trocado, e qualquer símbolo novo para o build em vez de virar retângulo.
+// há glifo que ele não consegue. Medido: um "⇄" na descrição de Números Binários
+// devolvia `Failed to download dynamic font. Status: 400`, o build passava verde,
+// e o card saía com um retângulo vazio no lugar ("a conversão decimal ▯ binário").
+// O símbolo foi trocado por palavras no `content/roadmap.ts`, que é onde estava a
+// causa: ele também ia parar na `meta description` da busca.
 //
-// A troca certa de verdade seria no texto do tópico, em `content/roadmap.ts`.
-// Como este PR não mexe em conteúdo, ela mora aqui e vale só para o card: a
-// página continua mostrando a seta.
-const TROCAS: ReadonlyArray<readonly [RegExp, string]> = [[/\s*⇄\s*/g, " para "]];
-
-function copyDoCard(texto: string, slug: string): string {
-  const trocado = TROCAS.reduce((atual, [simbolo, texto]) => atual.replace(simbolo, texto), texto);
-  const semFonte = [...trocado].filter((c) => c.codePointAt(0)! > 0xff);
-  if (semFonte.length > 0) {
-    throw new Error(
-      `opengraph-image (${slug}): ${JSON.stringify(semFonte.join(""))} está fora do Latin-1, ` +
-        "e o card do Open Graph sai com um retângulo vazio no lugar. Troque o símbolo no texto " +
-        "do tópico, ou acrescente uma linha em TROCAS."
-    );
+// Esta guarda é o que sobra do achado, e ela continua valendo. O `roadmap.ts` já
+// junta símbolo fora do Latin-1 em outros campos ("2ⁿ" num título de referência,
+// "≥" num nome de problema do LeetCode) e esses não entram no card. Nada impede o
+// próximo de cair num `name`, `group` ou `description`, e aí o build passa verde
+// com um retângulo vazio que ninguém vê sem abrir as 47 imagens. Então o build
+// para nos três campos que o card desenha, e só neles.
+function exigirLatin1(campos: Record<string, string>, slug: string): void {
+  for (const [campo, texto] of Object.entries(campos)) {
+    const semFonte = [...texto].filter((c) => c.codePointAt(0)! > 0xff);
+    if (semFonte.length > 0) {
+      throw new Error(
+        `opengraph-image (${slug}): ${JSON.stringify(semFonte.join(""))} em "${campo}" está fora ` +
+          "do Latin-1, e o card do Open Graph sai com um retângulo vazio no lugar. Troque o " +
+          "símbolo por palavras no texto do tópico, em content/roadmap.ts."
+      );
+    }
   }
-  return trocado;
 }
 
 // Teto da chamada, em caracteres. A 26px (o corpo do subtítulo no template) e num
@@ -83,9 +83,9 @@ const TETO_DA_CHAMADA = 150;
  * palavras: das 47, três passam (`strings`, `subarray-...-subset` e
  * `sliding-window`) e as três terminam num ponto final de verdade. O corte por
  * palavra só existe para o dia em que alguém escrever uma primeira frase de 200
- * caracteres, e fecha com três pontos em vez de "…" pelo motivo do `copyDoCard`:
- * a reticência tipográfica está fora do Latin-1 e nenhum card usa uma hoje, então
- * ela entraria sem ninguém ter visto se ela desenha.
+ * caracteres, e fecha com três pontos em vez de "…" pelo motivo do
+ * `exigirLatin1`: a reticência tipográfica está fora do Latin-1 e nenhum card usa
+ * uma hoje, então ela entraria sem ninguém ter visto se ela desenha.
  */
 function chamada(descricao: string): string {
   if (descricao.length <= TETO_DA_CHAMADA) return descricao;
@@ -122,22 +122,22 @@ export default async function TopicoOpengraphImage({ params }: { params: Promise
   // um card em branco que ninguém olha até o LinkedIn mostrar.
   if (!t) throw new Error(`opengraph-image: slug fora do roadmap: ${slug}`);
 
-  const nome = copyDoCard(t.name, slug);
-  const grupo = copyDoCard(t.group, slug);
+  exigirLatin1({ name: t.name, group: t.group, description: t.description }, slug);
+
   // O grupo entra como contexto depois do nome, com o mesmo "·" que separa o
   // título das páginas ("%s · Roadmap DSA"). Seis tópicos dão nome ao próprio
   // grupo (Backtracking, Busca Binária, Listas Encadeadas, Matemática,
   // Programação Dinâmica e Greedy Algorithms) e ficam só com o nome: card que
   // repete a mesma palavra duas vezes parece defeito.
-  const contexto = grupo === nome ? "" : `· ${grupo}`;
-  const linhaDoTitulo = `${nome} ${contexto}`.trim();
+  const contexto = t.group === t.name ? "" : `· ${t.group}`;
+  const linhaDoTitulo = `${t.name} ${contexto}`.trim();
 
   return ogImage({
     // O nome do tópico é o que precisa ser lido primeiro, então fica no azul de
     // destaque e na frente; o grupo vem depois, em branco.
-    highlight: nome,
+    highlight: t.name,
     title: contexto,
-    subtitle: chamada(copyDoCard(t.description, slug)),
+    subtitle: chamada(t.description),
     titleSize: corpoDoTitulo(linhaDoTitulo.length),
   });
 }
