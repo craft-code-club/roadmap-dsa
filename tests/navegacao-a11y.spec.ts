@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { GROUPS } from "../content/roadmap";
 
 // Acessibilidade da casca de navegação: link de pular, anel de foco, nome dos
 // campos e dos landmarks, e a marca de progresso fora do link.
@@ -205,4 +206,26 @@ test("o botão do menu diz se o menu está aberto", async ({ page }) => {
   await botao.click();
   await expect(botao).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#menu-lateral")).toBeHidden();
+});
+
+test("cada grupo do roadmap tem âncora própria, e ela para abaixo do cabeçalho", async ({
+  page,
+}) => {
+  await page.goto("/roadmap/");
+  for (const g of GROUPS) {
+    await expect(page.locator(`section.rgroup[id="${g.id}"]`), `sem âncora para ${g.name}`).toHaveCount(1);
+  }
+
+  // Âncora que existe e para debaixo do cabeçalho fixo não serve de destino.
+  await page.goto("/roadmap/#grafos");
+  const alturaHeader = await page.evaluate(
+    () => document.querySelector(".header")!.getBoundingClientRect().height
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.querySelector("#grafos .rgroup-head h2")!.getBoundingClientRect().top
+      )
+    )
+    .toBeGreaterThanOrEqual(alturaHeader);
 });

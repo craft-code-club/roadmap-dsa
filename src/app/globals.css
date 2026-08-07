@@ -277,7 +277,9 @@ html { scroll-behavior: smooth; }
    primeiro grupo para fora da tela. Título curto não sente diferença. */
 .roadmap-wrap h1 { margin: 10px 0 8px; font-size: clamp(28px, 7vw, 40px); font-weight: 600; letter-spacing: -0.03em; }
 .roadmap-intro { margin: 0 0 36px; max-width: 62ch; font-size: 16px; line-height: 1.6; color: #a3b6cf; }
-.rgroup { margin-bottom: 34px; }
+/* O grupo agora tem `id` (âncora de destino), e o cabeçalho é fixo: sem a folga
+   o título do grupo pararia debaixo dele. */
+.rgroup { margin-bottom: 34px; scroll-margin-top: 80px; }
 .rgroup-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
 .rgroup-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
 .rgroup-count { font-size: 12.5px; color: var(--ccc-muted); font-family: var(--mono); }

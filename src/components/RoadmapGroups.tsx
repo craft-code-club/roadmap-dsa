@@ -13,7 +13,9 @@ export function RoadmapGroups() {
       {GROUPS.map((g) => {
         const feitos = contarTopicos(g.topics.map((t) => t.slug));
         return (
-          <section className="rgroup" key={g.id}>
+          // `key` é prop do React e não vira atributo: sem o `id`, nenhuma
+          // âncora do site conseguia apontar para um grupo do roadmap.
+          <section className="rgroup" id={g.id} key={g.id}>
             <div className="rgroup-head">
               <h2>{g.name}</h2>
               <span className="rgroup-count">{feitos}/{g.topics.length}</span>
