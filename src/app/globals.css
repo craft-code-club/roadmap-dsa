@@ -195,11 +195,42 @@ html { scroll-behavior: smooth; }
 .side-item:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
 .side-item.on { background: var(--ccc-accent-soft); color: #dbeafe; font-weight: 600; box-shadow: inset 2px 0 0 var(--ccc-accent); }
 .side-item.soon { color: #6f83a0; }
+/* O quadradinho de progresso, e as duas coisas que a marca dentro dele exige.
+ *
+ * `padding: 0` NÃO é higiene. O agente do usuário entrega todo `<button>` com
+ * `padding: 1px 6px`; num quadrado de 16px com 1px de borda sobravam 2px de
+ * caixa de conteúdo, e a marca media 7,66px. Item de grade que não cabe na área
+ * de alinhamento cai para `start` — é o que a especificação manda, para não
+ * cortar conteúdo —, então o `place-items: center` virava enfeite e a marca
+ * encostava na borda direita. Medido: 7,75px de folga à esquerda contra 0,5px à
+ * direita, num quadrado de 16px.
+ *
+ * A marca é `<svg>` e não o caractere `✓` (ver Shell.tsx) porque com o padding
+ * já zerado ela CONTINUAVA torta: 4,75px à esquerda contra 3,25px à direita, e
+ * 4,75px em cima contra 3,75px embaixo. O glifo tem bearings assimétricos, e
+ * `<button>` sequer herda a fonte do site — o computado aqui é `Arial`, ou seja
+ * o desenho vem da cadeia de fallback do sistema. Medido trocando só a família
+ * declarada, com o padding já zerado: o desnível horizontal foi de 0 a 1,75px,
+ * o vertical de 0,12 a 1,5px, e a área de tinta variou 3,9x. O CI roda em
+ * ubuntu, que não tem nenhuma dessas fontes. Com o traço do SVG simétrico em
+ * torno do centro da `viewBox`, a conta fecha igual em todo sistema: medido,
+ * 0,00px de desnível na horizontal e 0,03px na vertical, os mesmos em 1280x720,
+ * 1440x700 e 1512x900. Com o glifo, o MESMO elemento dava 0,20px em 1280x720 e
+ * 1,80px em 1440x700, porque a linha de base gruda noutro pixel quando a linha
+ * cai em outro offset.
+ *
+ * O TAMANHO DO QUADRADO não mudou (16px aqui, 20px no `.problem-check`): o que
+ * o aluno vê alinhado é o ✓ com o nome do tópico ao lado, e mexer na caixa
+ * mexeria nas 47 linhas da trilha.
+ *
+ * O tamanho do desenho deixa sobra PAR na caixa de conteúdo (14px de caixa para
+ * 10px de marca, 2px de cada lado) para o centro não cair em meio pixel. */
 .side-check {
   display: grid; place-items: center; width: 16px; height: 16px; flex: none; border-radius: 5px;
-  font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0; border: 1px solid rgba(255, 255, 255, 0.16);
   background: transparent; color: transparent; cursor: pointer;
 }
+.side-check svg { display: block; width: 10px; height: 10px; }
 .side-check.done { border-color: rgba(52, 211, 153, 0.6); background: rgba(52, 211, 153, 0.18); color: var(--ccc-green); }
 .side-item-name { flex: 1; }
 /* A linha do tópico: o ✓ é irmão do link (ver Shell.tsx), então quem pinta
@@ -414,7 +445,12 @@ html { scroll-behavior: smooth; }
 .problems { border: 1px solid var(--ccc-line); border-radius: 12px; overflow: hidden; }
 .problem-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: var(--ccc-surface); border-bottom: 1px solid var(--ccc-line); }
 .problem-row:last-child { border-bottom: none; }
-.problem-check { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.18); background: transparent; color: transparent; cursor: pointer; font-size: 11px; font-weight: 700; }
+/* Mesmo contrato do `.side-check`, e o porquê medido está lá em cima:
+   `padding: 0` contra o do `<button>` (aqui a caixa de conteúdo tinha 6px para
+   uma marca de 8,41px), marca em SVG, e sobra PAR — 18px de caixa de conteúdo
+   para 12px de marca, 3px de cada lado. */
+.problem-check { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 6px; padding: 0; border: 1px solid rgba(255, 255, 255, 0.18); background: transparent; color: transparent; cursor: pointer; }
+.problem-check svg { display: block; width: 12px; height: 12px; }
 .problem-check.done { border-color: rgba(52, 211, 153, 0.6); background: rgba(52, 211, 153, 0.16); color: var(--ccc-green); }
 .problem-level { min-width: 62px; padding: 3px 8px; border-radius: 99px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid; }
 .problem-name { flex: 1; font-size: 14.5px; color: var(--ccc-text); font-weight: 500; text-decoration: none; }

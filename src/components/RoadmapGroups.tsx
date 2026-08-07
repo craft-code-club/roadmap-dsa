@@ -53,7 +53,22 @@ export function RoadmapGroups() {
                       aria-label={`Marcar ${t.name} como concluído`}
                       onClick={() => toggleTopico(t.slug)}
                     >
-                      {feito ? "✓" : ""}
+                      {/* O mesmo traço do `Shell` e do `ProblemList`; o porquê
+                          medido de ser desenho, e não o caractere `✓`, está no
+                          `globals.css`. `aria-hidden` porque é decoração: o
+                          estado é `aria-checked`, o nome é o `aria-label`. */}
+                      {feito ? (
+                        <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                          <path
+                            d="M2.4 6.4 5.1 8.6 9.6 3.4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : null}
                     </button>
                     <Link href={`/topico/${t.slug}`} className={`topic-card${feito ? " done" : ""}`}>
                       <div className="topic-card-top">
