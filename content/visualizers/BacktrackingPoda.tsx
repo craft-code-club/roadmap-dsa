@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -107,11 +108,6 @@ function comPoda(n: number): Resultado {
 // fórmula da árvore cheia, e não medido aqui.
 const TAMANHOS = [4, 5, 6, 7];
 
-// Formatador determinístico: Intl.NumberFormat diverge entre build e cliente.
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 export function BacktrackingPoda() {
   const [n, setN] = useState(6);
   const sem = useMemo(() => semPoda(n), [n]);
@@ -170,10 +166,10 @@ export function BacktrackingPoda() {
                 <span className="ord-medida-rot">nós visitados</span>
                 <div className="bb-barra">
                   <div className="bb-barra-fill" style={{ width: "100%" }} />
-                  <span className="bb-barra-txt">{num(sem.nos)}</span>
+                  <span className="bb-barra-txt">{thousands(sem.nos)}</span>
                 </div>
                 <span className="ord-lei">
-                  {num(Math.pow(n, n))} disposições possíveis, todas percorridas até o fim
+                  {thousands(Math.pow(n, n))} disposições possíveis, todas percorridas até o fim
                 </span>
               </div>
               <div className="ord-medida">
@@ -195,10 +191,10 @@ export function BacktrackingPoda() {
                 <span className="ord-medida-rot">nós visitados</span>
                 <div className="bb-barra">
                   <div className="bb-barra-fill" style={{ width: `${(com.nos / sem.nos) * 100}%` }} />
-                  <span className="bb-barra-txt">{num(com.nos)}</span>
+                  <span className="bb-barra-txt">{thousands(com.nos)}</span>
                 </div>
                 <span className="ord-lei">
-                  {num(com.podas)} escolhas cortadas antes de virarem ramo
+                  {thousands(com.podas)} escolhas cortadas antes de virarem ramo
                 </span>
               </div>
               <div className={`ord-medida${mesmasSolucoes ? " melhor" : ""}`}>
@@ -256,8 +252,8 @@ export function BacktrackingPoda() {
           As duas versões devolvem <strong>{com.solucoes.length} soluções</strong>
           {mesmasSolucoes ? ", e são as mesmas soluções, uma a uma" : ""}. A poda não troca a resposta por uma
           aproximação, ela só evita descer por caminhos que já são impossíveis: com {n} rainhas, ela corta{" "}
-          {num(com.podas)} escolhas antes de virarem ramo e visita <strong>{num(com.nos)}</strong> nós contra{" "}
-          <strong>{num(sem.nos)}</strong>, {razao.toFixed(1)} vezes menos. É a diferença entre perguntar
+          {thousands(com.podas)} escolhas antes de virarem ramo e visita <strong>{thousands(com.nos)}</strong> nós contra{" "}
+          <strong>{thousands(sem.nos)}</strong>, {razao.toFixed(1)} vezes menos. É a diferença entre perguntar
           &quot;isto ainda pode dar certo?&quot; a cada passo e perguntar só no fim.
         </p>
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -83,14 +84,6 @@ const UNREACHABLE = [
   "    print(n)",
   "    return contagem(n + 1)",
 ];
-
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
-// Formatação determinística (nada de Intl, para o HTML do servidor bater com o
-// do cliente na hidratação).
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 function factorialOf(n: number): number {
   let f = 1;
@@ -192,12 +185,12 @@ function generateClassic(n0: number, limit: number): Step[] {
     const next = top.n * value;
     top.state = "volta";
     top.pending = undefined;
-    top.ret = num(next);
+    top.ret = thousands(next);
     emit(
       4,
-      `fatorial(${top.n}) recebe ${num(value)} de baixo, resolve a conta que estava pendurada, ${top.n} × ${num(value)} = ${num(next)}, e devolve. O frame sai da pilha e a memória dele é liberada.`,
+      `fatorial(${top.n}) recebe ${thousands(value)} de baixo, resolve a conta que estava pendurada, ${top.n} × ${thousands(value)} = ${thousands(next)}, e devolve. O frame sai da pilha e a memória dele é liberada.`,
       `${top.n}`,
-      num(next)
+      thousands(next)
     );
     value = next;
     frames.pop();
@@ -208,10 +201,10 @@ function generateClassic(n0: number, limit: number): Step[] {
     frames: [],
     calls,
     maxDepth,
-    note: `A pilha voltou a ficar vazia: fatorial(${n0}) = ${num(value)}. Deu ${calls} ${calls === 1 ? "chamada" : "chamadas"} no total e, no pico, ${maxDepth} ${maxDepth === 1 ? "frame vivo" : "frames vivos"} ao mesmo tempo. Esse pico é a complexidade de espaço da recursão: O(n).`,
+    note: `A pilha voltou a ficar vazia: fatorial(${n0}) = ${thousands(value)}. Deu ${calls} ${calls === 1 ? "chamada" : "chamadas"} no total e, no pico, ${maxDepth} ${maxDepth === 1 ? "frame vivo" : "frames vivos"} ao mesmo tempo. Esse pico é a complexidade de espaço da recursão: O(n).`,
     vars: [
       { name: "n (frame do topo)", value: "-" },
-      { name: "valor devolvido", value: num(value) },
+      { name: "valor devolvido", value: thousands(value) },
       { name: "frames na pilha", value: "0" },
       { name: "chamadas", value: `${calls}`, best: true },
     ],
@@ -259,7 +252,7 @@ function generateTail(n0: number, limit: number): Step[] {
 
   while (guard++ < 40) {
     const mine = id++;
-    frames.push({ id: mine, level: frames.length + 1, n: k, label: `fatorial(n=${k}, acc=${num(acc)})`, state: "ativo" });
+    frames.push({ id: mine, level: frames.length + 1, n: k, label: `fatorial(n=${k}, acc=${thousands(acc)})`, state: "ativo" });
     calls++;
 
     if (frames.length > limit) {
@@ -268,7 +261,7 @@ function generateTail(n0: number, limit: number): Step[] {
         0,
         `Tentei abrir o frame ${frames.length} e o limite da pilha é ${limit}: RecursionError. Sem otimização de chamada final, a recursão de cauda empilha exatamente igual à clássica.`,
         `${k}`,
-        num(acc),
+        thousands(acc),
         "-",
         { done: true, error: true },
         mine
@@ -280,37 +273,37 @@ function generateTail(n0: number, limit: number): Step[] {
 
     emit(
       0,
-      `Entro em fatorial(${k}, acc=${num(acc)}). Repare que o trabalho já vem feito de cima: o acumulador carrega tudo o que foi multiplicado até aqui.`,
+      `Entro em fatorial(${k}, acc=${thousands(acc)}). Repare que o trabalho já vem feito de cima: o acumulador carrega tudo o que foi multiplicado até aqui.`,
       `${k}`,
-      num(acc),
+      thousands(acc),
       "-",
       undefined,
       mine
     );
 
     if (k <= 1) {
-      emit(1, `n = ${k} bate no caso base.`, `${k}`, num(acc), "-");
+      emit(1, `n = ${k} bate no caso base.`, `${k}`, thousands(acc), "-");
       frames[frames.length - 1].state = "base";
-      frames[frames.length - 1].ret = num(acc);
+      frames[frames.length - 1].ret = thousands(acc);
       emit(
         2,
-        `Devolvo o acumulador: ${num(acc)}. A resposta final já estava pronta ANTES da volta começar, ninguém precisa calcular mais nada na subida.`,
+        `Devolvo o acumulador: ${thousands(acc)}. A resposta final já estava pronta ANTES da volta começar, ninguém precisa calcular mais nada na subida.`,
         `${k}`,
-        num(acc),
-        num(acc)
+        thousands(acc),
+        thousands(acc)
       );
       break;
     }
 
-    emit(1, `n = ${k} ainda não é caso base.`, `${k}`, num(acc), "-");
+    emit(1, `n = ${k} ainda não é caso base.`, `${k}`, thousands(acc), "-");
     const next = acc * k;
     frames[frames.length - 1].state = "espera";
     frames[frames.length - 1].pending = "nada pendente";
     emit(
       3,
-      `Chamo fatorial(${k - 1}, ${num(acc)} × ${k} = ${num(next)}). A chamada é a ÚLTIMA operação da função: depois dela não sobra nenhuma conta neste frame.`,
+      `Chamo fatorial(${k - 1}, ${thousands(acc)} × ${k} = ${thousands(next)}). A chamada é a ÚLTIMA operação da função: depois dela não sobra nenhuma conta neste frame.`,
       `${k}`,
-      num(acc),
+      thousands(acc),
       "-"
     );
     acc = next;
@@ -325,13 +318,13 @@ function generateTail(n0: number, limit: number): Step[] {
     const top = frames[frames.length - 1];
     top.state = "volta";
     top.pending = undefined;
-    top.ret = num(result);
+    top.ret = thousands(result);
     emit(
       3,
-      `O frame de fatorial(${top.n}, ...) recebe ${num(result)} e só repassa, porque não tinha nada pendente. Este frame ficou vivo à toa: é justamente ele que a otimização de chamada final sabe reaproveitar.`,
+      `O frame de fatorial(${top.n}, ...) recebe ${thousands(result)} e só repassa, porque não tinha nada pendente. Este frame ficou vivo à toa: é justamente ele que a otimização de chamada final sabe reaproveitar.`,
       `${top.n}`,
-      num(acc),
-      num(result)
+      thousands(acc),
+      thousands(result)
     );
     frames.pop();
   }
@@ -341,11 +334,11 @@ function generateTail(n0: number, limit: number): Step[] {
     frames: [],
     calls,
     maxDepth,
-    note: `fatorial(${n0}) = ${num(result)} com ${calls} ${calls === 1 ? "chamada" : "chamadas"} e pico de ${maxDepth} ${maxDepth === 1 ? "frame" : "frames"}: os mesmos números do modo clássico. Em Python o custo é idêntico, o ganho da cauda só aparece em linguagem que faz a otimização.`,
+    note: `fatorial(${n0}) = ${thousands(result)} com ${calls} ${calls === 1 ? "chamada" : "chamadas"} e pico de ${maxDepth} ${maxDepth === 1 ? "frame" : "frames"}: os mesmos números do modo clássico. Em Python o custo é idêntico, o ganho da cauda só aparece em linguagem que faz a otimização.`,
     vars: [
       { name: "n (frame do topo)", value: "-" },
-      { name: "acc", value: num(result) },
-      { name: "valor devolvido", value: num(result) },
+      { name: "acc", value: thousands(result) },
+      { name: "valor devolvido", value: thousands(result) },
       { name: "chamadas", value: `${calls}`, best: true },
     ],
     ok: true,
@@ -457,7 +450,6 @@ export function RecursionVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · a pilha de chamadas: empilha na descida, resolve na subida",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (o código vai de 4 a 5 linhas e o
     // painel de variáveis troca de conteúdo) e, sobretudo, quantos frames cabem
     // na pilha — que é o produto de `n` com `limit`. O eixo que vira ALTURA
@@ -604,11 +596,11 @@ export function RecursionVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>chamadas feitas</span>
-            <strong>{num(p.calls)}</strong>
+            <strong>{thousands(p.calls)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pico de frames</span>
-            <strong>{num(p.maxDepth)}</strong>
+            <strong>{thousands(p.maxDepth)}</strong>
           </div>
           <div className="bigo-stat">
             <span>memória da pilha</span>
@@ -616,7 +608,7 @@ export function RecursionVisualizer() {
           </div>
           <div className="bigo-stat">
             <span>{expected === null ? "resposta" : `fatorial(${n})`}</span>
-            <strong>{expected === null ? (overflowed ? "estourou" : "nunca chega") : num(expected)}</strong>
+            <strong>{expected === null ? (overflowed ? "estourou" : "nunca chega") : thousands(expected)}</strong>
           </div>
         </div>
       </div>

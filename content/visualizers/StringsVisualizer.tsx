@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { plural, thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -72,18 +73,6 @@ const PRESETS: { label: string; text: string }[] = [
 
 const DEFAULT_WORD = "CRAFTCODE";
 const MAX = 16;
-
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
-// Formatação determinística (nada de Intl, para o HTML do servidor bater com o
-// do cliente na hidratação).
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
-function plural(n: number, one: string, many: string): string {
-  return n === 1 ? one : many;
-}
 
 function generateSteps(word: string, mode: Mode): Step[] {
   const chars = Array.from(word).slice(0, MAX);
@@ -205,7 +194,6 @@ export function StringsVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · o custo de montar uma string",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (o join ganha a lista de pedaços, um
     // bloco inteiro a mais) e o tamanho da palavra (as células quebram linha).
     measureOn: [mode, n],
@@ -249,13 +237,13 @@ export function StringsVisualizer() {
           { name: "s", value: `"${chars.slice(0, p.used).join("")}"` },
           { name: "len(s)", value: `${p.used}` },
           { name: "c", value: p.i >= 0 ? `"${chars[p.i]}"` : "-" },
-          { name: "cópias", value: num(p.copies), best: true },
+          { name: "cópias", value: thousands(p.copies), best: true },
         ]
       : [
           { name: "len(partes)", value: `${p.parts.length}` },
           { name: "c", value: p.i >= 0 ? `"${chars[p.i]}"` : "-" },
           { name: "strings novas", value: `${p.strings}` },
-          { name: "cópias", value: num(p.copies), best: true },
+          { name: "cópias", value: thousands(p.copies), best: true },
         ];
 
   const noteClass = "viz-note" + (p.ok ? " ok" : "");
@@ -355,19 +343,19 @@ export function StringsVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>caracteres copiados</span>
-            <strong style={{ color: cfg.color }}>{num(p.copies)}</strong>
+            <strong style={{ color: cfg.color }}>{thousands(p.copies)}</strong>
           </div>
           <div className="bigo-stat">
             <span>strings alocadas</span>
-            <strong>{num(p.strings)}</strong>
+            <strong>{thousands(p.strings)}</strong>
           </div>
           <div className="bigo-stat">
             <span>total com s = s + c</span>
-            <strong style={{ color: "#fbbf24" }}>{num(concatTotal)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{thousands(concatTotal)}</strong>
           </div>
           <div className="bigo-stat">
             <span>total com join</span>
-            <strong style={{ color: "#34d399" }}>{num(n)}</strong>
+            <strong style={{ color: "#34d399" }}>{thousands(n)}</strong>
           </div>
         </div>
 

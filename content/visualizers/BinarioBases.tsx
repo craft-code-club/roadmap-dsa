@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -33,18 +34,13 @@ const BASES: { base: number; name: string; note: string }[] = [
   { base: 16, name: "hexadecimal", note: "16 símbolos, de 0 a F. Cada dígito vale exatamente 4 bits, e é por isso que ele é a forma curta de escrever binário." },
 ];
 
-// Formatador determinístico: Intl.NumberFormat diverge entre build e cliente.
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 function compact(v: number): string {
-  if (v >= 1e18) return `${num(v / 1e18)} qui`;
-  if (v >= 1e15) return `${num(v / 1e15)} quatri`;
-  if (v >= 1e12) return `${num(v / 1e12)} tri`;
-  if (v >= 1e9) return `${num(v / 1e9)} bi`;
-  if (v >= 1e6) return `${num(v / 1e6)} mi`;
-  return num(v);
+  if (v >= 1e18) return `${thousands(v / 1e18)} qui`;
+  if (v >= 1e15) return `${thousands(v / 1e15)} quatri`;
+  if (v >= 1e12) return `${thousands(v / 1e12)} tri`;
+  if (v >= 1e9) return `${thousands(v / 1e9)} bi`;
+  if (v >= 1e6) return `${thousands(v / 1e6)} mi`;
+  return thousands(v);
 }
 
 const TYPES = [
@@ -86,7 +82,7 @@ export function BinarioBases() {
           entra no lugar dele, com os três formatos juntos. */}
       <VizHeader viz={viz}>
         <span className="viz-step">
-          {num(value)} = 0x{hex} = 0b{bin}
+          {thousands(value)} = 0x{hex} = 0b{bin}
         </span>
       </VizHeader>
 
@@ -94,7 +90,7 @@ export function BinarioBases() {
         <div className="bigo-chips">
           {VALUES.map((v) => (
             <button key={v} className={`bigo-chip${value === v ? " on" : ""}`} onClick={() => setValue(v)} aria-pressed={value === v}>
-              {num(v)}
+              {thousands(v)}
             </button>
           ))}
         </div>
@@ -107,7 +103,7 @@ export function BinarioBases() {
 
         <div className="hp-bloco">
           <div className="tt-painel-tit">
-            O mesmo {num(value)} em quatro bases <em>quanto menor a base, mais dígitos</em>
+            O mesmo {thousands(value)} em quatro bases <em>quanto menor a base, mais dígitos</em>
           </div>
           <div className="bigo-fam-scroll">
             <table className="bigo-fam-table">
@@ -196,7 +192,7 @@ export function BinarioBases() {
                       <td>
                         <div className="hp-veredito">
                           {t.example}
-                          {fits ? "" : ` · o ${num(value)} escolhido acima NÃO cabe aqui`}
+                          {fits ? "" : ` · o ${thousands(value)} escolhido acima NÃO cabe aqui`}
                         </div>
                       </td>
                     </tr>
@@ -208,7 +204,7 @@ export function BinarioBases() {
         </div>
 
         <p className="viz-note ok">
-          Os {num(value)} escolhidos precisam de <strong>{bin.length} bits</strong> para serem escritos, ou{" "}
+          Os {thousands(value)} escolhidos precisam de <strong>{bin.length} bits</strong> para serem escritos, ou{" "}
           {hex.length} dígitos hexadecimais. Repare que dobrar a quantidade de bits não dobra o alcance, ele
           eleva ao quadrado: 8 bits vão até 255, 16 até 65.535, e 32 até mais de 4 bilhões. É a mesma curva
           exponencial de sempre, vista do lado de dentro.

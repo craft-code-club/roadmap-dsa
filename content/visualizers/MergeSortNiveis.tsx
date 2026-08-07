@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 import { segments } from "./MergeSortVisualizer";
 
@@ -30,18 +31,12 @@ import { segments } from "./MergeSortVisualizer";
 
 const SIZES = [8, 16, 32, 64];
 
-// Formatador determinístico: Intl.NumberFormat diverge entre build e cliente e
-// quebra a hidratação.
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 function compact(v: number): string {
-  if (v >= 1e15) return `${num(v / 1e15)} quatri`;
-  if (v >= 1e12) return `${num(v / 1e12)} tri`;
-  if (v >= 1e9) return `${num(v / 1e9)} bi`;
-  if (v >= 1e6) return `${num(v / 1e6)} mi`;
-  return num(v);
+  if (v >= 1e15) return `${thousands(v / 1e15)} quatri`;
+  if (v >= 1e12) return `${thousands(v / 1e12)} tri`;
+  if (v >= 1e9) return `${thousands(v / 1e9)} bi`;
+  if (v >= 1e6) return `${thousands(v / 1e6)} mi`;
+  return thousands(v);
 }
 
 const SCALES = [1_000, 1_000_000, 1_000_000_000];
@@ -127,11 +122,11 @@ export function MergeSortNiveis() {
           </div>
           <div className="bigo-stat">
             <span>movimentos totais</span>
-            <strong>{num(moves)}</strong>
+            <strong>{thousands(moves)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso de um O(n²)</span>
-            <strong>{num(quadratic)}</strong>
+            <strong>{thousands(quadratic)}</strong>
           </div>
         </div>
 
@@ -139,7 +134,7 @@ export function MergeSortNiveis() {
           Com {n} elementos dá para partir ao meio <strong>{rounds} vezes</strong> antes de sobrar um elemento
           por trecho, porque {n} = 2<sup>{rounds}</sup>. Cada rodada de intercalação toca cada elemento uma vez
           e só uma, então o trabalho de uma rodada é sempre {n}. O total é o produto: {n} x {rounds} ={" "}
-          {num(moves)} movimentos. É literalmente isso que a notação n log n descreve, e é por isso que ela
+          {thousands(moves)} movimentos. É literalmente isso que a notação n log n descreve, e é por isso que ela
           vale no melhor, no médio e no pior caso: a estrutura da recursão não olha para os dados.
         </p>
 

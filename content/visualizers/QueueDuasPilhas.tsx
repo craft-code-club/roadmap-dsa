@@ -58,8 +58,6 @@ const CODE = [
   "        return self.saida.pop()",
 ];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 function scriptOf(s: string): Op[] {
@@ -210,7 +208,6 @@ export function QueueDuasPilhas() {
   const viz = useVisualizer({
     title: "Visualizador · fila com duas pilhas: a virada que inverte a ordem",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o tamanho do roteiro (as fichas quebram
     // linha e as torres crescem) e o número de passos, porque um roteiro vazio
     // gera UM passo só e aí o rodapé inteiro some.

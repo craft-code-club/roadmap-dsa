@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -82,10 +83,6 @@ const OPS: OpKey[] = ["read", "push-end", "insert", "remove", "pop-end"];
 const DEFAULT_NUMS = [12, 7, 45, 3, 20, 8];
 const SLACK = 3; // vagas livres à direita, para caber a inserção
 const BIG_N = 1000000;
-
-function thousands(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 function buildSteps(op: OpKey, nums: number[], rawK: number, value: number): Step[] {
   const out: Step[] = [];

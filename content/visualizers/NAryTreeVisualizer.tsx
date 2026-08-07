@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -146,8 +147,6 @@ const ORDER_LABEL: Record<Order, string> = {
   level: "Por nível (BFS)",
 };
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 const STEP_X = 96;
 const STEP_Y = 68;
 const NODE_W = 84;
@@ -271,10 +270,6 @@ function heightFor(n: number, k: number): number {
   if (k < 2) return n;
   return Math.ceil(Math.log(n * (k - 1) + 1) / Math.log(k));
 }
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 const DEGREES = [2, 4, 8, 16, 64, 256];
 const N_EXAMPLE = 1_000_000;
 
@@ -290,7 +285,6 @@ export function NAryTreeVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · o mesmo template quando os filhos viram uma lista",
     total: steps.length,
-    speeds: SPEEDS,
     // A marcha inicial desta peça é a 4 ("1.5x"), não a 3 do hook: o percurso
     // mais curto tem 19 passos e o mais longo 28, e no 1x a reprodução inteira
     // fica longa demais para quem só quer ver a forma do percurso. Era o valor
@@ -483,7 +477,7 @@ export function NAryTreeVisualizer() {
             duas aulas. Renomear a classe aqui quebraria a peça de lá. */}
         <div className="rec-comp-wrap">
           <table className="rec-comp">
-            <caption>Altura mínima para guardar {num(N_EXAMPLE)} nós, por grau</caption>
+            <caption>Altura mínima para guardar {thousands(N_EXAMPLE)} nós, por grau</caption>
             <thead>
               <tr>
                 <th>Grau (filhos por nó)</th>
@@ -496,7 +490,7 @@ export function NAryTreeVisualizer() {
                 <tr key={k} className={k === maxDegree ? "on" : undefined}>
                   <td>{k}{k === maxDegree ? " (o desta árvore)" : ""}</td>
                   <td>{heightFor(N_EXAMPLE, k)}</td>
-                  <td>~{num(heightFor(N_EXAMPLE, k) * Math.ceil(Math.log2(k)))}</td>
+                  <td>~{thousands(heightFor(N_EXAMPLE, k) * Math.ceil(Math.log2(k)))}</td>
                 </tr>
               ))}
             </tbody>

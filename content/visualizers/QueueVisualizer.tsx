@@ -102,8 +102,6 @@ const L: Record<Mode, Record<string, number>> = {
   circular: { init: 3, guardFull: 6, full: 7, write: 8, inc: 10, guardEmpty: 13, empty: 14, read: 15, moveStart: 16, dec: 17 },
 };
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Roteiro compacto: cada letra é um enfileirar, cada "-" é um desenfileirar.
@@ -320,7 +318,6 @@ export function QueueVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · a fila no array: ingênua x buffer circular",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (o circular ganha uma quinta ficha de
     // estatística), a capacidade (as células da fita), o tamanho do roteiro (as
     // fichas quebram linha) e o número de passos, porque um roteiro vazio gera

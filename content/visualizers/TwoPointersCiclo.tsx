@@ -41,8 +41,6 @@ const CODE = [
   "    return False",
 ];
 
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
 const R_NODE = 17; // raio do nó
 const GAP = 68; // distância entre nós da cauda
 
@@ -149,7 +147,6 @@ export function TwoPointersCiclo() {
   const viz = useVisualizer({
     title: "Visualizador · rápido e lento: existe ciclo na lista ligada?",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o desenho. O SVG tem largura 100% e altura
     // automática, então a altura na tela sai da razão do viewBox — e os dois
     // lados dessa razão dependem da cauda e do ciclo.

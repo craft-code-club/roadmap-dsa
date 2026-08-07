@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -35,12 +36,6 @@ const PS = [
   { value: 0.5, label: "p = 0,5", note: "a moeda, o padrão" },
   { value: 0.75, label: "p = 0,75", note: "sobe 3 a cada 4" },
 ];
-
-// Formatação determinística: nada de Intl, para o HTML do build bater com o do
-// cliente na hidratação.
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
 
 // Zeros à direita saem fora: "p = 0,5" e "2 ponteiros", nunca "0,50" e "2,00".
 // É o mesmo número que o artigo escreve, e o aluno compara os dois.
@@ -124,9 +119,9 @@ export function SkipListNiveis() {
 
   const stats = [
     { k: "niv", label: "níveis esperados", value: `${levels}` },
-    { k: "cmp", label: "comparações na busca", value: `${num(comparisons)}` },
+    { k: "cmp", label: "comparações na busca", value: `${thousands(comparisons)}` },
     { k: "pt", label: "ponteiros por nó", value: dec(pointersPerNode, 2) },
-    { k: "mem", label: "ponteiros no total", value: num(totalPointers) },
+    { k: "mem", label: "ponteiros no total", value: thousands(totalPointers) },
   ];
 
   const frame = (
@@ -136,7 +131,7 @@ export function SkipListNiveis() {
           contexto que o explicava. */}
       <VizHeader viz={viz}>
         <span className="viz-step">
-          n = {num(n)} · p = {dec(p, 2)}
+          n = {thousands(n)} · p = {dec(p, 2)}
         </span>
       </VizHeader>
 
@@ -168,9 +163,9 @@ export function SkipListNiveis() {
                   {obs !== null ? <b style={{ width: `${Math.max(0.35, (obs / n) * 100)}%` }} /> : null}
                 </span>
                 <span className="sl-pval">
-                  {num(l.expected)}
+                  {thousands(l.expected)}
                   <em>{pct(l.fraction)}</em>
-                  {obs !== null ? <span className="obs">{num(obs)} sorteados</span> : null}
+                  {obs !== null ? <span className="obs">{thousands(obs)} sorteados</span> : null}
                 </span>
               </div>
             );
@@ -178,13 +173,13 @@ export function SkipListNiveis() {
         </div>
 
         <p className="viz-note">
-          Com <strong>n = {num(n)}</strong> e <strong>p = {dec(p, 2)}</strong>, cada nível guarda{" "}
+          Com <strong>n = {thousands(n)}</strong> e <strong>p = {dec(p, 2)}</strong>, cada nível guarda{" "}
           <strong>{pct(p)}</strong> do nível de baixo. A conta para o nível {top} ainda ter pelo menos 1 nó é{" "}
           <strong>
-            {num(n)} × {dec(p, 2)}
+            {thousands(n)} × {dec(p, 2)}
             <sup>{top}</sup> ≥ 1
           </strong>
-          , e é daí que sai a altura de <strong>{levels} níveis</strong>: é o logaritmo de {num(n)} na base{" "}
+          , e é daí que sai a altura de <strong>{levels} níveis</strong>: é o logaritmo de {thousands(n)} na base{" "}
           {dec(1 / p, 2)}, arredondado para cima.
           {simValid ? (
             <>
@@ -210,9 +205,9 @@ export function SkipListNiveis() {
             <em>o pior caso existe, só não acontece</em>
           </div>
           <p className="sl-azar">
-            Para a skip list virar uma lista encadeada comum, os {num(n)} nós teriam que tirar coroa de primeira, todos.
+            Para a skip list virar uma lista encadeada comum, os {thousands(n)} nós teriam que tirar coroa de primeira, todos.
             A chance disso é <strong>(1 − {dec(p, 2)})</strong>
-            <sup>{num(n)}</sup> = <strong>{chance(log10BadLuck)}</strong>. O pior caso é O(n) de verdade, mas ele não é
+            <sup>{thousands(n)}</sup> = <strong>{chance(log10BadLuck)}</strong>. O pior caso é O(n) de verdade, mas ele não é
             uma entrada ruim que alguém pode escolher: é azar puro, e o tamanho dessa fração é o motivo de dar para
             confiar no sorteio.
           </p>
@@ -224,7 +219,7 @@ export function SkipListNiveis() {
           deixa parados no pé do painel enquanto a pirâmide rola. */}
       <VizFooter viz={viz}>
         <div className="viz-field grow">
-          <span>Elementos: n = {num(n)}</span>
+          <span>Elementos: n = {thousands(n)}</span>
           <input
             type="range"
             min={0}
@@ -239,7 +234,7 @@ export function SkipListNiveis() {
           />
         </div>
         <button className="viz-btn" onClick={rollCoins}>
-          Sortear {num(n)} moedas
+          Sortear {thousands(n)} moedas
         </button>
         <button
           className="viz-btn"

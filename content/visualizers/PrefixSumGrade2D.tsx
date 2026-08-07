@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -199,12 +200,6 @@ function generateSteps(m: number[][], p: number[][], sel: Region): Step[] {
   return out;
 }
 
-// Formatação determinística (nada de Intl, para o HTML do servidor e do
-// cliente baterem exatamente na hidratação).
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 function inside(reg: Region | null, r: number, c: number) {
   return !!reg && r >= reg.r1 && r <= reg.r2 && c >= reg.c1 && c <= reg.c2;
 }
@@ -391,19 +386,19 @@ export function PrefixSumGrade2D() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>células no retângulo</span>
-            <strong style={{ color: "#fbbf24" }}>{num(cells)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{thousands(cells)}</strong>
           </div>
           <div className="bigo-stat">
             <span>leituras na tabela</span>
-            <strong style={{ color: "var(--ccc-green)" }}>{num(s.ops)}</strong>
+            <strong style={{ color: "var(--ccc-green)" }}>{thousands(s.ops)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pré-processamento ({rows} × {cols})</span>
-            <strong>{num(rows * cols)}</strong>
+            <strong>{thousands(rows * cols)}</strong>
           </div>
           <div className="bigo-stat">
             <span>soma do retângulo</span>
-            <strong>{s.accumulated == null ? "-" : num(s.accumulated)}</strong>
+            <strong>{s.accumulated == null ? "-" : thousands(s.accumulated)}</strong>
           </div>
         </div>
 

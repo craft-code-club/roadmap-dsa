@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -38,17 +39,10 @@ const SLICE_LABELS = ["1% de n", "5% de n", "10% de n", "25% de n", "50% de n", 
 const BRUTE_COLOR = "#fbbf24";
 const PREFIX_COLOR = "#34d399";
 
-// Formatação determinística (nada de Intl, para o HTML do servidor e do
-// cliente baterem exatamente na hidratação). Um separador de milhar só, o
-// mesmo em todo o eixo: misturar "10 mil" com "8.000" pareceria bug.
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
 // A razão entre as duas curvas é o único número que costuma cair no meio do
 // caminho (4,5 não é 5), então ela ganha uma casa decimal enquanto for pequena.
 function ratioText(v: number): string {
-  if (v >= 10) return num(v);
+  if (v >= 10) return thousands(v);
   const d = Math.round(v * 10);
   return `${Math.floor(d / 10)},${d % 10}`;
 }
@@ -144,7 +138,7 @@ export function PrefixSumTradeoff() {
       ctx.lineTo(padL + gw, Math.round(y) + 0.5);
       ctx.stroke();
       ctx.fillStyle = "#61748c";
-      ctx.fillText(num((k / 5) * yMax), padL - 8, y);
+      ctx.fillText(thousands((k / 5) * yMax), padL - 8, y);
     }
 
     // Eixo X
@@ -159,7 +153,7 @@ export function PrefixSumTradeoff() {
       ctx.lineTo(Math.round(x) + 0.5, padT + gh);
       ctx.stroke();
       ctx.fillStyle = "#61748c";
-      ctx.fillText(num(v), x, padT + gh + 8);
+      ctx.fillText(thousands(v), x, padT + gh + 8);
     }
 
     ctx.textAlign = "left";
@@ -274,16 +268,16 @@ export function PrefixSumTradeoff() {
   const ratio = prefixCost > 0 ? bruteCost / prefixCost : 0;
 
   const reading = useMemo(() => {
-    if (winner === "empate") return `Com ${num(q)} consultas as duas abordagens custam o mesmo: ${num(bruteCost)} operações. Este é o ponto de virada.`;
-    if (winner === "bruta") return `Com só ${num(q)} ${q === 1 ? "consulta" : "consultas"}, a força bruta ainda ganha: ${num(bruteCost)} operações contra ${num(prefixCost)} do prefixo. Montar a tabela custou mais do que ela economizou.`;
-    if (ratio < 2) return `Com ${num(q)} consultas, o prefixo faz ${num(prefixCost)} operações contra ${num(bruteCost)} da força bruta. O pré-processamento acabou de se pagar, e a distância só cresce daqui para frente.`;
-    return `Com ${num(q)} consultas, o prefixo faz ${num(prefixCost)} operações contra ${num(bruteCost)} da força bruta, ${ratioText(ratio)} vezes menos. O pré-processamento já se pagou com folga.`;
+    if (winner === "empate") return `Com ${thousands(q)} consultas as duas abordagens custam o mesmo: ${thousands(bruteCost)} operações. Este é o ponto de virada.`;
+    if (winner === "bruta") return `Com só ${thousands(q)} ${q === 1 ? "consulta" : "consultas"}, a força bruta ainda ganha: ${thousands(bruteCost)} operações contra ${thousands(prefixCost)} do prefixo. Montar a tabela custou mais do que ela economizou.`;
+    if (ratio < 2) return `Com ${thousands(q)} consultas, o prefixo faz ${thousands(prefixCost)} operações contra ${thousands(bruteCost)} da força bruta. O pré-processamento acabou de se pagar, e a distância só cresce daqui para frente.`;
+    return `Com ${thousands(q)} consultas, o prefixo faz ${thousands(prefixCost)} operações contra ${thousands(bruteCost)} da força bruta, ${ratioText(ratio)} vezes menos. O pré-processamento já se pagou com folga.`;
   }, [winner, q, bruteCost, prefixCost, ratio]);
 
   const frame = (
     <figure {...viz.figureProps} style={{ margin: 0 }}>
       <VizHeader viz={viz} color={PREFIX_COLOR}>
-        <span className="viz-step">q = {num(q)}</span>
+        <span className="viz-step">q = {thousands(q)}</span>
       </VizHeader>
 
       <div {...viz.bodyProps}>
@@ -313,7 +307,7 @@ export function PrefixSumTradeoff() {
             aria-valuemin={0}
             aria-valuemax={qMax}
             aria-valuenow={q}
-            aria-valuetext={`${num(q)} consultas: força bruta ${num(bruteCost)} operações, com prefixo ${num(prefixCost)} operações. Ponto de virada em ${num(turningPoint)} consultas.`}
+            aria-valuetext={`${thousands(q)} consultas: força bruta ${thousands(bruteCost)} operações, com prefixo ${thousands(prefixCost)} operações. Ponto de virada em ${thousands(turningPoint)} consultas.`}
             onKeyDown={onKeyDown}
             onPointerDown={(e) => { onMove(e); capture(e); }}
             onPointerMove={(e) => { if (e.buttons === 1) onMove(e); }}
@@ -330,35 +324,35 @@ export function PrefixSumTradeoff() {
           <div className="bigo-card" style={{ borderLeftColor: BRUTE_COLOR }}>
             <div className="bigo-card-top">
               <span className="bigo-card-nome" style={{ color: BRUTE_COLOR }}>força bruta</span>
-              <span className="bigo-card-val">{num(bruteCost)}</span>
+              <span className="bigo-card-val">{thousands(bruteCost)}</span>
             </div>
-            <div className="bigo-card-ex">q × m = {num(q)} × {num(m)}</div>
+            <div className="bigo-card-ex">q × m = {thousands(q)} × {thousands(m)}</div>
           </div>
           <div className="bigo-card" style={{ borderLeftColor: PREFIX_COLOR }}>
             <div className="bigo-card-top">
               <span className="bigo-card-nome" style={{ color: PREFIX_COLOR }}>com prefixo</span>
-              <span className="bigo-card-val">{num(prefixCost)}</span>
+              <span className="bigo-card-val">{thousands(prefixCost)}</span>
             </div>
-            <div className="bigo-card-ex">n + q = {num(n)} + {num(q)}</div>
+            <div className="bigo-card-ex">n + q = {thousands(n)} + {thousands(q)}</div>
           </div>
         </div>
 
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>n (tamanho do array)</span>
-            <strong>{num(n)}</strong>
+            <strong>{thousands(n)}</strong>
           </div>
           <div className="bigo-stat">
             <span>m (tamanho do intervalo)</span>
-            <strong>{num(m)}</strong>
+            <strong>{thousands(m)}</strong>
           </div>
           <div className="bigo-stat">
             <span>ponto de virada</span>
-            <strong>{num(turningPoint)}</strong>
+            <strong>{thousands(turningPoint)}</strong>
           </div>
           <div className="bigo-stat">
             <span>memória extra</span>
-            <strong>{num(n + 1)}</strong>
+            <strong>{thousands(n + 1)}</strong>
           </div>
         </div>
       </div>
@@ -367,7 +361,7 @@ export function PrefixSumTradeoff() {
           painel expandido — ver o cabeçalho deste arquivo. */}
       <VizFooter viz={viz}>
         <div className="viz-field grow">
-          <span>n: array de {num(n)} posições</span>
+          <span>n: array de {thousands(n)} posições</span>
           <input
             type="range"
             min={0}

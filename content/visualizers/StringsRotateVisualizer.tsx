@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { plural, thousands } from "@/lib/format";
 import { useVisualizer, VizHeader, VizFooter } from "@/lib/visualizer";
 
 // ---------------------------------------------------------------------------
@@ -72,16 +73,6 @@ const PRESETS: { label: string; s: string; goal: string }[] = [
 const WORDS = ["abcde", "craft", "codigo", "rotate", "banana"];
 
 const MAX = 10;
-const SPEEDS = [0, 1400, 950, 650, 420, 250];
-
-function num(v: number): string {
-  return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
-function plural(n: number, one: string, many: string): string {
-  return n === 1 ? one : many;
-}
-
 // Quantos caracteres batem antes de divergir. Serve para o contador de
 // comparações não mentir: comparar duas strings NÃO é uma operação só.
 function commonPrefix(a: string[], b: string[]): number {
@@ -296,7 +287,6 @@ export function StringsRotateVisualizer() {
   const viz = useVisualizer({
     title: "Visualizador · Rotate String, força bruta contra o truque",
     total: steps.length,
-    speeds: SPEEDS,
     // O que muda a altura da peça: o modo (no truque a fita passa de n para 2n
     // células e quebra linha antes), o tamanho de s e o de goal — quando os dois
     // diferem o gerador para em dois passos e a peça encolhe.
@@ -332,9 +322,9 @@ export function StringsRotateVisualizer() {
 
   const vars = [
     { name: "n", value: `${n}` },
-    { name: "strings novas", value: num(p.strings) },
-    { name: "cópias", value: num(p.copies) },
-    { name: "comparações", value: num(p.comparisons), best: true },
+    { name: "strings novas", value: thousands(p.strings) },
+    { name: "cópias", value: thousands(p.copies) },
+    { name: "comparações", value: thousands(p.comparisons), best: true },
   ];
 
   const frame = (
@@ -419,19 +409,19 @@ export function StringsRotateVisualizer() {
         <div className="bigo-stats">
           <div className="bigo-stat">
             <span>caracteres copiados</span>
-            <strong style={{ color: cfg.color }}>{num(p.copies)}</strong>
+            <strong style={{ color: cfg.color }}>{thousands(p.copies)}</strong>
           </div>
           <div className="bigo-stat">
             <span>comparações de caractere</span>
-            <strong>{num(p.comparisons)}</strong>
+            <strong>{thousands(p.comparisons)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso com o laço</span>
-            <strong style={{ color: "#fbbf24" }}>{num(worstLoop)}</strong>
+            <strong style={{ color: "#fbbf24" }}>{thousands(worstLoop)}</strong>
           </div>
           <div className="bigo-stat">
             <span>pior caso com o truque</span>
-            <strong style={{ color: "#34d399" }}>{num(2 * n)}</strong>
+            <strong style={{ color: "#34d399" }}>{thousands(2 * n)}</strong>
           </div>
         </div>
 
