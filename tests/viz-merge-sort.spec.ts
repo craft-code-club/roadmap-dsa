@@ -11,9 +11,21 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 
 const SLACK = 8;
 
-/** A figura adaptada é a primeira do artigo. */
+// As TRÊS figuras da página estão na casca agora. `figure.viz-fit` casava 1 e
+// passou a casar 3, então o seletor precisa de um discriminante: só o
+// visualizador principal tem bloco recolhível, e é o `.viz-code-slot` que diz
+// isso — ele existe porque a peça É recolhível, enquanto o conteúdo dentro dele
+// é o que um dia pode virar condicional.
+const PRINCIPAL = "article figure.viz-fit:has(.viz-code-slot)";
+
+/** O visualizador principal, o único dos três com bloco de código. */
 function figura(page: Page): Locator {
-  return page.locator("article figure.viz-fit");
+  return page.locator(PRINCIPAL);
+}
+
+/** As duas peças sem linha do tempo, pelo rótulo do cabeçalho. */
+function muda(page: Page, titulo: string): Locator {
+  return page.locator("article figure.viz-fit").filter({ hasText: titulo });
 }
 
 async function abrir(page: Page, w: number, h: number) {
@@ -35,10 +47,10 @@ async function alturaEstavel(page: Page): Promise<number> {
   let iguais = 0;
   let ultimo = -1;
   for (let i = 0; i < 60; i++) {
-    const v = await page.evaluate(() => {
-      const f = document.querySelector("article figure.viz-fit") as HTMLElement;
+    const v = await page.evaluate((sel) => {
+      const f = document.querySelector(sel) as HTMLElement;
       return Math.round(f.getBoundingClientRect().height);
-    });
+    }, PRINCIPAL);
     if (v === ultimo) iguais++;
     else {
       iguais = 1;
@@ -67,11 +79,16 @@ async function preset(fig: Locator, nome: string) {
 }
 
 test.describe("merge sort · casca adaptativa", () => {
-  test("a página tem três figuras e só a primeira é a adaptada", async ({ page }) => {
+  test("as três figuras da página estão na casca, e o seletor pega só a minha", async ({ page }) => {
     await abrir(page, 1512, 900);
-    // se este número mudar, todo seletor escopado deste arquivo precisa de revisão
+    // se algum destes números mudar, todo seletor escopado deste arquivo
+    // precisa de revisão: `figure.viz-fit` já casou 1 e hoje casa 3
     await expect(page.locator("article figure.viz")).toHaveCount(3);
+    await expect(page.locator("article figure.viz-fit")).toHaveCount(3);
     await expect(page.locator("article .viz-step")).toHaveCount(3);
+    // o discriminante do principal é o bloco recolhível, e ele é único
+    await expect(page.locator(PRINCIPAL)).toHaveCount(1);
+    await expect(page.locator("article .viz-code-slot")).toHaveCount(1);
     const fig = figura(page);
     await expect(fig.locator(".viz-step")).toHaveCount(1);
     await expect(fig.locator(".viz-step")).toHaveText(/^passo \d+ de \d+$/);
@@ -291,5 +308,192 @@ test.describe("merge sort · casca adaptativa", () => {
     await andar(fig, 92);
     expect(await ficha(fig, "comparações")).toBe("17");
     expect(await ficha(fig, "cópias para o buffer")).toBe("24");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// As duas peças que vestiam `figure.viz` sem nada da casca: mesma moldura do
+// visualizador principal, sem botão Expandir, sem diálogo, sem trava de
+// rolagem, sem Esc e sem foco. O aluno via duas peças mudas para uma que
+// expandia, aprendia que o botão não existe e parava de procurar.
+//
+// Elas entram com `total: 1` e `collapsible: false`: não têm passo a passo nem
+// bloco dispensável, então da casca elas usam o que lhes cabe — o painel com o
+// cabeçalho parado enquanto o miolo rola. Sem rodapé, o controle cuja posição
+// carrega o sentido da camada 1 é o `✕ Fechar`, que é a saída do diálogo.
+//
+// Réguas medidas antes de escrever (artigo, altura da peça):
+//   · MergeSortNiveis  911..1037 (1512x900), 925..1051 (1440x700), 1351..1477 (390x844)
+//   · MergeEmpate      1077..1213, 1077..1213, 1964..2214
+// e a sobra do miolo no painel a 1440x600: 274 e 500px. A 1512x900 o
+// MergeSortNiveis sobra 0 — teste de rolagem ali seria decoração verde.
+// ---------------------------------------------------------------------------
+
+const TITULO_NIVEIS = "o n log n desenhado: altura vezes largura";
+const TITULO_EMPATE = "o sinal que decide a estabilidade";
+
+async function abrirPainel(page: Page, fig: Locator): Promise<Locator> {
+  await fig.getByRole("button", { name: "⤢ Expandir" }).click();
+  const painel = page.locator(".viz-overlay-fit figure.viz-fit");
+  await expect(painel).toBeVisible();
+  // `toBeVisible()` não é "pronto para o teclado": o listener de keydown nasce
+  // num efeito passivo, no mesmo commit que traz o foco para a figura. Esperar
+  // o foco chegar é a pré-condição que prova que aquele commit já rodou.
+  await expect(painel).toBeFocused();
+  return painel;
+}
+
+/** Camada 1 numa peça SEM rodapé: quem não pode andar é o cabeçalho e o ✕ Fechar. */
+async function provarCamada1(page: Page, painel: Locator) {
+  // --- pré-condições: a situação que o teste afirma existe mesmo ---
+  await expect(painel.locator(".viz-foot"), "esta peça não tem rodapé").toHaveCount(0);
+  const fechar = painel.getByRole("button", { name: "✕ Fechar" });
+  await expect(fechar).toHaveCount(1);
+
+  const antes = await painel.evaluate((f) => {
+    const b = f.querySelector(".viz-body") as HTMLElement;
+    // o click() do Playwright ROLA o contêiner para alcançar o alvo: zerar aqui
+    // é o que impede de medir a rolagem que o próprio teste causou
+    f.scrollTop = 0;
+    b.scrollTop = 0;
+    const x = [...f.querySelectorAll("button")].find((n) => /Fechar/.test(n.textContent ?? ""))!;
+    return {
+      sobraMiolo: b.scrollHeight - b.clientHeight,
+      sobraFigura: f.scrollHeight - f.clientHeight,
+      head: f.querySelector(".viz-head")!.getBoundingClientRect().y,
+      fechar: x.getBoundingClientRect().y,
+    };
+  });
+  expect(antes.sobraMiolo, "o miolo precisa estourar para haver o que rolar").toBeGreaterThan(SLACK);
+  expect(antes.sobraFigura, "a figura não pode ter sobra própria").toBeLessThanOrEqual(SLACK);
+
+  // --- a ação: rolar o MIOLO até o fim ---
+  const depois = await painel.evaluate((f) => {
+    const b = f.querySelector(".viz-body") as HTMLElement;
+    b.scrollTop = b.scrollHeight;
+    const x = [...f.querySelectorAll("button")].find((n) => /Fechar/.test(n.textContent ?? ""))!;
+    return {
+      rolouMiolo: b.scrollTop,
+      rolouFigura: f.scrollTop,
+      head: f.querySelector(".viz-head")!.getBoundingClientRect().y,
+      fechar: x.getBoundingClientRect().y,
+    };
+  });
+  expect(depois.rolouMiolo, "quem rolou tem que ser o miolo").toBeGreaterThan(0);
+  expect(depois.rolouFigura, "a figura não pode rolar").toBe(0);
+
+  // --- as asserções que carregam o sentido: posição comparada com ela mesma ---
+  // `toBeInViewport()` sozinho passa nas DUAS pontas da rolagem e aprovaria a
+  // quebra canônica; ele entra só como complemento.
+  expect(Math.abs(depois.head - antes.head), "o cabeçalho andou junto com o miolo").toBeLessThanOrEqual(2);
+  expect(Math.abs(depois.fechar - antes.fechar), "o ✕ Fechar andou junto com o miolo").toBeLessThanOrEqual(2);
+  await expect(fechar).toBeInViewport({ ratio: 1 });
+}
+
+test.describe("merge sort · as duas peças sem linha do tempo", () => {
+  test("as três peças anunciam o mesmo botão, e cada rótulo diz o que a peça mostra", async ({ page }) => {
+    await abrir(page, 1512, 900);
+    // a afordância é a mesma nas três: era 1 Expandir para 3 figuras iguais
+    await expect(page.getByRole("button", { name: "⤢ Expandir" })).toHaveCount(3);
+
+    // rótulo e valor no mesmo locator, um por figura — comportamento certo com
+    // rótulo errado ensina errado do mesmo jeito
+    const niveis = muda(page, TITULO_NIVEIS);
+    const empate = muda(page, TITULO_EMPATE);
+    await expect(niveis).toHaveCount(1);
+    await expect(empate).toHaveCount(1);
+    await expect(niveis.locator(".viz-step")).toHaveCount(1);
+    await expect(empate.locator(".viz-step")).toHaveCount(1);
+    await expect(niveis.locator(".viz-step")).toHaveText(
+      "4 rodadas de intercalação x 16 elementos = 64 movimentos"
+    );
+    await expect(empate.locator(".viz-step")).toHaveText("as duas versões se separam na decisão 2");
+  });
+
+  test("nenhuma das duas promete esconder um bloco que ela não tem", async ({ page }) => {
+    await abrir(page, 1512, 900);
+    for (const titulo of [TITULO_NIVEIS, TITULO_EMPATE]) {
+      const fig = muda(page, titulo);
+      await expect(fig.locator(".viz-code-slot"), `${titulo}: não há bloco recolhível`).toHaveCount(0);
+      await expect(fig.locator(".viz-toggle-codigo")).toHaveCount(0);
+      await expect(fig.getByRole("button", { name: /código/ })).toHaveCount(0);
+      // e sem linha do tempo não há reprodução nenhuma para prometer
+      await expect(fig.locator(".viz-foot")).toHaveCount(0);
+      await expect(fig.locator(".viz-atalhos")).toHaveCount(0);
+      await expect(fig.getByRole("button", { name: /Rodar|Próximo|Anterior/ })).toHaveCount(0);
+      await expect(fig.locator(".viz-step")).not.toHaveText(/passo \d+ de \d+/);
+    }
+  });
+
+  test("o mapa de níveis: o cabeçalho e o ✕ Fechar ficam parados enquanto o miolo rola", async ({ page }) => {
+    await abrir(page, 1440, 600);
+    const painel = await abrirPainel(page, muda(page, TITULO_NIVEIS));
+    await provarCamada1(page, painel);
+  });
+
+  test("o comparador de empate: o cabeçalho e o ✕ Fechar ficam parados enquanto o miolo rola", async ({ page }) => {
+    await abrir(page, 1440, 600);
+    const painel = await abrirPainel(page, muda(page, TITULO_EMPATE));
+    await provarCamada1(page, painel);
+  });
+
+  test("o painel é um diálogo de verdade: foco, Tab preso, Esc e rolagem travada", async ({ page }) => {
+    await abrir(page, 1440, 600);
+    const painel = await abrirPainel(page, muda(page, TITULO_EMPATE));
+
+    const overlay = page.locator(".viz-overlay-fit");
+    await expect(overlay).toHaveAttribute("role", "dialog");
+    await expect(overlay).toHaveAttribute("aria-modal", "true");
+    // o rótulo do diálogo é o título DESTA peça, não um genérico
+    await expect(overlay).toHaveAttribute("aria-label", "Visualizador · o sinal que decide a estabilidade");
+    // a página atrás fica travada: quem rola é o painel
+    expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
+
+    // Tab circula DENTRO: sem trava, o foco cairia no <body> e seguiria para os
+    // links do cabeçalho do site. Voltas suficientes para duas passadas.
+    const fugas: string[] = [];
+    for (let i = 0; i < 14; i++) {
+      await page.keyboard.press("Tab");
+      const onde = await page.evaluate(() => {
+        const a = document.activeElement;
+        const f = document.querySelector(".viz-overlay-fit figure.viz-fit");
+        return { dentro: !!(f && a && f.contains(a)), quem: a?.className || a?.tagName || "?" };
+      });
+      if (!onde.dentro) fugas.push(`volta ${i + 1}: ${onde.quem}`);
+    }
+    expect(fugas, "o foco vazou do painel").toEqual([]);
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".viz-overlay-fit")).toHaveCount(0);
+    expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
+  });
+
+  test("no mapa de níveis o n É eixo de altura: cada dobra acrescenta uma faixa", async ({ page }) => {
+    await abrir(page, 1512, 900);
+    const fig = muda(page, TITULO_NIVEIS);
+    const cartao = (rot: string) => fig.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
+    const altura = () => fig.evaluate((f) => Math.round(f.getBoundingClientRect().height));
+
+    // O `.ms-niveis` do visualizador principal mede 163px constantes nos quatro
+    // presets, porque 7 e 8 elementos caem no mesmo degrau de log2. Aqui o mesmo
+    // desenho tem um controle que ATRAVESSA três degraus, e aí ele é eixo.
+    const medidas: number[] = [];
+    for (const [n, faixas] of [
+      ["8", 4],
+      ["16", 5],
+      ["32", 6],
+      ["64", 7],
+    ] as const) {
+      await fig.getByRole("button", { name: `n = ${n}`, exact: true }).click();
+      await expect(fig.locator(".ms-nivel")).toHaveCount(faixas);
+      // rótulo e valor do MESMO cartão
+      await expect(cartao("tamanho do array")).toHaveText(n);
+      await expect(cartao("rodadas de intercalação")).toHaveText(String(faixas - 1));
+      medidas.push(await altura());
+    }
+    // uma faixa a mais por dobra, e a peça cresce o mesmo tanto a cada degrau
+    const passos = medidas.slice(1).map((v, i) => v - medidas[i]);
+    expect(passos, `alturas medidas: ${medidas.join(", ")}`).toEqual([passos[0], passos[0], passos[0]]);
+    expect(passos[0]).toBeGreaterThan(20);
   });
 });
