@@ -54,7 +54,18 @@ def main() -> int:
     verboso = "-v" in argv or "--verbose" in argv
     guarda = AQUI / "guarda-idioma.py"
     if "--guarda" in argv:
-        guarda = Path(argv[argv.index("--guarda") + 1]).resolve()
+        # Sem o caminho depois do flag isto era um IndexError com traceback e
+        # código 1 — o MESMO código de "um caso reprovou". Erro de uso não pode
+        # ser confundido com resultado de teste, então sai 2.
+        i = argv.index("--guarda") + 1
+        if i >= len(argv):
+            print("uso: testa-guarda-idioma.py [--guarda <caminho>] [-v]", file=sys.stderr)
+            return 2
+        alvo = Path(argv[i])
+        if not alvo.is_file():
+            print(f"guarda não encontrado: {alvo}", file=sys.stderr)
+            return 2
+        guarda = alvo.resolve()
 
     print(f"guarda: {guarda}\n")
     falhas = []
