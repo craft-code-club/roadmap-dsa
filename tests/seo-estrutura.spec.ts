@@ -255,64 +255,67 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
   const lastmods = blocos.map((b) => b.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1]);
 
-  // Este teste NÃO tenta descobrir se o clone é raso. Já tentou duas vezes, de
-  // dois jeitos, e as duas reprovaram um sitemap correto:
+  // Este teste NÃO tenta descobrir se o clone é raso, e não usa o próprio git
+  // para julgar se o campo DEVIA existir. Já tentou das duas formas, e as duas
+  // reprovaram um sitemap correto:
   //
   //   1. `git rev-parse --is-shallow-repository` e 2. o arquivo `.git/shallow`
-  //      respondem "raso" na CI mesmo com `fetch-depth: 0`, porque o
-  //      `actions/checkout` deixa o marcador para trás.
+  //      dizem "raso" na CI mesmo com `fetch-depth: 0` — o `actions/checkout`
+  //      deixa o marcador para trás.
+  //   3. medir a capacidade do git DESTE processo também não serve, e é o
+  //      achado que fechou a investigação: no mesmo job, o processo do build
+  //      resolveu 17 datas distintas e corretas, e o processo do teste, no passo
+  //      seguinte, resolveu UMA para os 41 caminhos. Quem enxerga o histórico é
+  //      o build; este processo, ali, não enxerga. Cobrar a ausência do campo
+  //      com base no que EU vejo é acusar o build de um limite que é meu.
   //
-  // E o diagnóstico da segunda tentativa mostrou o problema de fundo: o `git log`
-  // do processo do BUILD resolveu 17 datas distintas e correferentes aos
-  // arquivos, e o do processo do TESTE, no passo seguinte do mesmo job,
-  // respondeu `2026-08-07T12:10:17Z` para os 41 caminhos. O build enxerga o
-  // histórico; este processo, ali, não enxergava.
-  //
-  // Então a pergunta passa a ser sobre a capacidade DESTE processo, medida
-  // contra o próprio artefato: pegue duas rotas cujo `lastmod` difere e veja se
-  // o `git log` daqui reproduz a diferença. Se reproduz, dá para conferir data a
-  // data; se não, este processo não tem como verificar datas, e o teste diz isso
-  // em vez de acusar o build de estar errado.
-  const datasDoArtefato = lastmods.filter((d): d is string => !!d);
-  const amostra = new Set(
-    [...ALL_TOPICS.slice(0, 8).map((t) => `content/topics/${t.slug}.mdx`), "content/roadmap.ts"]
-      .map(dataDoGit)
-      .filter(Boolean)
-  );
-  const gitDistingueCaminhos = amostra.size > 1;
-  const visto = `o git deste processo resolve ${amostra.size} data(s) distinta(s) na amostra`;
+  // Então a divisão é esta: as invariantes do ARTEFATO valem em qualquer
+  // ambiente e são conferidas sempre; a conferência contra o Git só acontece
+  // onde o git deste processo demonstra que enxerga o histórico, e quando não
+  // enxerga o teste diz isso em voz alta em vez de reprovar.
+  const presentes = lastmods.filter((d): d is string => !!d);
 
-  if (!gitDistingueCaminhos) {
-    // Histórico que responde o mesmo para todo caminho: o campo não pode sair,
-    // porque 40 URLs com o mesmo carimbo são a data do deploy disfarçada.
-    expect(datasDoArtefato, `sem histórico utilizável não pode haver lastmod. ${visto}`).toEqual([]);
-    return;
-  }
-
-  const sem = blocos.filter((_, i) => !lastmods[i]).map((b) => b.match(/<loc>([^<]+)<\/loc>/)![1]);
-  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível. ${visto}`).toEqual([]);
   expect(
-    new Set(lastmods).size,
-    `as ${lastmods.length} URLs saíram com o mesmo lastmod, que é a data do último commit repetida`
-  ).toBeGreaterThan(1);
+    presentes.length === 0 || presentes.length === lastmods.length,
+    `sitemap pela metade: ${presentes.length} de ${lastmods.length} URLs com lastmod`
+  ).toBe(true);
+  for (const d of presentes) {
+    expect(Number.isNaN(Date.parse(d)), `${d} não é uma data`).toBe(false);
+  }
+  if (presentes.length) {
+    // O guarda que sobrevive a qualquer ambiente, e o que de fato importa: 40
+    // URLs com o MESMO carimbo são a data do último commit repetida 40 vezes,
+    // que é o `lastmod` que o Google aprendeu a ignorar.
+    expect(
+      new Set(presentes).size,
+      `as ${presentes.length} URLs saíram com o mesmo lastmod (${presentes[0]}), que é a data do último commit repetida`
+    ).toBeGreaterThan(1);
+    const agora = Date.now();
+    const futuras = presentes.filter((d) => Date.parse(d) > agora);
+    expect(futuras, "lastmod no futuro").toEqual([]);
+  }
 
   // O artefato tem datas diferentes entre si; o git daqui consegue reproduzir
   // essa diferença? Se não, ele está achatando o histórico e não serve de
   // referência — conferir contra ele acusaria o build de um erro que é do
   // ambiente de medição.
-  const gitConfereDatas = (() => {
-    const porArquivo = ALL_TOPICS.filter((t) => !isEmptyTopic(t))
+  const datasDoGit = new Set(
+    ALL_TOPICS.filter((t) => !isEmptyTopic(t))
       .slice(0, 8)
       .map((t) => dataDoGit(`content/topics/${t.slug}.mdx`))
-      .filter(Boolean);
-    return new Set(porArquivo).size > 1;
-  })();
-  test.skip(
-    !gitConfereDatas,
-    `o git deste processo achata as datas por caminho (${visto}), então ele não ` +
-      "pode servir de referência para conferir o lastmod arquivo a arquivo. " +
-      "As invariantes do artefato acima já foram conferidas."
+      .filter(Boolean)
   );
+  test.skip(
+    datasDoGit.size <= 1,
+    `o git deste processo resolve ${datasDoGit.size} data(s) distinta(s) para 8 artigos ` +
+      "diferentes, ou seja, achata o histórico por caminho e não pode servir de " +
+      "referência. As invariantes do artefato acima já foram conferidas."
+  );
+
+  // Daqui para baixo o git deste processo enxerga o histórico, então dá para
+  // cobrar a presença do campo e a data de cada rota.
+  const sem = blocos.filter((_, i) => !lastmods[i]).map((b) => b.match(/<loc>([^<]+)<\/loc>/)![1]);
+  expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível`).toEqual([]);
 
   const errados: string[] = [];
   for (const [i, bloco] of blocos.entries()) {
