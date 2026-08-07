@@ -200,6 +200,26 @@ function formaDosFilhosJsx(node) {
 // fim: a lista existe para o motor poder REPROVAR, não só avisar.
 const invalidos = [];
 
+// A extensão decide a gramática. Forçar TSX em TODO arquivo quebra TS puro:
+// `const f = <T>(x: T) => x` vira abertura de JSX e o parser reclama. O lado
+// Python aceita .ts/.js/.jsx em EXTENSOES, e agora que o motor REPROVA com 2
+// quando não consegue ler, um único .ts com genérico derrubaria um diretório
+// inteiro que é válido. Medido antes desta troca: 3 diagnósticos e saída 2.
+// As fixtures da suíte terminam em `.tsx.txt` e caem no fallback TSX.
+const GRAMATICAS = {
+  ts: ts.ScriptKind.TS,
+  tsx: ts.ScriptKind.TSX,
+  js: ts.ScriptKind.JS,
+  jsx: ts.ScriptKind.JSX,
+  mjs: ts.ScriptKind.JS,
+  cjs: ts.ScriptKind.JS,
+};
+
+function gramaticaDe(caminho) {
+  const m = /\.([cm]?[jt]sx?)$/i.exec(caminho);
+  return (m && GRAMATICAS[m[1].toLowerCase()]) || ts.ScriptKind.TSX;
+}
+
 function extrair(caminho) {
   const fonte = readFileSync(caminho, "utf-8");
   const sf = ts.createSourceFile(
@@ -207,7 +227,7 @@ function extrair(caminho) {
     fonte,
     ts.ScriptTarget.Latest,
     /* setParentNodes */ true,
-    ts.ScriptKind.TSX, // sempre TSX: as fixtures da suíte não usam extensão .tsx
+    gramaticaDe(caminho),
   );
 
   const achados = { tela: [], codigo: [] };
