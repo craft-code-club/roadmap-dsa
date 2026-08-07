@@ -110,8 +110,17 @@ export type VisualizerOptions = {
   stepNote?: (step: number) => string | undefined;
 };
 
-/** O step atual e o que a região viva está dizendo, num estado só. */
-type Playback = { step: number; live: string };
+/**
+ * O step atual e o que a região viva está dizendo, num estado só.
+ *
+ * `liveTotal` é o `total` com que a frase de `live` foi montada. Toda frase
+ * daqui cita o total ("passo 1 de 8"), e o total pode mudar DEPOIS de a frase
+ * estar escrita — daí guardar o número junto do texto, para a leitura poder
+ * conferir se ele ainda vale. O porquê de conferir na leitura está no
+ * `liveMessage`, lá embaixo. Campo obrigatório de propósito: assim o TypeScript
+ * cobra quem acrescentar um caminho novo que escreve `live`.
+ */
+type Playback = { step: number; live: string; liveTotal: number };
 
 export type Visualizer = {
   title: string;
@@ -193,7 +202,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   // `--workers=1`: o percurso de 114 setas do `viz-quick-sort.spec.ts` parava no
   // passo 113. Com o anúncio montado dentro do mesmo `setState`, é um update por
   // tecla — exatamente o que era antes desta mudança.
-  const [playback, setPlayback] = useState<Playback>({ step: 0, live: "" });
+  const [playback, setPlayback] = useState<Playback>({ step: 0, live: "", liveTotal: total });
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(initialSpeed);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -276,7 +285,7 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   const setStep = useCallback((n: number | ((s: number) => number)) => {
     setPlayback((p) => {
       const alvo = typeof n === "function" ? n(p.step) : n;
-      return alvo === p.step && p.live === "" ? p : { step: alvo, live: "" };
+      return alvo === p.step && p.live === "" ? p : { ...p, step: alvo, live: "" };
     });
   }, []);
 
@@ -286,7 +295,9 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     setPlayback((p) => {
       const alvo = naFaixa(naFaixa(p.step) + delta);
       const live = fala(alvo);
-      return alvo === p.step && live === p.live ? p : { step: alvo, live };
+      return alvo === p.step && live === p.live
+        ? p
+        : { step: alvo, live, liveTotal: totalRef.current };
     });
   }, [stop, fala, naFaixa, setPlayingNow]);
 
@@ -294,7 +305,11 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     if (playingRef.current) {
       stop();
       setPlayingNow(false);
-      setPlayback((p) => ({ ...p, live: `pausado no passo ${naFaixa(p.step) + 1} de ${totalRef.current}` }));
+      setPlayback((p) => ({
+        ...p,
+        live: `pausado no passo ${naFaixa(p.step) + 1} de ${totalRef.current}`,
+        liveTotal: totalRef.current,
+      }));
       return;
     }
     setPlayingNow(true);
@@ -302,14 +317,18 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
       // no fim da animação, rodar de novo rebobina em vez de não fazer nada
       const atual = naFaixa(p.step);
       const de = atual >= totalRef.current - 1 ? 0 : atual;
-      return { step: de, live: `rodando a partir do passo ${de + 1} de ${totalRef.current}` };
+      return {
+        step: de,
+        live: `rodando a partir do passo ${de + 1} de ${totalRef.current}`,
+        liveTotal: totalRef.current,
+      };
     });
   }, [stop, naFaixa, setPlayingNow]);
 
   const reset = useCallback(() => {
     stop();
     setPlayingNow(false);
-    setPlayback({ step: 0, live: fala(0) });
+    setPlayback({ step: 0, live: fala(0), liveTotal: totalRef.current });
   }, [stop, fala, setPlayingNow]);
 
   useEffect(() => {
@@ -332,7 +351,9 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   useEffect(() => {
     if (!playing || step < total - 1) return;
     setPlayingNow(false);
-    setPlayback((p) => ({ ...p, live: `fim da animação, passo ${total} de ${total}` }));
+    // Aqui o total certo é o do RENDER, não o do ref: este efeito só dispara
+    // depois de o render com o total novo ter acontecido.
+    setPlayback((p) => ({ ...p, live: `fim da animação, passo ${total} de ${total}`, liveTotal: total }));
   }, [playing, step, total, setPlayingNow]);
 
   // -------------------------------------------------------------------- casca
@@ -613,7 +634,40 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     togglePlay,
     reset,
     setSpeed: setSpeedClamped,
-    liveMessage: playback.live,
+    // Um `total` novo torna FALSA qualquer frase já escrita, porque todas elas
+    // citam o total: `viz.reset(); setNums(...)` no mesmo handler compõe
+    // "passo 1 de 8" e no mesmo render a peça já tem 20 células. O mesmo vale
+    // para a frase de `stepBy`, a de pausa e a de "rodando", que sobrevivem a
+    // uma troca de entrada sem passar por `reset` nenhum. A região cala, e a
+    // interação seguinte a reescreve com o número certo.
+    //
+    // A conferência é na LEITURA, e não num `useEffect([total])` que zera
+    // `live`. As duas razões são medidas, e a primeira é mais sutil do que
+    // parece:
+    //
+    // 1. Com o efeito, a frase falsa CHEGA ao DOM e sai no update seguinte —
+    //    medido pelos `MutationRecord` da região: `characterData` saindo de
+    //    "passo 5 de 8" e um `childList` removendo "passo 1 de 8". Ela não
+    //    chega a ser PINTADA no caminho do evento discreto (`input`, `click`),
+    //    porque aí o React esvazia o efeito antes da pintura — oito frames
+    //    seguidos lidos por `requestAnimationFrame` já mostram vazio. Só que
+    //    essa garantia é do evento discreto: `total` que muda por relógio, por
+    //    transição ou por dado que chegou depois tem o efeito adiado para
+    //    DEPOIS da pintura, e aí o frame com a frase falsa existe e vai para a
+    //    árvore de acessibilidade. A guarda aqui não depende dessa distinção: o
+    //    primeiro render com o total novo já sai `""` em qualquer caminho, e o
+    //    texto falso nunca existe. Um invariante em vez de um detalhe de
+    //    agendamento do React.
+    // 2. Efeito que chama `setPlayback` custa uma renderização a mais por troca
+    //    de `total`, e este arquivo documenta na declaração do `playback` que
+    //    renderização a mais por interação ENGOLE tecla.
+    //
+    // Calar em vez de recontar com o total novo: a frase carrega também a nota
+    // do step (`fala`), e `stepNoteRef` é atualizado num efeito — na
+    // renderização em que o total mudou a nota é tão velha quanto ele.
+    // Consertar só o número daria número verdadeiro colado em frase falsa. É a
+    // mesma política já escrita para o `setStep`: calar em vez de mentir.
+    liveMessage: playback.live && playback.liveTotal === total ? playback.live : "",
     expanded,
     open,
     collapsible,

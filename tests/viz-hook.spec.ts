@@ -182,6 +182,79 @@ test.describe("a região viva anuncia o passo", () => {
     await expect(contador).toHaveText("passo 18 de 20");
     await expect(status).toHaveText(/^passo 18 de 20/);
   });
+
+  test("um total novo cala o anúncio, e a frase com o total velho nunca chega ao DOM", async ({
+    page,
+  }) => {
+    const fig = await figuraDe(page, "/topico/arrays/");
+    const status = fig.getByRole("status");
+    const contador = contadorDePasso(fig);
+    const campo = fig.getByLabel("Array", { exact: true });
+
+    // Primeiro uma interação, para a região ter o que ficar dizendo.
+    await fig.getByRole("button", { name: "Próximo ›" }).click();
+    await expect(contador).toHaveText("passo 5 de 8");
+    await expect(status).toHaveText(/^passo 5 de 8$/);
+
+    // Grava todo texto que a região viva chegar a TER daqui em diante.
+    //
+    // Isto não é zelo: asserção sobre o valor final não distingue "nunca disse"
+    // de "disse e apagou no render seguinte", e a diferença é o defeito inteiro.
+    // Um conserto que zera `live` num `useEffect([total])` deixa a frase falsa
+    // entrar no DOM e a tira no update seguinte — medido, o `MutationRecord`
+    // sai `characterData "passo 5 de 8" → …` seguido de `removed "passo 1 de
+    // 8"`. Com a guarda na leitura é uma mutação só, de "passo 5 de 8" para
+    // vazio, e o texto falso nunca existe.
+    //
+    // Ler `el.textContent` DENTRO do callback não mede isso: o callback é
+    // microtarefa, roda depois dos dois updates e lê o valor final nas duas
+    // vezes — uma asserção que parece medir o transitório e mede o final. O que
+    // mede é o valor que cada mutação SUBSTITUIU: `oldValue` do
+    // `characterData`, `textContent` do nó removido no `childList`.
+    await status.evaluate((el) => {
+      const w = window as unknown as { __teve: string[] };
+      w.__teve = [];
+      new MutationObserver((recs) => {
+        for (const r of recs) {
+          if (r.type === "characterData") w.__teve.push(r.oldValue ?? "");
+          else r.removedNodes.forEach((n) => w.__teve.push(n.textContent ?? ""));
+        }
+      }).observe(el, {
+        childList: true,
+        characterData: true,
+        characterDataOldValue: true,
+        subtree: true,
+      });
+    });
+
+    // Trocar a entrada muda o `total` DESTA peça (o passo é o índice lido), e
+    // o `viz.reset()` do handler compõe o anúncio antes de o total novo chegar.
+    // `onInputChange` é o ÚNICO handler da peça que não chama `viz.setStep(...)`
+    // depois — os quatro irmãos são salvos por acidente, porque `setStep` cala.
+    await campo.fill("4, 5, 6");
+
+    // Premissa: o total mudou mesmo. Sem ela, o silêncio abaixo seria trivial.
+    await expect(contador).toHaveText("passo 1 de 3");
+
+    // A asserção que carrega o sentido: sem o conserto a região fica dizendo
+    // "passo 1 de 8" com a peça em "passo 1 de 3" — um total que não existe
+    // mais, na única pista de quem não enxerga.
+    await expect(status).toHaveText("");
+
+    // E nem por um update: a frase falsa não entrou no DOM para sair depois.
+    // O único valor que a região teve entre o clique e agora é o anúncio de
+    // ANTES da troca; nenhum "de 8" novo apareceu no meio do caminho.
+    const teve = await page.evaluate(
+      () => (window as unknown as { __teve: string[] }).__teve
+    );
+    expect(teve.filter((t) => t !== "" && t !== "passo 5 de 8")).toEqual([]);
+
+    // O silêncio é da troca, não da peça: a seta seguinte volta a falar, já com
+    // o total novo.
+    await fig.getByRole("button", { name: "Próximo ›" }).click();
+    await expect(contador).toHaveText("passo 2 de 3");
+    await expect(status).toHaveText(/^passo 2 de 3/);
+  });
 });
 
 test.describe("o ▶ Rodar não perde o próprio estado", () => {
