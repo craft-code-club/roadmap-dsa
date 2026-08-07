@@ -117,7 +117,20 @@ const ANCORA = /(?:\b(?:do|no|da|na)\s+(?:encontro|aula|v[ií]deo|gravação)|\b
 /** O "nó do encontro" do ciclo de Floyd é termo técnico, não procedência. */
 const FALSO_POSITIVO = /n[oó]\s+do\s+encontro|desencontro/i;
 
-const CAMPO_DE_TELA = /(?:label|rotulo|title|reading|leitura|note|nota)\s*:\s*\n?\s*"((?:[^"\\]|\\.)*)"/g;
+// As TRÊS formas de escrever uma string em TypeScript, e não só a primeira.
+//
+// A versão anterior só reconhecia aspas duplas, e a conta explica por que isso é
+// guarda que passou disfarçado de guarda que olhou: nos 87 visualizadores são
+// 855 campos de tela, dos quais 542 com aspas duplas e 313 com template ou
+// aspas simples. O guarda enxergava 63,4% e afirmava cobrir tudo. Só de rótulo
+// de botão (`label`/`rotulo`/`title`) eram 23 fora do alcance dele.
+//
+// A alternância é uma só, com três grupos, e o texto é o primeiro não-nulo: com
+// três regexes separadas, um `label: "diz 'oi'"` casaria também na varredura de
+// aspas simples e o mesmo campo entraria duas vezes, com o recorte errado.
+// Aqui quem abre a string decide qual grupo captura, e cada campo casa uma vez.
+const CAMPO_DE_TELA =
+  /(?:label|rotulo|title|reading|leitura|note|nota)\s*:\s*\n?\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`((?:[^`\\]|\\.)*)`)/g;
 
 test("nenhum texto de tela de visualizador se ancora na gravação", () => {
   const achados: string[] = [];
@@ -125,7 +138,10 @@ test("nenhum texto de tela de visualizador se ancora na gravação", () => {
   for (const arquivo of readdirSync(VIZ_DIR).filter((f) => f.endsWith(".tsx"))) {
     const fonte = readFileSync(path.join(VIZ_DIR, arquivo), "utf-8");
     for (const m of fonte.matchAll(CAMPO_DE_TELA)) {
-      const texto = m[1];
+      // `??` e não `||`: string vazia é um campo de tela legítimo (e vazio não
+      // tem âncora), mas trocar por `||` faria o grupo seguinte responder por
+      // ela e o recorte sair de outro campo.
+      const texto = m[1] ?? m[2] ?? m[3];
       if (!ANCORA.test(texto) || FALSO_POSITIVO.test(texto)) continue;
       achados.push(`${arquivo}: "${texto.slice(0, 90)}"`);
     }
