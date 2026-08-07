@@ -64,13 +64,24 @@ async function medicaoTerminou(alvo: Locator) {
  * mais cedo, e a sobra congelada saiu 6, 19 e 20 (e 0) contra os 22 reais.
  *
  * O critério de parada é o valor repetido em quadros consecutivos, e não uma
- * espera fixa, que erra dos dois lados. O teto de quadros está aí para o teste
- * reprovar na asserção, com número na mão, em vez de estourar o timeout mudo.
+ * espera fixa, que erra dos dois lados.
+ *
+ * O teto de quadros **reprova**, e não devolve o que leu por último. Devolver
+ * seria entregar ao teste um número ainda em movimento — exatamente o defeito
+ * que esta função existe para fechar —, e o teste seguinte reprovaria (ou
+ * passaria) por um motivo que não é o dele. Reprovando aqui, a mensagem já traz
+ * a última sobra observada e diz que ela não assentou.
+ *
+ * O teto é folgado de propósito: medido em 24 execuções sob carga (12
+ * repetições dos dois testes, 6 workers), a sobra assentou entre 5 e 10
+ * quadros — 18x abaixo do teto. Ele é rede de segurança, não caminho normal.
  */
+const TETO_DE_QUADROS = 180;
+
 async function sobraAssentada(miolo: Locator): Promise<number> {
   return miolo.evaluate(
-    (el) =>
-      new Promise<number>((resolve) => {
+    (el, teto) =>
+      new Promise<number>((resolve, reject) => {
         let anterior = -1;
         let repetidos = 0;
         let quadros = 0;
@@ -78,11 +89,19 @@ async function sobraAssentada(miolo: Locator): Promise<number> {
           const sobra = el.scrollHeight - el.clientHeight;
           repetidos = sobra === anterior ? repetidos + 1 : 0;
           anterior = sobra;
-          if (repetidos >= 5 || ++quadros > 180) resolve(sobra);
+          if (repetidos >= 5) resolve(sobra);
+          else if (++quadros > teto)
+            reject(
+              new Error(
+                `a sobra de rolagem do miolo não assentou em ${teto} quadros; ` +
+                  `última leitura: ${sobra}px (scrollHeight ${el.scrollHeight}, clientHeight ${el.clientHeight})`
+              )
+            );
           else requestAnimationFrame(olhar);
         };
         requestAnimationFrame(olhar);
-      })
+      }),
+    TETO_DE_QUADROS
   );
 }
 
