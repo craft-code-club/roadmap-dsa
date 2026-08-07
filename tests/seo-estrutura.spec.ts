@@ -138,6 +138,66 @@ test("canonical e og:url saem com a barra final do trailingSlash", () => {
   expect(errados, "URL declarada sem a barra final").toEqual([]);
 });
 
+test("nenhuma página de tópico usa o card de compartilhamento de outra rota", () => {
+  // O defeito: as 47 páginas de tópico compartilhavam UMA imagem, a da raiz, e
+  // quem compartilhava Dijkstra no LinkedIn entregava um card que não fala de
+  // Dijkstra. Este teste enuncia o defeito de duas formas, e as duas continuam
+  // verdadeiras com ou sem o `opengraph-image.tsx` do segmento no lugar:
+  //
+  //   a) nenhuma dessas páginas aponta para o card da RAIZ, que é o card do site;
+  //   b) duas páginas de tópico nunca compartilham a mesma imagem.
+  //
+  // É (b) que reprova se alguém devolver o `ogImage: "raiz"` ao
+  // `generateMetadata` do tópico: as 47 voltam a apontar para a mesma URL, e o
+  // `Received` mostra justamente a URL da raiz que este PR tirou dali.
+  //
+  // O `og:image` do tópico chega pelo arquivo do segmento (PR do card por
+  // tópico). Enquanto ele não estiver na `main`, estas páginas ficam SEM card e
+  // as duas afirmações seguem valendo — o que este teste nunca aceita é a volta
+  // do card compartilhado.
+  const cards = new Map<string, string[]>();
+  const daRaiz: string[] = [];
+  for (const t of ALL_TOPICS) {
+    const rota = `/topico/${t.slug}/`;
+    const img = metaProp(html(rota), "og:image");
+    if (img === null) continue;
+    if (new URL(img).pathname === "/opengraph-image") daRaiz.push(rota);
+    cards.set(img, [...(cards.get(img) ?? []), rota]);
+  }
+  expect(
+    daRaiz,
+    `${daRaiz.length} páginas de tópico usam o card da raiz em vez do próprio`
+  ).toEqual([]);
+  const repetidos = [...cards.entries()].filter(([, rotas]) => rotas.length > 1);
+  expect(
+    repetidos.map(([img, rotas]) => `${img} em ${rotas.length} rotas`),
+    "páginas de tópico dividindo o mesmo card"
+  ).toEqual([]);
+});
+
+test("o card de um tópico, quando existe, é gerado no segmento dele", () => {
+  // A outra ponta de (a): não basta não ser o da raiz, tem que ser o DAQUELE
+  // tópico. Fica vazio enquanto o card por tópico não estiver na `main`, e é
+  // esse vazio que mede a dependência entre os dois PRs — se este teste
+  // continuar sem nada para conferir depois do merge dos dois, o card por
+  // tópico entrou inerte.
+  const errados: string[] = [];
+  let comCard = 0;
+  for (const t of ALL_TOPICS) {
+    const rota = `/topico/${t.slug}/`;
+    const img = metaProp(html(rota), "og:image");
+    if (img === null) continue;
+    comCard += 1;
+    if (!new URL(img).pathname.startsWith(`/topico/${t.slug}/`)) errados.push(`${rota} → ${img}`);
+  }
+  expect(errados, "card apontando para um segmento que não é o do tópico").toEqual([]);
+  expect(
+    [comCard, ALL_TOPICS.length],
+    "quantos tópicos declaram card: 0 = o PR do card por tópico ainda não entrou; " +
+      `${ALL_TOPICS.length} = entrou e está valendo. Qualquer valor no meio é defeito.`
+  ).toEqual(comCard === 0 ? [0, ALL_TOPICS.length] : [ALL_TOPICS.length, ALL_TOPICS.length]);
+});
+
 // ---------------------------------------------------------------------------
 // 2. O sitemap não convida o Google para o que ele mesmo manda ignorar
 // ---------------------------------------------------------------------------

@@ -28,13 +28,25 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // Não indexa páginas realmente vazias (sem vídeo, artigo ou visualização) para
   // não criar conteúdo raso aos olhos do Google. Assim que ganham material, entram
   // — e o sitemap usa esta MESMA função para decidir quem ele convida.
+  //
+  // SEM `ogImage`, de propósito, e a ausência é a parte importante. Esta rota já
+  // teve `ogImage: "raiz"`, um contorno que nasceu quando descobri que definir
+  // `openGraph` na página corta a herança da imagem da raiz e deixava as 47
+  // páginas sem `og:image` nenhuma. Naquele momento o card da raiz era o único
+  // que existia, então apontar para ele era o melhor disponível.
+  //
+  // Agora existe o conserto de verdade: um `opengraph-image.tsx` neste segmento,
+  // com um card por tópico. E o contorno ANULA o conserto — o `images` explícito
+  // vence o arquivo do segmento, e as 47 páginas voltariam ao mesmo card. Medido
+  // na integração das duas mudanças: 1 imagem distinta em vez de 47.
+  //
+  // Ou seja: o valor certo aqui é nenhum, para o arquivo do segmento poder valer.
   const emptyTopic = isEmptyTopic(t);
   return pageMetadata({
     title: t.name,
     description: t.description,
     path: `/topico/${t.slug}/`,
     titleStyle: "template",
-    ogImage: "raiz",
     ...(emptyTopic ? { robots: { index: false, follow: true } } : {}),
   });
 }

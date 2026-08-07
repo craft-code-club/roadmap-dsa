@@ -58,6 +58,14 @@ export type PageSeo = {
    *   perderam `og:image`, `twitter:image` e os cinco campos de dimensão junto,
    *   e o card viraria um retângulo de texto no LinkedIn. Nomear a imagem da
    *   raiz devolve tudo.
+   *
+   * ⚠️ `"raiz"` é para rota que NÃO TEM e não vai ter card próprio. O `images`
+   * explícito que ele gera **vence o arquivo do segmento**, então pôr `"raiz"`
+   * numa rota que ganhou `opengraph-image.tsx` anula o arquivo em silêncio: o
+   * card continua sendo gerado no build e ninguém aponta para ele. Foi o que
+   * aconteceu entre esta função e o card por tópico — 47 imagens geradas, 1
+   * usada. Hoje só o /apoie usa `"raiz"`, e é o caso legítimo: ele fala do
+   * projeto inteiro, não de um conteúdo próprio.
    */
   ogImage?: "segmento" | "raiz";
 };
