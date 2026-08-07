@@ -63,9 +63,15 @@ function read(b: number[], form: Form): number {
 
 const VALUES = [26, 1, 127, 0];
 
+// Fica no módulo, e não dentro do componente, porque é constante: lá dentro ele
+// seria recriado a cada render e alimentaria um `useMemo` que não o declara nas
+// dependências. Hoje funciona por acidente (o conteúdo nunca muda); no dia em
+// que a lista virar condicional, o memo devolve o valor velho sem avisar.
+// A ordem é conteúdo: ela é a ordem dos três cartões na tela.
+const FORMS: Form[] = ["sinal", "um", "dois"];
+
 export function BinarioTresFormas() {
   const [value, setValue] = useState(26);
-  const FORMS: Form[] = ["sinal", "um", "dois"];
 
   const viz = useVisualizer({
     title: "Visualizador · três formas de escrever um negativo, e três testes",
