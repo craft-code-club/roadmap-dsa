@@ -45,8 +45,8 @@ function escaparRegex(s: string): string {
  *
  * Medido antes de ligar o guarda, em 13 rotas (as 5 da amostra do axe mais as 8
  * do celular), desktop e 390x844: **zero** `pageerror`, **zero** `console.error`
- * e **zero** resposta >= 400. A única coisa que aparece é o `ERR_ABORTED` de
- * baixo, e ele é do próprio Next.
+ * e **zero** resposta >= 400. A única coisa que aparece é `ERR_ABORTED`, nos
+ * dois casos de baixo: o prefetch do próprio Next e o beacon do GA4.
  *
  * Regra para acrescentar: a entrada tem que ser específica (nada de `/./`) e
  * vir com comentário dizendo o que é e por que não dá para consertar agora.
@@ -74,6 +74,37 @@ export function ruidoTolerado(baseURL: string | undefined): RegExp[] {
     // tem explicação conhecida. Antes desta âncora o padrão era `.*` e engolia
     // qualquer host.
     new RegExp(`^requestfailed: ${origem}(/[^\\s]*)? \\(net::ERR_ABORTED\\)$`),
+
+    // O beacon de `page_view` do GA4. O `gtag.js` dispara o `/g/collect` e não
+    // espera resposta — é telemetria, o navegador cancela a requisição quando a
+    // página fecha, e o Chromium reporta isso como `net::ERR_ABORTED`. É o
+    // comportamento normal do GA, não erro do site: nenhuma medição depende da
+    // resposta, e a mesma requisição é reenviada na próxima visita.
+    //
+    // Por que só apareceu depois do #63: a entrada de cima passou a ser ancorada
+    // no `baseURL` (antes era `.*` e engolia qualquer host). O GA é host de
+    // fora, então deixou de ser tolerado — e, ao mesmo tempo, o CI de PR nunca
+    // viu isso, porque o `NEXT_PUBLIC_GA_ID` só é injetado no build da `main`
+    // (`.github/workflows/cloudflare-pages-deploy.yml`) e sem o ID o site não
+    // pede byte nenhum de analytics. Ou seja: é um caso que só existe no job
+    // que testa o artefato que vai ao ar.
+    //
+    // O que esta entrada NÃO tolera, de propósito:
+    //   · outro host — a tolerância nomeia o do GA e mais nenhum;
+    //   · outro caminho do próprio GA (`/analytics.js`, por exemplo): só o
+    //     endpoint de coleta, que é o único que é disparado sem esperar;
+    //   · outro motivo de falha (`ERR_CONNECTION_REFUSED`, `ERR_FAILED`...);
+    //   · resposta >= 400, que nem passa por aqui: ela vira `http 404: ...` no
+    //     listener de resposta e continua reprovando.
+    //
+    // Os endpoints regionais (`region1.google-analytics.com` e irmãos) entram
+    // porque o GA4 escolhe o host pela origem do tráfego: o runner de hoje bate
+    // no `www`, e um runner na Europa bateria no regional com exatamente o
+    // mesmo significado.
+    new RegExp(
+      "^requestfailed: https://(www|region\\d+)\\.google-analytics\\.com/g/collect" +
+        "(\\?[^\\s]*)? \\(net::ERR_ABORTED\\)$"
+    ),
   ];
 }
 
