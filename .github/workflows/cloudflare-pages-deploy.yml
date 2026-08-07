@@ -17,6 +17,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Histórico completo, e não o clone raso (profundidade 1) do padrão.
+          # O motivo é medido: num clone raso o `git log <caminho>` NÃO falha,
+          # ele devolve a data do HEAD para qualquer arquivo. Quem deriva data
+          # do histórico no build (o `lastmod` do sitemap) recebe a mesma data
+          # para as 40 URLs e não tem como perceber. O repositório tem 269
+          # commits e 18 MB de `.git`: o custo do histórico inteiro cabe no
+          # ruído do passo de checkout.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v7
