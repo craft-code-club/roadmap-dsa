@@ -5,10 +5,12 @@ import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { LINKS, SITE_URL } from "../src/lib/links";
 import {
+  atualizacaoDoTopico,
   caminhosDatados,
   CONTEUDO_DA_ROTA,
   datasDistinguemCaminhos,
   LIMITE_DE_CONCENTRACAO,
+  ultimaAlteracao,
 } from "../src/lib/datas-do-git";
 
 // Estrutura de SEO do site inteiro: canonical, sitemap e dados estruturados.
@@ -255,7 +257,13 @@ function dataDoGit(arquivo: string): string {
   return iso;
 }
 
-/** A data esperada de uma rota: o mais recente dos arquivos que a alimentam. */
+/**
+ * O mais recente dos arquivos citados — usado como PISO da data de uma rota,
+ * não como valor esperado. A distinção importa: a regra de datação do build
+ * considera mais coisas do que estes arquivos (o intervalo do tópico dentro do
+ * `roadmap.ts`, por exemplo), então exigir igualdade seria recriar a regra aqui
+ * — e foi recriando que este arquivo reprovou três URLs corretas.
+ */
 function dataEsperada(arquivos: readonly string[]): number | undefined {
   const ms = arquivos
     .map((a) => Date.parse(dataDoGit(a)))
@@ -302,9 +310,19 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     expect(Number.isNaN(Date.parse(d)), `${d} não é uma data`).toBe(false);
   }
   if (presentes.length) {
-    // O guarda que sobrevive a qualquer ambiente, e o que de fato importa: 40
-    // URLs com o MESMO carimbo são a data do último commit repetida 40 vezes,
-    // que é o `lastmod` que o Google aprendeu a ignorar.
+    // [PROPRIEDADE] O guarda que sobrevive a qualquer ambiente, e o que de fato
+    // importa: 40 URLs com o MESMO carimbo são a data do último commit repetida
+    // 40 vezes, que é o `lastmod` que o Google aprendeu a ignorar.
+    //
+    // É `Set.size > 1`, e NÃO o critério de concentração do módulo, embora ele
+    // esteja importado logo ali. A diferença é onde cada um se aplica:
+    // concentração denuncia git cego sobre CAMINHOS BRUTOS (é assim que o
+    // `test.skip` abaixo a usa), mas a data de uma URL é AGREGADA, e datas
+    // agregadas podem convergir por um motivo legítimo — um commit em lote no
+    // `roadmap.ts` (renomear um campo em todos os tópicos) coloca as 36 páginas
+    // na mesma data, o que dá 87,8% de concentração num build perfeitamente
+    // correto. `Set.size > 1` não tem esse falso positivo e mata o caso que
+    // importa aqui, o carimbo único de build.
     expect(
       new Set(presentes).size,
       `as ${presentes.length} URLs saíram com o mesmo lastmod (${presentes[0]}), que é a data do último commit repetida`
@@ -368,31 +386,98 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const sem = blocos.filter((_, i) => !lastmods[i]).map((b) => b.match(/<loc>([^<]+)<\/loc>/)![1]);
   expect(sem, `${sem.length} URLs sem lastmod com o histórico do Git disponível`).toEqual([]);
 
-  const errados: string[] = [];
+  // -------------------------------------------------------------------------
+  // Cada asserção daqui para baixo está ETIQUETADA com o que ela guarda:
+  //
+  //   [PROPRIEDADE] vale para qualquer regra de datação honesta, e continua
+  //                 valendo se a regra mudar amanhã;
+  //   [FIAÇÃO]      prova que o XML carrega o que o módulo calculou. Só isso —
+  //                 não julga se o módulo calcula bem.
+  //
+  // A etiqueta não é enfeite, é a correção de um defeito real deste bloco. Ele
+  // RECRIAVA a regra de datação: comparava cada `lastmod` com
+  // `git log -1 -- content/topics/<slug>.mdx`, com o `roadmap.ts` de reserva.
+  // Quando a regra do build passou a datar o tópico pelo INTERVALO DE LINHAS
+  // dele dentro do `roadmap.ts` (`git log -L`), esta cópia não acompanhou e
+  // reprovou três URLs cujas datas estavam certas — `quick-sort` e `shell-sort`
+  // (o commit que tirou o `isNew: true` delas, ou seja, o selo NOVO saindo da
+  // página) e `binary-numbers` (o commit que reescreveu a descrição). É
+  // exatamente a armadilha que o `sitemap.ts` documenta — "recriar a condição
+  // aqui é o que fez o buraco existir" —, desta vez do lado do teste.
+  //
+  // O conserto NÃO é trocar a fórmula copiada pela fórmula nova: isso deixaria
+  // o bloco inteiro tautológico, e o `lastmod` poderia virar carimbo de build
+  // com a suíte verde. O conserto é separar as duas perguntas e dizer qual é
+  // qual.
+  // -------------------------------------------------------------------------
+
+  // Todos os carimbos de commit do histórico deste repositório. Uma chamada.
+  const carimbosDeCommit = new Set(
+    execFileSync("git", ["log", "--format=%cI"], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 })
+      .split("\n")
+      .map((l) => Date.parse(l.trim()))
+      .filter((n) => !Number.isNaN(n))
+  );
+  const maisNovoDoHistorico = Math.max(...carimbosDeCommit);
+
+  const inventadas: string[] = [];
+  const noFuturo: string[] = [];
+  const velhasDemais: string[] = [];
+  const fiacao: string[] = [];
+
   for (const [i, bloco] of blocos.entries()) {
     const loc = bloco.match(/<loc>([^<]+)<\/loc>/)![1];
     const lastmod = lastmods[i]!;
-    if (Number.isNaN(Date.parse(lastmod))) {
-      errados.push(`${loc} → ${lastmod} não é uma data`);
+    const ms = Date.parse(lastmod);
+    if (Number.isNaN(ms)) {
+      inventadas.push(`${loc} → ${lastmod} não é uma data`);
       continue;
     }
-    // Toda URL é conferida, fixa ou de tópico. Antes só as de tópico eram, e as
-    // quatro fixas atravessavam a suíte sem que ninguém olhasse a data delas.
     const slug = loc.match(/\/topico\/([^/]+)\//)?.[1];
     const rota = loc.replace(SITE_URL, "");
-    // Tópico: a data é a do artigo, com o `roadmap.ts` de reserva para quem
-    // ainda não tem artigo — a mesma escolha, e o mesmo porquê, do `sitemap.ts`.
-    const arquivos = slug
-      ? dataDoGit(`content/topics/${slug}.mdx`)
-        ? [`content/topics/${slug}.mdx`]
-        : ["content/roadmap.ts"]
-      : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA];
-    const esperada = dataEsperada(arquivos);
-    if (esperada !== undefined && Date.parse(lastmod) !== esperada) {
-      errados.push(`${loc} → ${lastmod}, o Git diz ${new Date(esperada).toISOString()}`);
+
+    // [PROPRIEDADE] O carimbo é de um commit que EXISTE. Nenhuma regra honesta
+    // inventa um instante: ela escolhe um commit. É o que mata o `new Date()`
+    // do momento do build, o `Date.now()` arredondado e qualquer valor
+    // fabricado — e mata sem saber nada sobre QUAL commit deveria ser, que é o
+    // que deixa esta asserção sobreviver à próxima mudança de regra.
+    if (!carimbosDeCommit.has(ms)) inventadas.push(`${loc} → ${lastmod}`);
+
+    // [PROPRIEDADE] Nada é mais novo que o commit mais novo do histórico.
+    if (ms > maisNovoDoHistorico) noFuturo.push(`${loc} → ${lastmod}`);
+
+    // [PROPRIEDADE] A página não pode ser mais VELHA que o conteúdo que ela
+    // serve. É um piso, não uma igualdade, de propósito: ele continua correto
+    // se a regra passar a considerar mais entradas (foi o que aconteceu agora,
+    // quando o intervalo do `roadmap.ts` entrou na conta), e teria pegado o
+    // furo inverso — datar a página antes do próprio artigo.
+    const piso = dataEsperada(
+      slug ? [`content/topics/${slug}.mdx`] : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]
+    );
+    if (piso !== undefined && ms < piso) {
+      velhasDemais.push(`${loc} → ${lastmod}, mais velho que ${new Date(piso).toISOString()}`);
+    }
+
+    // [FIAÇÃO] O XML carrega o que o módulo calculou. Esta é a única asserção
+    // do bloco que fala da fórmula, e ela é declaradamente circular: prova o
+    // encanamento (sitemap → XML), não a regra. Se um dia ela for a única que
+    // sobrar, o bloco não guarda mais nada.
+    const doModulo = slug
+      ? atualizacaoDoTopico(slug)
+      : ultimaAlteracao(...CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]);
+    if (doModulo && doModulo.getTime() !== ms) {
+      fiacao.push(`${loc} → XML ${lastmod}, módulo ${doModulo.toISOString()}`);
     }
   }
-  expect(errados, "lastmod que não bate com o commit do arquivo").toEqual([]);
+
+  expect(
+    inventadas,
+    `${inventadas.length} lastmod que não são o carimbo de nenhum commit do histórico ` +
+      "(data fabricada: carimbo de build, relógio da máquina, valor arredondado)"
+  ).toEqual([]);
+  expect(noFuturo, "lastmod depois do commit mais novo do repositório").toEqual([]);
+  expect(velhasDemais, "lastmod mais velho que o conteúdo que a página serve").toEqual([]);
+  expect(fiacao, "o XML não carrega a data que o módulo calculou").toEqual([]);
 });
 
 // ---------------------------------------------------------------------------
