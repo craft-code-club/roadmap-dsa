@@ -142,6 +142,9 @@ export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T
   return entradas.map(({ lastModified: _, ...resto }) => resto as T);
 }
 
+/** A resposta do guarda, uma vez por build. `undefined` = ainda não perguntei. */
+let gitDistingueCaminhos: boolean | undefined;
+
 /**
  * O MESMO guarda do sitemap, respondido uma vez por build.
  *
@@ -155,8 +158,6 @@ export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T
  * omitindo a data por não confiar nela enquanto a página a estampa em 40
  * lugares seria o site se contradizendo sobre o mesmo fato.
  */
-let gitDistingueCaminhos: boolean | undefined;
-
 function oGitDistingueCaminhos(): boolean {
   if (gitDistingueCaminhos === undefined) {
     const entradas = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => ({
