@@ -425,6 +425,23 @@ html { scroll-behavior: smooth; }
 .video-play { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--ccc-accent); background: var(--ccc-accent-soft); color: #dbeafe; font-size: 16px; padding-left: 3px; flex: none; }
 .video-embed { position: relative; aspect-ratio: 16 / 9; border: 1px solid var(--ccc-line); border-radius: 14px; overflow: hidden; background: #0c1420; margin: 6px 0 8px; }
 .video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* Fachada do vídeo (src/components/VideoFacade.tsx): a miniatura clicável que
+   fica no lugar do <iframe> até o aluno pedir a aula.
+   CLS ZERO POR CONSTRUÇÃO: quem manda na altura é o `aspect-ratio: 16/9` do
+   `.video-embed` acima; miniatura, botão e <iframe> são todos `absolute;
+   inset: 0`. Trocar um pelo outro não move um pixel do que está em volta. */
+.video-facade { position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: #0c1420; cursor: pointer; }
+/* O anel de foco global (`:focus-visible`, linha 48) tem `outline-offset: 2px`,
+   que desenha o anel FORA da caixa do botão — e a caixa do botão é a caixa
+   inteira do `.video-embed`, que tem `overflow: hidden`. Sem o offset negativo
+   o anel some por baixo do corte e quem navega por teclado não vê onde está. */
+.video-facade:focus-visible { outline-offset: -3px; }
+.video-facade-thumb { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+.video-facade-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 68px; height: 48px; padding-left: 4px; border-radius: 12px; border: 1px solid var(--ccc-accent); background: rgba(12, 20, 32, 0.82); color: #dbeafe; font-size: 20px; }
+.video-facade:hover .video-facade-play, .video-facade:focus-visible .video-facade-play { background: var(--ccc-accent); color: #fff; }
+/* Só existe quando o script não roda: o navegador com JS ligado trata o miolo
+   do <noscript> como texto e não renderiza âncora nenhuma. */
+.video-facade-nojs { position: absolute; inset: 0; z-index: 2; display: grid; place-items: end center; padding-bottom: 16px; color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); }
 /* Lista de vídeos extras (links clicáveis, não embed) */
 .video-links { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 8px; }
 .video-link { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border: 1px solid var(--ccc-line); border-radius: 11px; background: var(--ccc-surface); color: var(--ccc-text); text-decoration: none; }
