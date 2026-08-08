@@ -31,7 +31,12 @@ import { CONTEUDO_DA_ROTA } from "../src/app/sitemap";
 
 const OUT = path.join(process.cwd(), "out");
 
-const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/apoie/"] as const;
+// As rotas fixas saem do PRÓPRIO `sitemap.ts`, e não de uma lista à mão aqui.
+// Era à mão, e a lista de cima explica no que dá: rota nova entrava no site sem
+// entrar na cobertura. Pior no caso do sitemap, onde a lista à mão do teste e a
+// do build DIVERGEM em silêncio — o teste que compara as duas passa a comparar
+// a rota nova consigo mesma ausente dos dois lados.
+const ROTAS_FIXAS = Object.keys(CONTEUDO_DA_ROTA);
 const ROTAS_TOPICO = ALL_TOPICS.map((t) => `/topico/${t.slug}/`);
 const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO];
 

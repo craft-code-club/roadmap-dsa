@@ -13,7 +13,7 @@ export const dynamic = "force-static";
 // Console. O filtro abaixo chama a MESMA função que a página chama — recriar a
 // condição aqui é o que fez o buraco existir, e recriá-la de novo o reabriria na
 // primeira vez que a regra de "tópico vazio" mudasse de um lado só.
-const rotasFixas = ["/", "/introducao/", "/roadmap/", "/apoie/"] as const;
+const rotasFixas = ["/", "/introducao/", "/roadmap/", "/apoie/", "/sobre/"] as const;
 
 // Arquivos que respondem pelo conteúdo de cada rota, para a data sair do Git.
 //
@@ -28,6 +28,10 @@ export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly stri
   "/introducao/": ["src/app/introducao/page.tsx"],
   "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
   "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
+  // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
+  // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
+  // página sem ninguém tocar no `page.tsx` dela.
+  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts"],
 };
 
 // `lastmod` é o único dos três campos opcionais que o Google declarou usar;
@@ -42,7 +46,7 @@ export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly stri
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = rotasFixas.map((rota) => ({
     url: `${SITE_URL}${rota}`,
-    priority: rota === "/" ? 1 : rota === "/apoie/" ? 0.5 : 0.9,
+    priority: rota === "/" ? 1 : rota === "/apoie/" || rota === "/sobre/" ? 0.5 : 0.9,
     changeFrequency: rota === "/" || rota === "/roadmap/" ? ("weekly" as const) : ("monthly" as const),
     lastModified: ultimaAlteracao(...CONTEUDO_DA_ROTA[rota]),
   }));

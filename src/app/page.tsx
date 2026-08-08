@@ -147,6 +147,7 @@ function Footer() {
         <span>Open source · gratuito para sempre</span>
       </div>
       <div className="foot-links">
+        <Link href="/sobre">Sobre</Link>
         <a href={LINKS.github} target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href={LINKS.discord} target="_blank" rel="noopener noreferrer">Discord</a>
         <Link href="/apoie">Apoiar</Link>
