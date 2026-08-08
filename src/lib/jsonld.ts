@@ -117,7 +117,7 @@ export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: D
     //
     // `dateModified` tem o selo "Atualizado em" na tela, em `.topic-chips`.
     // `datePublished` ganha o selo "Publicado em" ao lado quando o dia é OUTRO;
-    // quando é o mesmo dia — 31 dos 36 artigos hoje —, o valor que ele carrega
+    // quando é o mesmo dia — 28 dos 36 tópicos hoje —, o valor que ele carrega
     // é exatamente a data que está impressa ali. Nos dois casos o número na
     // marcação é um número que o leitor vê.
     ...(datas?.publicado ? { datePublished: datas.publicado.toISOString() } : {}),

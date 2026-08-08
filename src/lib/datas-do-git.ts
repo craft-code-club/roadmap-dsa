@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 
 // As rotas fixas e os arquivos que respondem pelo conteúdo de cada uma.
@@ -161,22 +162,161 @@ export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefine
   return datas.length ? new Date(Math.max(...datas)) : undefined;
 }
 
+const ARQUIVO_DO_ROADMAP = "content/roadmap.ts";
+
 /**
- * A data de um tópico: a do artigo, com o `roadmap.ts` de reserva.
+ * O intervalo de linhas que descreve cada tópico dentro do `roadmap.ts`.
  *
- * O artigo é o corpo da página; o tópico sem artigo cai no `roadmap.ts`, que é
- * onde mora cada palavra que essa página mostra.
+ * Existe porque a página de um tópico é feita de DOIS conteúdos: o artigo
+ * (`.mdx`) e a entrada dele aqui, de onde saem título, nível, tempo de leitura,
+ * vídeo, problemas e referências — tudo isso está na tela. Datar a página só
+ * pelo artigo é ignorar metade dela; datar pelo arquivo inteiro é dizer que
+ * todos os tópicos mudaram quando um mudou.
  *
- * Aqui é `??` e NÃO o `max(...)` das rotas fixas, e a diferença foi medida: os
- * 36 `.mdx` do repositório são todos mais antigos que o último commit do
- * `roadmap.ts`, então `max` daria a MESMA data às 36 páginas de tópico e
- * qualquer edição no `roadmap.ts` (marcar um `isNew`, mexer num link)
- * reescreveria a data das 40 URLs de uma vez. Isso é exatamente o
- * "lastmod = data do último deploy" que o Google aprendeu a ignorar. A home e o
- * `/roadmap/` não têm essa escolha: lá o `roadmap.ts` É o conteúdo.
+ * O intervalo é achado por balanço de chaves a partir do `slug:`, e serve para
+ * as DUAS formas de escrita que o arquivo usa hoje — o objeto multilinha dos
+ * tópicos com material e o objeto de uma linha só dos `soon`.
+ *
+ * ⚠️ O resultado é VALIDADO antes de valer: o intervalo tem que conter este
+ * `slug` e nenhum outro. Sem essa conferência, uma reformatação do arquivo faria
+ * o intervalo de um tópico engolir o vizinho e a página passaria a mostrar,
+ * com toda a confiança, a data de outro tópico. Intervalo que não valida não é
+ * usado — o tópico cai no plano B, que é a regra antiga.
+ *
+ * Medido na `main` de hoje: 47 de 47 tópicos validam.
+ */
+function intervalosDosTopicos(): Map<string, readonly [number, number]> {
+  if (intervalos) return intervalos;
+  intervalos = new Map();
+  let linhas: string[];
+  try {
+    linhas = readFileSync(ARQUIVO_DO_ROADMAP, "utf8").split("\n");
+  } catch {
+    return intervalos; // sem o arquivo, todo tópico cai no plano B
+  }
+
+  // Onde cada `slug:` começa, em linha e coluna. A coluna importa: no objeto de
+  // uma linha só, a chave que abre está ANTES do slug, na mesma linha.
+  const posicaoDoSlug = new Map<string, readonly [number, number]>();
+  linhas.forEach((linha, i) => {
+    const m = linha.match(/\bslug: "([^"]+)"/);
+    if (m && !posicaoDoSlug.has(m[1])) posicaoDoSlug.set(m[1], [i, m.index!]);
+  });
+
+  for (const [slug, [linhaDoSlug, coluna]] of posicaoDoSlug) {
+    // Para trás, até a chave que abre o objeto deste tópico.
+    let saldo = 0;
+    let inicio = -1;
+    for (let j = linhaDoSlug; j >= 0 && inicio < 0; j--) {
+      const linha = linhas[j];
+      for (let k = j === linhaDoSlug ? coluna : linha.length - 1; k >= 0; k--) {
+        if (linha[k] === "}") saldo--;
+        else if (linha[k] === "{" && ++saldo === 1) {
+          inicio = j;
+          break;
+        }
+      }
+    }
+    if (inicio < 0) continue;
+
+    // Para frente, até ela fechar.
+    let nivel = 0;
+    let fim = -1;
+    for (let j = inicio; j < linhas.length && fim < 0; j++) {
+      for (const ch of linhas[j]) {
+        if (ch === "{") nivel++;
+        else if (ch === "}" && --nivel === 0) {
+          fim = j;
+          break;
+        }
+      }
+    }
+    if (fim < 0) continue;
+
+    // A validação: um slug dentro, e um só.
+    let quantosSlugs = 0;
+    for (const [, [j]] of posicaoDoSlug) if (j >= inicio && j <= fim) quantosSlugs++;
+    if (quantosSlugs === 1) intervalos.set(slug, [inicio + 1, fim + 1]);
+  }
+  return intervalos;
+}
+
+let intervalos: Map<string, readonly [number, number]> | undefined;
+
+const cacheDoIntervalo = new Map<string, number | undefined>();
+
+/**
+ * O último commit que mexeu NAQUELE trecho do `roadmap.ts`.
+ *
+ * `git log -L <ini>,<fim>:<arquivo>` segue o intervalo de linhas ao longo do
+ * histórico — inclusive quando ele desliza porque alguém inseriu tópicos acima.
+ *
+ * Por que `-L` e não `git blame`, que responderia quase o mesmo por 1/26 do
+ * preço (medido: 207ms de um `blame` do arquivo inteiro contra 5,5s de 36
+ * `-L`): o `blame` só enxerga as linhas que SOBREVIVERAM até hoje, então um
+ * commit que só REMOVEU coisa do tópico (tirar um problema da lista, cortar uma
+ * referência) não move a data — e remover é mudar a página. Medido: as duas
+ * respostas divergem em 18 dos 36 tópicos, e em 3 deles a divergência muda o
+ * DIA que o aluno lê. Num selo visível, 3 páginas com data velha é o defeito
+ * que este mecanismo existe para não ter.
+ *
+ * O preço, dito na cara: 6,5s para os 47 tópicos (137ms cada), contra os ~1,4s
+ * de `git log` que o build já pagava. É custo de build, uma vez, num site
+ * estático — e vem com cache, então as 47 páginas dividem as 47 consultas.
+ */
+function commitDoIntervalo(ini: number, fim: number): number | undefined {
+  const chave = `${ini},${fim}`;
+  const emCache = cacheDoIntervalo.get(chave);
+  if (emCache !== undefined || cacheDoIntervalo.has(chave)) return emCache;
+  let valor: number | undefined;
+  try {
+    const saida = execFileSync(
+      "git",
+      ["log", "-L", `${ini},${fim}:${ARQUIVO_DO_ROADMAP}`, "--no-patch", "--format=%cI"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
+    );
+    const iso = saida.split("\n", 1)[0].trim();
+    const ms = iso ? Date.parse(iso) : NaN;
+    valor = Number.isNaN(ms) ? undefined : ms;
+  } catch {
+    valor = undefined;
+  }
+  cacheDoIntervalo.set(chave, valor);
+  return valor;
+}
+
+/**
+ * Quando a página deste tópico mudou pela última vez.
+ *
+ * É o MAIS RECENTE entre o artigo e a entrada do tópico no `roadmap.ts` —
+ * porque a página é as duas coisas, e o selo "Atualizado em" é uma afirmação
+ * sobre a página inteira.
+ *
+ * A regra anterior era `mdx ?? roadmap.ts`, e tinha dois furos que num campo
+ * invisível (`lastmod`) dava para tolerar e num selo visível não dá:
+ *
+ *   · tópico COM artigo ignorava o `roadmap.ts`, então mexer no título, no
+ *     nível, no tempo de leitura, no vídeo, nos problemas ou nas referências
+ *     não movia a data. Medido: 7 dos 36 tópicos mostravam data velha por isso;
+ *   · tópico SEM artigo herdava o último commit do arquivo INTEIRO, então
+ *     editar um tópico avançava a data de todos os outros.
+ *
+ * O intervalo de linhas fecha os dois: ele é daquele tópico e de mais ninguém.
+ * E ele NÃO recria o problema que o `??` evitava — o comentário antigo temia
+ * que o `max(...)` com o `roadmap.ts` desse a mesma data a todos, e daria
+ * mesmo, se fosse o arquivo inteiro. Com o intervalo, editar um tópico move só
+ * a data dele.
+ *
+ * O `??` sobrevive como plano B, para o tópico cujo intervalo não validou.
  */
 export function atualizacaoDoTopico(slug: string): Date | undefined {
-  return ultimaAlteracao(`content/topics/${slug}.mdx`) ?? ultimaAlteracao("content/roadmap.ts");
+  const doArtigo = ultimaAlteracao(`content/topics/${slug}.mdx`);
+  const intervalo = intervalosDosTopicos().get(slug);
+  const doIntervalo = intervalo ? commitDoIntervalo(intervalo[0], intervalo[1]) : undefined;
+  if (doIntervalo === undefined) {
+    return doArtigo ?? ultimaAlteracao(ARQUIVO_DO_ROADMAP);
+  }
+  return new Date(Math.max(doIntervalo, doArtigo?.getTime() ?? 0));
 }
 
 /**

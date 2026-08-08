@@ -120,9 +120,9 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           {t.readingTime && <span className="chip">⏱ {t.readingTime} de leitura</span>}
           <span className={`level ${levelClass(t.level)}`} style={{ borderStyle: "solid" }}>{t.level}</span>
           {t.language && <span className="chip">{t.language}</span>}
-          {/* O selo "Publicado em" só aparece quando o dia é OUTRO: em 31 dos 36
-              artigos o primeiro e o último commit caem no mesmo dia, e dois
-              selos com a mesma data não informam nada. */}
+          {/* O selo "Publicado em" só aparece quando o dia é OUTRO: em 28 dos 36
+              tópicos a publicação e a última atualização caem no mesmo dia, e
+              dois selos com a mesma data não informam nada. */}
           {datas?.publicado && diaIso(datas.publicado) !== diaIso(datas.atualizado) && (
             <span className="chip">
               Publicado em{" "}

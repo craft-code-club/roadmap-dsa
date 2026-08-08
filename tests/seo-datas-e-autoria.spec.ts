@@ -135,19 +135,15 @@ test("as datas do tópico e o lastmod do sitemap contam a MESMA história", () =
   // ARTEFATO: o `dateModified` das páginas e o `lastmod` do sitemap saíram do
   // MESMO processo, do MESMO `git log` e do MESMO guarda.
   //
-  // Quatro afirmações, e cada uma cai por um defeito diferente:
+  // Três afirmações, e cada uma cai por um defeito diferente:
   //
   //   (a) ou todas as páginas têm data, ou nenhuma tem — nunca pela metade;
   //   (b) a presença bate, página a página, com a do `lastmod` da mesma URL;
-  //   (c) as datas presentes passam no critério de CONCENTRAÇÃO do módulo — é
-  //       aqui que morre a versão sem guarda, que em clone raso carimba as 36
-  //       páginas com a data do commit-fronteira;
-  //   (d) o valor é o mesmo instante nos dois artefatos.
+  //   (c) o valor é o mesmo instante nos dois artefatos.
   const lastmods = lastmodPorRota();
   const comData: string[] = [];
   const semData: string[] = [];
   const divergentes: string[] = [];
-  const entradas: { rota: string; lastModified?: Date }[] = [];
 
   for (const t of INDEXAVEIS) {
     const rota = rotaDo(t.slug);
@@ -165,11 +161,10 @@ test("as datas do tópico e o lastmod do sitemap contam a MESMA história", () =
     }
     if (!modificado) continue;
     expect(Number.isNaN(Date.parse(modificado)), `${rota}: ${modificado} não é data`).toBe(false);
-    // (d) mesmo instante
+    // (c) mesmo instante
     if (Date.parse(modificado) !== Date.parse(doSitemap!)) {
       divergentes.push(`${rota} → dateModified=${modificado}, lastmod=${doSitemap}`);
     }
-    entradas.push({ rota, lastModified: new Date(modificado) });
   }
 
   // (a)
@@ -180,27 +175,71 @@ test("as datas do tópico e o lastmod do sitemap contam a MESMA história", () =
 
   expect(divergentes, "a página e o sitemap discordam sobre a data").toEqual([]);
 
-  // (c) A regra vem do módulo, não daqui — e é a regra de CONCENTRAÇÃO, a mesma
-  // que o build usa para decidir se imprime data. Aplicada aqui às datas que o
-  // build de fato imprimiu: se elas não passam no critério, o build não devia
-  // tê-las impresso.
+  // Sobre o que este teste NÃO afirma, que é a parte que quase virou defeito:
   //
-  // `Set.size > 1` não serviria, e essa é a diferença que importa: num clone
-  // raso com alguns commits em cima, os caminhos tocados por esses commits
-  // resolvem para eles e todo o resto resolve para a fronteira. Duas datas
-  // distintas, contagem aprovada, e a maioria das URLs com data fabricada.
-  if (entradas.length) {
-    const carimbos = entradas.map((e) => e.lastModified!.getTime());
-    const porCarimbo = new Map<number, number>();
-    for (const c of carimbos) porCarimbo.set(c, (porCarimbo.get(c) ?? 0) + 1);
-    const moda = Math.max(...porCarimbo.values());
-    expect(
-      datasDistinguemCaminhos(carimbos),
-      `as datas impressas se concentram em poucos carimbos: ${moda} das ${carimbos.length} ` +
-        `páginas dividem a MESMA data (${((100 * moda) / carimbos.length).toFixed(1)}%, teto ` +
-        `de ${100 * LIMITE_DE_CONCENTRACAO}%), ou seja, é a data do commit-fronteira repetida`
-    ).toBe(true);
-  }
+  // Uma versão anterior exigia que as datas IMPRESSAS passassem no critério de
+  // concentração do módulo. Parecia o guarda mais forte possível e era um falso
+  // positivo esperando a vez: a data de um tópico é o mais recente entre o
+  // artigo e o intervalo dele no `roadmap.ts`, então um commit em lote naquele
+  // arquivo — renomear um campo em todos os tópicos, por exemplo — coloca as 36
+  // páginas na MESMA data. Medido: moda de 36/36, 100%, contra o teto de 50%.
+  // O build estaria certo (todas as páginas mudaram mesmo, naquele commit) e o
+  // teste reprovaria.
+  //
+  // Concentração é um bom sinal de "git cego" sobre CAMINHOS BRUTOS, que é onde
+  // o módulo a aplica, e um mau sinal sobre datas agregadas por página, que
+  // podem convergir por um motivo legítimo. A regra em si é provada com entrada
+  // sintética, no teste `o guarda de datas reprova histórico achatado`.
+});
+
+test("o guarda de datas reprova histórico achatado, e não só o caso extremo", () => {
+  // A regra do módulo, provada com entrada sintética — onde o veredito certo é
+  // conhecido sem perguntar nada ao git.
+  //
+  // O caso do meio é o que motivou a troca de critério. A regra anterior era
+  // `Set.size > 1`: bastavam DUAS datas distintas para ela aprovar. Num clone
+  // raso com alguns commits em cima, os caminhos que esses commits tocaram
+  // resolvem para eles e todo o resto resolve para o commit-fronteira — duas
+  // datas distintas, aprovação, e a maioria das páginas com data fabricada.
+  const FRONTEIRA = Date.parse("2026-08-08T10:00:00Z");
+  const repetido = (n: number) => Array.from({ length: n }, () => FRONTEIRA);
+  const distintos = (n: number) => Array.from({ length: n }, (_, i) => FRONTEIRA - (i + 1) * 3600000);
+
+  // Histórico de verdade: cada caminho com a sua data.
+  expect(datasDistinguemCaminhos(distintos(45)), "clone completo").toBe(true);
+
+  // Raso puro: uma data para tudo. `Set.size > 1` também pegava este.
+  expect(datasDistinguemCaminhos(repetido(45)), "raso: uma data só").toBe(false);
+
+  // Raso com 3 commits em cima: 42 na fronteira, 3 de verdade. Concentração de
+  // 93,3%. É AQUI que a regra antiga aprovava e a nova reprova.
+  expect(
+    datasDistinguemCaminhos([...repetido(42), ...distintos(3)]),
+    "raso + 3 commits recentes: 93,3% de concentração"
+  ).toBe(false);
+
+  // Raso com 10 em cima: 77,8%. Ainda achatado.
+  expect(
+    datasDistinguemCaminhos([...repetido(35), ...distintos(10)]),
+    "raso + 10 commits recentes: 77,8% de concentração"
+  ).toBe(false);
+
+  // Sem dado nenhum não é evidência de nada, e não pode virar aprovação.
+  expect(datasDistinguemCaminhos([]), "nenhum carimbo").toBe(false);
+  expect(datasDistinguemCaminhos([undefined, undefined]), "só caminhos sem histórico").toBe(false);
+
+  // `undefined` não conta nem a favor nem contra: ele é ausência de dado, não
+  // evidência de achatamento.
+  expect(
+    datasDistinguemCaminhos([...distintos(4), undefined, undefined]),
+    "4 datas distintas com 2 caminhos sem histórico"
+  ).toBe(true);
+
+  // A fronteira exata do critério, para o teto não escorregar sem ninguém ver:
+  // metade repetida passa, um a mais reprova.
+  const metade = [...repetido(10), ...distintos(10)];
+  expect(datasDistinguemCaminhos(metade), `moda em exatamente ${100 * LIMITE_DE_CONCENTRACAO}%`).toBe(true);
+  expect(datasDistinguemCaminhos([...repetido(11), ...distintos(10)]), "moda logo acima do teto").toBe(false);
 });
 
 test("datePublished nunca é depois de dateModified", () => {
@@ -284,10 +323,10 @@ test("o selo 'Atualizado em' está na tela, legível, e diz a data que marca", a
 test("quando o selo 'Publicado em' aparece, ele é um dia DIFERENTE do de atualização", async ({
   page,
 }) => {
-  // O selo de publicação é condicional de propósito: em 31 dos 36 artigos o
-  // primeiro e o último commit caem no mesmo dia, e dois selos com a mesma data
-  // não informam nada. O que este teste prende é a condição — se ela cair, o
-  // primeiro tópico com as duas datas iguais imprime a mesma data duas vezes.
+  // O selo de publicação é condicional de propósito: em 28 dos 36 tópicos a
+  // publicação e a última atualização caem no mesmo dia, e dois selos com a
+  // mesma data não informam nada. O que este teste prende é a condição — se ela
+  // cair, o primeiro tópico com as duas datas iguais imprime a data duas vezes.
   const comOsDois = INDEXAVEIS.filter((t) => {
     const r = doTipo(jsonLd(rotaDo(t.slug)), "LearningResource")!;
     const p = r.datePublished as string | undefined;
