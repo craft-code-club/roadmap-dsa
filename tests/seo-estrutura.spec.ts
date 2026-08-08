@@ -483,12 +483,187 @@ test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza"
   expect(itens.map((i) => i.position)).toEqual(ALL_TOPICS.map((_, i) => i + 1));
 });
 
-test("o JSON-LD do tópico não promete vídeo, que é o que falta para o VideoObject", () => {
-  // `VideoObject` exige `uploadDate`, que não existe no type `Topic`. Marcar o
-  // vídeo sem ele é marcação inválida; marcar com data inventada é pior.
-  const comVideo = ALL_TOPICS.find((t) => t.youtube)!;
-  const nos = jsonLd(`/topico/${comVideo.slug}/`);
-  expect(doTipo(nos, "VideoObject"), "VideoObject só entra quando houver uploadDate").toBeUndefined();
+// --- VideoObject: a aula gravada -------------------------------------------
+//
+// Este bloco substituiu um teste que exigia a AUSÊNCIA do `VideoObject`: ele
+// existia porque o nó precisa de `uploadDate` e o type `Topic` não tinha data.
+// Hoje tem (`videoUploadDate`, obrigatório por união quando há `youtube`), e o
+// que se cobra passou a ser o contrário — que o nó esteja lá, completo, em toda
+// página que embute a aula, e em nenhuma que não embute.
+
+/** Segundos de uma duração ISO 8601 do tipo `PT1H38M8S`. `null` se não parsear. */
+function segundosDoIso(iso: string): number | null {
+  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m || (!m[1] && !m[2] && !m[3])) return null;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+}
+
+/** Segundos de um "H:MM:SS" ou "MM:SS" da tela. `null` se não parsear. */
+function segundosDoRelogio(txt: string): number | null {
+  const m = txt.match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+}
+
+test("toda página com aula entrega um VideoObject com os quatro campos obrigatórios", () => {
+  // Os obrigatórios do Google para VideoObject: name, description, thumbnailUrl
+  // e uploadDate. "Presente" não basta — string vazia e array vazio passariam
+  // por um teste que só perguntasse `toBeDefined`, e é assim que marcação
+  // aparentemente completa chega ao Search Console como campo faltando.
+  const OBRIGATORIOS = ["name", "description", "thumbnailUrl", "uploadDate"] as const;
+  const comAula = ALL_TOPICS.filter((t) => t.youtube);
+  expect(comAula.length, "nenhum tópico com vídeo: o teste não teria o que provar").toBeGreaterThan(0);
+
+  const problemas: string[] = [];
+  for (const t of comAula) {
+    const rota = `/topico/${t.slug}/`;
+    const video = doTipo(jsonLd(rota), "VideoObject");
+    if (!video) {
+      problemas.push(`${rota}: tem <iframe> da aula e nenhum VideoObject`);
+      continue;
+    }
+    for (const campo of OBRIGATORIOS) {
+      const v = video[campo];
+      const vazio =
+        v === undefined ||
+        v === null ||
+        (typeof v === "string" && v.trim() === "") ||
+        (Array.isArray(v) && (v.length === 0 || v.some((x) => typeof x !== "string" || !x.trim())));
+      if (vazio) problemas.push(`${rota}: ${campo} = ${JSON.stringify(v)}`);
+    }
+  }
+  expect(
+    problemas,
+    `${problemas.length} campo(s) obrigatório(s) faltando nos ${comAula.length} VideoObject entregues`
+  ).toEqual([]);
+});
+
+test("todo tópico com vídeo declara uma data de publicação real, e não do futuro", () => {
+  // O guarda que sustenta a união de tipos do `Topic` do lado do ARTEFATO: a
+  // união reprova no `tsc` quem entrar sem data, e este teste reprova quem
+  // entrar com data que não é data. Os dois cobrem o mesmo esquecimento em
+  // pontos diferentes, e o que não pode é o próximo tópico passar pelos dois.
+  const agora = Date.now();
+  const problemas: string[] = [];
+  let conferidos = 0;
+  for (const t of ALL_TOPICS.filter((t) => t.youtube)) {
+    const rota = `/topico/${t.slug}/`;
+    const video = doTipo(jsonLd(rota), "VideoObject");
+    if (!video) continue; // já reprovado no teste acima
+    const data = video.uploadDate;
+    if (typeof data !== "string") {
+      problemas.push(`${rota}: uploadDate não é string (${JSON.stringify(data)})`);
+      continue;
+    }
+    conferidos += 1;
+    const ms = Date.parse(data);
+    if (Number.isNaN(ms)) {
+      problemas.push(`${rota}: "${data}" não é ISO 8601 parseável`);
+      continue;
+    }
+    // ISO 8601 de verdade, não um "01/04/2024" que o `Date.parse` aceitaria por
+    // tolerância: ano-mês-dia, e fuso declarado (Z ou ±HH:MM) quando há hora.
+    if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2}))?$/.test(data)) {
+      problemas.push(`${rota}: "${data}" não está na forma ISO 8601 com fuso`);
+    }
+    if (ms > agora) problemas.push(`${rota}: uploadDate no futuro (${data})`);
+    // A data também não pode ser anterior ao canal: aula gravada em 1970 é o
+    // sintoma clássico de timestamp zerado passando por "data válida".
+    if (ms < Date.parse("2020-01-01T00:00:00Z")) {
+      problemas.push(`${rota}: uploadDate anterior ao canal da comunidade (${data})`);
+    }
+    if (t.videoUploadDate !== undefined) {
+      expect(data, `${rota}: a data entregue não é a do roadmap`).toBe(t.videoUploadDate);
+    }
+  }
+  expect(problemas, "datas de publicação inválidas").toEqual([]);
+  expect(
+    conferidos,
+    "quantidade de tópicos com vídeo cuja data foi conferida no HTML entregue"
+  ).toBe(ALL_TOPICS.filter((t) => t.youtube).length);
+});
+
+test("o VideoObject aponta para o embed e a miniatura daquele vídeo", () => {
+  // A marcação reflete o que está na tela: o `embedUrl` tem que ser o MESMO
+  // `src` do `<iframe>` que a página renderiza. Comparar contra o HTML, e não
+  // contra `ytEmbed(t.youtube)` de novo, é o que impede o teste de repetir o
+  // erro do código — se os dois saíssem da mesma função, marcar o vídeo errado
+  // passaria verde.
+  const problemas: string[] = [];
+  for (const t of ALL_TOPICS.filter((t) => t.youtube)) {
+    const rota = `/topico/${t.slug}/`;
+    const doc = html(rota);
+    const video = doTipo(jsonLd(rota), "VideoObject");
+    if (!video) continue;
+    const iframes = [...doc.matchAll(/<iframe[^>]*src="([^"]+)"/g)].map((m) => m[1]);
+    const embed = video.embedUrl as string | undefined;
+    if (!embed || !iframes.includes(embed)) {
+      problemas.push(`${rota}: embedUrl=${embed} não está entre os iframes da página (${iframes.join(", ") || "nenhum"})`);
+    }
+    // `contentUrl` seria mentira: o arquivo do vídeo não é servido daqui.
+    if (video.contentUrl !== undefined) problemas.push(`${rota}: contentUrl num vídeo que é só embutido`);
+    // A miniatura tem que ser a DESTE vídeo, e a URL precisa ser absoluta.
+    for (const thumb of (video.thumbnailUrl as string[] | undefined) ?? []) {
+      if (!thumb.startsWith("https://i.ytimg.com/vi/")) problemas.push(`${rota}: miniatura fora do i.ytimg.com (${thumb})`);
+      if (!thumb.includes(`/vi/${t.youtube}/`)) problemas.push(`${rota}: miniatura de outro vídeo (${thumb})`);
+    }
+    if (video.publisher === undefined) problemas.push(`${rota}: VideoObject sem publisher`);
+    if (video.inLanguage !== "pt-BR") problemas.push(`${rota}: inLanguage=${video.inLanguage}`);
+  }
+  expect(problemas, "VideoObject que não descreve o vídeo da própria página").toEqual([]);
+});
+
+test("a duração marcada é a duração escrita ao lado do vídeo", () => {
+  // O par que o Google lê (`duration`, em ISO 8601) e o par que o aluno lê
+  // ("· 2:08:22", na linha acima do embed) têm que valer a MESMA quantidade de
+  // segundos. Os dois lados são parseados por regras independentes e comparados
+  // em segundos — um conversor que trocasse minutos por horas reprova aqui.
+  const problemas: string[] = [];
+  let conferidos = 0;
+  for (const t of ALL_TOPICS.filter((t) => t.youtube)) {
+    const rota = `/topico/${t.slug}/`;
+    const video = doTipo(jsonLd(rota), "VideoObject");
+    if (!video) continue;
+    const duration = video.duration as string | undefined;
+    if (t.videoMinutes === undefined) {
+      expect(duration, `${rota}: sem duração na tela, sem duration na marcação`).toBeUndefined();
+      continue;
+    }
+    if (duration === undefined) {
+      problemas.push(`${rota}: a página mostra "${t.videoMinutes}" e a marcação não tem duration`);
+      continue;
+    }
+    const emSegundos = segundosDoIso(duration);
+    const naTela = segundosDoRelogio(t.videoMinutes);
+    if (emSegundos === null) {
+      problemas.push(`${rota}: duration="${duration}" não é duração ISO 8601 válida`);
+      continue;
+    }
+    if (naTela !== null && emSegundos !== naTela) {
+      problemas.push(`${rota}: duration=${duration} (${emSegundos}s) ≠ "${t.videoMinutes}" (${naTela}s)`);
+    }
+    // O texto do embed é o que o aluno lê; ele tem que estar mesmo no HTML.
+    if (!html(rota).includes(t.videoMinutes)) {
+      problemas.push(`${rota}: "${t.videoMinutes}" não aparece no HTML entregue`);
+    }
+    conferidos += 1;
+  }
+  expect(problemas, "duração marcada divergindo da duração na tela").toEqual([]);
+  expect(conferidos, "durações conferidas contra a tela").toBeGreaterThan(0);
+});
+
+test("página sem aula não inventa VideoObject", () => {
+  // A outra metade, e a que envelhece sozinha: a lista sai de `ALL_TOPICS`, não
+  // de um slug escrito à mão, então um tópico novo sem vídeo entra na cobertura
+  // no mesmo commit que o cria.
+  const semAula = ALL_TOPICS.filter((t) => !t.youtube);
+  expect(semAula.length, "todos os tópicos têm vídeo: esta metade ficou sem o que provar").toBeGreaterThan(0);
+  const intrusos: string[] = [];
+  for (const t of semAula) {
+    const rota = `/topico/${t.slug}/`;
+    if (doTipo(jsonLd(rota), "VideoObject")) intrusos.push(rota);
+  }
+  expect(intrusos, `${intrusos.length} páginas sem embed declarando VideoObject`).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------
