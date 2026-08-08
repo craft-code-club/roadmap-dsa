@@ -164,6 +164,9 @@ export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefine
 
 const ARQUIVO_DO_ROADMAP = "content/roadmap.ts";
 
+/** Os intervalos, lidos e validados uma vez por build. */
+let intervalos: Map<string, readonly [number, number]> | undefined;
+
 /**
  * O intervalo de linhas que descreve cada tópico dentro do `roadmap.ts`.
  *
@@ -240,8 +243,6 @@ function intervalosDosTopicos(): Map<string, readonly [number, number]> {
   }
   return intervalos;
 }
-
-let intervalos: Map<string, readonly [number, number]> | undefined;
 
 const cacheDoIntervalo = new Map<string, number | undefined>();
 
