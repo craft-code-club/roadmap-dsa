@@ -122,6 +122,18 @@ const RESOLUTIONS = [
   ["maxresdefault", 1280],
 ] as const;
 
+/**
+ * Escapa o que vai para dentro de `dangerouslySetInnerHTML`.
+ *
+ * `&` primeiro, senão ele reescreveria as entidades que os outros produzem.
+ */
+const escaparHtml = (texto: string) =>
+  texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 export function VideoFacade({ youtube, title }: { youtube: string; title: string }) {
   const [playing, setPlaying] = useState(false);
   // `maxresdefault` existe nos 34 vídeos de hoje, mas o YouTube não garante as
@@ -223,13 +235,22 @@ export function VideoFacade({ youtube, title }: { youtube: string; title: string
         `dangerouslySetInnerHTML` o React não compara os filhos. É o mesmo
         caminho que o `@next/third-parties` usa no snippet do GTM.
 
-        A única interpolação é a URL, montada do id do vídeo (`[A-Za-z0-9_-]{11}`
-        vindo do `content/roadmap.ts`), e não de entrada de usuário.
+        A interpolação é a URL, montada do id do vídeo. O comentário anterior
+        dizia que o id "é `[A-Za-z0-9_-]{11}` vindo do `content/roadmap.ts`", e
+        isso era SUPOSIÇÃO: o campo é `string` e o `yt()` do roadmap é função
+        identidade — não valida nada. Dentro de `<noscript>` isso importa mais
+        do que parece: é elemento de texto cru, então um id contendo
+        `</noscript>` fecharia a tag e injetaria marcação em toda página com
+        JavaScript ligado.
+
+        Agora o formato é CONFERIDO, e o que sobra é escapado. Não é paranoia
+        com entrada de usuário — o dado é do repositório —, é não deixar um
+        campo `string` sem contrato virar caminho de injeção num commit futuro.
       */}
       <noscript
         dangerouslySetInnerHTML={{
           __html:
-            `<a class="video-facade-nojs" href="${ytWatch(youtube)}"` +
+            `<a class="video-facade-nojs" href="${escaparHtml(ytWatch(youtube))}"` +
             ` target="_blank" rel="noopener noreferrer">Assistir à aula no YouTube ↗</a>`,
         }}
       />
