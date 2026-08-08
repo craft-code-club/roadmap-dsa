@@ -1,6 +1,37 @@
 import { execFileSync } from "node:child_process";
 import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 
+// As rotas fixas e os arquivos que respondem pelo conteúdo de cada uma.
+//
+// Mora AQUI, e não no `sitemap.ts` que é o principal consumidor, por uma razão
+// só: é deste inventário que sai o conjunto de caminhos que o guarda mede, e o
+// guarda precisa ser o mesmo para os dois consumidores. Com o mapa lá e o
+// guarda cá, a única saída seria o módulo importar o `sitemap.ts` — que já
+// importa o módulo.
+//
+// É uma LISTA por rota, e não um arquivo só, porque `page.tsx` quase nunca é
+// onde o texto mora. A home e o `/roadmap/` importam de `content/roadmap.ts`:
+// mexer num tópico muda as duas telas sem tocar em nenhum dos dois `page.tsx`,
+// e a data ficava parada no dia em que o layout mudou pela última vez. O
+// `/apoie/` tem a mesma forma com `apoiadores.ts`, que é onde a lista de nomes
+// é mantida à mão. A data da rota é a MAIS RECENTE entre esses arquivos.
+//
+// O tipo do `Record` é o que cobra a segunda metade: acrescentar uma rota em
+// `ROTAS_FIXAS` sem declarar de que arquivos ela tira data é erro de
+// compilação, não uma URL sem `lastmod` descoberta meses depois.
+export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/apoie/", "/sobre/"] as const;
+
+export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly string[]> = {
+  "/": ["src/app/page.tsx", "content/roadmap.ts"],
+  "/introducao/": ["src/app/introducao/page.tsx"],
+  "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
+  "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
+  // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
+  // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
+  // página sem ninguém tocar no `page.tsx` dela.
+  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts"],
+};
+
 // A data de uma página, derivada do `git log`. Um lugar só, porque são dois
 // consumidores que precisam responder a MESMA coisa: o `lastmod` do
 // `sitemap.ts` e o `dateModified` do JSON-LD do tópico. Dois predicados para a
@@ -29,14 +60,34 @@ import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 //
 // O que este arquivo precisa saber não é a profundidade do clone, é uma
 // CAPACIDADE: o `git log` consegue distinguir um caminho do outro? A resposta
-// está nas próprias datas que ele acabou de coletar. Se todas as páginas
-// saírem com o MESMO carimbo, esse carimbo não é informação — é a data do
-// último commit repetida 40 vezes, exatamente o `lastmod` que o Google
-// aprendeu a ignorar —, e aí o campo inteiro não sai.
+// está nas próprias datas que ele acabou de coletar.
 //
 // A vantagem sobre qualquer sonda de ambiente: build e teste chegam à mesma
 // conclusão porque olham o mesmo dado, o resultado do `git log`, e não um
 // marcador que cada máquina mantém do seu jeito.
+//
+// E a medida dessa capacidade é CONCENTRAÇÃO, não contagem de distintas. A
+// diferença não é teórica: num clone raso com alguns commits em cima, os
+// caminhos que esses commits tocaram resolvem para eles e todo o RESTO resolve
+// para o commit-fronteira. Dá duas datas distintas — `Set.size > 1` aprova — e
+// a esmagadora maioria das URLs fica com uma data fabricada. Foi assim que uma
+// CI vermelha inteira se explicou: o git daquele processo achatou 39 dos 42
+// caminhos na data do merge da base e resolveu de verdade os TRÊS que o PR
+// tinha tocado; a contagem valia 2, o guarda concluía "o git enxerga", e 37
+// URLs corretas foram reprovadas.
+//
+// Então a medida é a fatia da MODA sobre todos os caminhos de que o site tira
+// data. Margens medidas neste repositório: com histórico de verdade, 45
+// caminhos, 24 datas distintas, moda de 6 (13,3%); no job achatado a moda era
+// 39 de 42 (92,9%). O corte em 50% fica longe dos dois, e cobre o caso antigo —
+// git que resolve UMA data para tudo tem moda de 100%.
+//
+// Este critério não nasceu aqui: ele já era o do `tests/seo-estrutura.spec.ts`,
+// que o descobriu na investigação daquela CI. O que mudou é que agora ele mora
+// no código de produção e o teste IMPORTA a mesma função, em vez de o
+// repositório manter duas versões da mesma regra — que é exatamente o erro que
+// o comentário do `sitemap.ts` registra sobre recriar a condição em dois
+// lugares.
 
 // Um `git log` por caminho, e não por consulta. São 48 chamadas só para montar
 // o sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,
@@ -129,43 +180,78 @@ export function atualizacaoDoTopico(slug: string): Date | undefined {
 }
 
 /**
- * Devolve as entradas sem `lastModified` quando as datas não carregam
- * informação: uma só distinta (ou nenhuma) significa que o `git log` respondeu
- * o mesmo para todo caminho. Exportada para o teste conferir a MESMA regra em
- * vez de recriá-la — foi recriando que este guarda errou duas vezes.
+ * Acima desta fatia, o carimbo mais repetido denuncia histórico achatado.
+ *
+ * Margens medidas: 13,3% neste repositório com histórico de verdade, 92,9% no
+ * job achatado, 100% no git que resolve uma data só para tudo. O corte fica
+ * longe dos três.
  */
-export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T[] {
-  const distintas = new Set(
-    entradas.map((e) => e.lastModified?.getTime()).filter((v): v is number => v !== undefined)
-  );
-  if (distintas.size > 1) return entradas;
-  return entradas.map(({ lastModified: _, ...resto }) => resto as T);
-}
-
-/** A resposta do guarda, uma vez por build. `undefined` = ainda não perguntei. */
-let gitDistingueCaminhos: boolean | undefined;
+export const LIMITE_DE_CONCENTRACAO = 0.5;
 
 /**
- * O MESMO guarda do sitemap, respondido uma vez por build.
+ * A regra, pura e sem tocar no git: estes carimbos distinguem os caminhos de
+ * onde saíram, ou são o mesmo commit repetido?
  *
- * Uma página sozinha não tem como saber se o carimbo dela é informação: a
- * resposta só existe olhando o CONJUNTO. Então a pergunta é feita pelo site
- * inteiro — as datas dos tópicos que o sitemap convida — e o conjunto passa
- * pelo próprio `comDataUtil`. Se ele apagar as datas, o `git log` deste build
- * respondeu o mesmo para todo caminho, e nenhuma página estampa data nenhuma.
+ * Exportada para o teste conferir a MESMA regra em vez de recriá-la — foi
+ * recriando que este guarda errou duas vezes, e foi mantendo duas versões dela
+ * que o teste reprovou 37 URLs corretas.
  *
- * É a mesma pergunta do `lastmod` de propósito, e não por economia: o sitemap
- * omitindo a data por não confiar nela enquanto a página a estampa em 40
- * lugares seria o site se contradizendo sobre o mesmo fato.
+ * `undefined` (caminho que nunca existiu no histórico) não conta nem a favor
+ * nem contra: ele não é evidência de achatamento, é ausência de dado.
  */
-function oGitDistingueCaminhos(): boolean {
-  if (gitDistingueCaminhos === undefined) {
-    const entradas = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => ({
-      lastModified: atualizacaoDoTopico(t.slug),
-    }));
-    gitDistingueCaminhos = comDataUtil(entradas).some((e) => e.lastModified !== undefined);
-  }
-  return gitDistingueCaminhos;
+export function datasDistinguemCaminhos(carimbos: readonly (number | undefined)[]): boolean {
+  const porCarimbo = new Map<number, number>();
+  for (const c of carimbos) if (c !== undefined) porCarimbo.set(c, (porCarimbo.get(c) ?? 0) + 1);
+  const resolvidos = [...porCarimbo.values()].reduce((a, b) => a + b, 0);
+  if (resolvidos === 0) return false;
+  return Math.max(...porCarimbo.values()) / resolvidos <= LIMITE_DE_CONCENTRACAO;
+}
+
+/**
+ * TODOS os caminhos de que o site tira data — as rotas fixas e os artigos.
+ *
+ * É este conjunto, e nenhum recorte dele, que o guarda mede. O recorte era um
+ * defeito de verdade: a página de tópico media só os artigos e o sitemap media
+ * rotas fixas mais tópicos, então num build onde as rotas fixas resolvessem
+ * para o HEAD e os artigos para a fronteira do raso, as duas respostas
+ * divergiriam — as páginas escondendo a data e o sitemap publicando o
+ * `lastmod`. O invariante que este PR anuncia (página e sitemap contam a mesma
+ * história) dependia de as duas perguntas serem uma só.
+ */
+export function caminhosDatados(): string[] {
+  return [
+    ...Object.values(CONTEUDO_DA_ROTA).flat(),
+    ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `content/topics/${t.slug}.mdx`),
+  ];
+}
+
+/** A decisão, uma vez por build. `undefined` = ainda não perguntei. */
+let enxerga: boolean | undefined;
+
+/**
+ * UMA decisão de validade, com cache, para os dois consumidores.
+ *
+ * Enquanto ela for falsa, nem o `lastmod` nem o `dateModified` saem — o site
+ * inteiro fica sem data, que é o comportamento certo: data errada é pior do
+ * que data nenhuma, e meia data é o site se contradizendo sobre o mesmo fato.
+ */
+export function oGitEnxergaOHistorico(): boolean {
+  if (enxerga === undefined) enxerga = datasDistinguemCaminhos(caminhosDatados().map(commitDoArquivo));
+  return enxerga;
+}
+
+/**
+ * Devolve as entradas sem `lastModified` quando o `git log` deste build não
+ * distingue um caminho do outro.
+ *
+ * Repare que ele NÃO julga as entradas que recebe: quem decide é
+ * {@link oGitEnxergaOHistorico}, sobre o conjunto canônico de caminhos. Julgar
+ * o próprio argumento era o defeito — cada consumidor passava um conjunto
+ * diferente e podia chegar a uma resposta diferente.
+ */
+export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T[] {
+  if (oGitEnxergaOHistorico()) return entradas;
+  return entradas.map(({ lastModified: _, ...resto }) => resto as T);
 }
 
 export type DatasDoTopico = {
@@ -186,7 +272,7 @@ export type DatasDoTopico = {
  * saber disso — sem datas, o selo não é desenhado e os campos não saem.
  */
 export function datasDoTopico(slug: string): DatasDoTopico | undefined {
-  if (!oGitDistingueCaminhos()) return undefined;
+  if (!oGitEnxergaOHistorico()) return undefined;
   const atualizado = atualizacaoDoTopico(slug);
   if (!atualizado) return undefined;
   const publicado = primeiroCommitDoArquivo(`content/topics/${slug}.mdx`);

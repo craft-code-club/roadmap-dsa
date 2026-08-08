@@ -2,9 +2,12 @@ import { test, expect } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
-import { comDataUtil } from "../src/lib/datas-do-git";
+import {
+  CONTEUDO_DA_ROTA,
+  datasDistinguemCaminhos,
+  LIMITE_DE_CONCENTRACAO,
+} from "../src/lib/datas-do-git";
 import { dataLonga, diaIso } from "../src/lib/format";
-import { CONTEUDO_DA_ROTA } from "../src/app/sitemap";
 import { SITE_URL } from "../src/lib/links";
 
 // Quem assina o conteúdo, quando ele foi atualizado, e a página que responde
@@ -15,16 +18,17 @@ import { SITE_URL } from "../src/lib/links";
 // `JSON.parse` e conferido campo por nome, e o que o aluno lê é conferido no
 // navegador, com o rótulo junto do valor.
 //
-// A guarda das datas NÃO é reescrita aqui: `comDataUtil` é IMPORTADA do módulo
-// que o build usa. Esse guarda já errou duas vezes por ter sido recriado do
-// lado de fora (uma vez perguntando `git rev-parse --is-shallow-repository`,
-// outra lendo `.git/shallow`), e as duas reprovaram um sitemap correto.
+// A guarda das datas NÃO é reescrita aqui: `datasDistinguemCaminhos` é
+// IMPORTADA do módulo que o build usa. Esse guarda já errou duas vezes por ter
+// sido recriado do lado de fora (uma vez perguntando
+// `git rev-parse --is-shallow-repository`, outra lendo `.git/shallow`), e as
+// duas reprovaram um sitemap correto.
 //
 // As três funções de leitura de artefato abaixo são cópia das do
 // `seo-estrutura.spec.ts`, e a cópia é deliberada: unificá-las mexeria naquele
 // arquivo, que outra frente está editando agora. Unificar é PR próprio — e
 // note que o que está duplicado é PARSER, não REGRA: a regra que decide se a
-// data vale (`comDataUtil`) tem um dono só, importado acima.
+// data vale tem um dono só, importado acima.
 
 const OUT = path.join(process.cwd(), "out");
 
@@ -135,9 +139,9 @@ test("as datas do tópico e o lastmod do sitemap contam a MESMA história", () =
   //
   //   (a) ou todas as páginas têm data, ou nenhuma tem — nunca pela metade;
   //   (b) a presença bate, página a página, com a do `lastmod` da mesma URL;
-  //   (c) as datas presentes SOBREVIVEM ao `comDataUtil` — é aqui que morre a
-  //       versão sem guarda, que em clone raso carimba as 36 páginas com a data
-  //       do último deploy;
+  //   (c) as datas presentes passam no critério de CONCENTRAÇÃO do módulo — é
+  //       aqui que morre a versão sem guarda, que em clone raso carimba as 36
+  //       páginas com a data do commit-fronteira;
   //   (d) o valor é o mesmo instante nos dois artefatos.
   const lastmods = lastmodPorRota();
   const comData: string[] = [];
@@ -176,18 +180,26 @@ test("as datas do tópico e o lastmod do sitemap contam a MESMA história", () =
 
   expect(divergentes, "a página e o sitemap discordam sobre a data").toEqual([]);
 
-  // (c) A regra vem do módulo, não daqui. `comDataUtil` devolve as entradas SEM
-  // `lastModified` quando as datas não carregam informação; se ele apagar as
-  // datas que o build imprimiu, o build não devia tê-las impresso.
+  // (c) A regra vem do módulo, não daqui — e é a regra de CONCENTRAÇÃO, a mesma
+  // que o build usa para decidir se imprime data. Aplicada aqui às datas que o
+  // build de fato imprimiu: se elas não passam no critério, o build não devia
+  // tê-las impresso.
+  //
+  // `Set.size > 1` não serviria, e essa é a diferença que importa: num clone
+  // raso com alguns commits em cima, os caminhos tocados por esses commits
+  // resolvem para eles e todo o resto resolve para a fronteira. Duas datas
+  // distintas, contagem aprovada, e a maioria das URLs com data fabricada.
   if (entradas.length) {
-    const uteis = comDataUtil(entradas);
-    const apagadas = uteis.filter((e) => e.lastModified === undefined);
+    const carimbos = entradas.map((e) => e.lastModified!.getTime());
+    const porCarimbo = new Map<number, number>();
+    for (const c of carimbos) porCarimbo.set(c, (porCarimbo.get(c) ?? 0) + 1);
+    const moda = Math.max(...porCarimbo.values());
     expect(
-      apagadas.length,
-      `${apagadas.length} das ${entradas.length} páginas carimbadas não passam no ` +
-        "`comDataUtil`: as datas impressas não distinguem uma página da outra, ou seja, " +
-        `é a data do último commit repetida ${entradas.length} vezes`
-    ).toBe(0);
+      datasDistinguemCaminhos(carimbos),
+      `as datas impressas se concentram em poucos carimbos: ${moda} das ${carimbos.length} ` +
+        `páginas dividem a MESMA data (${((100 * moda) / carimbos.length).toFixed(1)}%, teto ` +
+        `de ${100 * LIMITE_DE_CONCENTRACAO}%), ou seja, é a data do commit-fronteira repetida`
+    ).toBe(true);
   }
 });
 

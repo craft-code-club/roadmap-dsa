@@ -1,7 +1,18 @@
 import type { MetadataRoute } from "next";
 import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
-import { atualizacaoDoTopico, comDataUtil, ultimaAlteracao } from "@/lib/datas-do-git";
+import {
+  atualizacaoDoTopico,
+  comDataUtil,
+  CONTEUDO_DA_ROTA,
+  ROTAS_FIXAS,
+  ultimaAlteracao,
+} from "@/lib/datas-do-git";
 import { SITE_URL } from "@/lib/links";
+
+// `CONTEUDO_DA_ROTA` continua exportado daqui porque é daqui que ele sempre foi
+// importado; a casa dele agora é o módulo de datas, junto do guarda que mede
+// esses mesmos caminhos.
+export { CONTEUDO_DA_ROTA, ROTAS_FIXAS };
 
 export const dynamic = "force-static";
 
@@ -13,26 +24,10 @@ export const dynamic = "force-static";
 // Console. O filtro abaixo chama a MESMA função que a página chama — recriar a
 // condição aqui é o que fez o buraco existir, e recriá-la de novo o reabriria na
 // primeira vez que a regra de "tópico vazio" mudasse de um lado só.
-const rotasFixas = ["/", "/introducao/", "/roadmap/", "/apoie/", "/sobre/"] as const;
-
-// Arquivos que respondem pelo conteúdo de cada rota, para a data sair do Git.
 //
-// É uma LISTA, e não um arquivo só, porque `page.tsx` quase nunca é onde o texto
-// mora. A home e o `/roadmap/` importam de `content/roadmap.ts`: mexer num
-// tópico muda as duas telas sem tocar em nenhum dos dois `page.tsx`, e o
-// `lastmod` ficava parado no dia em que o layout da página mudou pela última
-// vez. O `/apoie/` tem a mesma forma com `apoiadores.ts`, que é onde a lista de
-// nomes é mantida à mão. A data da rota é a MAIS RECENTE entre esses arquivos.
-export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly string[]> = {
-  "/": ["src/app/page.tsx", "content/roadmap.ts"],
-  "/introducao/": ["src/app/introducao/page.tsx"],
-  "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
-  "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
-  // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
-  // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
-  // página sem ninguém tocar no `page.tsx` dela.
-  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts"],
-};
+// A lista das rotas fixas e o mapa de que arquivos datam cada uma vêm do módulo
+// de datas: é o mesmo conjunto de caminhos que o guarda de lá mede, e ele só
+// pode ser um.
 
 // `lastmod` é o único dos três campos opcionais que o Google declarou usar;
 // `priority` e `changeFrequency`, que este arquivo já preenchia, ele ignora.
@@ -44,7 +39,7 @@ export const CONTEUDO_DA_ROTA: Record<(typeof rotasFixas)[number], readonly stri
 // profundidade do clone, está lá em cima do arquivo.
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = rotasFixas.map((rota) => ({
+  const base = ROTAS_FIXAS.map((rota) => ({
     url: `${SITE_URL}${rota}`,
     priority: rota === "/" ? 1 : rota === "/apoie/" || rota === "/sobre/" ? 0.5 : 0.9,
     changeFrequency: rota === "/" || rota === "/roadmap/" ? ("weekly" as const) : ("monthly" as const),

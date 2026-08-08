@@ -4,7 +4,12 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { LINKS, SITE_URL } from "../src/lib/links";
-import { CONTEUDO_DA_ROTA } from "../src/app/sitemap";
+import {
+  caminhosDatados,
+  CONTEUDO_DA_ROTA,
+  datasDistinguemCaminhos,
+  LIMITE_DE_CONCENTRACAO,
+} from "../src/lib/datas-do-git";
 
 // Estrutura de SEO do site inteiro: canonical, sitemap e dados estruturados.
 //
@@ -333,10 +338,15 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
   // 22 datas distintas e moda de 6 (14,3%); no job achatado a moda era 39 de 42
   // (92,9%). O corte em 50% fica longe dos dois, e cobre o caso antigo — git
   // que resolve UMA data para tudo tem moda de 100%.
-  const caminhosConferidos = [
-    ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `content/topics/${t.slug}.mdx`),
-    ...Object.values(CONTEUDO_DA_ROTA).flat(),
-  ];
+  // A REGRA vem do módulo de produção (`datasDistinguemCaminhos`), e o conjunto
+  // de caminhos também (`caminhosDatados`). Este bloco já foi a única casa do
+  // critério de concentração; hoje o build usa o mesmo, e manter a cópia daqui
+  // seria voltar a ter duas versões da mesma regra — o erro que este arquivo
+  // documenta três vezes.
+  //
+  // O que continua sendo daqui é a MENSAGEM: os números abaixo existem para o
+  // diagnóstico do skip, não para decidir nada.
+  const caminhosConferidos = caminhosDatados();
   const porData = new Map<string, number>();
   for (const caminho of caminhosConferidos) {
     const d = dataDoGit(caminho);
@@ -345,11 +355,12 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
   const resolvidos = [...porData.values()].reduce((a, b) => a + b, 0);
   const moda = porData.size ? Math.max(...porData.values()) : 0;
   test.skip(
-    resolvidos === 0 || moda / resolvidos > 0.5,
+    !datasDistinguemCaminhos(caminhosConferidos.map((c) => Date.parse(dataDoGit(c)))),
     `o git deste processo devolve a mesma data para ${moda} dos ${resolvidos} caminhos ` +
-      `conferidos (${porData.size} data(s) distinta(s) ao todo): ele achata o histórico no ` +
-      "commit-fronteira e não pode servir de referência. As invariantes do artefato acima " +
-      "já foram conferidas."
+      `conferidos (${porData.size} data(s) distinta(s) ao todo, ` +
+      `concentração ${resolvidos ? ((100 * moda) / resolvidos).toFixed(1) : "0"}% contra o teto ` +
+      `de ${100 * LIMITE_DE_CONCENTRACAO}%): ele achata o histórico no commit-fronteira e não ` +
+      "pode servir de referência. As invariantes do artefato acima já foram conferidas."
   );
 
   // Daqui para baixo o git deste processo enxerga o histórico, então dá para
