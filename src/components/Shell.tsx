@@ -254,6 +254,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     </span>
                     GitHub do projeto<span className="ext-arrow" aria-hidden="true">↗</span>
                   </a>
+                  <Link className="menu-item" href="/sobre" onClick={() => setMenu(false)}>
+                    <span className="mi-ico">ⓘ</span> Sobre o projeto
+                  </Link>
                   <Link className="menu-item" href="/apoie" onClick={() => setMenu(false)}>
                     <span className="mi-ico">♥</span> Apoiadores e Parceiros
                   </Link>

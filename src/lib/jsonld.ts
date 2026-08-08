@@ -15,6 +15,9 @@ import { SITE_NAME } from "@/lib/seo";
 //   programmingLanguage → o selo "Python", que é a linguagem do CÓDIGO
 //   inLanguage        → `pt-BR`, o `lang` do `<html>` (não confundir com o de cima)
 //   about             → o grupo, que a trilha mostra logo acima do título
+//   author            → "por Craft & Code Club", ao lado da marca no topo
+//   dateModified      → o selo "Atualizado em", no mesmo `.topic-chips`
+//   datePublished     → o selo "Publicado em", quando o dia é outro
 //   itemListElement   → os cards que o /roadmap renderiza, na mesma ordem
 //
 // Campo sem correspondente fica de fora, e é por isso que não há
@@ -31,6 +34,24 @@ const abs = (rota: string) => `${SITE_URL}${rota}`;
 
 const ID_ORG = `${SITE_URL}/#organization`;
 const ID_SITE = `${SITE_URL}/#website`;
+
+/**
+ * Quem assina o conteúdo do guia.
+ *
+ * É a ORGANIZAÇÃO, por `@id` para o nó `Organization` que o layout já emite em
+ * toda rota — e a escolha é factual, não uma preferência de estilo. Os 34
+ * vídeos que alimentam os tópicos têm `ownerChannelName: "Craft & Code Club"`,
+ * as 34 descrições não citam o nome de nenhuma pessoa, e o `git log` deste
+ * repositório tem uma única conta humana (mesmo ID do GitHub sob dois nomes de
+ * usuário). Não há base para atribuir autoria nominal a ninguém.
+ *
+ * ⚠️ A decisão de nomear uma PESSOA é do Wilson, e custa esta constante e mais
+ * nada: trocar por `{ "@type": "Person", name: "…", url: "…" }` — ou virar um
+ * array com os dois, que `author` aceita — já muda as 40 páginas de tópico.
+ * O que a troca exige junto: o nome tem que aparecer na tela, porque a regra
+ * que decide o desenho deste arquivo é "a marcação reflete o que está na tela".
+ */
+const AUTOR = { "@id": ID_ORG };
 
 /** "12 min" → "PT12M". Formato inesperado devolve `undefined`, e o campo some. */
 function duracaoIso(readingTime: string | undefined): string | undefined {
@@ -73,7 +94,7 @@ export function webSiteJsonLd() {
  * programa com turma, instrutor e matrícula — e `Course` só rende resultado rico
  * com `hasCourseInstance`/`offers`, que este produto não tem para declarar.
  */
-export function topicJsonLd(t: Topic) {
+export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: Date }) {
   const url = abs(`/topico/${t.slug}/`);
   const timeRequired = duracaoIso(t.readingTime);
   return {
@@ -89,7 +110,20 @@ export function topicJsonLd(t: Topic) {
     about: { "@type": "Thing", name: t.group },
     ...(timeRequired ? { timeRequired } : {}),
     ...(t.language ? { programmingLanguage: t.language } : {}),
+    // As datas vêm do Git (`src/lib/datas-do-git.ts`) e chegam prontas, ou não
+    // chegam: quem decide se elas são informação é o mesmo guarda do `lastmod`
+    // do sitemap, e em clone raso os dois campos somem juntos. Data errada é
+    // pior do que data nenhuma.
+    //
+    // `dateModified` tem o selo "Atualizado em" na tela, em `.topic-chips`.
+    // `datePublished` ganha o selo "Publicado em" ao lado quando o dia é OUTRO;
+    // quando é o mesmo dia — 28 dos 36 tópicos hoje —, o valor que ele carrega
+    // é exatamente a data que está impressa ali. Nos dois casos o número na
+    // marcação é um número que o leitor vê.
+    ...(datas?.publicado ? { datePublished: datas.publicado.toISOString() } : {}),
+    ...(datas?.atualizado ? { dateModified: datas.atualizado.toISOString() } : {}),
     isPartOf: { "@id": ID_SITE },
+    author: AUTOR,
     publisher: { "@id": ID_ORG },
   };
 }
