@@ -31,15 +31,15 @@ export type VideoLink = { title: string; youtube?: string; url?: string; duratio
 // Referências / "leia mais": links para artigos (do blog ou de qualquer site).
 export type Reference = { title: string; url: string; source?: string };
 
-export type Topic = {
+// Tudo que um tópico tem com ou sem aula gravada. Os campos do vídeo NÃO moram
+// aqui: eles andam em bloco, e quem decide isso é o `Topic` logo abaixo.
+type TopicBase = {
   slug: string;
   name: string;
   group: string;
   level: Level;
   description: string;
   status: "ready" | "soon";
-  youtube?: string; // id do vídeo
-  videoMinutes?: string;
   article?: string; // url do artigo/aula no blog
   repo?: string; // implementação de referência
   viz?: Visualizer;
@@ -58,6 +58,35 @@ export type Topic = {
   extraVideos?: VideoLink[];
   references?: Reference[];
 };
+
+// A aula gravada é um pacote: ou o tópico tem vídeo E a data em que ele foi
+// publicado, ou não tem nem um nem outro. Não existe meio-termo, e é o
+// compilador que garante isso — `youtube` sem `videoUploadDate` não compila.
+//
+// Por que uma UNIÃO e não mais um campo opcional: `VideoObject` (o JSON-LD que
+// põe a aula na aba Vídeos do Google) exige `uploadDate`. Campo opcional deixa
+// o próximo tópico entrar sem data, e a marcação dele sai silenciosamente
+// incompleta — ninguém quebra, o vídeo só não aparece na busca. A união move
+// esse esquecimento para o `tsc`, que é onde ele custa trinta segundos em vez
+// de uma auditoria de SEO.
+//
+// O custo medido de escolher a união: ZERO. Os 8 pontos do código que leem
+// `t.youtube` continuam compilando sem uma linha de mudança (o tipo lido segue
+// `string | undefined`), e `npx tsc --noEmit` fica limpo. O que ela reprova é
+// só o caso que interessa: um tópico com `youtube` e sem `videoUploadDate`
+// para no `tsc` com "Property 'videoUploadDate' is missing".
+//
+// `?: never` (e não a ausência do campo) no ramo sem aula é o que faz o
+// estreitamento funcionar: depois de `if (t.youtube)`, o TypeScript sabe que o
+// ramo é o `ComAula` e que `t.videoUploadDate` é `string`, sem `!` nem cast.
+type ComAula = {
+  youtube: string; // id do vídeo
+  videoUploadDate: string; // ISO 8601 com fuso, como o YouTube publica
+  videoMinutes?: string; // "H:MM:SS", o que a página mostra ao lado do embed
+};
+type SemAula = { youtube?: never; videoUploadDate?: never; videoMinutes?: never };
+
+export type Topic = TopicBase & (ComAula | SemAula);
 
 export type Group = {
   id: string;
@@ -84,6 +113,7 @@ export const GROUPS: Group[] = [
         viz: "big-o",
         youtube: yt("MtLv9Rwb55Q"),
         videoMinutes: "1:38:08",
+        videoUploadDate: "2024-02-22T13:42:16-08:00",
         readingTime: "10 min",
         language: "Python",
         description: "Como medir tempo e espaço de um algoritmo sem cronômetro.",
@@ -117,6 +147,7 @@ export const GROUPS: Group[] = [
         viz: "arrays",
         youtube: yt("c95xvXCU34A"),
         videoMinutes: "2:15:08",
+        videoUploadDate: "2024-03-02T06:00:26-08:00",
         readingTime: "16 min",
         language: "Python",
         description: "A estrutura sequencial base: acesso por índice em O(1).",
@@ -144,6 +175,7 @@ export const GROUPS: Group[] = [
         viz: "strings",
         youtube: yt("B9CCEwjoXBk"),
         videoMinutes: "1:45:57",
+        videoUploadDate: "2024-03-04T06:00:13-08:00",
         readingTime: "16 min",
         language: "Python",
         description: "String é um array de caracteres com duas regras a mais: o elemento não é um byte e você não pode escrever numa posição. É dessa imutabilidade que nasce o O(n²) escondido em qualquer concatenação dentro de um laço.",
@@ -202,6 +234,7 @@ export const GROUPS: Group[] = [
         viz: "two-pointers",
         youtube: yt("a1QMdXgcQwY"),
         videoMinutes: "1:11:13",
+        videoUploadDate: "2024-03-28T07:00:01-07:00",
         readingTime: "18 min",
         language: "Python",
         description: "Dois índices caminhando na mesma passada. Em array ordenado, um começa na ponta esquerda e o outro na direita, e eles convergem.",
@@ -231,6 +264,7 @@ export const GROUPS: Group[] = [
         viz: "sliding-window",
         youtube: yt("OvIJw1AMNzI"),
         videoMinutes: "18:24",
+        videoUploadDate: "2024-04-01T04:00:17-07:00",
         readingTime: "12 min",
         language: "Python",
         description: "Uma janela contígua que anda pelo array. Fixa, com tamanho travado em k, ou variável, crescendo pela direita e encolhendo pela esquerda enquanto está inválida.",
@@ -258,6 +292,7 @@ export const GROUPS: Group[] = [
         viz: "prefix-sum",
         youtube: yt("yMnLofkS7DM"),
         videoMinutes: "1:42:35",
+        videoUploadDate: "2024-04-15T04:00:49-07:00",
         readingTime: "18 min",
         language: "Python",
         description: "Somas de intervalo em tempo constante depois de um pré-processamento.",
@@ -317,6 +352,7 @@ export const GROUPS: Group[] = [
         viz: "hash-table",
         youtube: yt("JFhdCBrKTX0"),
         videoMinutes: "2:31:40",
+        videoUploadDate: "2024-04-24T07:00:20-07:00",
         readingTime: "19 min",
         language: "Python",
         description: "Busca, inserção e remoção em O(1) amortizado, quase sempre. A chave calcula o próprio endereço, e o preço disso é colisão, fator de carga e rehash.",
@@ -351,6 +387,7 @@ export const GROUPS: Group[] = [
         viz: "listas-ligadas",
         youtube: yt("j0E5hJZ__EA"),
         videoMinutes: "2:00:47",
+        videoUploadDate: "2024-03-13T07:00:28-07:00",
         readingTime: "23 min",
         language: "Python",
         description: "Nós apontando para nós. Ponteiro rápido e lento, sentinelas e detecção de ciclos.",
@@ -378,6 +415,7 @@ export const GROUPS: Group[] = [
         viz: "skip-list",
         youtube: yt("R9sVLuJ7FSg"),
         videoMinutes: "1:58:55",
+        videoUploadDate: "2025-08-12T06:19:46-07:00",
         article: "https://craftcodeclub.io/posts/dsa-skip-list",
         readingTime: "19 min",
         language: "Python",
@@ -412,6 +450,7 @@ export const GROUPS: Group[] = [
         viz: "pilhas",
         youtube: yt("JRbrNgsYuT0"),
         videoMinutes: "2:26:51",
+        videoUploadDate: "2024-04-29T07:00:14-07:00",
         readingTime: "17 min",
         language: "Python",
         description: "LIFO: parênteses balanceados e próximo maior elemento (pilha monotônica).",
@@ -439,6 +478,7 @@ export const GROUPS: Group[] = [
         viz: "filas",
         youtube: yt("KJaVKLZsMcg"),
         videoMinutes: "2:03:02",
+        videoUploadDate: "2024-06-19T04:00:15-07:00",
         readingTime: "19 min",
         language: "Python",
         description: "FIFO e a fila de duas pontas para a janela com máximo.",
@@ -473,6 +513,7 @@ export const GROUPS: Group[] = [
         viz: "recursao",
         youtube: yt("KkSAaQHCkSE"),
         videoMinutes: "1:59:28",
+        videoUploadDate: "2024-05-06T15:00:16-07:00",
         readingTime: "17 min",
         language: "Python",
         description: "Funções que chamam a si mesmas, sem medo do stack.",
@@ -500,6 +541,7 @@ export const GROUPS: Group[] = [
         viz: "recursao-funcional",
         youtube: yt("rbEYjJdaIZI"),
         videoMinutes: "2:21:37",
+        videoUploadDate: "2024-06-12T04:00:51-07:00",
         readingTime: "16 min",
         language: "Python",
         description: "Recursão de cauda e o estilo funcional.",
@@ -533,6 +575,7 @@ export const GROUPS: Group[] = [
         viz: "tree-traversals",
         youtube: yt("_-2F65OVWjo"),
         videoMinutes: "1:49:46",
+        videoUploadDate: "2024-06-21T04:00:37-07:00",
         readingTime: "12 min",
         language: "Python",
         description: "Pré, in, pós-ordem e por nível.",
@@ -560,6 +603,7 @@ export const GROUPS: Group[] = [
         viz: "arvores-binarias",
         youtube: yt("OAcm2rXqz9M"),
         videoMinutes: "1:50:49",
+        videoUploadDate: "2024-06-26T04:00:18-07:00",
         readingTime: "10 min",
         language: "Python",
         description: "Recursão estrutural sobre dois filhos.",
@@ -588,6 +632,7 @@ export const GROUPS: Group[] = [
         viz: "n-ary-trees",
         youtube: yt("FLZxMQFTqvY"),
         videoMinutes: "1:26:48",
+        videoUploadDate: "2024-07-01T04:00:22-07:00",
         readingTime: "10 min",
         language: "Python",
         description: "Nós com qualquer número de filhos.",
@@ -615,6 +660,7 @@ export const GROUPS: Group[] = [
         viz: "bst",
         youtube: yt("CITquySB4ls"),
         videoMinutes: "2:13:44",
+        videoUploadDate: "2024-07-03T04:00:19-07:00",
         readingTime: "12 min",
         language: "Python",
         description: "Ordem invariante para busca em O(log n).",
@@ -649,6 +695,7 @@ export const GROUPS: Group[] = [
         viz: "grafos-intro",
         youtube: yt("cILrU-dtuEc"),
         videoMinutes: "1:46:55",
+        videoUploadDate: "2024-08-03T08:05:09-07:00",
         readingTime: "11 min",
         language: "Python",
         description: "Vértices, arestas e representação (matriz / lista de adjacência).",
@@ -676,6 +723,7 @@ export const GROUPS: Group[] = [
         viz: "dfs-bfs",
         youtube: yt("sCT-_EjbVqQ"),
         videoMinutes: "2:06:45",
+        videoUploadDate: "2024-08-23T19:16:04-07:00",
         readingTime: "11 min",
         language: "Python",
         description: "Os dois jeitos de percorrer um grafo.",
@@ -703,6 +751,7 @@ export const GROUPS: Group[] = [
         viz: "dijkstra",
         youtube: yt("b4kWEWtCVzA"),
         videoMinutes: "2:09:19",
+        videoUploadDate: "2025-01-21T05:51:45-08:00",
         readingTime: "12 min",
         language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-dijkstra",
@@ -731,6 +780,7 @@ export const GROUPS: Group[] = [
         viz: "bellman-ford",
         youtube: yt("0GcXgQTpYcE"),
         videoMinutes: "2:22:53",
+        videoUploadDate: "2025-02-04T02:33:11-08:00",
         readingTime: "11 min",
         language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-bellman-ford",
@@ -758,6 +808,7 @@ export const GROUPS: Group[] = [
         viz: "a-star",
         youtube: yt("0PYx7erkdXo"),
         videoMinutes: "2:34:10",
+        videoUploadDate: "2025-03-04T03:30:06-08:00",
         readingTime: "11 min",
         language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-a-star",
@@ -786,6 +837,7 @@ export const GROUPS: Group[] = [
         viz: "topological-sort",
         youtube: yt("4fTjXqcMFtk"),
         videoMinutes: "1:41:07",
+        videoUploadDate: "2025-04-01T03:30:02-07:00",
         readingTime: "10 min",
         language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-topological-sorting",
@@ -814,6 +866,7 @@ export const GROUPS: Group[] = [
         viz: "mst",
         youtube: yt("a9iI9N4FLsg"),
         videoMinutes: "2:12:12",
+        videoUploadDate: "2025-05-05T05:20:41-07:00",
         readingTime: "11 min",
         language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-mst",
@@ -849,6 +902,7 @@ export const GROUPS: Group[] = [
         viz: "binary-heap",
         youtube: yt("HVWw20nOLHk"),
         videoMinutes: "2:21:46",
+        videoUploadDate: "2024-07-29T07:00:15-07:00",
         readingTime: "12 min",
         language: "Python",
         description: "A fila de prioridade por trás do heap sort e do Dijkstra.",
@@ -878,6 +932,7 @@ export const GROUPS: Group[] = [
         viz: "heap-sort",
         youtube: yt("wUfOyKMjamM"),
         videoMinutes: "2:10:31",
+        videoUploadDate: "2024-07-30T04:01:00-07:00",
         readingTime: "11 min",
         language: "Python",
         description: "Ordenar com um heap em O(n log n).",
@@ -912,6 +967,7 @@ export const GROUPS: Group[] = [
         viz: "busca-binaria",
         youtube: yt("62ZGcXDpbys"),
         videoMinutes: "1:30:11",
+        videoUploadDate: "2024-03-20T06:30:06-07:00",
         readingTime: "11 min",
         language: "Python",
         description: "Corte o espaço de busca pela metade a cada passo: O(log n).",
@@ -948,6 +1004,7 @@ export const GROUPS: Group[] = [
         viz: "ordenacao-basica",
         youtube: yt("GxhxsbbzaTI"),
         videoMinutes: "1:52:10",
+        videoUploadDate: "2024-03-05T19:00:08-08:00",
         readingTime: "12 min",
         language: "Python",
         description: "Bubble, Selection e Insertion Sort, os O(n²) que ensinam a base.",
@@ -976,6 +1033,7 @@ export const GROUPS: Group[] = [
         viz: "merge-sort",
         youtube: yt("lbktBOwmmhg"),
         videoMinutes: "3:14:02",
+        videoUploadDate: "2024-07-31T04:00:49-07:00",
         readingTime: "13 min",
         language: "Python",
         description: "Divisão e conquista, estável, O(n log n).",
@@ -1004,6 +1062,7 @@ export const GROUPS: Group[] = [
         viz: "quick-sort",
         youtube: yt("2T0Itw-oaEA"),
         videoMinutes: "1:58:04",
+        videoUploadDate: "2024-08-02T04:00:04-07:00",
         readingTime: "13 min",
         language: "Python",
         description: "Particiona em torno de um pivô. O(n log n) na média.",
@@ -1032,6 +1091,7 @@ export const GROUPS: Group[] = [
         viz: "shell-sort",
         youtube: yt("symbT7Cgrr8"),
         videoMinutes: "1:58:45",
+        videoUploadDate: "2024-08-01T04:00:56-07:00",
         readingTime: "12 min",
         language: "Python",
         description: "Insertion Sort turbinado com gap sequences.",
@@ -1070,6 +1130,7 @@ export const GROUPS: Group[] = [
         isNew: true,
         youtube: yt("Vcm6mhLKU5A"),
         videoMinutes: "2:08:38",
+        videoUploadDate: "2025-06-02T01:00:28-07:00",
         readingTime: "13 min",
         language: "Python",
         article: "https://craftcodeclub.io/posts/dsa-backtracking",
@@ -1139,6 +1200,7 @@ export const GROUPS: Group[] = [
         isNew: true,
         youtube: yt("8VHi44rAVFo"),
         videoMinutes: "27:33",
+        videoUploadDate: "2026-07-13T13:30:13-07:00",
         readingTime: "10 min",
         language: "Python",
         description: "O sistema binário e a conversão entre decimal e binário.",
@@ -1168,6 +1230,7 @@ export const GROUPS: Group[] = [
         isNew: true,
         youtube: yt("93CpmUXLbzc"),
         videoMinutes: "26:13",
+        videoUploadDate: "2026-07-16T14:36:02-07:00",
         readingTime: "11 min",
         language: "Python",
         description: "Sign-magnitude, complemento de um e de dois.",
