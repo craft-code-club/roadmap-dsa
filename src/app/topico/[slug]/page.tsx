@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
-import { breadcrumbJsonLd, JsonLd, topicJsonLd } from "@/lib/jsonld";
+import { breadcrumbJsonLd, JsonLd, topicJsonLd, videoObjectJsonLd } from "@/lib/jsonld";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
@@ -72,6 +72,14 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
       ? `${ondeEstudar.slice(0, -1).join(", ")} e ${ondeEstudar[ondeEstudar.length - 1]}`
       : ondeEstudar[0];
 
+  // Os nós JSON-LD desta página. O `VideoObject` entra só onde a seção "Vídeo
+  // da aula" existe de fato — `videoObjectJsonLd` devolve `undefined` sem
+  // `t.youtube`, que é a MESMA condição do `<iframe>` lá embaixo. Marcar vídeo
+  // numa página sem embed seria a contradição que o `isEmptyTopic` já fecha
+  // para o recurso de aprendizado.
+  const video = videoObjectJsonLd(t);
+  const marcacao = [topicJsonLd(t), breadcrumbJsonLd(t), ...(video ? [video] : [])];
+
   // Índice "Nesta página": títulos do artigo + seções que a página acrescenta.
   const toc: string[] = [
     ...(article?.summary ?? []),
@@ -89,7 +97,7 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           indexada. O `noindex` vence no Google, então não é defeito de ranking —
           é a mesma contradição que este PR foi escrito para fechar, e o
           consumidor que lê JSON-LD sem olhar `robots` acredita na declaração. */}
-      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t), breadcrumbJsonLd(t)]} />}
+      {!isEmptyTopic(t) && <JsonLd data={marcacao} />}
       <article>
         {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
             leva ao roadmap e o tópico corrente se identifica com `aria-current`.
