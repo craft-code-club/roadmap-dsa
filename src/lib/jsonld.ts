@@ -124,8 +124,14 @@ export function topicJsonLd(t: Topic) {
 }
 
 /**
- * A aula gravada que a página embute, para o Google poder tratá-la como vídeo
- * (aba Vídeos, miniatura no resultado) e não como mais um `<iframe>` opaco.
+ * A aula gravada que a página embute, descrita como vídeo em vez de ficar
+ * escondida dentro de um `<iframe>` opaco.
+ *
+ * O que isto NÃO promete: aba Vídeos nem miniatura no resultado. Desde
+ * 04/12/2023 esses recursos só valem para páginas cujo CONTEÚDO PRINCIPAL é o
+ * vídeo, e aqui ele é uma seção depois do artigo e dos visualizadores. O nó
+ * existe para quem consome JSON-LD receber o dado certo — não como garantia de
+ * resultado rico, que o Google decide e esta forma de página não alcança.
  *
  * Devolve `undefined` quando o tópico não tem aula — e o tipo garante que, se
  * tiver, a data existe: `youtube` e `videoUploadDate` andam em bloco na união

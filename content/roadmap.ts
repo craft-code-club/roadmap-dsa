@@ -63,12 +63,18 @@ type TopicBase = {
 // publicado, ou não tem nem um nem outro. Não existe meio-termo, e é o
 // compilador que garante isso — `youtube` sem `videoUploadDate` não compila.
 //
-// Por que uma UNIÃO e não mais um campo opcional: `VideoObject` (o JSON-LD que
-// põe a aula na aba Vídeos do Google) exige `uploadDate`. Campo opcional deixa
-// o próximo tópico entrar sem data, e a marcação dele sai silenciosamente
-// incompleta — ninguém quebra, o vídeo só não aparece na busca. A união move
-// esse esquecimento para o `tsc`, que é onde ele custa trinta segundos em vez
-// de uma auditoria de SEO.
+// Por que uma UNIÃO e não mais um campo opcional: `VideoObject` exige
+// `uploadDate`. Campo opcional deixa o próximo tópico entrar sem data, e a
+// marcação dele sai silenciosamente incompleta — ninguém quebra, o dado só sai
+// errado. A união move esse esquecimento para o `tsc`, que é onde ele custa
+// trinta segundos.
+//
+// E o que a união NÃO compra: a aba Vídeos do Google. Desde 04/12/2023 ela só
+// mostra páginas onde o vídeo é o CONTEÚDO PRINCIPAL, e uma página de tópico
+// daqui é artigo + visualizadores + uma seção de vídeo no fim. A união existe
+// para a marcação nunca sair pela metade, não para ganhar posição em busca —
+// quem ler isto daqui a um ano não deve inferir um benefício que esta forma de
+// página não pode receber.
 //
 // O custo medido de escolher a união: ZERO. Os 8 pontos do código que leem
 // `t.youtube` continuam compilando sem uma linha de mudança (o tipo lido segue
