@@ -1,5 +1,9 @@
 /**
- * Formatação de número e concordância de plural para os visualizadores.
+ * Formatação de número, concordância de plural e data por extenso.
+ *
+ * Número e plural nasceram aqui pelos visualizadores; a data entrou pelo selo
+ * "Atualizado em" da página de tópico, e entrou AQUI porque este é o formatador
+ * único do projeto — a alternativa era uma terceira cópia de nome de mês.
  *
  * Existe porque as mesmas funções estavam copiadas dezenas de vezes em
  * `content/visualizers/`, e as cópias tinham divergido em silêncio:
@@ -101,4 +105,44 @@ export function plural(v: number, one: string, many: string): string {
  */
 export function comNumero(v: number, one: string, many: string): string {
   return `${v} ${plural(v, one, many)}`;
+}
+
+const MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+
+/**
+ * O DIA de uma data, em UTC: `"2026-06-12"`. É o valor do atributo `datetime`
+ * do `<time>`, que a especificação do HTML lê como data completa.
+ *
+ * UTC, e não o fuso da máquina, pelo mesmo motivo do `Intl` proibido no topo
+ * deste arquivo: o HTML é gerado uma vez, no build, e o dia impresso não pode
+ * depender de onde o build rodou. O `%cI` do `git log` traz o fuso de quem
+ * commitou — normalizar para UTC dá o MESMO dia em qualquer runner, e é o que
+ * mantém o atributo e o texto ao lado dele sempre concordando.
+ */
+export function diaIso(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * A data por extenso, em português: `"12 de junho de 2026"`.
+ *
+ * Sempre o MESMO dia que {@link diaIso} devolve para a mesma data, porque os
+ * dois leem os componentes em UTC. Texto e `datetime` que discordam por um dia
+ * é o defeito que essa dupla existe para não ter.
+ */
+export function dataLonga(d: Date): string {
+  return `${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
 }

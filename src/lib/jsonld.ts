@@ -16,6 +16,8 @@ import { SITE_NAME } from "@/lib/seo";
 //   inLanguage        → `pt-BR`, o `lang` do `<html>` (não confundir com o de cima)
 //   about             → o grupo, que a trilha mostra logo acima do título
 //   author            → "por Craft & Code Club", ao lado da marca no topo
+//   dateModified      → o selo "Atualizado em", no mesmo `.topic-chips`
+//   datePublished     → o selo "Publicado em", quando o dia é outro
 //   itemListElement   → os cards que o /roadmap renderiza, na mesma ordem
 //
 // Campo sem correspondente fica de fora, e é por isso que não há
@@ -92,7 +94,7 @@ export function webSiteJsonLd() {
  * programa com turma, instrutor e matrícula — e `Course` só rende resultado rico
  * com `hasCourseInstance`/`offers`, que este produto não tem para declarar.
  */
-export function topicJsonLd(t: Topic) {
+export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: Date }) {
   const url = abs(`/topico/${t.slug}/`);
   const timeRequired = duracaoIso(t.readingTime);
   return {
@@ -108,6 +110,18 @@ export function topicJsonLd(t: Topic) {
     about: { "@type": "Thing", name: t.group },
     ...(timeRequired ? { timeRequired } : {}),
     ...(t.language ? { programmingLanguage: t.language } : {}),
+    // As datas vêm do Git (`src/lib/datas-do-git.ts`) e chegam prontas, ou não
+    // chegam: quem decide se elas são informação é o mesmo guarda do `lastmod`
+    // do sitemap, e em clone raso os dois campos somem juntos. Data errada é
+    // pior do que data nenhuma.
+    //
+    // `dateModified` tem o selo "Atualizado em" na tela, em `.topic-chips`.
+    // `datePublished` ganha o selo "Publicado em" ao lado quando o dia é OUTRO;
+    // quando é o mesmo dia — 31 dos 36 artigos hoje —, o valor que ele carrega
+    // é exatamente a data que está impressa ali. Nos dois casos o número na
+    // marcação é um número que o leitor vê.
+    ...(datas?.publicado ? { datePublished: datas.publicado.toISOString() } : {}),
+    ...(datas?.atualizado ? { dateModified: datas.atualizado.toISOString() } : {}),
     isPartOf: { "@id": ID_SITE },
     author: AUTOR,
     publisher: { "@id": ID_ORG },

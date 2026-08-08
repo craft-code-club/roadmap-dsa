@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
+import { datasDoTopico } from "@/lib/datas-do-git";
+import { dataLonga, diaIso } from "@/lib/format";
 import { breadcrumbJsonLd, JsonLd, topicJsonLd } from "@/lib/jsonld";
 import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
@@ -59,6 +61,10 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
   const article = getArticle(slug);
   const Body = article?.Body;
   const { previous, next } = getNeighbors(slug);
+  // Datas do Git, ou nada. Ver `src/lib/datas-do-git.ts`: em clone raso o
+  // `git log` responde o mesmo para todo caminho, e aí o selo não é desenhado e
+  // os campos de data do JSON-LD não saem — exatamente como o `lastmod`.
+  const datas = datasDoTopico(t.slug);
 
   // Onde o tópico já pode ser estudado hoje (usado no aviso de quem não tem artigo).
   // Cobre tudo que a página mostra, inclusive os vídeos extras.
@@ -89,7 +95,7 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           indexada. O `noindex` vence no Google, então não é defeito de ranking —
           é a mesma contradição que este PR foi escrito para fechar, e o
           consumidor que lê JSON-LD sem olhar `robots` acredita na declaração. */}
-      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t), breadcrumbJsonLd(t)]} />}
+      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t, datas), breadcrumbJsonLd(t)]} />}
       <article>
         {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
             leva ao roadmap e o tópico corrente se identifica com `aria-current`.
@@ -114,6 +120,21 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           {t.readingTime && <span className="chip">⏱ {t.readingTime} de leitura</span>}
           <span className={`level ${levelClass(t.level)}`} style={{ borderStyle: "solid" }}>{t.level}</span>
           {t.language && <span className="chip">{t.language}</span>}
+          {/* O selo "Publicado em" só aparece quando o dia é OUTRO: em 31 dos 36
+              artigos o primeiro e o último commit caem no mesmo dia, e dois
+              selos com a mesma data não informam nada. */}
+          {datas?.publicado && diaIso(datas.publicado) !== diaIso(datas.atualizado) && (
+            <span className="chip">
+              Publicado em{" "}
+              <time dateTime={diaIso(datas.publicado)}>{dataLonga(datas.publicado)}</time>
+            </span>
+          )}
+          {datas && (
+            <span className="chip">
+              Atualizado em{" "}
+              <time dateTime={diaIso(datas.atualizado)}>{dataLonga(datas.atualizado)}</time>
+            </span>
+          )}
           <TopicComplete slug={t.slug} />
         </div>
 

@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 
 // A data de uma página, derivada do `git log`. Um lugar só, porque são dois
 // consumidores que precisam responder a MESMA coisa: o `lastmod` do
@@ -68,6 +69,41 @@ function consultarCommit(arquivo: string): number | undefined {
   }
 }
 
+const cacheDoPrimeiroCommit = new Map<string, number | undefined>();
+
+/**
+ * O PRIMEIRO commit que tocou o caminho — a data em que aquele conteúdo entrou
+ * no repositório.
+ *
+ * Sem `-1`, e isso não é descuido: o `git log` aplica o limite ANTES de
+ * inverter, então `--reverse -1` devolve o commit mais NOVO. A saída inteira é
+ * percorrida e o que vale é a primeira linha.
+ *
+ * Sem `--follow` também, e a consequência é declarada: um artigo renomeado
+ * (slug trocado) passa a contar a partir do rename. `--follow` é heurística de
+ * similaridade e muda de resposta conforme o resto do commit — para um campo
+ * que vai virar `datePublished`, uma data estável e explicável vale mais do que
+ * uma data adivinhada.
+ */
+function primeiroCommitDoArquivo(arquivo: string): number | undefined {
+  const emCache = cacheDoPrimeiroCommit.get(arquivo);
+  if (emCache !== undefined || cacheDoPrimeiroCommit.has(arquivo)) return emCache;
+  let valor: number | undefined;
+  try {
+    const saida = execFileSync("git", ["log", "--reverse", "--format=%cI", "--", arquivo], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const iso = saida.split("\n", 1)[0].trim();
+    const ms = iso ? Date.parse(iso) : NaN;
+    valor = Number.isNaN(ms) ? undefined : ms;
+  } catch {
+    valor = undefined;
+  }
+  cacheDoPrimeiroCommit.set(arquivo, valor);
+  return valor;
+}
+
 /** A data da rota é a do arquivo de conteúdo dela que mudou por último. */
 export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefined {
   const datas = arquivos.map(commitDoArquivo).filter((ms): ms is number => ms !== undefined);
@@ -104,4 +140,56 @@ export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T
   );
   if (distintas.size > 1) return entradas;
   return entradas.map(({ lastModified: _, ...resto }) => resto as T);
+}
+
+/**
+ * O MESMO guarda do sitemap, respondido uma vez por build.
+ *
+ * Uma página sozinha não tem como saber se o carimbo dela é informação: a
+ * resposta só existe olhando o CONJUNTO. Então a pergunta é feita pelo site
+ * inteiro — as datas dos tópicos que o sitemap convida — e o conjunto passa
+ * pelo próprio `comDataUtil`. Se ele apagar as datas, o `git log` deste build
+ * respondeu o mesmo para todo caminho, e nenhuma página estampa data nenhuma.
+ *
+ * É a mesma pergunta do `lastmod` de propósito, e não por economia: o sitemap
+ * omitindo a data por não confiar nela enquanto a página a estampa em 40
+ * lugares seria o site se contradizendo sobre o mesmo fato.
+ */
+let gitDistingueCaminhos: boolean | undefined;
+
+function oGitDistingueCaminhos(): boolean {
+  if (gitDistingueCaminhos === undefined) {
+    const entradas = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => ({
+      lastModified: atualizacaoDoTopico(t.slug),
+    }));
+    gitDistingueCaminhos = comDataUtil(entradas).some((e) => e.lastModified !== undefined);
+  }
+  return gitDistingueCaminhos;
+}
+
+export type DatasDoTopico = {
+  /**
+   * O primeiro commit do artigo. Ausente quando o tópico não tem `.mdx`: aí a
+   * data de reserva é a do `content/roadmap.ts`, e o primeiro commit DELE é o
+   * começo do repositório — que não é a data em que aquele tópico nasceu.
+   */
+  publicado?: Date;
+  atualizado: Date;
+};
+
+/**
+ * As datas de um tópico, ou `undefined` quando elas não seriam informação.
+ *
+ * Devolver `undefined` é o caminho normal em clone raso, e é o comportamento
+ * certo: uma data errada é pior do que data nenhuma. Quem chama não precisa
+ * saber disso — sem datas, o selo não é desenhado e os campos não saem.
+ */
+export function datasDoTopico(slug: string): DatasDoTopico | undefined {
+  if (!oGitDistingueCaminhos()) return undefined;
+  const atualizado = atualizacaoDoTopico(slug);
+  if (!atualizado) return undefined;
+  const publicado = primeiroCommitDoArquivo(`content/topics/${slug}.mdx`);
+  return publicado === undefined
+    ? { atualizado }
+    : { publicado: new Date(publicado), atualizado };
 }
