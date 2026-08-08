@@ -230,7 +230,7 @@ export const GROUPS: Group[] = [
         status: "ready",
         viz: "sliding-window",
         youtube: yt("OvIJw1AMNzI"),
-        videoMinutes: "18:24",
+        videoMinutes: "2:08:22",
         readingTime: "12 min",
         language: "Python",
         description: "Uma janela contígua que anda pelo array. Fixa, com tamanho travado em k, ou variável, crescendo pela direita e encolhendo pela esquerda enquanto está inválida.",
