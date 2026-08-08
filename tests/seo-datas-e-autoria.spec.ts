@@ -384,6 +384,38 @@ test("o /sobre diz a licença dupla, e diz a mesma que o repositório tem", asyn
   );
 });
 
+test("a /sobre não promete privacidade que o código desmente", async ({ page }) => {
+  // Esta página já afirmou que "nada é enviado para lugar nenhum" enquanto o
+  // site carregava Google Analytics em produção. O guarda amarra a afirmação ao
+  // CÓDIGO que a desmentiria: enquanto existir um componente que monta o GA, a
+  // página tem que dizer o nome dele. Se o GA sair do projeto, este teste
+  // reprova pedindo que o texto mude junto — é o mesmo desenho do teste de
+  // licença, que lê o `LICENSE` em vez de uma string escrita aqui.
+  const analytics = readFileSync(
+    path.join(process.cwd(), "src", "components", "Analytics.tsx"),
+    "utf8"
+  );
+  const carregaGa = /GoogleAnalytics|AnalyticsDeferred/.test(analytics);
+
+  await page.goto(SOBRE);
+  const corpo = page.locator(".intro-wrap");
+
+  if (carregaGa) {
+    await expect(
+      corpo,
+      "o site monta Google Analytics, então a /sobre precisa dizer isso pelo nome"
+    ).toContainText("Google Analytics");
+  }
+
+  // E a afirmação absoluta não volta. A frase certa é sobre o PROGRESSO; a
+  // errada é sobre o site inteiro, e é uma promessa que o site não cumpre.
+  const texto = ((await corpo.textContent()) ?? "").replace(/\s+/g, " ");
+  expect(
+    texto,
+    "a /sobre voltou a prometer que nada sai do navegador, o que o Analytics desmente"
+  ).not.toMatch(/nada é enviado para lugar nenhum/i);
+});
+
 test("dá para chegar ao /sobre navegando, no menu e no rodapé", async ({ page }) => {
   // Rota que existe e ninguém alcança é rota que não existe. Clicar, e não
   // conferir `href`: o `href` certo dentro de um menu que não abre continua

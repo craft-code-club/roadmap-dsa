@@ -74,10 +74,27 @@ export default function SobrePage() {
           LeetCode e do GeeksforGeeks, na ordem em que recomendamos resolver.
         </li>
         <li className="prose-li">
-          Progresso salvo <strong className="prose-strong">no seu navegador</strong>. Não há conta,
-          não há login e nada é enviado para lugar nenhum.
+          Progresso salvo <strong className="prose-strong">no seu navegador</strong>: os tópicos e
+          problemas que você marca ficam no armazenamento local deste aparelho. Não há conta, não
+          há login, e o que você marcou não é enviado para servidor nenhum.
         </li>
       </ul>
+
+      {/* Esta frase já esteve errada, e vale dizer por quê: ela dizia que "nada é
+          enviado para lugar nenhum", sem qualificar, enquanto o site carrega
+          Google Analytics em produção (`src/components/Analytics.tsx`). Uma
+          página institucional afirmando o que o próprio site desmente é o pior
+          tipo de erro que ela pode ter. Cada afirmação abaixo é verificável no
+          código, e o teste `a /sobre não promete privacidade que o código
+          desmente` amarra a página ao `Analytics.tsx`. */}
+      <p className="prose-p">
+        O que sai do seu navegador: em produção o site carrega o{" "}
+        <strong className="prose-strong">Google Analytics</strong>, que registra as páginas
+        visitadas. É a única medição do site — não há outro rastreador, nem anúncio —, ela só é
+        carregada depois que a página termina de abrir, e não existe em preview de Pull Request
+        nem quando você roda o projeto na sua máquina. O seu progresso não vai junto: ele nunca
+        sai do armazenamento local.
+      </p>
       <p className="prose-p">
         <Link className="prose-a" href="/roadmap/">
           Ver o roadmap completo
