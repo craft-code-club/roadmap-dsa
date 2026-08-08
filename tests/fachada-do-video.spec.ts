@@ -129,11 +129,15 @@ test("o HTML entregue não tem <iframe> do YouTube, e tem o botão da fachada", 
   const semBotao = comVideo
     .filter((t) => {
       const html = readFileSync(join(OUT, "topico", t.slug, "index.html"), "utf8");
-      // `type="button"` junto de propósito: botão sem `type` é `submit`, e este
-      // repositório já teve um PR só para isso.
-      return (
-        !html.includes(`aria-label="Assistir à aula: ${t.name}"`) || !html.includes('type="button"')
+      // Os dois atributos na MESMA tag de abertura, e não dois `includes`
+      // soltos: a página tem outros botões já tipados (`TopicComplete.tsx`),
+      // então tirar o `type` daqui deixaria a versão frouxa VERDE. Botão sem
+      // `type` é `submit`, e este repositório já teve um PR só para isso.
+      const abertura = new RegExp(
+        `<button\\b[^>]*aria-label="Assistir à aula: ${t.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>`
       );
+      const tag = html.match(abertura)?.[0];
+      return !tag || !/\btype="button"/.test(tag);
     })
     .map((t) => t.slug);
   expect(
