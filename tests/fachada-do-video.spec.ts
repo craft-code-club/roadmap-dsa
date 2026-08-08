@@ -36,11 +36,31 @@ const ROTA = `/topico/${TOPICO.slug}/`;
 const NOME_DO_BOTAO = `Assistir à aula: ${TOPICO.name}`;
 const OUT = join(__dirname, "..", "out");
 
-/** PNG 1x1 opaco. O conteúdo não importa; o que importa é decodificar. */
-const PIXEL = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+// A miniatura de teste tem 320x180, e NÃO 1x1 — a diferença custou uma tarde.
+//
+// Quando o `<img>` escolhe um candidato do `srcset` por descritor `w`, o
+// `naturalWidth` que ele devolve vem CORRIGIDO PELA DENSIDADE: é a largura
+// intrínseca dividida por (descritor ÷ largura pintada). Nesta página o
+// candidato é `1280w` numa caixa de 842px, ou seja densidade 1,52. Uma imagem
+// de 1x1 vira `1 ÷ 1,52 = 0,65`, que arredonda para **zero** — e o teste lê
+// `naturalWidth: 0`, que é exatamente a assinatura do ícone quebrado que ele
+// existe para pegar. Reprovava sem nenhum defeito no produto.
+//
+// Medido: 1x1 → `naturalWidth 0`; a `mqdefault.webp` real (320x180) → 210.
+// O conteúdo continua não importando; o TAMANHO importa.
+const MINIATURA = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAUAAAAC0CAIAAABqhmJGAAABlElEQVR42u3TQQkAAAwDscrZeyLm" +
+    "X9J0FAJRcHCZPaBUJAADAwYGDAwGBgwMGBgwMBgYMDBgYDAwYGDAwICBwcCAgQEDAwYGAwMGBgwM" +
+    "BgYMDBgYMDAYGDAwYGDAwGBgwMCAgcHAgIEBAwMGBgMDBgYMDAZWAQwMGBgwMBgYMDBgYMDAYGDA" +
+    "wICBwcCAgQEDAwYGAwMGBgwMGBgMDBgYMDAYGDAwYGDAwGBgwMCAgQEDg4EBAwMGBgMDBgYMDBgY" +
+    "DAwYGDAwGBgwMGBgwMBgYMDAgIEBA4OBAQMDBgYDAwYGDAwYGAwMGBgwMGBgMDBgYMDAYGDAwICB" +
+    "AQODgQEDAwYGDAwGBgwMGBgMDBgYMDBgYDAwYGDAwGBgwMCAgQEDg4EBAwMGBgwMBgYMDBgYDAwY" +
+    "GDAwYGAwMGBgwMCAgcHAgIEBA4OBAQMDBgYMDAYGDAwYGAysAhgYMDBgYDAwYGDAwICBwcCAgQED" +
+    "g4EBAwMGBgwMBgYMDBgYMDAYGDAwYGAwMGBgwMCAgcHAgIEBAwMGhm4P9wyoNRfXlM8AAAAASUVO" +
+    "RK5CYII=",
   "base64"
 );
+
 
 /**
  * Responde pelos dois hosts do YouTube e devolve o array **vivo** das URLs
@@ -62,7 +82,7 @@ async function interceptarYouTube(page: Page, opcoes: { maxres404?: boolean } = 
       await route.fulfill({ status: 404, contentType: "text/html", body: "<html>404</html>" });
       return;
     }
-    await route.fulfill({ status: 200, contentType: "image/png", body: PIXEL });
+    await route.fulfill({ status: 200, contentType: "image/png", body: MINIATURA });
   });
 
   await page.route(/https:\/\/www\.youtube-nocookie\.com\//, async (route) => {
