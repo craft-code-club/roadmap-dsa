@@ -232,6 +232,7 @@ export function StackCallStackVisualizer() {
         <div className="bigo-chips">
           {MODES.map((m) => (
             <button
+              type="button"
               key={m.key}
               className={`bigo-chip${mode === m.key ? " on" : ""}`}
               onClick={() => change(() => setMode(m.key))}
@@ -268,7 +269,7 @@ export function StackCallStackVisualizer() {
           {/* O `↺` do rodapé é só `viz.reset()`: ele volta ao passo 0 e não
               desfaz a base e o expoente que o aluno montou. O caminho de volta
               ao estado inicial é este botão, e o rótulo dele diz isso. */}
-          <button className="viz-btn" onClick={() => change(() => { setX(X_DEFAULT); setN(N_DEFAULT); })}>
+          <button type="button" className="viz-btn" onClick={() => change(() => { setX(X_DEFAULT); setN(N_DEFAULT); })}>
             ↺ Voltar ao 2³
           </button>
         </div>

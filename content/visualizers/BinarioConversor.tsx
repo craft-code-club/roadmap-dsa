@@ -91,6 +91,7 @@ export function BinarioConversor() {
         <div className="bigo-chips">
           {PRESETS.map((p) => (
             <button
+              type="button"
               key={p.key}
               className={`bigo-chip${value === p.value ? " on" : ""}`}
               onClick={() => setValue(p.value)}
@@ -116,6 +117,7 @@ export function BinarioConversor() {
               const exp = N - 1 - k;
               return (
                 <button
+                  type="button"
                   key={k}
                   className={`bn-bit${b ? " on" : ""}`}
                   onClick={() => toggleBit(k)}

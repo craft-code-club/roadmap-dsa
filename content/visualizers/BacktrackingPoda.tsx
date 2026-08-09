@@ -137,6 +137,7 @@ export function BacktrackingPoda() {
         <div className="bigo-chips">
           {TAMANHOS.map((t) => (
             <button
+              type="button"
               key={t}
               className={`bigo-chip${n === t ? " on" : ""}`}
               onClick={() => {
@@ -218,6 +219,7 @@ export function BacktrackingPoda() {
           <div className="bt-rainhas-topo">
             {com.solucoes.map((_, k) => (
               <button
+                type="button"
                 key={k}
                 className={`bigo-chip${k === Math.min(qual, com.solucoes.length - 1) ? " on" : ""}`}
                 onClick={() => setQual(k)}

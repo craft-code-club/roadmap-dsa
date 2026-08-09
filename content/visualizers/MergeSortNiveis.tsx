@@ -73,7 +73,7 @@ export function MergeSortNiveis() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {SIZES.map((t) => (
-            <button key={t} className={`bigo-chip${n === t ? " on" : ""}`} onClick={() => setN(t)} aria-pressed={n === t}>
+            <button type="button" key={t} className={`bigo-chip${n === t ? " on" : ""}`} onClick={() => setN(t)} aria-pressed={n === t}>
               n = {t}
             </button>
           ))}

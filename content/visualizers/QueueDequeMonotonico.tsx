@@ -289,6 +289,7 @@ export function QueueDequeMonotonico() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -308,7 +309,7 @@ export function QueueDequeMonotonico() {
             <span>k</span>
             <input className="viz-input k" type="number" min={1} max={12} value={k} onChange={(e) => onKChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={shuffle}>
+          <button type="button" className="viz-btn" onClick={shuffle}>
             Sortear
           </button>
         </div>

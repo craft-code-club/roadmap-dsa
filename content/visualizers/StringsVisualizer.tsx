@@ -259,6 +259,7 @@ export function StringsVisualizer() {
             const on = m.key === mode;
             return (
               <button
+                type="button"
                 key={m.key}
                 className={`bigo-chip${on ? " on" : ""}`}
                 style={on ? { borderColor: m.color, color: m.color } : undefined}
@@ -277,7 +278,7 @@ export function StringsVisualizer() {
             <span>Palavra a montar, um caractere por volta</span>
             <input className="viz-input" value={word} onChange={(e) => onWordChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={pickRandom}>
+          <button type="button" className="viz-btn" onClick={pickRandom}>
             Sortear
           </button>
         </div>
@@ -285,6 +286,7 @@ export function StringsVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.label}
               className={`bigo-chip${word === pr.text ? " on" : ""}`}
               onClick={() => onWordChange(pr.text)}

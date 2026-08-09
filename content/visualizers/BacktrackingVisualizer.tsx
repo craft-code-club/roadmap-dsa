@@ -285,7 +285,7 @@ export function BacktrackingVisualizer() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {MODES.map((m) => (
-            <button key={m} className={`bigo-chip${mode === m ? " on" : ""}`} onClick={() => changeMode(m)} aria-pressed={mode === m}>
+            <button type="button" key={m} className={`bigo-chip${mode === m ? " on" : ""}`} onClick={() => changeMode(m)} aria-pressed={mode === m}>
               {MODE_NAMES[m]}
             </button>
           ))}

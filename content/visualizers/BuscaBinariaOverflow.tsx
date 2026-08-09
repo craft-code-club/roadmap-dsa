@@ -122,7 +122,7 @@ export function BuscaBinariaOverflow() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((p) => (
-            <button key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => aplicar(p)} aria-pressed={presetKey === p.key}>
+            <button type="button" key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => aplicar(p)} aria-pressed={presetKey === p.key}>
               {p.rotulo}
             </button>
           ))}
@@ -160,10 +160,10 @@ export function BuscaBinariaOverflow() {
           <div className="viz-field">
             <span>Tipo do inteiro</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${limitado ? " on" : ""}`} onClick={() => setLimitado(true)} aria-pressed={limitado}>
+              <button type="button" className={`sub-modo-btn${limitado ? " on" : ""}`} onClick={() => setLimitado(true)} aria-pressed={limitado}>
                 32 bits (Java, C#, Go int32)
               </button>
-              <button className={`sub-modo-btn${!limitado ? " on" : ""}`} onClick={() => setLimitado(false)} aria-pressed={!limitado}>
+              <button type="button" className={`sub-modo-btn${!limitado ? " on" : ""}`} onClick={() => setLimitado(false)} aria-pressed={!limitado}>
                 sem limite (Python)
               </button>
             </div>

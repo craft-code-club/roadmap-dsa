@@ -282,15 +282,15 @@ export function PrefixSumTradeoff() {
 
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          <button className="bigo-chip" onClick={() => setRawQ(1)}>
+          <button type="button" className="bigo-chip" onClick={() => setRawQ(1)}>
             <span className="sw" style={{ background: BRUTE_COLOR }} />
             Uma consulta só
           </button>
-          <button className="bigo-chip" onClick={() => setRawQ(turningPoint)}>
+          <button type="button" className="bigo-chip" onClick={() => setRawQ(turningPoint)}>
             <span className="sw" style={{ background: "#93a9c2" }} />
             No ponto de virada
           </button>
-          <button className="bigo-chip" onClick={() => setRawQ(qMax)}>
+          <button type="button" className="bigo-chip" onClick={() => setRawQ(qMax)}>
             <span className="sw" style={{ background: PREFIX_COLOR }} />
             Muitas consultas
           </button>
@@ -384,7 +384,7 @@ export function PrefixSumTradeoff() {
             style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
           />
         </div>
-        <button className="viz-btn" onClick={() => { setArrayIndex(4); setSliceIndex(1); setRawQ(21); }}>↺ Reiniciar</button>
+        <button type="button" className="viz-btn" onClick={() => { setArrayIndex(4); setSliceIndex(1); setRawQ(21); }}>↺ Reiniciar</button>
       </VizFooter>
     </figure>
   );

@@ -385,6 +385,7 @@ export function OrdenacaoBasicaVisualizer() {
         <div className="bigo-chips">
           {ALGOS.map((k) => (
             <button
+              type="button"
               key={k}
               className={`bigo-chip${algo === k ? " on" : ""}`}
               onClick={() => changeAlgo(k)}
@@ -397,6 +398,7 @@ export function OrdenacaoBasicaVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${presetKey === pr.key ? " on" : ""}`}
               onClick={() => changePreset(pr.key)}

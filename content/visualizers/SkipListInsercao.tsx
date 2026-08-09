@@ -679,6 +679,7 @@ export function SkipListInsercao() {
       <div {...viz.bodyProps}>
         <div className="arr-tabs" style={{ marginBottom: 16 }}>
           <button
+            type="button"
             className={`arr-tab${inserting ? " on" : ""}`}
             onClick={() => switchMode("inserir")}
             aria-pressed={inserting}
@@ -686,6 +687,7 @@ export function SkipListInsercao() {
             Inserir
           </button>
           <button
+            type="button"
             className={`arr-tab${!inserting ? " on" : ""}`}
             onClick={() => switchMode("remover")}
             aria-pressed={!inserting}
@@ -697,6 +699,7 @@ export function SkipListInsercao() {
         <div className="bigo-chips">
           {PRESETS[mode].map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -726,7 +729,7 @@ export function SkipListInsercao() {
                   style={{ accentColor: "var(--ccc-accent)", width: 150 }}
                 />
               </label>
-              <button className="viz-btn" onClick={rollHeight}>
+              <button type="button" className="viz-btn" onClick={rollHeight}>
                 Lançar a moeda
               </button>
             </>

@@ -347,6 +347,7 @@ export function TailRecursionVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               aria-pressed={preset === pr.key}
@@ -362,13 +363,14 @@ export function TailRecursionVisualizer() {
             <span>Lista de números</span>
             <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={randomize}>
+          <button type="button" className="viz-btn" onClick={randomize}>
             Sortear
           </button>
         </div>
 
         <div className="bigo-chips">
           <button
+            type="button"
             className={`bigo-chip${tco ? " on" : ""}`}
             aria-pressed={tco}
             onClick={() => {
@@ -380,6 +382,7 @@ export function TailRecursionVisualizer() {
             Elixir, Scala, Kotlin (com TCO)
           </button>
           <button
+            type="button"
             className={`bigo-chip${!tco ? " on" : ""}`}
             aria-pressed={!tco}
             onClick={() => {

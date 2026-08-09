@@ -262,13 +262,14 @@ export function HashTableBuscaVisualizer() {
               }}
             />
           </label>
-          <button className="viz-btn" onClick={shuffle}>
+          <button type="button" className="viz-btn" onClick={shuffle}>
             Sortear
           </button>
         </div>
 
         <div className="bigo-chips">
           <button
+            type="button"
             className={`bigo-chip${!bad ? " on" : ""}`}
             aria-pressed={!bad}
             onClick={() => {
@@ -280,6 +281,7 @@ export function HashTableBuscaVisualizer() {
             Hash que distribui
           </button>
           <button
+            type="button"
             className={`bigo-chip${bad ? " on" : ""}`}
             aria-pressed={bad}
             onClick={() => {
@@ -295,7 +297,7 @@ export function HashTableBuscaVisualizer() {
         <div className="ht-presets">
           <span>Cenários</span>
           {PRESETS.map((pr) => (
-            <button className="viz-btn" key={pr.label} onClick={() => applyPreset(pr)}>
+            <button type="button" className="viz-btn" key={pr.label} onClick={() => applyPreset(pr)}>
               {pr.label}
             </button>
           ))}

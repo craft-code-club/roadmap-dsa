@@ -329,6 +329,7 @@ export function NAryTreeVisualizer() {
         <div className="bigo-chips">
           {(["pre", "post", "level"] as Order[]).map((o) => (
             <button
+              type="button"
               key={o}
               className={`bigo-chip${order === o && !inOrderNote ? " on" : ""}`}
               onClick={() => pickOrder(o)}
@@ -338,6 +339,7 @@ export function NAryTreeVisualizer() {
             </button>
           ))}
           <button
+            type="button"
             className={`bigo-chip na${inOrderNote ? " on" : ""}`}
             onClick={() => setInOrderNote((v) => !v)}
             aria-pressed={inOrderNote}
@@ -359,6 +361,7 @@ export function NAryTreeVisualizer() {
         <div className="bigo-chips" style={{ marginTop: 2 }}>
           {TREES.map((a) => (
             <button
+              type="button"
               key={a.key}
               className={`bigo-chip${treeKey === a.key ? " on" : ""}`}
               onClick={() => pickTree(a.key)}

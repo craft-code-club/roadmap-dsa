@@ -213,13 +213,13 @@ export function ArraysVisualizer() {
           {/* Os presets ficam AQUI, e não na linha de controles, porque com um
               array de 1 elemento não há linha do tempo e o rodapé some inteiro —
               levar o "20 inteiros" junto deixaria o aluno sem volta. */}
-          <button className="viz-btn" onClick={randomize}>
+          <button type="button" className="viz-btn" onClick={randomize}>
             Sortear
           </button>
-          <button className="viz-btn" onClick={preset20}>
+          <button type="button" className="viz-btn" onClick={preset20}>
             20 inteiros
           </button>
-          <button className="viz-btn" onClick={restore}>
+          <button type="button" className="viz-btn" onClick={restore}>
             Voltar ao padrão
           </button>
         </div>
@@ -230,6 +230,7 @@ export function ArraysVisualizer() {
             <div className="arr-tabs">
               {ELEMENT_SIZES.map((t) => (
                 <button
+                  type="button"
                   key={t.key}
                   className={`arr-tab${t.key === sizeKey ? " on" : ""}`}
                   aria-pressed={t.key === sizeKey}
@@ -242,6 +243,7 @@ export function ArraysVisualizer() {
             </div>
           </div>
           <button
+            type="button"
             className={`viz-btn arr-toggle${cache ? " on" : ""}`}
             aria-pressed={cache}
             onClick={() => setCache((v) => !v)}

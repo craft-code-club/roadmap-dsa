@@ -266,6 +266,7 @@ export function BigOCounterVisualizer() {
             const on = i === algIndex;
             return (
               <button
+                type="button"
                 key={a.key}
                 className={`bigo-chip${on ? " on" : ""}`}
                 style={on ? { borderColor: a.cor, color: a.cor } : undefined}

@@ -207,16 +207,16 @@ export function GrafoDfsBfs() {
 
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          <button className={`bigo-chip${mode === "bfs" ? " on" : ""}`} onClick={() => pickMode("bfs")} aria-pressed={mode === "bfs"}>
+          <button type="button" className={`bigo-chip${mode === "bfs" ? " on" : ""}`} onClick={() => pickMode("bfs")} aria-pressed={mode === "bfs"}>
             BFS (fila)
           </button>
-          <button className={`bigo-chip${isDfs ? " on" : ""}`} onClick={() => pickMode("dfs")} aria-pressed={isDfs}>
+          <button type="button" className={`bigo-chip${isDfs ? " on" : ""}`} onClick={() => pickMode("dfs")} aria-pressed={isDfs}>
             DFS (pilha)
           </button>
         </div>
         <div className="bigo-chips" style={{ marginTop: 2 }}>
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => pickPreset(pr.key)} aria-pressed={presetKey === pr.key}>
+            <button type="button" key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => pickPreset(pr.key)} aria-pressed={presetKey === pr.key}>
               {pr.label}
             </button>
           ))}

@@ -357,6 +357,7 @@ export function TreeTraversalVisualizer() {
         <div className="bigo-chips">
           {ORDERS.map((o) => (
             <button
+              type="button"
               key={o}
               className={`bigo-chip${order === o ? " on" : ""}`}
               onClick={() => pickOrder(o)}
@@ -369,6 +370,7 @@ export function TreeTraversalVisualizer() {
         <div className="bigo-chips" style={{ marginTop: 2 }}>
           {TREES.map((a) => (
             <button
+              type="button"
               key={a.key}
               className={`bigo-chip${treeKey === a.key ? " on" : ""}`}
               onClick={() => pickTree(a.key)}

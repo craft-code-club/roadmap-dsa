@@ -304,7 +304,7 @@ export function PrefixSumVisualizer() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.label} className="bigo-chip" onClick={() => applyPreset(pr)}>
+            <button type="button" key={pr.label} className="bigo-chip" onClick={() => applyPreset(pr)}>
               {pr.label}
             </button>
           ))}
@@ -333,7 +333,7 @@ export function PrefixSumVisualizer() {
               onChange={(e) => { viz.reset(); setRawJ(parseInt(e.target.value, 10) || 0); }}
             />
           </label>
-          <button className="viz-btn" onClick={shuffle}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="viz-vars-head">nums, o array de entrada</div>
@@ -414,7 +414,7 @@ export function PrefixSumVisualizer() {
           enxerga nó de texto JSX quebrado em várias linhas, e o que ele não vê
           ele não protege. */}
       <VizFooter viz={viz}>
-        <button className="viz-btn" onClick={jumpToQuery}>Pular para a consulta</button>
+        <button type="button" className="viz-btn" onClick={jumpToQuery}>Pular para a consulta</button>
       </VizFooter>
     </figure>
   );

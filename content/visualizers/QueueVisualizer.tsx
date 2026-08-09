@@ -449,6 +449,7 @@ export function QueueVisualizer() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           <button
+            type="button"
             className={`bigo-chip${mode === "ingenua" ? " on" : ""}`}
             onClick={() => changeMode("ingenua")}
             aria-pressed={mode === "ingenua"}
@@ -457,6 +458,7 @@ export function QueueVisualizer() {
             fila ingênua
           </button>
           <button
+            type="button"
             className={`bigo-chip${mode === "circular" ? " on" : ""}`}
             onClick={() => changeMode("circular")}
             aria-pressed={mode === "circular"}
@@ -469,6 +471,7 @@ export function QueueVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -487,16 +490,16 @@ export function QueueVisualizer() {
           <div className="viz-field grow">
             <span>roteiro de operações</span>
             <div className="fila-botoes">
-              <button className="viz-btn" onClick={() => append({ kind: "enq", value: nextLetter(script) })}>
+              <button type="button" className="viz-btn" onClick={() => append({ kind: "enq", value: nextLetter(script) })}>
                 + enfileirar {nextLetter(script)}
               </button>
-              <button className="viz-btn" onClick={() => append({ kind: "deq" })}>
+              <button type="button" className="viz-btn" onClick={() => append({ kind: "deq" })}>
                 + desenfileirar
               </button>
-              <button className="viz-btn" disabled={!script.length} onClick={undo}>
+              <button type="button" className="viz-btn" disabled={!script.length} onClick={undo}>
                 ← desfazer
               </button>
-              <button className="viz-btn" disabled={!script.length} onClick={clear}>
+              <button type="button" className="viz-btn" disabled={!script.length} onClick={clear}>
                 limpar
               </button>
             </div>

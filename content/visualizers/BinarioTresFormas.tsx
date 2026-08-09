@@ -114,7 +114,7 @@ export function BinarioTresFormas() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {VALUES.map((v) => (
-            <button key={v} className={`bigo-chip${value === v ? " on" : ""}`} onClick={() => setValue(v)} aria-pressed={value === v}>
+            <button type="button" key={v} className={`bigo-chip${value === v ? " on" : ""}`} onClick={() => setValue(v)} aria-pressed={value === v}>
               negar {v}
             </button>
           ))}

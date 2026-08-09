@@ -188,6 +188,7 @@ export function QuickSortPivo() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${presetKey === pr.key ? " on" : ""}`}
               onClick={() => setPresetKey(pr.key)}

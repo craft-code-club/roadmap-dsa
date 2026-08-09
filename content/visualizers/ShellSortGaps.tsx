@@ -233,7 +233,7 @@ export function ShellSortGaps() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {TAMANHOS.map((t) => (
-            <button key={t} className={`bigo-chip${n === t ? " on" : ""}`} onClick={() => setN(t)} aria-pressed={n === t}>
+            <button type="button" key={t} className={`bigo-chip${n === t ? " on" : ""}`} onClick={() => setN(t)} aria-pressed={n === t}>
               n = {t}
             </button>
           ))}
@@ -241,6 +241,7 @@ export function ShellSortGaps() {
         <div className="bigo-chips">
           {FORMAS.map((f) => (
             <button
+              type="button"
               key={f.key}
               className={`bigo-chip${forma === f.key ? " on" : ""}`}
               onClick={() => setForma(f.key)}

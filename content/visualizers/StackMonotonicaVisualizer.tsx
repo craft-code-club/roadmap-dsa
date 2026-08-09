@@ -267,6 +267,7 @@ export function StackMonotonicaVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -282,7 +283,7 @@ export function StackMonotonicaVisualizer() {
             <span>Array (inteiros de 0 a 99)</span>
             <input className="viz-input" value={input} onChange={(e) => onInputChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={shuffle}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="pl-arena">

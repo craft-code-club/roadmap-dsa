@@ -173,6 +173,7 @@ export function TwoPointersVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -192,7 +193,7 @@ export function TwoPointersVisualizer() {
             <span>alvo</span>
             <input className="viz-input k" type="number" value={target} onChange={(e) => onTargetChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={shuffle}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="viz-cells">

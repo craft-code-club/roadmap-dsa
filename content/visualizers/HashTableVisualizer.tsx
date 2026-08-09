@@ -459,13 +459,14 @@ export function HashTableVisualizer() {
               <option value={16}>16</option>
             </select>
           </label>
-          <button className="viz-btn" onClick={shuffle}>
+          <button type="button" className="viz-btn" onClick={shuffle}>
             Sortear
           </button>
         </div>
 
         <div className="bigo-chips">
           <button
+            type="button"
             className={`bigo-chip${chained ? " on" : ""}`}
             aria-pressed={chained}
             onClick={() => {
@@ -477,6 +478,7 @@ export function HashTableVisualizer() {
             Encadeamento
           </button>
           <button
+            type="button"
             className={`bigo-chip${!chained ? " on" : ""}`}
             aria-pressed={!chained}
             onClick={() => {
@@ -488,6 +490,7 @@ export function HashTableVisualizer() {
             Sondagem linear
           </button>
           <button
+            type="button"
             className={`bigo-chip${resizes ? " on" : ""}`}
             aria-pressed={resizes}
             onClick={() => {
@@ -503,7 +506,7 @@ export function HashTableVisualizer() {
         <div className="ht-presets">
           <span>Cenários</span>
           {PRESETS.map((pr) => (
-            <button className="viz-btn" key={pr.label} onClick={() => applyPreset(pr)}>
+            <button type="button" className="viz-btn" key={pr.label} onClick={() => applyPreset(pr)}>
               {pr.label}
             </button>
           ))}
