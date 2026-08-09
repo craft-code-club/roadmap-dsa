@@ -103,7 +103,7 @@ Esse pico de frames é a resposta para uma pergunta que costuma cair em entrevis
 
 A pilha não é infinita, e isso é de propósito. Se ela crescesse enquanto houvesse memória, um programa com recursão descontrolada roubaria memória dos outros processos e do sistema operacional. A linguagem corta antes: em CPython o limite padrão é **1000 níveis**, e passar disso levanta `RecursionError: maximum recursion depth exceeded`.
 
-No encontro a galera rodou um Tribonacci recursivo ao vivo só para ver quebrar, e o estouro veio por volta da chamada 996, porque o interpretador já usa alguns frames antes do seu código começar.
+Rode um Tribonacci recursivo só para ver quebrar: o estouro vem por volta da chamada 996, porque o interpretador já usa alguns frames antes do seu código começar.
 
 O visualizador acima tem um campo **limite da pilha** justamente para isso. Escolha o preset **fatorial(10) com limite 6**: o código está correto, o caso base existe, e mesmo assim estoura. A causa não é bug de lógica, é profundidade demais.
 
@@ -142,7 +142,7 @@ O código é lindo, tem exatamente a mesma forma da definição matemática, e �
 
 Comece pelo preset **fib(4): a primeira subárvore refeita** e avance passo a passo. São 9 chamadas para um resultado que vale 3, e você vê o `fib(2)` amarelo aparecendo pela segunda vez, agora tendo que expandir os dois filhos de novo. Depois vá para **fib(6): 25 chamadas** e rode até o fim: a árvore fica quase toda amarela, porque quase tudo ali é recálculo. Por último, **fib(8): o retrabalho fica óbvio**, com 67 chamadas e 58 delas repetidas.
 
-Agora a conta que ficou em aberto no encontro. Alguém perguntou se O(2ⁿ) é literalmente o número de chamadas: com `n = 13`, seriam 2¹³ = 8.192 chamadas? A resposta curta é não, e dá para ser exato. Contando as chamadas de `fib(n)` ingênuo:
+Agora a conta que costuma ficar em aberto. Uma pergunta natural é se O(2ⁿ) é literalmente o número de chamadas: com `n = 13`, seriam 2¹³ = 8.192 chamadas? A resposta curta é não, e dá para ser exato. Contando as chamadas de `fib(n)` ingênuo:
 
 ```
 T(0) = T(1) = 1
@@ -319,7 +319,7 @@ Não é a posição da palavra `fatorial` na linha que muda a classificação, �
 
 Volte ao visualizador da pilha e escolha o preset **fatorial(5) em cauda**. Compare com o clássico: os frames somem no mesmo ritmo, o número de chamadas é o mesmo, o pico de frames é o mesmo. **Em Python a recursão de cauda não economiza um byte.** Ela só carrega o rótulo "nada pendente", e é esse rótulo que uma linguagem com *tail call optimization* aproveita para reaproveitar o frame em vez de empilhar um novo, transformando a recursão em iteração no compilador. Linguagens funcionais tratam isso como básico; Python, Java e C# não fazem.
 
-Esse é o assunto do encontro seguinte, e ele tem página própria: [Recursão em Programação Funcional](/topico/recursao-funcional).
+Esse é o assunto do tópico seguinte, e ele tem página própria: [Recursão em Programação Funcional](/topico/recursao-funcional).
 
 ### Recursão estrutural: lista, árvore e JSON são o mesmo código
 
@@ -476,6 +476,6 @@ Duas coisas para não errar: `nova_cabeca` atravessa a subida inteira sem mudar 
 
 **Pow(x, n) (50).** Fecha o ciclo com o pulo de O(n) para O(log n). Os três detalhes que fazem falhar: expoente zero, expoente negativo, e a chamada duplicada na mesma linha. Guarde a metade numa variável.
 
-Uma dica de ritmo que a comunidade usa: em problema Fácil, se em 10 minutos você não achou a sacada, vá para as dicas e o editorial. Ficar uma hora travado não treina nada; ler a solução, fechar e reescrever do zero no dia seguinte treina muito.
+Uma dica de ritmo que funciona: em problema Fácil, se em 10 minutos você não achou a sacada, vá para as dicas e o editorial. Ficar uma hora travado não treina nada; ler a solução, fechar e reescrever do zero no dia seguinte treina muito.
 
 Quando estes estiverem confortáveis, os próximos passos naturais são [Recursão em Programação Funcional](/topico/recursao-funcional), para entender a otimização de cauda de verdade, e [Percursos em Árvore](/topico/tree-traversals), onde a recursão deixa de ser exercício e vira ferramenta de trabalho.
