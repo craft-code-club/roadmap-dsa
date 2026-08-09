@@ -770,7 +770,17 @@ export function VizHeader({
         {viz.total > 1 && (
           <span className="viz-step">passo {viz.step + 1} de {viz.total}</span>
         )}
+        {/* O `type="button"` destes dois vem do objeto espalhado, e o tipo dele
+            é o literal `type: "button"` (veja `blockButtonProps` e
+            `expandButtonProps` no tipo `Visualizer`): tirar ou trocar reprova
+            no `tsc`. A regra `react/button-has-type` lê só os atributos
+            escritos na tag e não enxerga através do `{...spread}`, então
+            acusaria os dois de falta. Quem guarda de verdade é o teste que lê
+            a PROPRIEDADE `type` no DOM, em `tests/check-alinhado.spec.ts`
+            (seletor `.viz-expand`). */}
+        {/* eslint-disable-next-line react/button-has-type */}
         {viz.collapsible && <button {...viz.blockButtonProps} />}
+        {/* eslint-disable-next-line react/button-has-type */}
         <button {...viz.expandButtonProps} />
       </div>
     </div>

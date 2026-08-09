@@ -72,6 +72,27 @@ export default [
       // É a família que já virou bug neste repositório. Sobe para ERRO, que é o
       // ponto de ter lint: código novo não entra com dependência faltando.
       "react-hooks/exhaustive-deps": "error",
+
+      // O padrão do HTML para `<button>` é `type="submit"`. Hoje o defeito é
+      // LATENTE — `<form` aparece zero vezes no `out/` —, mas o dia em que
+      // alguém puser um formulário na página, todo botão de visualizador
+      // dentro dele passa a enviar a página em vez de avançar o passo.
+      //
+      // O passivo foi medido pela AST antes de ligar a regra: 196 tags em 78
+      // arquivos de `content/visualizers/`, todas consertadas no commit
+      // anterior. Por isso ela entra como ERRO e não como aviso: o que uma
+      // varredura em massa não faz é impedir o 197º, e é exatamente isso que
+      // se compra aqui.
+      //
+      // (Contar com `grep -c "<button"` daria 199, porque ele conta LINHA e
+      // inclui `<button>` escrito dentro de string de exemplo de código que o
+      // aluno lê na tela. A régua é a AST.)
+      //
+      // Limite conhecido: a regra lê só os atributos escritos na tag e não
+      // enxerga através de `{...spread}`. As duas tags da casca em
+      // `src/lib/visualizer.tsx` recebem o `type` do objeto espalhado e têm
+      // `eslint-disable-next-line` com o motivo escrito ao lado.
+      "react/button-has-type": "error",
     },
   },
 
