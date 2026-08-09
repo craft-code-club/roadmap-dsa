@@ -4,7 +4,7 @@ Two Pointers é o primeiro truque que transforma um O(n²) em O(n) **sem gastar 
 
 ## Uma técnica, não um algoritmo
 
-Vale começar pela distinção que apareceu no encontro, porque ela muda o jeito de estudar o assunto. Um **algoritmo** é uma sequência definida de passos: o Bubble Sort é sempre o Bubble Sort, o Merge Sort é sempre o Merge Sort. Two Pointers não é isso, e também não é uma estrutura de dados, porque não diz nada sobre como os dados ficam organizados na memória. É uma **técnica**: um jeito de abordar o problema, que aparece com formatos bem diferentes dependendo do que você precisa responder.
+Vale começar por uma distinção que muda o jeito de estudar o assunto. Um **algoritmo** é uma sequência definida de passos: o Bubble Sort é sempre o Bubble Sort, o Merge Sort é sempre o Merge Sort. Two Pointers não é isso, e também não é uma estrutura de dados, porque não diz nada sobre como os dados ficam organizados na memória. É uma **técnica**: um jeito de abordar o problema, que aparece com formatos bem diferentes dependendo do que você precisa responder.
 
 A definição é curta: você mantém **dois índices apontando para posições diferentes** e move cada um segundo uma regra que depende do que está lendo. O ganho vem sempre da mesma coisa: **a cada passo você elimina possibilidades sem precisar testá-las**.
 
@@ -29,7 +29,7 @@ Em entrevista, **diga o nome da especialização**. Sliding Window é Two Pointe
 
 ## O que custa testar todos os pares
 
-O problema motivador é o mesmo do encontro: dado um array **ordenado** e um `alvo`, existem dois números que somam o alvo?
+O problema motivador é o clássico: dado um array **ordenado** e um `alvo`, existem dois números que somam o alvo?
 
 A primeira solução que vem à cabeça testa todo mundo com todo mundo:
 
@@ -60,7 +60,7 @@ A regra cabe em três linhas. Um ponteiro na primeira posição, outro na últim
 - Soma **menor** que o alvo: o único jeito de aumentar é trocar o número pequeno por um maior, então **avance a esquerda**.
 - Soma **igual** ao alvo: achou, pode devolver.
 
-Com o array do encontro, `[1, 2, 3, 6, 8, 10, 20, 21]` e alvo 16, a busca inteira cabe em seis somas:
+Com o array `[1, 2, 3, 6, 8, 10, 20, 21]` e alvo 16, a busca inteira cabe em seis somas:
 
 | Passo | Conta | Soma | Decisão |
 | --- | --- | --- | --- |
@@ -113,12 +113,12 @@ Cada passo elimina uma **linha ou uma coluna inteira** da tabela de pares, e nã
 Esse mesmo raciocínio explica por que a ordenação é obrigatória. Num array desordenado, "a soma ficou grande" não diz **qual** dos dois lados é o culpado, e mover qualquer um dos ponteiros pode descartar a resposta certa.
 </Callout>
 
-Sobre o custo, dois pontos que apareceram no encontro:
+Sobre o custo, dois pontos:
 
 - **Tempo O(n).** Cada índice é visitado no máximo uma vez, e os dois ponteiros juntos percorrem o array inteiro. Como cada iteração move um dos dois, o laço roda no máximo `n - 1` vezes. Na prática cada ponteiro anda **metade** do array, mas `n/2` é O(n): a constante cai, como em qualquer conta de [Big O](/topico/big-o).
 - **Espaço O(1).** Não existe estrutura auxiliar, só duas variáveis inteiras. Sejam 10 elementos ou 1 milhão, o consumo extra é o mesmo.
 
-Vale guardar a ressalva que o Nelson fez ali: a notação assintótica não conta tudo. Dois algoritmos O(n) podem ter constantes bem diferentes, e andar metade do array é, na vida real, duas vezes mais rápido que andar o array inteiro. O Big O classifica a curva, não cronometra o relógio.
+Vale guardar a ressalva: a notação assintótica não conta tudo. Dois algoritmos O(n) podem ter constantes bem diferentes, e andar metade do array é, na vida real, duas vezes mais rápido que andar o array inteiro. O Big O classifica a curva, não cronometra o relógio.
 
 ### O mesmo argumento sem soma nenhuma: Container With Most Water
 
@@ -170,9 +170,9 @@ def e_palindromo_ingenuo(s):
     return limpa == limpa[::-1]
 ```
 
-Correto e legível, mas com dois custos escondidos. Primeiro, **string em Python é imutável**: cada concatenação cria uma string nova, e `limpa[::-1]` cria mais uma. A memória extra vira O(n), justamente o que a técnica prometia evitar. Segundo, foi por aí que a discussão do encontro andou em círculos: você troca espaço, depois vírgula, depois dois pontos, e sempre falta um caractere novo.
+Correto e legível, mas com dois custos escondidos. Primeiro, **string em Python é imutável**: cada concatenação cria uma string nova, e `limpa[::-1]` cria mais uma. A memória extra vira O(n), justamente o que a técnica prometia evitar. Segundo, é por aí que a limpeza anda em círculos: você troca espaço, depois vírgula, depois dois pontos, e sempre falta um caractere novo.
 
-A saída é **não tocar na string**. Se o caractere atual não interessa, pule só aquele ponteiro e deixe o outro parado. Foi aqui que o encontro chegou no insight principal: **os dois ponteiros não precisam andar no mesmo ritmo**.
+A saída é **não tocar na string**. Se o caractere atual não interessa, pule só aquele ponteiro e deixe o outro parado. É aqui que está o insight principal: **os dois ponteiros não precisam andar no mesmo ritmo**.
 
 ```python
 def e_palindromo(s):
@@ -201,7 +201,7 @@ O visualizador começa com a frase do Panamá, que tem 30 caracteres. Rode até 
 - Antes de clicar em **0P**, responda: `"0P"` é palíndromo? A resposta é não, `0` é diferente de `p`. Guarde isso, o próximo bloco explica por que essa entrada é famosa.
 
 <Callout tipo="aviso">
-**A pegadinha do `% 32`.** Durante o encontro apareceu um atalho para comparar letras ignorando a caixa: na tabela ASCII, `A` é 65 e `a` é 97, e como `65 % 32` e `97 % 32` dão os dois 1, o resto da divisão por 32 "normalizaria" a caixa de graça. Funciona para as 26 letras, mas o conjunto do problema tem **36 símbolos**, contando os 10 dígitos. E aí `P` vale 80 e `0` vale 48, que dão **16 os dois**. É exatamente por isso que o LeetCode tem `"0P"` entre os casos de teste: o atalho responde "é palíndromo" e a resposta certa é "não é". Micro-otimização que muda o resultado não é otimização, é bug.
+**A pegadinha do `% 32`.** Existe um atalho tentador para comparar letras ignorando a caixa: na tabela ASCII, `A` é 65 e `a` é 97, e como `65 % 32` e `97 % 32` dão os dois 1, o resto da divisão por 32 "normalizaria" a caixa de graça. Funciona para as 26 letras, mas o conjunto do problema tem **36 símbolos**, contando os 10 dígitos. E aí `P` vale 80 e `0` vale 48, que dão **16 os dois**. É exatamente por isso que o LeetCode tem `"0P"` entre os casos de teste: o atalho responde "é palíndromo" e a resposta certa é "não é". Micro-otimização que muda o resultado não é otimização, é bug.
 </Callout>
 
 ## Mesma direção: o leitor e o escritor
@@ -276,7 +276,7 @@ O mesmo par lento e rápido resolve outro clássico: **achar o meio da lista**. 
 
 Toda a construção acima depende de o array estar ordenado. E quando ele não está?
 
-Aí você tem uma escolha, e o encontro passou justamente por ela. O Two Sum clássico (o de array desordenado) tem a solução com [tabela hash](/topico/hash-table): você percorre uma vez guardando o complemento de cada número, e responde em O(n). Rápido, mas gasta O(n) de memória.
+Aí você tem uma escolha. O Two Sum clássico (o de array desordenado) tem a solução com [tabela hash](/topico/hash-table): você percorre uma vez guardando o complemento de cada número, e responde em O(n). Rápido, mas gasta O(n) de memória.
 
 A alternativa é **ordenar e aplicar dois ponteiros**:
 
@@ -291,10 +291,10 @@ A leitura da tabela é a parte que importa. Ordenar **piora** o tempo, porque ne
 Duas ressalvas honestas sobre essa última linha. A primeira: o O(1) da terceira linha vale para o **par de ponteiros**, e supõe uma ordenação in-place. O `nums.sort()` do Python usa Timsort, que no pior caso pede O(n) de área temporária, então se a pergunta for exatamente "quanta memória extra", diga "O(1) além da ordenação" em vez de só "O(1)". A segunda: ordenar **modifica a entrada**. Se quem chamou a função ainda precisa do array original, você acabou de estragá-lo, e o `sorted(nums)` que resolve isso já custa O(n) de memória.
 
 <Callout tipo="aviso">
-**A técnica é O(n), o seu algoritmo pode não ser.** Foi o alerta do Nelson no encontro: dizer "usei two pointers, logo é O(n)" está errado se você ordenou antes. O custo total é o do **maior** termo, e nesse caso o maior termo é o `sort`. Analise o algoritmo inteiro, não o pedaço bonito dele.
+**A técnica é O(n), o seu algoritmo pode não ser.** Dizer "usei two pointers, logo é O(n)" está errado se você ordenou antes. O custo total é o do **maior** termo, e nesse caso o maior termo é o `sort`. Analise o algoritmo inteiro, não o pedaço bonito dele.
 </Callout>
 
-E tem a armadilha que só aparece quando você roda: o [Two Sum](https://leetcode.com/problems/two-sum/) original pede os **índices originais** dos dois números. Ordenar destrói exatamente essa informação, e foi o que aconteceu ao vivo no encontro: os valores encontrados estavam certos, os índices devolvidos estavam errados. Duas saídas honestas:
+E tem a armadilha que só aparece quando você roda: o [Two Sum](https://leetcode.com/problems/two-sum/) original pede os **índices originais** dos dois números. Ordenar destrói exatamente essa informação, e o sintoma é sempre o mesmo: os valores encontrados estão certos, os índices devolvidos estão errados. Duas saídas honestas:
 
 - Se o problema pede os **valores** (ou só um verdadeiro/falso), pode ordenar à vontade.
 - Se o problema pede os **índices**, ordene uma lista de pares `(valor, indice)`. Só que isso aloca uma cópia do array, o espaço volta a ser O(n), e aí o hash costuma ser melhor mesmo.
@@ -356,7 +356,7 @@ Esse é o padrão "**fixa um, dois ponteiros no resto**", e ele escala. O 4Sum �
 
 **Mover os dois ponteiros quando só um devia andar.** É o erro do palíndromo com pontuação. Se um lado tem um caractere para ignorar, quem anda é ele, sozinho. Fechar os dois de uma vez desalinha a comparação e passa pelos testes fáceis, quebrando só nos difíceis.
 
-**Errar a inicialização da direita.** `direita = len(nums)` estoura o índice na primeira leitura. É sempre `len(nums) - 1`, e esse foi literalmente o primeiro erro que apareceu ao vivo no encontro.
+**Errar a inicialização da direita.** `direita = len(nums)` estoura o índice na primeira leitura. É sempre `len(nums) - 1`, e esse é literalmente o primeiro erro que aparece quando se escreve o laço.
 
 **Esquecer os duplicados no 3Sum.** Quando o problema pede triplas ou pares **únicos**, o array ordenado coloca os valores repetidos lado a lado, e o laço vai gerar a mesma resposta várias vezes. A correção é pular os valores iguais ao anterior depois de registrar uma solução.
 
