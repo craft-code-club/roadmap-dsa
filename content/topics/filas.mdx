@@ -245,7 +245,7 @@ Quando escolher a lista? Quando a fila não pode ter teto. Pense num serviço qu
 
 ## Fila com duas pilhas
 
-Este é o quebra-cabeça favorito das entrevistas, e foi a tarefa de casa deixada no encontro: **construir uma fila usando só pilhas**. Parece impossível, porque pilha é LIFO e fila é FIFO, exatamente o contrário.
+Este é o quebra-cabeça favorito das entrevistas, e vale como exercício de casa: **construir uma fila usando só pilhas**. Parece impossível, porque pilha é LIFO e fila é FIFO, exatamente o contrário.
 
 A sacada é geométrica: se você despejar uma pilha dentro de outra, a ordem **inverte**. E LIFO invertido é FIFO.
 
@@ -433,7 +433,7 @@ Antes de abrir o LeetCode, use os visualizadores para **prever antes de rodar**.
 Depois, na ordem:
 
 1. **Implement Queue using Stacks (232)** para fixar o amortizado que você acabou de ver na tela. Os quatro métodos estão na seção das duas pilhas, inclusive o `peek` que precisa virar e o `empty` que olha as duas listas.
-2. **Number of Students Unable to Eat Lunch (1700)**, uma fila e uma pilha interagindo, no espírito do problema de distribuir um item por vez que apareceu no encontro. Cuidado com o critério de parada: quando ninguém mais quer o item do topo, acabou, e o jeito de detectar isso é contar quantas voltas seguidas a fila deu sem ninguém aceitar. Depois de resolver com a fila, resolva de novo contando quantos querem cada tipo: some as preferências uma vez e a simulação inteira vira O(n), sem fila nenhuma. Saber que a estrutura não era obrigatória é parte do aprendizado.
+2. **Number of Students Unable to Eat Lunch (1700)**, uma fila e uma pilha interagindo, no espírito do problema de distribuir um item por vez. Cuidado com o critério de parada: quando ninguém mais quer o item do topo, acabou, e o jeito de detectar isso é contar quantas voltas seguidas a fila deu sem ninguém aceitar. Depois de resolver com a fila, resolva de novo contando quantos querem cada tipo: some as preferências uma vez e a simulação inteira vira O(n), sem fila nenhuma. Saber que a estrutura não era obrigatória é parte do aprendizado.
 3. **Design Circular Queue (622)** é este artigo virando código, com `inicio`, `fim` e o `% capacidade`. O único ponto fora do texto é a interface: lá os métodos devolvem `true`/`false` em vez de levantar exceção, e o `Rear()` é `dados[(fim - 1 + cap) % cap]`.
 4. **Design Circular Deque (641)** é o mesmo, agora com inserção e remoção nas duas pontas, ou seja, com o `(i - 1 + cap) % cap` em campo.
 5. **Sliding Window Maximum (239)** é o deque monotônico do último visualizador. Teste sua solução com `k = 1`, com `k = n` e com todos os valores iguais antes de submeter.

@@ -34,12 +34,12 @@ Três coisas importam nesse trecho:
 - **A casca não é a estrutura.** A estrutura de dados é o nó apontando para o nó. A classe em volta é só a interface das operações, e é por isso que no LeetCode você quase nunca recebe uma `ListaEncadeada`: recebe direto a `cabeca` e vira nela.
 
 <Callout>
-Vale a distinção que apareceu no encontro: **fila, pilha e dicionário são tipos abstratos de dados (ADT)**, ou seja, um contrato de operações. Lista encadeada e array são **estruturas de dados**, ou seja, uma forma concreta de guardar os bytes. Uma fila pode ser feita com lista encadeada ou com array, e quem usa não deveria precisar saber qual. É a mesma relação entre uma interface e a classe que a implementa.
+Vale a distinção: **fila, pilha e dicionário são tipos abstratos de dados (ADT)**, ou seja, um contrato de operações. Lista encadeada e array são **estruturas de dados**, ou seja, uma forma concreta de guardar os bytes. Uma fila pode ser feita com lista encadeada ou com array, e quem usa não deveria precisar saber qual. É a mesma relação entre uma interface e a classe que a implementa.
 </Callout>
 
 ## Contígua ou espalhada: onde cada estrutura mora na memória
 
-Essa seção é o coração do trade-off, e o desenho do encontro explica melhor que qualquer definição.
+Essa seção é o coração do trade-off, e olhar a memória explica melhor que qualquer definição.
 
 Para alocar um array de 4 posições, o sistema precisa de **4 espaços consecutivos livres**. Se a memória estiver picotada, com buracos de 1 e 2 posições espalhados, não adianta ter espaço sobrando no total: o array não cabe. E quando ele enche, a saída é achar um bloco maior em outro lugar e **copiar tudo**.
 
@@ -139,7 +139,7 @@ Sempre O(n), e sem chance de melhorar. Num array ordenado você pularia para o m
 
 ## A tabela de custos, operação por operação
 
-Esta é a tabela que a galera preencheu ao vivo no encontro, linha por linha. Vale colar na parede, porque quase toda decisão de usar (ou não usar) lista encadeada está nela.
+Esta é a tabela que fecha o assunto, linha por linha. Vale colar na parede, porque quase toda decisão de usar (ou não usar) lista encadeada está nela.
 
 <LinkedListOperacoes />
 
@@ -281,12 +281,12 @@ class ListaComSentinela:
 Conte os `if`: zero. Volte ao visualizador da seção de operações, ligue o chip **nó sentinela** e escolha "Remover o primeiro". O painel de código encolhe de 8 para 5 linhas e o caminho especial some, porque agora remover o primeiro nó é igual a remover qualquer outro. O preço é um nó a mais na memória e um salto a mais em cada operação, que é o que o contador de "nós percorridos" mostra.
 
 <Callout>
-**Sentinela e ponteiro auxiliar não são a mesma coisa**, e no encontro essa confusão apareceu bonita. O **sentinela** é um nó de verdade, alocado na memória, que fica parado guardando a ponta da lista. O **ponteiro auxiliar** (o `atual` do laço de busca, às vezes chamado de dummy pointer) é só uma variável que caminha: você reatribui ele o tempo todo e joga fora no fim. Um marca um lugar, o outro anda.
+**Sentinela e ponteiro auxiliar não são a mesma coisa**, e a confusão entre os dois é das mais comuns. O **sentinela** é um nó de verdade, alocado na memória, que fica parado guardando a ponta da lista. O **ponteiro auxiliar** (o `atual` do laço de busca, às vezes chamado de dummy pointer) é só uma variável que caminha: você reatribui ele o tempo todo e joga fora no fim. Um marca um lugar, o outro anda.
 </Callout>
 
 Numa lista **simplesmente** encadeada, só o sentinela da frente vale a pena: chegar no fim já é fácil, basta procurar o `None`. Numa lista **duplamente** encadeada, vale ter os dois, um sentinela de cabeça e um de cauda, e aí a lista vazia deixa de ser `None`: são os dois sentinelas apontando um para o outro. Toda inserção e toda remoção passam a ser sempre "no meio", sem uma exceção sequer para tratar. É exatamente o que o LRU cache da seção anterior faz.
 
-O exemplo que motivou tudo isso no encontro foi um problema de LeetCode: **remover o k-ésimo nó contando de trás para frente**. A solução esbarra num caso chato, o de quando o nó a remover é justamente o primeiro, que obriga um `if` só para devolver `cabeca.prox`. Com sentinela, esse `if` desaparece e o código fica com um caminho só. É o LeetCode 19 da lista de problemas do fim desta página, e ele usa três coisas ao mesmo tempo: sentinela, ponteiro auxiliar e dois ponteiros com uma distância fixa entre eles, que é o assunto de duas seções à frente.
+O exemplo que motiva tudo isso é um problema de LeetCode: **remover o k-ésimo nó contando de trás para frente**. A solução esbarra num caso chato, o de quando o nó a remover é justamente o primeiro, que obriga um `if` só para devolver `cabeca.prox`. Com sentinela, esse `if` desaparece e o código fica com um caminho só. É o LeetCode 19 da lista de problemas do fim desta página, e ele usa três coisas ao mesmo tempo: sentinela, ponteiro auxiliar e dois ponteiros com uma distância fixa entre eles, que é o assunto de duas seções à frente.
 
 ### O sentinela como cabeça de obra: montando uma lista nova
 
@@ -381,7 +381,7 @@ Continua sendo O(n), e é bom deixar isso claro: o ganho não é de complexidade
 Escolha o caso **"Sem ciclo: 6 nós (acha o meio)"** e rode até o fim. O rápido sai da lista, o laço acaba, e repare onde o lento parou: no **nó 3**. Depois rode "Sem ciclo: 5 nós": o lento para no **nó 2**. Nos dois casos ele para em `n // 2`.
 
 <Callout tipo="aviso">
-Com um número **par** de nós existem dois meios, e este laço sempre devolve o **segundo** deles: numa lista de 6 nós (índices 0 a 5), os meios são o 2 e o 3, e você recebe o 3. O enunciado do LeetCode 876 pede exatamente esse. Se o seu problema pedir o primeiro meio, mude a condição para `while rapido.prox is not None and rapido.prox.prox is not None`, lembrando de tratar a lista vazia antes, porque essa versão não sobrevive a uma cabeça `None`. Antes de escrever qualquer código, pergunte qual meio o problema quer: no encontro, alguém resumiu isso perfeitamente com "se o cliente pede o pacote do meio e são seis pacotes, qual deles ele quer?".
+Com um número **par** de nós existem dois meios, e este laço sempre devolve o **segundo** deles: numa lista de 6 nós (índices 0 a 5), os meios são o 2 e o 3, e você recebe o 3. O enunciado do LeetCode 876 pede exatamente esse. Se o seu problema pedir o primeiro meio, mude a condição para `while rapido.prox is not None and rapido.prox.prox is not None`, lembrando de tratar a lista vazia antes, porque essa versão não sobrevive a uma cabeça `None`. Antes de escrever qualquer código, pergunte qual meio o problema quer: se o cliente pede o pacote do meio e são seis pacotes, qual deles ele quer?
 </Callout>
 
 ### A mesma ideia com distância fixa: o k-ésimo de trás para frente
@@ -494,7 +494,7 @@ A lista de problemas no fim desta página vai do mais direto ao mais difícil, e
 
 - **LeetCode 206 (Reverse Linked List)** é a dança dos três ponteiros, pura. Resolva na mão, no papel, antes de digitar. Depois escreva a versão recursiva e compare o consumo de pilha.
 - **LeetCode 876 (Middle of the Linked List)** é o rápido e lento da seção do meio da lista. Teste com 5 e com 6 nós e confirme qual dos dois meios o enunciado quer.
-- **LeetCode 19 (Remove Nth Node From End of List)** junta três coisas de uma vez: o sentinela para o caso da cabeça, o ponteiro auxiliar e os dois ponteiros com `k` nós de distância. O código está na seção do rápido e lento, mas tente antes de olhar, e refaça a tabela de `frente` e `tras` com a sua própria lista. É o problema que estava sendo discutido no encontro.
+- **LeetCode 19 (Remove Nth Node From End of List)** junta três coisas de uma vez: o sentinela para o caso da cabeça, o ponteiro auxiliar e os dois ponteiros com `k` nós de distância. O código está na seção do rápido e lento, mas tente antes de olhar, e refaça a tabela de `frente` e `tras` com a sua própria lista.
 - **LeetCode 142 (Linked List Cycle II)** é a fase 2 do Floyd. Se ele parecer mágico, volte ao visualizador e rode a conta `μ = n · λ - k` com os números que aparecem na tela.
 - **LeetCode 146 (LRU Cache)** é a lista duplamente encadeada com sentinelas nas duas pontas, casada com um dicionário. É difícil, é longo, e é o problema que mais parece com código de produção nesta lista inteira. O esqueleto está na seção da lista dupla; o que ele não te dá é a disciplina de rodar `get` e `put` na mão até a ordem da lista bater com a ordem de uso.
 

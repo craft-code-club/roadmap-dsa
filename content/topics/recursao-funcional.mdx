@@ -8,7 +8,7 @@ Antes da recursão de cauda vem uma pergunta mais básica: por que linguagem fun
 
 Numa linguagem mutável, `x = 1` escreve o valor 1 num endereço de memória e `x = 2` volta no **mesmo endereço** e sobrescreve. Numa linguagem imutável, o segundo comando escreve o 2 em **outro endereço**, e o 1 continua lá até o garbage collector perceber que ninguém mais aponta para ele. Nada é alterado: tudo o que parece alteração é uma cópia nova.
 
-No encontro isso apareceu de um jeito que ninguém esquece. Em Elixir, se você cria uma função anônima que imprime `x` quando `x` vale 2, depois reatribui `x = 4` e chama a função de novo, ela ainda imprime **2**: a função ficou apontando para o endereço antigo, que nunca mudou.
+Há um jeito de ver isso que ninguém esquece. Em Elixir, se você cria uma função anônima que imprime `x` quando `x` vale 2, depois reatribui `x = 4` e chama a função de novo, ela ainda imprime **2**: a função ficou apontando para o endereço antigo, que nunca mudou.
 
 A consequência prática é o que interessa aqui. Este laço, que é o pão com manteiga de qualquer linguagem imperativa, simplesmente não existe no mundo funcional:
 
@@ -35,13 +35,13 @@ def dobrar([]), do: []
 def dobrar([head | tail]), do: [head * 2 | dobrar(tail)]
 ```
 
-E não adianta fugir para os módulos prontos. No encontro, o Tiago abriu o código-fonte do `Enum.map` do Elixir, que chama o `lists:map` do Erlang, e lá dentro estava exatamente a mesma coisa: um caso para lista vazia, um caso para `[head | tail]`, e uma chamada recursiva. O `for` do Elixir (que é uma list comprehension, não um laço) desce no mesmo lugar. **Não tem mágica**: o açúcar sintático existe para você não reescrever isso toda vez, mas embaixo é sempre recursão.
+E não adianta fugir para os módulos prontos. Abra o código-fonte do `Enum.map` do Elixir, que chama o `lists:map` do Erlang, e lá dentro está exatamente a mesma coisa: um caso para lista vazia, um caso para `[head | tail]`, e uma chamada recursiva. O `for` do Elixir (que é uma list comprehension, não um laço) desce no mesmo lugar. **Não tem mágica**: o açúcar sintático existe para você não reescrever isso toda vez, mas embaixo é sempre recursão.
 
 O que nos traz ao problema. Se toda travessia é recursão, uma lista de 1 milhão de elementos vira 1 milhão de chamadas empilhadas. A saída não está em evitar a recursão, está na **forma** de escrever a chamada.
 
 ## A pilha que cresce e a conta que espera
 
-Este é o exemplo do encontro, somar os números de uma lista:
+O exemplo canônico é somar os números de uma lista:
 
 ```python
 def soma(nums):
@@ -62,9 +62,9 @@ soma([2, 3, 4])     -> 2 + 7 = 9
 soma([1, 2, 3, 4])  -> 1 + 9 = 10
 ```
 
-O desenho que o Giovani fez na tela durante o encontro explica melhor que qualquer parágrafo: cada chamada é uma caixa **dentro** da anterior. Enquanto a mais interna não termina, todas as de fora continuam vivas, com o escopo delas inteiro na memória, esperando um valor que ainda não existe.
+Um desenho explica melhor que qualquer parágrafo: cada chamada é uma caixa **dentro** da anterior. Enquanto a mais interna não termina, todas as de fora continuam vivas, com o escopo delas inteiro na memória, esperando um valor que ainda não existe.
 
-Isso custa dos dois lados. Como o Nelson resumiu: se empilhar custa 1 e desempilhar custa 1, uma recursão sobre 10 elementos custa 20. Se desse para não empilhar, custaria 10.
+Isso custa dos dois lados: se empilhar custa 1 e desempilhar custa 1, uma recursão sobre 10 elementos custa 20. Se desse para não empilhar, custaria 10.
 
 <Callout tipo="aviso">
 Em Python o teto é baixo e concreto: o limite padrão é de **1.000 chamadas** empilhadas. Uma lista de 1.000 números já derruba a função acima com `RecursionError`. E `sys.setrecursionlimit(100000)` não é conserto, é mudar a parede de lugar: acima de um certo ponto quem estoura é a pilha real do interpretador, e aí o processo morre sem exceção nenhuma.
@@ -85,18 +85,18 @@ return soma(resto, acc + nums[0])   # não sobrou: a conta já aconteceu no argu
 
 A diferença parece cosmética e não é. Na primeira linha, a soma acontece **depois** que a chamada volta, então o frame tem que sobreviver. Na segunda, `acc + nums[0]` é avaliado **antes**, para montar o argumento; quando a chamada acontece, o frame atual já não tem mais nada a fazer no mundo.
 
-Vale separar dois termos que o encontro tratou com cuidado, porque eles são confundidos o tempo todo:
+Vale separar dois termos com cuidado, porque eles são confundidos o tempo todo:
 
 - **Tail call** (chamada de cauda): a última instrução da função é chamar **outra** função.
 - **Tail recursion** (recursão de cauda): a última instrução é chamar **ela mesma**.
 
-Foi pergunta do Giovani no encontro, e a resposta é a que importa: a otimização vale para os dois casos, porque o que ela usa não é o fato de ser recursiva, é o fato de **não sobrar nada para fazer** no frame atual.
+A pergunta natural aqui é se a otimização vale para os dois casos, e a resposta é sim: o que ela usa não é o fato de ser recursiva, é o fato de **não sobrar nada para fazer** no frame atual.
 
 Passeie pelos sete casos do classificador abaixo antes de seguir:
 
 <TailRecursionForma />
 
-Compare o **caso 1** com o **caso 2**: é a mesma função, o mesmo resultado, e o veredito muda por causa de onde a soma está escrita. O **caso 4** é a distinção de nomes na tela: a última instrução chama **outra** função, não a si mesma, e o selo verde continua lá. Olhe o **caso 5**, o fibonacci ingênuo: nem a primeira nem a segunda chamada estão em posição de cauda, porque `fib(n - 1)` tem que voltar para o `+` acontecer. E repare no **caso 6**: um `if` antes não atrapalha nada, o que conta é a última instrução executada em **cada caminho**. Guarde o **caso 7**, ele volta no fim da página como o contraexemplo mais interessante do encontro.
+Compare o **caso 1** com o **caso 2**: é a mesma função, o mesmo resultado, e o veredito muda por causa de onde a soma está escrita. O **caso 4** é a distinção de nomes na tela: a última instrução chama **outra** função, não a si mesma, e o selo verde continua lá. Olhe o **caso 5**, o fibonacci ingênuo: nem a primeira nem a segunda chamada estão em posição de cauda, porque `fib(n - 1)` tem que voltar para o `+` acontecer. E repare no **caso 6**: um `if` antes não atrapalha nada, o que conta é a última instrução executada em **cada caminho**. Guarde o **caso 7**, ele volta no fim da página como o contraexemplo mais interessante do assunto.
 
 ## O acumulador: fazer a conta na ida
 
@@ -185,7 +185,7 @@ Nove contra menos quinze, com a mesma lista. A recursão comum associa **da dire
 
 ### O acumulador não precisa ser um número
 
-Esta foi a parte mais bonita do encontro. O Tiago validou parênteses em Elixir sem escrever um único `if`: o acumulador é uma **pilha**, e cada cláusula da função trata um caso.
+E aqui está a parte mais bonita do assunto: dá para validar parênteses em Elixir sem escrever um único `if`. O acumulador é uma **pilha**, e cada cláusula da função trata um caso.
 
 ```elixir
 def valido?(texto), do: validar(String.graphemes(texto), [])
@@ -206,7 +206,7 @@ Guarde o formato, porque ele é a solução do **Valid Parentheses** do LeetCode
 
 **Tail call optimization** (TCO) é o que o compilador faz quando enxerga uma chamada em posição de cauda: em vez de empilhar um frame novo, ele **reaproveita o frame atual**, trocando só os parâmetros. Na prática, é quase um `goto` para o começo da própria função.
 
-O modelo mental do Giovani no encontro estava certo, e o Tiago só ajustou um detalhe: não é que o frame anterior seja ignorado, é que ele é **substituído**. Como ninguém precisa mais dele (não sobrou conta nenhuma para fazer ali), a linguagem pode escrever a chamada nova por cima.
+Vale ajustar um detalhe do modelo mental mais comum: não é que o frame anterior seja ignorado, é que ele é **substituído**. Como ninguém precisa mais dele (não sobrou conta nenhuma para fazer ali), a linguagem pode escrever a chamada nova por cima.
 
 O efeito é o que a gente viu: a complexidade de espaço cai de O(n) para O(1), e a recursão deixa de ter teto. Uma lista de 1 milhão de elementos passa sem stack overflow, porque o número de frames nunca muda.
 
@@ -292,17 +292,17 @@ Não é de graça: cada salto aloca uma closure, o que deixa o trampolim mais le
 
 ## De cauda nem sempre é mais rápido
 
-A pergunta que o Tiago deixou em aberto no fim do encontro é a melhor parte do assunto: recursão de cauda é **sempre** mais rápida? Não.
+A pergunta que fica em aberto no fim é a melhor parte do assunto: recursão de cauda é **sempre** mais rápida? Não.
 
-Volte ao **caso 7** do classificador, dobrar os valores de uma lista. A versão de cauda existe: o acumulador é a lista nova. Só que, ao ir consumindo `head` e colocando o resultado na frente do acumulador, ela monta a lista **ao contrário**: `[1, 2, 3, 4]` sai como `[8, 6, 4, 2]`. Para devolver na ordem certa, precisa de um `reverse` no fim, ou seja, **uma passada extra sobre a lista inteira**. No benchmark do encontro, essa versão de cauda ficou mais lenta que a recursão comum, que já constrói na ordem certa na volta.
+Volte ao **caso 7** do classificador, dobrar os valores de uma lista. A versão de cauda existe: o acumulador é a lista nova. Só que, ao ir consumindo `head` e colocando o resultado na frente do acumulador, ela monta a lista **ao contrário**: `[1, 2, 3, 4]` sai como `[8, 6, 4, 2]`. Para devolver na ordem certa, precisa de um `reverse` no fim, ou seja, **uma passada extra sobre a lista inteira**. Num benchmark simples, essa versão de cauda fica mais lenta que a recursão comum, que já constrói na ordem certa na volta.
 
-E mesmo onde a de cauda ganha, o ganho pode ser modesto. Somando uma lista de 1.000 números, a versão comum ficou só **1,14 vez mais lenta** que a de cauda no encontro. Não é a diferença que o folclore promete.
+E mesmo onde a de cauda ganha, o ganho pode ser modesto. Somando uma lista de 1.000 números, a versão comum fica só **1,14 vez mais lenta** que a de cauda. Não é a diferença que o folclore promete.
 
 <Callout tipo="aviso">
 Cuidado com a leitura do benchmark do fibonacci, onde a diferença foi de **436 vezes**. Ela não veio da otimização de pilha: veio da **complexidade**. A versão ingênua é O(2ⁿ) e a de acumulador é O(n). Trocar 2.692.537 chamadas por 31 explica tudo sozinho, TCO ou não.
 </Callout>
 
-A regra prática que saiu do encontro é boa o bastante para decidir no dia a dia:
+A regra prática é boa o bastante para decidir no dia a dia:
 
 <Colunas>
 <Cartao titulo="Prefira a de cauda quando...">
@@ -313,7 +313,7 @@ Você está fazendo um **map** sobre uma lista ligada e precisa preservar a orde
 </Cartao>
 </Colunas>
 
-Isso não é opinião de comunidade: o guia de eficiência do Erlang lista "funções de cauda são muito mais rápidas que funções recursivas comuns" na seção **Myths of Erlang Performance**, ao lado de outros mitos clássicos como "list comprehension é lenta" e "string é lenta".
+Isso não é opinião solta: o guia de eficiência do Erlang lista "funções de cauda são muito mais rápidas que funções recursivas comuns" na seção **Myths of Erlang Performance**, ao lado de outros mitos clássicos como "list comprehension é lenta" e "string é lenta".
 
 O que a recursão de cauda garante mesmo é **memória**: O(1) de pilha, sem teto de profundidade. Velocidade é outra conversa, e essa se mede.
 
@@ -325,7 +325,7 @@ O que a recursão de cauda garante mesmo é **memória**: O(1) de pilha, sem tet
 
 **Acumulador com valor inicial errado.** É 0 para soma, 1 para produto, `[]` para lista. Para máximo, **não use 0**: com uma lista de negativos a resposta sai errada. Comece com o primeiro elemento (e trate a lista vazia como caso separado).
 
-**A ordem das cláusulas importa.** Em Elixir, se a cláusula genérica vier antes da específica, ela engole tudo e as de baixo nunca rodam. Vá do mais específico para o mais genérico. E, como o Giovani perguntou no encontro, faltar uma cláusula não é erro de compilação: aparece só em produção, como `FunctionClauseError`, quando chega o valor que ninguém previu.
+**A ordem das cláusulas importa.** Em Elixir, se a cláusula genérica vier antes da específica, ela engole tudo e as de baixo nunca rodam. Vá do mais específico para o mais genérico. E vale a pergunta que quase todo mundo faz na primeira vez: faltar uma cláusula não é erro de compilação, aparece só em produção, como `FunctionClauseError`, quando chega o valor que ninguém previu.
 
 **Confundir os dois nomes.** Tail call é a última instrução ser uma chamada, qualquer chamada. Tail recursion é o caso particular em que essa chamada é para a própria função. TCO é o que a linguagem faz com qualquer um dos dois.
 

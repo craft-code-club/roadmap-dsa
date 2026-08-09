@@ -45,7 +45,7 @@ A peça que dá nome à estrutura. Ela recebe a chave e devolve um número. Depo
 </Cartao>
 </Colunas>
 
-Vamos construir uma função de hash bem ingênua, a mesma do encontro: **some o código ASCII de cada caractere da chave**. Para `"Ana"`, com `A = 65`, `n = 110` e `a = 97`:
+Vamos construir uma função de hash bem ingênua: **some o código ASCII de cada caractere da chave**. Para `"Ana"`, com `A = 65`, `n = 110` e `a = 97`:
 
 ```text
 65 + 110 + 97 = 272
@@ -57,7 +57,7 @@ O problema é que 272 não é um índice de um array de 5 posições. A segunda 
 272 % 5 = 2
 ```
 
-Pronto: `"Ana"` mora no bucket 2. Sem percorrer nada, sem comparar nada com nada. Aplicando a mesma receita nos cinco nomes do encontro, numa tabela de 5 posições:
+Pronto: `"Ana"` mora no bucket 2. Sem percorrer nada, sem comparar nada com nada. Aplicando a mesma receita em cinco nomes, numa tabela de 5 posições:
 
 | Chave | Soma ASCII | Resto por 5 | Bucket |
 | --- | --- | --- | --- |
@@ -92,7 +92,7 @@ Depois pare de assistir e mexa nele. Troque a lista de chaves pelo seu nome e o 
 
 Olhe de novo a tabela de cima. `"Lia"` dá 278 e cai no bucket 3. `"Leo"` dá 288 e cai... no bucket 3 também. Isso é uma **colisão**, e não é bug nem azar: é uma consequência matemática inevitável. Você está espremendo infinitas chaves possíveis em um número finito de posições, então duas chaves vão disputar o mesmo endereço mais cedo ou mais tarde.
 
-Existem duas famílias de solução, e o encontro passou pelas duas.
+Existem duas famílias de solução, e vale conhecer as duas.
 
 ### Encadeamento: cada bucket vira uma corrente
 
@@ -320,7 +320,7 @@ Sobre `hashtable` e `hashmap`: no dia a dia os dois nomes são usados de forma i
 
 ### A regra de ouro: hash e igualdade andam juntos
 
-Este é o erro que mais aparece em código de produção, e o encontro simulou ele ao vivo. Imagine um objeto `Pessoa(nome, idade)` em que:
+Este é o erro que mais aparece em código de produção. Imagine um objeto `Pessoa(nome, idade)` em que:
 
 - `hashCode()` usa **só o nome**;
 - `equals()` usa **nome e idade**.
@@ -383,7 +383,7 @@ Por fim, o preço fixo em memória. Manter o fator de carga em 0,75 significa ac
 
 **Chave mutável é chave perdida.** Se você insere um objeto e depois muda um campo que participa do hash, o objeto continua fisicamente no bucket antigo, mas a busca passa a calcular um bucket novo. O item vira um fantasma: está no mapa e não é encontrado. Use chaves imutáveis, ou nunca mexa nelas depois de inserir.
 
-**A ordem não é uma promessa.** Uma tabela hash não tem ordem: a posição vem do hash, não da hora em que você inseriu. No exemplo do encontro, `"Ana"` entrou primeiro e foi parar no bucket 2, enquanto `"Bob"` entrou depois e ficou no 0. Algumas implementações **acrescentam** essa garantia (o `dict` do Python desde a 3.7, o `LinkedHashMap` do Java), mas isso é um extra dessas implementações, não uma propriedade da estrutura. Se você precisa de ordem, diga isso no tipo que escolher.
+**A ordem não é uma promessa.** Uma tabela hash não tem ordem: a posição vem do hash, não da hora em que você inseriu. No exemplo acima, `"Ana"` entrou primeiro e foi parar no bucket 2, enquanto `"Bob"` entrou depois e ficou no 0. Algumas implementações **acrescentam** essa garantia (o `dict` do Python desde a 3.7, o `LinkedHashMap` do Java), mas isso é um extra dessas implementações, não uma propriedade da estrutura. Se você precisa de ordem, diga isso no tipo que escolher.
 
 **Remover com sondagem linear não é apagar.** Zerar o slot corta a trilha de sondagem e some com chaves que estão lá. É o caso do `"Leo"` e da `"Eva"` que a gente destrinchou na seção de colisão, e a saída é a lápide.
 
@@ -411,7 +411,7 @@ def tem_duplicado(nums):
     return False
 ```
 
-**2. Quantas vezes cada coisa aparece?** É o mapa de frequência, o padrão mais comum de todos. No encontro ele apareceu de um jeito instrutivo: contando letras com um array de 26 posições, em que a "função de hash" é `ord(c) - ord('A')`.
+**2. Quantas vezes cada coisa aparece?** É o mapa de frequência, o padrão mais comum de todos. Há uma versão instrutiva dele: contar letras com um array de 26 posições, em que a "função de hash" é `ord(c) - ord('A')`.
 
 ```python
 texto = "CRAFTCODECLUB"
