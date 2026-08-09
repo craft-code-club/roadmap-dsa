@@ -133,25 +133,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer />
     </>
   );
 }
 
-function Footer() {
-  return (
-    <footer className="site-foot">
-      <div className="foot-text">
-        <span>Feito <span className="heart">♥</span> pela comunidade, para a comunidade.</span>
-        <span className="foot-sep">·</span>
-        <span>Open source · gratuito para sempre</span>
-      </div>
-      <div className="foot-links">
-        <Link href="/sobre">Sobre</Link>
-        <a href={LINKS.github} target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href={LINKS.discord} target="_blank" rel="noopener noreferrer">Discord</a>
-        <Link href="/apoie">Apoiar</Link>
-      </div>
-    </footer>
-  );
-}

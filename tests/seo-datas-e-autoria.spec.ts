@@ -242,31 +242,22 @@ test("o guarda de datas reprova histórico achatado, e não só o caso extremo",
   expect(datasDistinguemCaminhos([...repetido(11), ...distintos(10)]), "moda logo acima do teto").toBe(false);
 });
 
-test("datePublished nunca é depois de dateModified", () => {
-  const errados: string[] = [];
-  const orfaos: string[] = [];
-  let comPublicado = 0;
-  let comModificado = 0;
+test("a página não declara datePublished, porque não mostra data de publicação", () => {
+  // Decisão de 2026-08-08: o selo "Publicado em" saiu da tela. Ele aparecia em
+  // 8 das 47 páginas (só onde os dois dias diferiam), e a doc do Google pede
+  // para MINIMIZAR a presença de outras datas na página.
+  //
+  // O campo tinha de sair junto, e não é preferência: o contrato do
+  // `src/lib/jsonld.ts` é que a marcação reflita o que está na tela, e campo sem
+  // correspondente visível não entra. Este teste é o que impede o campo de
+  // voltar sozinho, sem o selo.
+  const sobrando: string[] = [];
   for (const t of INDEXAVEIS) {
     const rota = rotaDo(t.slug);
     const recurso = doTipo(jsonLd(rota), "LearningResource")!;
-    const pub = recurso.datePublished as string | undefined;
-    const mod = recurso.dateModified as string | undefined;
-    if (mod !== undefined) comModificado += 1;
-    if (pub === undefined) continue;
-    comPublicado += 1;
-    // `datePublished` sozinho é o pior dos casos: significa que o guarda foi
-    // aplicado a um campo e não ao outro.
-    if (mod === undefined) orfaos.push(rota);
-    else if (Date.parse(pub) > Date.parse(mod)) errados.push(`${rota} → ${pub} > ${mod}`);
+    if (recurso.datePublished !== undefined) sobrando.push(rota);
   }
-  expect(orfaos, "datePublished sem dateModified: o guarda pegou só um dos dois").toEqual([]);
-  expect(errados, "publicado depois de atualizado").toEqual([]);
-  // `datePublished` só pode FALTAR em tópico sem `.mdx` próprio — nunca sobrar.
-  expect(
-    comPublicado <= comModificado,
-    `${comPublicado} páginas com datePublished contra ${comModificado} com dateModified`
-  ).toBe(true);
+  expect(sobrando, "datePublished sem o selo 'Publicado em' na tela").toEqual([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -320,57 +311,41 @@ test("o selo 'Atualizado em' está na tela, legível, e diz a data que marca", a
   expect(fonte, "o selo está em font-size 0").toBeGreaterThan(0);
 });
 
-test("quando o selo 'Publicado em' aparece, ele é um dia DIFERENTE do de atualização", async ({
-  page,
-}) => {
-  // O selo de publicação é condicional de propósito: em 28 dos 36 tópicos a
-  // publicação e a última atualização caem no mesmo dia, e dois selos com a
-  // mesma data não informam nada. O que este teste prende é a condição — se ela
-  // cair, o primeiro tópico com as duas datas iguais imprime a data duas vezes.
-  const comOsDois = INDEXAVEIS.filter((t) => {
-    const r = doTipo(jsonLd(rotaDo(t.slug)), "LearningResource")!;
-    const p = r.datePublished as string | undefined;
-    const m = r.dateModified as string | undefined;
-    return p !== undefined && m !== undefined && diaIso(new Date(p)) !== diaIso(new Date(m));
-  });
-  const soUmDia = INDEXAVEIS.filter((t) => {
-    const r = doTipo(jsonLd(rotaDo(t.slug)), "LearningResource")!;
-    const p = r.datePublished as string | undefined;
-    const m = r.dateModified as string | undefined;
-    return p !== undefined && m !== undefined && diaIso(new Date(p)) === diaIso(new Date(m));
-  });
-  test.skip(
-    comOsDois.length === 0 && soUmDia.length === 0,
-    "este build saiu sem datas; nada para conferir na tela."
-  );
-
-  if (comOsDois.length) {
-    const t = comOsDois[0];
+test("o selo 'Publicado em' não está na tela de nenhum tópico", async ({ page }) => {
+  // O par do teste acima, do lado do aluno: uma coisa é o campo não sair no
+  // JSON-LD, outra é o selo não voltar ao HTML. Os dois têm de cair juntos.
+  const comSelo: string[] = [];
+  for (const t of INDEXAVEIS.slice(0, 6)) {
     await page.goto(rotaDo(t.slug));
-    const selo = page.locator(".topic-chips span.chip", { hasText: "Publicado em" });
-    await expect(selo).toHaveCount(1);
-    const tempo = selo.locator("time");
-    const publicado = (await tempo.getAttribute("datetime")) ?? "";
-    const atualizado =
-      (await page
-        .locator(".topic-chips span.chip", { hasText: "Atualizado em" })
-        .locator("time")
-        .getAttribute("datetime")) ?? "";
-    expect(publicado, `${t.slug}: os dois selos mostram o mesmo dia`).not.toBe(atualizado);
-    // Rótulo e valor, como no selo de atualização.
-    expect(((await selo.textContent()) ?? "").replace(/\s+/g, " ").trim()).toBe(
-      `Publicado em ${dataLonga(new Date(publicado))}`
-    );
-    const r = doTipo(jsonLd(rotaDo(t.slug)), "LearningResource")!;
-    expect(diaIso(new Date(r.datePublished as string))).toBe(publicado);
-  }
-  if (soUmDia.length) {
-    const t = soUmDia[0];
-    await page.goto(rotaDo(t.slug));
+    if (await page.locator(".topic-chips span.chip", { hasText: "Publicado em" }).count()) {
+      comSelo.push(t.slug);
+    }
+    // E o de atualização continua lá: este teste não pode passar porque a
+    // página inteira perdeu os selos.
     await expect(
-      page.locator(".topic-chips span.chip", { hasText: "Publicado em" }),
-      `${t.slug}: publicação e atualização no mesmo dia não podem virar dois selos iguais`
-    ).toHaveCount(0);
+      page.locator(".topic-chips span.chip", { hasText: "Atualizado em" }),
+      `${t.slug} perdeu também o selo de atualização`
+    ).toHaveCount(1);
+  }
+  expect(comSelo, "o selo de publicação voltou à tela").toEqual([]);
+});
+
+test("o rodapé aparece em TODA rota, e não só na home", async ({ page }) => {
+  // Ele existia só em `src/app/page.tsx`: a home tinha rodapé e as 34 páginas de
+  // aula tinham zero. Quem chegava numa delas pela busca não tinha caminho
+  // nenhum para descobrir quem publica o material.
+  const rotas = ["/", "/roadmap/", "/sobre/", "/apoie/", "/introducao/", rotaDo(INDEXAVEIS[0].slug)];
+  for (const rota of rotas) {
+    await page.goto(rota);
+    const pe = page.locator("footer.site-foot");
+    await expect(pe, `${rota} sem rodapé`).toHaveCount(1);
+    // Rótulo lido, não elemento contado: rodapé vazio também tem count 1.
+    await expect(pe).toContainText("Feito");
+    await expect(pe).toContainText("pela comunidade, para a comunidade");
+    await expect(pe).toContainText("gratuito para sempre");
+    // Sem links: a barra fixa já leva a tudo, e rodapé que repete o menu é um
+    // segundo lugar para a mesma verdade envelhecer.
+    await expect(pe.locator("a"), `${rota}: o rodapé voltou a ter links`).toHaveCount(0);
   }
 });
 
@@ -467,17 +442,25 @@ test("a /sobre não promete privacidade que o código desmente", async ({ page }
   ).not.toMatch(/nada é enviado para lugar nenhum/i);
 });
 
-test("dá para chegar ao /sobre navegando, no menu e no rodapé", async ({ page }) => {
+test("dá para chegar ao /sobre pelo menu, e ele é o PRIMEIRO item", async ({ page }) => {
   // Rota que existe e ninguém alcança é rota que não existe. Clicar, e não
   // conferir `href`: o `href` certo dentro de um menu que não abre continua
   // sendo uma página inalcançável.
-  await page.goto("/");
-  await page.locator(".site-foot").getByRole("link", { name: "Sobre" }).click();
-  await expect(page).toHaveURL(new RegExp(`${SOBRE}$`));
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sobre o Roadmap DSA");
-
+  //
+  // O rodapé saiu desta conta de propósito: ele não tem mais links, porque a
+  // barra é fixa e já leva a tudo. Se um dia alguém devolver links ao rodapé,
+  // é o teste do rodapé que reprova, não este.
   await page.goto("/roadmap/");
   await page.getByRole("button", { name: "Mais opções" }).click();
-  await page.locator(".nav-menu").getByRole("link", { name: /Sobre o projeto/ }).click();
+
+  // Primeiro item, e a ordem é a decisão: "quem escreveu isto?" vem antes de
+  // qualquer link para fora. Leio a ordem renderizada em vez de confiar na
+  // ordem do arquivo, que o CSS pode reordenar (`.foot-links` já fazia isso
+  // com `order: -1`).
+  const itens = page.locator(".nav-menu .menu-item:not(.only-mobile)");
+  await expect(itens.first()).toContainText("Sobre o projeto");
+
+  await itens.first().click();
   await expect(page).toHaveURL(new RegExp(`${SOBRE}$`));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sobre o Roadmap DSA");
 });

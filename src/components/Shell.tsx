@@ -244,7 +244,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <a className="menu-item only-mobile ext" href={LINKS.youtube} target="_blank" rel="noopener noreferrer" onClick={() => setMenu(false)}>
                     <span className="mi-ico" style={{ color: "#ff0000" }}>▶</span> YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
                   </a>
-                  {/* sempre no menu: comunidade, código e apoio */}
+                  {/* sempre no menu, e a `/sobre` primeiro: é a resposta à
+                      pergunta "quem escreveu isto?", que vem antes de qualquer
+                      link para fora. */}
+                  <Link className="menu-item" href="/sobre" onClick={() => setMenu(false)}>
+                    <span className="mi-ico">ⓘ</span> Sobre o projeto
+                  </Link>
                   <a className="menu-item ext" href={LINKS.site} target="_blank" rel="noopener noreferrer">
                     <span className="mi-ico">✦</span> Craft &amp; Code Club<span className="ext-arrow" aria-hidden="true">↗</span>
                   </a>
@@ -254,9 +259,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     </span>
                     GitHub do projeto<span className="ext-arrow" aria-hidden="true">↗</span>
                   </a>
-                  <Link className="menu-item" href="/sobre" onClick={() => setMenu(false)}>
-                    <span className="mi-ico">ⓘ</span> Sobre o projeto
-                  </Link>
                   <Link className="menu-item" href="/apoie" onClick={() => setMenu(false)}>
                     <span className="mi-ico">♥</span> Apoiadores e Parceiros
                   </Link>
@@ -421,6 +423,25 @@ export function Shell({ children }: { children: React.ReactNode }) {
           Tab seguinte volta para o menu. */}
       <main className="main" id="conteudo" tabIndex={-1}>
         {children}
+
+        {/*
+          O rodapé vive AQUI, e não na home, porque ele é a única coisa da
+          página que diz quem publica. Ele existia só em `src/app/page.tsx`, e o
+          resultado medido era este: a home tinha rodapé e as 34 páginas de aula
+          tinham ZERO. Quem chega numa delas pela busca não tinha caminho nenhum
+          para descobrir de quem é o material.
+
+          Sem links: a barra de navegação é fixa e já leva a tudo que estava
+          aqui (Sobre, GitHub, Discord, Apoiar). Rodapé que repete o menu é
+          segundo lugar para a mesma verdade envelhecer.
+        */}
+        <footer className="site-foot">
+          <div className="foot-text">
+            <span>Feito <span className="heart">♥</span> pela comunidade, para a comunidade.</span>
+            <span className="foot-sep">·</span>
+            <span>Open source · gratuito para sempre</span>
+          </div>
+        </footer>
       </main>
     </div>
   );
