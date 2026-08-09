@@ -8,7 +8,7 @@ Antes de entender por que a skip list existe, vale olhar o que ela veio conserta
 
 O **array ordenado** é imbatível para ler: com o índice em mãos, `nums[i]` custa O(1), e a [busca binária](/topico/busca-binaria) acha qualquer valor em O(log n). O buraco aparece na hora de mexer. Como o array ocupa posições contíguas na memória, remover o elemento da posição 500 de um array de 1.000 obriga os 499 seguintes a andarem uma casa para trás. Inserir é a mesma coisa ao contrário. Sempre O(n).
 
-**Um parêntese honesto**, porque ele veio da própria galera no encontro: aquele O(1) do array é acesso **por índice**. Se você tem só o valor e precisa descobrir onde ele está, o array não te dá nada de graça, é O(n) igual à lista, ou O(log n) se ele estiver ordenado. Comparar "array O(1)" com "lista O(n)" sem esse detalhe é comparar coisas diferentes. Para busca por chave em O(1) o caminho é outro, é a [tabela hash](/topico/hash-table), que em compensação não guarda ordem nenhuma.
+**Um parêntese honesto**, antes de seguir: aquele O(1) do array é acesso **por índice**. Se você tem só o valor e precisa descobrir onde ele está, o array não te dá nada de graça, é O(n) igual à lista, ou O(log n) se ele estiver ordenado. Comparar "array O(1)" com "lista O(n)" sem esse detalhe é comparar coisas diferentes. Para busca por chave em O(1) o caminho é outro, é a [tabela hash](/topico/hash-table), que em compensação não guarda ordem nenhuma.
 
 A **[lista encadeada](/topico/listas-ligadas)** inverte o jogo. Como cada nó vive por conta própria na memória e só guarda um ponteiro para o vizinho, remover é trocar duas setas de lugar: O(1), sem deslocar massa nenhuma. O buraco é chegar lá. Para acessar o elemento 536 você passa pelos 535 anteriores, um por um. E, o mais importante para este tópico: **não existe busca binária em lista encadeada**. Busca binária precisa pular direto para o meio, e numa lista o meio só existe depois de n/2 passos. O ganho evapora.
 
@@ -47,7 +47,7 @@ class No:
         self.forward = [None] * altura   # um ponteiro por nível em que ele vive
 ```
 
-Repare no que **não** está aí: não existe ponteiro para o nó anterior, nem ponteiro para o nível de baixo. Descer um nível é só trocar o índice de `forward` no **mesmo** nó. Foi a dúvida que mais rendeu no encontro, e ela fecha quando você percebe que o `i` do laço é o **nível**, não a posição.
+Repare no que **não** está aí: não existe ponteiro para o nó anterior, nem ponteiro para o nível de baixo. Descer um nível é só trocar o índice de `forward` no **mesmo** nó. É a dúvida que mais rende aqui, e ela fecha quando você percebe que o `i` do laço é o **nível**, não a posição.
 
 ## A busca: começa no topo e desce em escada
 
@@ -122,7 +122,7 @@ Isso tem uma consequência que surpreende: a skip list **não é determinística
 
 Inserir tem um detalhe que a busca não tem. Para religar os ponteiros, você precisa saber **quem era o vizinho da esquerda do novo nó em cada nível**, e não só no nível 0. A boa notícia é que a busca já passa por todos eles: toda vez que ela desce um degrau, o nó onde ela estava é exatamente o candidato daquele nível.
 
-Basta anotar. É o vetor `update`, que a galera do encontro apelidou de *bread crumb*: um rastro com **um candidato por nível**, na volta.
+Basta anotar. É o vetor `update`, o *bread crumb*: um rastro com **um candidato por nível**, na volta.
 
 <SkipListInsercao />
 
@@ -233,7 +233,7 @@ custo = math.log(n, 1 / p) / p + 1 / (1 - p)
 
 Com n = 1.048.576 e p = 0,5 isso dá `20 / 0,5 + 2 = 42`. As duas parcelas contam histórias diferentes: a primeira é a **altura**, e ela é log n; a segunda é a **largura**, quantos passos horizontais você dá antes de cair um degrau, e ela é constante. Aumentar p faz a torre crescer (mais níveis para descer) e a caminhada encurtar (menos passos horizontais antes de cair um degrau). É esse cabo de guerra que a próxima experiência mede.
 
-Agora faça a experiência que o encontro não fez. Troque o **p para 0,25** com n = 1.024 e compare os quatro cartões:
+Agora faça a experiência que quase ninguém faz. Troque o **p para 0,25** com n = 1.024 e compare os quatro cartões:
 
 | p | Níveis | Comparações na busca | Ponteiros no total |
 | --- | --- | --- | --- |
@@ -266,7 +266,7 @@ O `k` da consulta por faixa é a quantidade de elementos devolvidos, e é ele qu
 
 ## Skip List na vida real
 
-O tema entrou na pauta da comunidade por causa de um capítulo de system design sobre **leaderboards**, e não por acaso.
+O tema costuma entrar pela porta do system design, num capítulo sobre **leaderboards**, e não por acaso.
 
 Pense num ranking de milhões de jogadores. Você precisa de quatro coisas ao mesmo tempo: manter tudo ordenado por pontuação, achar um jogador específico rápido, mover um jogador que acabou de pular da posição 4.756 para a terceira, e responder "quais são os 10 jogadores em volta de mim". Um array ordenado morre no terceiro requisito, porque mover um jogador desloca milhares de posições. Uma tabela hash morre no primeiro e no quarto, porque não guarda ordem. A skip list entrega os quatro, e o quarto quase de graça: depois de achar o jogador, os vizinhos são só andar para a frente no nível 0.
 
@@ -309,7 +309,7 @@ O preço é honesto: toda inserção e toda remoção precisam **corrigir os spa
 
 **Com dataset pequeno, não compensa.** Uma skip list de 12 elementos gasta o dobro de ponteiros de uma lista comum para economizar quatro comparações. Ordenar ou varrer um punhado de itens é instantâneo com qualquer coisa. Esta estrutura faz sentido em escala, quando o log n de fato separa você do n.
 
-**O `i` do laço é o nível, não a posição.** Foi a dúvida que mais tomou tempo do encontro, e ela derruba quem lê o código rápido demais. `for nivel in range(self.nivel_max, -1, -1)` não percorre elementos, percorre **andares**, e o `while` de dentro é que anda para os lados. Quem lê `atual.forward[nivel]` como "o elemento na posição nivel" trava e não desatola.
+**O `i` do laço é o nível, não a posição.** É a dúvida que mais toma tempo, e ela derruba quem lê o código rápido demais. `for nivel in range(self.nivel_max, -1, -1)` não percorre elementos, percorre **andares**, e o `while` de dentro é que anda para os lados. Quem lê `atual.forward[nivel]` como "o elemento na posição nivel" trava e não desatola.
 
 **Não pare no nível em que encontrou.** É tentador testar a igualdade dentro do laço e sair correndo quando o valor bate num nível alto. Funciona, mas dobra o número de comparações no caminho todo para economizar num caso raro, e enche o código de saídas. O `buscar` deste artigo desce **sempre** até o nível 0 e testa a igualdade uma vez só, no fim. Simplicidade é o produto que a skip list vende.
 
