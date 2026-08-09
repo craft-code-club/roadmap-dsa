@@ -60,7 +60,7 @@ O array de 26 só vale quando o enunciado **garante** `a-z`. Se entrar maiúscul
 
 Comece pelo caso simples. Em **ASCII** cada caractere ocupa 1 byte e existem 128 deles, o que cobre o alfabeto inglês, os dígitos e a pontuação. `"CCC"` são 3 bytes, e ponto.
 
-Agora rode a mesma string nos outros encodings. No visualizador abaixo, o padrão já é `CCC`: repare que ASCII e UTF-8 dão 3 bytes, UTF-16 dá **6** e UTF-32 dá **12**. É exatamente o que o `Encoding.ASCII.GetBytes`, o `Encoding.Unicode.GetBytes` e o `Encoding.UTF32.GetBytes` devolveram no encontro.
+Agora rode a mesma string nos outros encodings. No visualizador abaixo, o padrão já é `CCC`: repare que ASCII e UTF-8 dão 3 bytes, UTF-16 dá **6** e UTF-32 dá **12**. É exatamente o que o `Encoding.ASCII.GetBytes`, o `Encoding.Unicode.GetBytes` e o `Encoding.UTF32.GetBytes` devolvem em C#.
 
 <StringsBytesVisualizer />
 
@@ -78,7 +78,7 @@ Clique nos exemplos, um por um, e acompanhe os quatro contadores de cima:
 | joia | 1 | 2 | 4 |
 | família | 7 | 11 | 25 |
 
-O emoji da família é o exemplo que apareceu no encontro e vale guardar: em C#, `"👨‍👩‍👧‍👦".Length` devolve **11**, porque `Length` conta unidades UTF-16. `new StringInfo(s).LengthInTextElements` devolve **1**, porque conta o que a pessoa vê. No Python, `len` devolve **7**, porque conta code points. Nenhum dos três está errado, eles respondem a perguntas diferentes.
+O emoji da família é o exemplo que vale guardar: em C#, `"👨‍👩‍👧‍👦".Length` devolve **11**, porque `Length` conta unidades UTF-16. `new StringInfo(s).LengthInTextElements` devolve **1**, porque conta o que a pessoa vê. No Python, `len` devolve **7**, porque conta code points. Nenhum dos três está errado, eles respondem a perguntas diferentes.
 
 <Callout tipo="aviso">
 Isso deixa de ser curiosidade no dia em que você trunca um texto para caber num limite. Cortar por bytes parte um caractere no meio e produz aquele losango com interrogação. Cortar por code point desmonta a família em pedaços. Para "os primeiros 20 caracteres que a pessoa vê", o corte tem que ser por **grafema**, e isso quase sempre pede biblioteca (ICU, `Intl.Segmenter`, `StringInfo`, o pacote `regex` do Python).
@@ -111,7 +111,7 @@ Nada foi acrescentado ao fim de `"CCC"`, tanto que `t` não mudou. O runtime alo
 
 ## O laço que concatena, e o O(n²) escondido
 
-Concatenar duas strings de tamanhos n e m custa **O(n + m)** em tempo e em espaço: aloca uma string nova de n + m e copia as duas para dentro dela. No encontro a gente abriu o código do `String.Concat` do .NET e é literalmente isso: mede os dois tamanhos, aloca o total, copia a primeira, copia a segunda depois dela, devolve a nova.
+Concatenar duas strings de tamanhos n e m custa **O(n + m)** em tempo e em espaço: aloca uma string nova de n + m e copia as duas para dentro dela. O código do `String.Concat` do .NET é literalmente isso: mede os dois tamanhos, aloca o total, copia a primeira, copia a segunda depois dela, devolve a nova.
 
 O problema não é uma concatenação. É esta:
 
@@ -140,7 +140,7 @@ Use os atalhos abaixo do campo (`CCC`, `CRAFTCODE`, `CRAFTCODECLUB`, `entrada va
 | 1.000 | 500.500 | 1.000 |
 | 10.000 | 50.005.000 | 10.000 |
 
-Com 10 mil caracteres, o laço ingênuo copia **5.000 vezes** mais do que o necessário. E o custo não para no tempo: cada volta joga uma string inteira no lixo. Num benchmark que a galera trouxe no encontro, a mesma montagem levava **25 segundos** com concatenação e ficava colada no zero com o builder.
+Com 10 mil caracteres, o laço ingênuo copia **5.000 vezes** mais do que o necessário. E o custo não para no tempo: cada volta joga uma string inteira no lixo. Num benchmark simples, a mesma montagem leva **25 segundos** com concatenação e fica colada no zero com o builder.
 
 <Callout tipo="aviso">
 Esse padrão raramente aparece com um nome tão óbvio quanto `s = s + c`. Ele se disfarça de `csv += linha + "\n"` montando um relatório, de `sql += " AND " + filtro` montando uma query, de `mensagem += erro + "; "` juntando erros de validação. É a mesma armadilha com outra roupa.
@@ -175,7 +175,7 @@ Duas finezas que valem saber:
 
 **Diga a capacidade quando você souber.** `new StringBuilder(4096)` ou `builder.Grow(n)` evitam a série de realocações do buffer interno. É o mesmo raciocínio de já criar a lista com o tamanho certo, e a diferença aparece quando o volume é grande.
 
-**O builder não é grátis, ele é amortizado.** No `ToString()` ainda existe uma alocação do tamanho final e uma cópia de todos os caracteres. Trocar duas concatenações por um builder não ganha nada, e ainda deixa o código mais feio. Para juntar dois ou três pedaços, use interpolação: `f"{nome} tem {idade} anos"` no Python, `$"..."` no C#. No .NET, o compilador transforma a interpolação num handler que já monta a string de uma vez só, e no encontro deu para ver isso no código intermediário gerado.
+**O builder não é grátis, ele é amortizado.** No `ToString()` ainda existe uma alocação do tamanho final e uma cópia de todos os caracteres. Trocar duas concatenações por um builder não ganha nada, e ainda deixa o código mais feio. Para juntar dois ou três pedaços, use interpolação: `f"{nome} tem {idade} anos"` no Python, `$"..."` no C#. No .NET, o compilador transforma a interpolação num handler que já monta a string de uma vez só, e dá para ver isso no código intermediário gerado.
 
 ### Quando a saída é mais de uma string ao mesmo tempo
 
@@ -255,7 +255,7 @@ def eh_palindromo(s):
 
 Repare no que ficou de fora: nenhum `s[::-1]`, nenhum `s[e:d]`, nenhuma alocação. Cada comparação lê memória que já existe. Escrever `s == s[::-1]` dá a mesma resposta e aloca uma string inteira para isso. É o [Two Pointers](/topico/two-pointers) aplicado a texto, e é por isso que os dois tópicos andam colados.
 
-Esta é a tabela que junta tudo. Ela é a comparação que abriu o encontro, entre o que um array de caracteres faz e o que uma string imutável faz:
+Esta é a tabela que junta tudo. Ela compara o que um array de caracteres faz e o que uma string imutável faz:
 
 | Operação | Lista de caracteres | String imutável | Por quê |
 | --- | --- | --- | --- |
@@ -270,7 +270,7 @@ Repare na linha de comparação: **comparar duas strings não é O(1)**. Ela par
 
 ## Rotate String: da força bruta ao truque de uma linha
 
-O [LeetCode 796](https://leetcode.com/problems/rotate-string/) foi o problema que a gente resolveu no encontro, e ele existe para castigar exatamente o hábito de concatenar em laço. Um *shift* pega o caractere mais à esquerda e joga para a direita: `abcde` vira `bcdea`. Dado `s` e `goal`, responda se dá para chegar em `goal` fazendo shifts em `s`.
+O [LeetCode 796](https://leetcode.com/problems/rotate-string/) existe para castigar exatamente o hábito de concatenar em laço. Um *shift* pega o caractere mais à esquerda e joga para a direita: `abcde` vira `bcdea`. Dado `s` e `goal`, responda se dá para chegar em `goal` fazendo shifts em `s`.
 
 A primeira solução que vem à cabeça é rotacionar e comparar, até dar a volta completa:
 
@@ -287,7 +287,7 @@ def rotate_string(s, goal):
 
 Aquele `s[1:]` já é uma string nova com n-1 caracteres copiados, e a concatenação aloca mais uma, de n. São `2n - 1` cópias por rotação e até n rotações: **n(2n - 1)** cópias no pior caso, que é O(n²).
 
-A primeira melhora, e a que apareceu no encontro antes de alguém lembrar do truque, é aplicar o que a seção anterior ensinou: pare de materializar a string em toda volta. Gire na lista de caracteres e só monte a string na hora de comparar.
+A primeira melhora, antes de lembrar do truque, é aplicar o que a seção anterior ensinou: pare de materializar a string em toda volta. Gire na lista de caracteres e só monte a string na hora de comparar.
 
 ```python
 def rotate_string(s, goal):
@@ -301,7 +301,7 @@ def rotate_string(s, goal):
     return False
 ```
 
-Continua **O(n²)**, e vale entender por quê: o `join` custa O(n) por volta, a comparação custa O(n) por volta, e até o `pop(0)` custa O(n), porque desloca a lista inteira uma casa para a esquerda. O que muda é a **pressão de memória**: uma string nova por rotação em vez de duas, e o shift virou movimentação de ponteiros dentro de um buffer que já existe. É a versão que o encontro chamou de "já ganha muito numa entrevista", porque mostra que você enxergou a alocação.
+Continua **O(n²)**, e vale entender por quê: o `join` custa O(n) por volta, a comparação custa O(n) por volta, e até o `pop(0)` custa O(n), porque desloca a lista inteira uma casa para a esquerda. O que muda é a **pressão de memória**: uma string nova por rotação em vez de duas, e o shift virou movimentação de ponteiros dentro de um buffer que já existe. É a versão que já ganha muito numa entrevista, porque mostra que você enxergou a alocação.
 
 O truque é perceber que **todas as rotações de `s` já moram dentro de `s + s`**. Com `abcde`, o dobrado é `abcdeabcde`, e ali dentro estão `abcde`, `bcdea`, `cdeab`, `deabc` e `eabcd`, cada uma começando numa posição:
 
@@ -342,9 +342,9 @@ São até `n - m + 1` pontos de partida e até m comparações em cada um: **O(n
 
 KMP e rolling hash existem justamente para derrubar isso para **O(n + m)**, reaproveitando o que a tentativa anterior já provou em vez de recomeçar do zero. É a mesma ideia da [Sliding Window](/topico/sliding-window): não recalcular o que já foi calculado.
 
-E fica o recado honesto que apareceu no encontro: o truque do `s + s` é bem característico deste problema, difícil de inventar do zero na hora. Numa entrevista, a versão com a lista de caracteres, que já mostra preocupação com alocação, e o teste de tamanho no começo, que descarta o caso impossível de graça, já contam muito a seu favor.
+E fica o recado honesto: o truque do `s + s` é bem característico deste problema, difícil de inventar do zero na hora. Numa entrevista, a versão com a lista de caracteres, que já mostra preocupação com alocação, e o teste de tamanho no começo, que descarta o caso impossível de graça, já contam muito a seu favor.
 
-Curiosidade que também saiu no encontro: esse deslocamento circular do alfabeto é a **cifra de César**, a primeira criptografia registrada, que empurrava cada letra três casas para a direita. Ela funcionava não por ser forte, mas porque quase ninguém sabia ler e ninguém tinha máquina para testar os 25 deslocamentos possíveis. Hoje o seu laço testa todos eles em microssegundos, e é exatamente isso que este problema pede.
+Uma curiosidade: esse deslocamento circular do alfabeto é a **cifra de César**, a primeira criptografia registrada, que empurrava cada letra três casas para a direita. Ela funcionava não por ser forte, mas porque quase ninguém sabia ler e ninguém tinha máquina para testar os 25 deslocamentos possíveis. Hoje o seu laço testa todos eles em microssegundos, e é exatamente isso que este problema pede.
 
 ## As armadilhas que pegam todo mundo
 
@@ -354,7 +354,7 @@ Curiosidade que também saiu no encontro: esse deslocamento circular do alfabeto
 
 **Comparar não é uma operação.** `a == b` é O(n). Comparar dentro de um laço que também é O(n) dá O(n²), mesmo sem nenhuma concatenação à vista.
 
-**Assumir ASCII.** O código funciona na sua máquina, com nomes em inglês, e quebra com `João`, com chinês tradicional ou com um emoji no campo de nome. Misturar bytes de encodings diferentes é como concatenar dois arrays com tipos diferentes: o tamanho até fecha, o conteúdo vira lixo. Foi o caso real que apareceu no encontro, uma integração com uma transportadora de Taiwan em que tudo chega em chinês tradicional: se você trata os bytes como se fossem do seu encoding, o texto sai embaralhado e o bug só aparece em produção.
+**Assumir ASCII.** O código funciona na sua máquina, com nomes em inglês, e quebra com `João`, com chinês tradicional ou com um emoji no campo de nome. Misturar bytes de encodings diferentes é como concatenar dois arrays com tipos diferentes: o tamanho até fecha, o conteúdo vira lixo. É o caso real de uma integração com uma transportadora de Taiwan em que tudo chega em chinês tradicional: se você trata os bytes como se fossem do seu encoding, o texto sai embaralhado e o bug só aparece em produção.
 
 **`á` pode não ser igual a `á`.** O Unicode deixa escrever o mesmo caractere de dois jeitos: um code point só (`á` = U+00E1, a forma NFC) ou a letra mais um acento combinante (`a` + U+0301, a forma NFD). Os dois desenham exatamente a mesma coisa na tela, e `==` diz que são diferentes, porque compara code point a code point. Antes de comparar, ordenar, deduplicar ou usar texto como chave, **normalize**: `unicodedata.normalize("NFC", s)` no Python, `s.Normalize()` no C#, `s.normalize("NFC")` no JavaScript. É o bug clássico de um nome digitado no macOS não bater com o mesmo nome vindo do Windows.
 
@@ -394,7 +394,7 @@ A lista de problemas logo abaixo está na ordem de resolver, do mais direto ao m
 
 - **Reverse String**: os dois índices trocando no array de caracteres, com O(1) de espaço extra. Se você usar `s[::-1]` ou `reversed()`, resolveu o exercício e perdeu a aula.
 - **Valid Anagram**: o contador de frequência da primeira seção. Resolva com o array de 26 e depois responda: o que muda se a entrada puder ter acento ou emoji?
-- **Rotate String**: o problema do encontro. Escreva as três versões (laço ingênuo, lista de caracteres, `goal in s + s`) e compare os contadores no visualizador acima antes de olhar o editorial.
+- **Rotate String**: o problema desta página. Escreva as três versões (laço ingênuo, lista de caracteres, `goal in s + s`) e compare os contadores no visualizador acima antes de olhar o editorial.
 - **Find the Index of the First Occurrence**: implemente a busca ingênua na mão, com o `range(n - m + 1)` certo, em vez de chamar `find`. É o pré-requisito para entender KMP depois.
 - **Zigzag Conversion**: o padrão de k builders da seção do builder, mais o `k == 1` que quase todo mundo esquece.
 - **Longest Palindromic Substring**: junta tudo. A saída ingênua é gerar todas as substrings e testar cada uma, O(n³). O caminho bom é **expandir a partir do centro**: cada posição é um centro em potencial, e você abre para os dois lados enquanto os caracteres baterem.
