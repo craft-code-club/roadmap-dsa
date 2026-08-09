@@ -38,17 +38,23 @@ const ID_SITE = `${SITE_URL}/#website`;
  * Quem assina o conteúdo do guia.
  *
  * É a ORGANIZAÇÃO, por `@id` para o nó `Organization` que o layout já emite em
- * toda rota — e a escolha é factual, não uma preferência de estilo. Os 34
- * vídeos que alimentam os tópicos têm `ownerChannelName: "Craft & Code Club"`,
- * as 34 descrições não citam o nome de nenhuma pessoa, e o `git log` deste
- * repositório tem uma única conta humana (mesmo ID do GitHub sob dois nomes de
- * usuário). Não há base para atribuir autoria nominal a ninguém.
+ * toda rota. E isso é DECISÃO TOMADA, não um valor provisório esperando alguém
+ * decidir: o guia é obra da comunidade, e assina como comunidade.
  *
- * ⚠️ A decisão de nomear uma PESSOA é do Wilson, e custa esta constante e mais
- * nada: trocar por `{ "@type": "Person", name: "…", url: "…" }` — ou virar um
- * array com os dois, que `author` aceita — já muda as 40 páginas de tópico.
- * O que a troca exige junto: o nome tem que aparecer na tela, porque a regra
- * que decide o desenho deste arquivo é "a marcação reflete o que está na tela".
+ * A decisão também é a que os fatos sustentam. Os 34 vídeos que alimentam os
+ * tópicos têm `ownerChannelName: "Craft & Code Club"`, as 34 descrições não
+ * citam o nome de nenhuma pessoa, e o `git log` deste repositório tem uma única
+ * conta humana (mesmo ID do GitHub sob dois nomes de usuário).
+ *
+ * ⚠️ NÃO troque por `Person`, nem acrescente uma ao lado num array. Autoria
+ * nominal aqui significaria escolher um nome entre muitos que contribuíram, num
+ * projeto que recebe PR da comunidade, e o `Organization` já é o sujeito certo:
+ * ele é quem publica os vídeos, quem mantém o repositório e quem responde no
+ * Discord.
+ *
+ * (Se um dia isso mudar, mude junto o que aparece na TELA: a regra que decide o
+ * desenho deste arquivo é "a marcação reflete o que está na tela", e nome que
+ * só existe no JSON-LD é marcação sem lastro.)
  */
 const AUTOR = { "@id": ID_ORG };
 

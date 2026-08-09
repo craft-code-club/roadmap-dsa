@@ -131,11 +131,10 @@ export default function SobrePage() {
           cita o nome de uma pessoa; o `git log` deste repositório tem uma única
           conta humana. Ou seja: não há de onde tirar nome nem data.
 
-          É a MESMA razão pela qual o `author` do JSON-LD aponta para a
-          organização e não para uma pessoa (ver `src/lib/jsonld.ts`, constante
-          `AUTOR`). Se você escrever nomes aqui, o `author` de lá pode passar a
-          nomear a mesma pessoa, porque a regra do arquivo é que a marcação reflita o
-          que está na tela, e a partir daí o nome estaria na tela.
+          O `author` do JSON-LD aponta para a organização e não para uma
+          pessoa (ver `src/lib/jsonld.ts`, constante `AUTOR`), e isso é decisão
+          tomada: o guia assina como comunidade. Escrever nomes AQUI, contando a
+          história, é bem-vindo; o que não muda por causa disso é o `author`.
 
           Onde escrever: um `<p className="prose-p">` logo abaixo, dentro desta
           mesma seção "Quem faz".
