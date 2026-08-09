@@ -22,7 +22,12 @@ test("nav do topo abre o roadmap e um tópico", async ({ page }) => {
 
 test("página de tópico traz vídeo e problemas com links externos certos", async ({ page }) => {
   await page.goto("/topico/sliding-window/");
-  await expect(page.locator("iframe")).toHaveCount(1);
+  // A seção do vídeo chega como FACHADA: o `<iframe>` só nasce no clique
+  // (`src/components/VideoFacade.tsx`), então contar `iframe` aqui daria zero.
+  // Quem prova o clique, o teclado e a caixa é `tests/fachada-do-video.spec.ts`;
+  // este teste só cobra que a seção esteja de pé na página.
+  await expect(page.getByRole("button", { name: /^Assistir à aula: / })).toHaveCount(1);
+  await expect(page.locator("iframe"), "o player nasceu sem ninguém pedir").toHaveCount(0);
   const problema = page.getByRole("link", { name: /Maximum Average Subarray I/ }).first();
   await expect(problema).toHaveAttribute("href", /leetcode\.com/);
 });

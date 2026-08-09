@@ -51,7 +51,19 @@ test("o `_headers` do build proíbe que o site seja embutido em frame de terceir
 
 test("o embed do YouTube, que é iframe de SAÍDA, continua de pé e ocupando a caixa", async ({ page }) => {
   const comVideo = ALL_TOPICS.find((t) => t.youtube)!;
+
+  // O embed virou FACHADA (`src/components/VideoFacade.tsx`): o `<iframe>` só
+  // nasce depois do clique. Sem o clique, este teste mediria a miniatura e
+  // diria que o iframe de saída está de pé sem haver iframe nenhum.
+  //
+  // A resposta do YouTube é interceptada de propósito: o que este teste afirma
+  // é a DIREÇÃO do iframe e o tamanho da caixa, e nenhuma das duas depende de
+  // baixar 1 MB de player a cada rodada de CI.
+  await page.route(/https:\/\/(www\.youtube-nocookie\.com|i\.ytimg\.com)\//, (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>ok</title>" })
+  );
   await page.goto(`/topico/${comVideo.slug}/`);
+  await page.getByRole("button", { name: `Assistir à aula: ${comVideo.name}` }).click();
 
   const frame = page.locator(".video-embed iframe");
   await expect(frame).toHaveCount(1);
@@ -68,6 +80,12 @@ test("o embed do YouTube, que é iframe de SAÍDA, continua de pé e ocupando a 
 
 });
 
+/** O que a varredura procura no HTML exportado. */
+const IFRAME_SRC = /<iframe\b[^>]*\bsrc="([^"]*)"/g;
+
+/** Relativo, ou apontando para o nosso domínio, é iframe de ENTRADA. */
+const ehDeEntrada = (src: string) => !/^https?:\/\//.test(src) || src.startsWith(SITE_URL);
+
 test("todo iframe do site é de saída: nenhuma página do build embute o próprio site", () => {
   // Esta é a asserção que sustenta o `DENY`. `X-Frame-Options` só recusa a
   // direção de ENTRADA, então ele só quebraria alguma coisa se alguma página
@@ -82,19 +100,37 @@ test("todo iframe do site é de saída: nenhuma página do build embute o própr
   expect(paginas.length, "o build não gerou HTML; rode `npm run build` antes").toBeGreaterThan(40);
 
   const entrada: string[] = [];
-  let saida = 0;
   for (const arquivo of paginas) {
     const html = readFileSync(arquivo, "utf8");
-    for (const m of html.matchAll(/<iframe\b[^>]*\bsrc="([^"]*)"/g)) {
-      const src = m[1];
-      // Relativo, ou apontando para o nosso domínio, é iframe de ENTRADA.
-      if (!/^https?:\/\//.test(src) || src.startsWith(SITE_URL)) entrada.push(`${arquivo}: ${src}`);
-      else saida++;
+    for (const m of html.matchAll(IFRAME_SRC)) {
+      if (ehDeEntrada(m[1])) entrada.push(`${arquivo}: ${m[1]}`);
     }
   }
 
   expect(entrada, "há iframe embutindo o próprio site; o DENY quebraria essa página").toEqual([]);
-  expect(saida, "nenhum iframe no build: a varredura não está achando nada").toBeGreaterThan(0);
+
+  // O CANÁRIO MUDOU DE LUGAR, E O MOTIVO IMPORTA.
+  // Aqui havia `expect(saida).toBeGreaterThan(0)`: enquanto o embed do YouTube
+  // saía literal no HTML, contar um iframe de saída provava que a varredura
+  // enxergava alguma coisa. Depois da fachada (`src/components/VideoFacade.tsx`)
+  // o HTML exportado não tem `<iframe>` NENHUM — o do vídeo nasce no clique —,
+  // então aquela linha passaria a reprovar por desenho, e apagá-la sem trocar
+  // por nada deixaria a varredura livre para não achar mais nada e ficar verde
+  // para sempre.
+  // O canário passa a ser o próprio par regex+classificação, exercitado nas duas
+  // direções que ele precisa distinguir. Ele usa AS MESMAS duas definições do
+  // laço acima, então quebrar uma quebra o teste.
+  const controle = [
+    `<iframe src="https://www.youtube-nocookie.com/embed/abc" loading="lazy"></iframe>`,
+    `<iframe src="${SITE_URL}/topico/arrays/"></iframe>`,
+    `<iframe src="/topico/arrays/"></iframe>`,
+  ].join("\n");
+  const achados = [...controle.matchAll(IFRAME_SRC)].map((m) => m[1]);
+  expect(achados, "o regex da varredura parou de enxergar `<iframe src=...>`").toHaveLength(3);
+  expect(
+    achados.filter(ehDeEntrada),
+    "a classificação parou de reconhecer iframe de ENTRADA: a varredura acima ficaria cega"
+  ).toEqual([`${SITE_URL}/topico/arrays/`, "/topico/arrays/"]);
 });
 
 // ------------------------------------------------------------ color-scheme

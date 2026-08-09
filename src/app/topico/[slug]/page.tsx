@@ -4,12 +4,13 @@ import { notFound } from "next/navigation";
 import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
 import { getArticle } from "@content/topics";
 import { breadcrumbJsonLd, JsonLd, topicJsonLd } from "@/lib/jsonld";
-import { LINKS, ytEmbed, ytWatch } from "@/lib/links";
+import { LINKS, ytWatch } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
 import { slugify } from "@/lib/slug";
 import { TopicComplete } from "@/components/TopicComplete";
 import { ProblemList } from "@/components/ProblemList";
+import { VideoFacade } from "@/components/VideoFacade";
 
 export const dynamicParams = false;
 
@@ -163,14 +164,13 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
               Direto do canal da comunidade Craft &amp; Code Club{t.videoMinutes ? ` · ${t.videoMinutes}` : ""}.
             </p>
+            {/* A caixa continua sendo a mesma `.video-embed` (com o
+                `aspect-ratio: 16/9`); o que mudou é o miolo: uma miniatura
+                clicável no lugar do `<iframe>`, que só monta o player quando o
+                aluno pede. O porquê, com os bytes medidos, está no cabeçalho do
+                componente. */}
             <div className="video-embed">
-              <iframe
-                src={ytEmbed(t.youtube)}
-                title={`Aula: ${t.name}`}
-                loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              <VideoFacade youtube={t.youtube} title={t.name} />
             </div>
           </>
         )}
