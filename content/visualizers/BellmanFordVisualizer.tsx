@@ -185,6 +185,21 @@ export function BellmanFordVisualizer() {
   // O rótulo passa a nomear a rodada em vez de numerá-la.
   const roundLabel = s.extraRound ? "extra" : String(s.round);
 
+  // Quantos relaxamentos ACONTECERAM até o passo atual. O cartão mostrava
+  // (V-1)×E e chamava aquilo de "relaxamentos totais", mas (V-1)×E é o PIOR
+  // CASO — o custo do algoritmo, não o da execução que está na tela. Medido no
+  // gerador, no último passo dos três presets: 16 de 32 (peso negativo, para na
+  // rodada 2), 24 de 24 (ciclo negativo, roda as quatro) e 12 de 24 (só
+  // positivos, para na 2). Dois dos três diziam o dobro do que fizeram.
+  //
+  // A rodada extra fica FORA da conta pelo mesmo motivo que fica fora do
+  // contador de rodada: ela roda depois das V-1 e não é uma delas. Somá-la
+  // daria "25 de 24", o irmão do "rodada 5 de 4" que o cabeçalho já corrigiu.
+  const relaxations = useMemo(() => {
+    let n = 0;
+    return steps.map((st) => (st.edge && !st.extraRound ? ++n : n));
+  }, [steps]);
+
   return viz.inPanel(
     <figure {...viz.figureProps} style={{ margin: 0 }}>
       {/* A rodada continua à esquerda do "passo N de M", que agora é do hook. O
@@ -286,7 +301,13 @@ export function BellmanFordVisualizer() {
             <div className="viz-vars-head">Variáveis</div>
             <div className="viz-var"><span className="viz-var-name">rodada</span><span className="viz-var-val best">{s.extraRound ? "extra (detecção)" : `${s.round} de ${LABELS.length - 1}`}</span></div>
             <div className="viz-var"><span className="viz-var-name">arestas por rodada</span><span className="viz-var-val">{preset.edges.length}</span></div>
-            <div className="viz-var"><span className="viz-var-name">relaxamentos totais</span><span className="viz-var-val">{(LABELS.length - 1) * preset.edges.length}</span></div>
+            {/* Os dois números, e não um só: o da esquerda é o que a execução
+                fez, o da direita é o (V-1)×E do pior caso. O rótulo perdeu o
+                "totais", que era a palavra que fazia o pior caso passar por
+                execução. A forma "N de M" é a mesma do cartão de rodada logo
+                acima, e com o cartão do meio a conta fecha na tela: 4 rodadas
+                prometidas × 8 arestas = 32. */}
+            <div className="viz-var"><span className="viz-var-name">relaxamentos</span><span className="viz-var-val">{relaxations[viz.step]} de {(LABELS.length - 1) * preset.edges.length}</span></div>
           </div>
         </div>
 
