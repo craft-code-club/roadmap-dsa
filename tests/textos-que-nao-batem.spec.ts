@@ -152,3 +152,75 @@ test.describe("bellman-ford · o cartão de relaxamentos", () => {
     await expect(valor, "a rodada extra entrou na conta dos relaxamentos").toHaveText("16 de 32");
   });
 });
+
+// ------------------------------------------------------- 2. árvores n-árias
+//
+// "Agora enfileiro os 1 filhos dele": número certo, concordância errada. O nó é
+// o `ul` da árvore DOM, o único de grau 1 dos três presets — e o zero tem frase
+// própria ("É folha"), que é o que impede "os 0 filhos" de nascer no lugar.
+
+test.describe("n-ary-trees · a fila do BFS concorda com o número", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  async function abrirBfs(page: Page, arvore: string): Promise<Locator> {
+    const fig = await abrir(page, "/topico/n-ary-trees/", "o mesmo template quando os filhos");
+    await fig.getByRole("button", { name: arvore, exact: true }).click();
+    await fig.getByRole("button", { name: "Por nível (BFS)", exact: true }).click();
+    await expect(contadorDe(fig)).toContainText("passo 1 de ");
+    return fig;
+  }
+
+  const nota = (fig: Locator) => fig.locator(".viz-note").last();
+
+  test("um filho é 'o único filho', e a fila ao lado confirma que é um só", async ({ page }) => {
+    const fig = await abrirBfs(page, "Uma árvore DOM");
+
+    // Passo 10: o `main`, com três filhos. O plural continua plural, com o
+    // número à vista.
+    await andarAte(fig, 10);
+    await expect(nota(fig)).toHaveText(
+      "Processo main, que estava na frente da fila. Agora enfileiro os 3 filhos dele, no fim da fila."
+    );
+
+    // Passo 16: o `ul`, com um filho só. Era aqui que a peça dizia "os 1 filhos".
+    await andarAte(fig, 16);
+    await expect(nota(fig)).toHaveText(
+      "Processo ul, que estava na frente da fila. Agora enfileiro o único filho dele, no fim da fila."
+    );
+    // O rótulo lido junto do número que o sustenta: a fila está vazia ANTES de
+    // enfileirar, e fica com exatamente um depois. "Único" é medida, não estilo.
+    await expect(variavel(fig, "fila").locator(".viz-var-val")).toHaveText("0");
+    await proximoDe(fig).click();
+    await expect(contadorDe(fig)).toContainText("passo 17 de ");
+    await expect(nota(fig)).toContainText("li entra no fim da fila");
+    await expect(variavel(fig, "fila").locator(".viz-var-val")).toHaveText("1");
+  });
+
+  test("nenhum passo das três árvores escreve 'os 1 filhos'", async ({ page }) => {
+    test.slow();
+    const vistos: string[] = [];
+
+    for (const arvore of ["A árvore do artigo", "Uma árvore de diretórios", "Uma árvore DOM"]) {
+      const fig = await abrirBfs(page, arvore);
+      const total = await totalDePassos(fig);
+      for (let i = 1; i <= total; i++) {
+        if (i > 1) await andarAte(fig, i);
+        vistos.push(`${arvore}|${(await nota(fig).innerText()).trim()}`);
+      }
+      await expect(proximoDe(fig)).toBeDisabled();
+    }
+
+    // A varredura tem que ter passado por notas de verdade, senão ela aprova
+    // vazio: 19 + 21 + 19 passos.
+    expect(vistos.length, "a varredura encurtou").toBe(59);
+    // "os 1 filhos" e "os 0 filho" são as duas formas erradas, e o plural com
+    // artigo só pode aparecer a partir de dois.
+    expect(
+      vistos.filter((t) => /\bos [01] filhos?\b/.test(t)),
+      "concordância errada: 'os N filhos' com N menor que dois"
+    ).toEqual([]);
+    // E o singular acontece mesmo — sem isto, a asserção de cima passaria numa
+    // peça que nunca chega a um filho.
+    expect(vistos.filter((t) => t.includes("o único filho dele")).length).toBe(1);
+  });
+});

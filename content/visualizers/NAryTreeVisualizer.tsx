@@ -188,9 +188,15 @@ function generateSteps(nodes: TreeNode[], order: Order): Step[] {
     while (queue.length && guard++ < 300) {
       const id = queue.shift() as number;
       out.push(id);
+      // Três casos, não dois: `os N filhos` escrito direto dava "Agora
+      // enfileiro os 1 filhos dele" no `ul` da árvore DOM, que é o único nó de
+      // grau 1 dos três presets. O zero continua com frase própria (a folha),
+      // que é o que impede "os 0 filhos" de nascer no dia em que alguém
+      // simplificar o ternário.
+      const kids = nodes[id].children.length;
       steps.push({
         node: id, aux: [...queue], out: [...out], line: 4,
-        note: `Processo ${label(id)}, que estava na frente da fila. ${nodes[id].children.length === 0 ? "É folha, não acrescenta ninguém." : `Agora enfileiro os ${nodes[id].children.length} filhos dele, no fim da fila.`}`,
+        note: `Processo ${label(id)}, que estava na frente da fila. ${kids === 0 ? "É folha, não acrescenta ninguém." : kids === 1 ? "Agora enfileiro o único filho dele, no fim da fila." : `Agora enfileiro os ${kids} filhos dele, no fim da fila.`}`,
       });
       for (const f of nodes[id].children) {
         queue.push(f);
