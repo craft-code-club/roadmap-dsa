@@ -248,9 +248,17 @@ export function MergeEmpate() {
           <div className="tt-painel-tit">
             As decisões da intercalação <em>a linha destacada é onde as duas versões se separam</em>
           </div>
+          {/* `foco`, e não `ruim`. Esta lista é a do `<=`, e a linha destacada
+              é a do primeiro empate — onde o `<=` faz exatamente o que a peça
+              defende: manda sair o da esquerda e preserva a ordem de chegada.
+              O `.ruim` do `globals.css` é o vermelho de "quebrou" (o mesmo do
+              selo `empates trocados` na coluna do `<`), então ele afirmava
+              falha bem em cima do acerto, dentro do cartão cujo selo diz
+              `estável`. O `.bb-passos li.foco` existe para isto, com o
+              comentário do CSS dizendo a mesma frase: foco não é falha. */}
           <ol className="bb-passos">
             {withLte.decisions.map((d, k) => (
-              <li key={k} className={k === divergence ? "ruim" : ""}>
+              <li key={k} className={k === divergence ? "foco" : ""}>
                 <span>
                   {d.left ? `esquerda ${d.left.key} (${d.left.tag})` : "esquerda vazia"} contra{" "}
                   {d.right ? `direita ${d.right.key} (${d.right.tag})` : "direita vazia"}

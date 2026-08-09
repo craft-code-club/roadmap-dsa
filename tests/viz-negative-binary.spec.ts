@@ -298,11 +298,11 @@ test("as três formas recalculam os cartões quando o número muda", async ({ pa
   await expect(lidoDe(2)).toContainText("Lido de volta: -26");
   // As três convenções LEEM de volta o valor certo para todo v ≤ 127, e os
   // quatro presets (26, 1, 127, 0) são todos ≤ 127: o sufixo
-  // " (não bate com o esperado)" do `:135` não aparece em preset nenhum, em
-  // régua nenhuma. Está reportado como defeito de conteúdo — mesma classe do
-  // "(o desta árvore)" do NAryTreeVisualizer —, e o teste afirma o que a tela
-  // de fato mostra em vez de exigir um texto que ninguém vê.
-  await expect(lidoDe(0)).toHaveText("Lido de volta: -26");
+  // " (não bate com o esperado)" não aparecia em preset nenhum, em régua
+  // nenhuma. Ele saiu, e no lugar ficou o que a tela de fato mostra — as três
+  // fitas de bits são diferentes e leem o mesmo número. A varredura dos quatro
+  // presets nos três cartões está em `textos-que-nao-batem.spec.ts`.
+  await expect(lidoDe(0)).toHaveText("Lido de volta: -26 — bits diferentes, mesmo número.");
 
   // Troca o número: os três cartões têm que acompanhar. Com o memo preso à
   // entrada errada, eles continuariam mostrando a negação de 26.

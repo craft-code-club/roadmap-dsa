@@ -406,15 +406,22 @@ test.describe("cartões que ensinavam o oposto", () => {
 
       // E os números medidos, presos: a invariante sozinha passaria com os dois
       // lados errados do mesmo jeito, e é a tela que manda.
+      //
+      // Os oito são iguais dois a dois de propósito, e essa é a leitura certa: o
+      // preset monta a MESMA matriz nos dois modos, porque ele descreve quais
+      // vértices estão ligados e o tipo é só como a matriz é lida. Os quatro do
+      // dirigido eram 29, 23, 21 e 31 — a matriz montada pela metade, um sentido
+      // por par, que fazia o preset "Completo" mostrar 15 de 30 com a dica
+      // dizendo "é o teto". Detalhe em `textos-que-nao-batem.spec.ts`.
       expect(visto).toEqual([
         "não dirigido/Esparso (rede social): 22",
         "não dirigido/Denso: 10",
         "não dirigido/Completo: 6",
         "não dirigido/Caminho (o mínimo conexo): 26",
-        "dirigido/Esparso (rede social): 29",
-        "dirigido/Denso: 23",
-        "dirigido/Completo: 21",
-        "dirigido/Caminho (o mínimo conexo): 31",
+        "dirigido/Esparso (rede social): 22",
+        "dirigido/Denso: 10",
+        "dirigido/Completo: 6",
+        "dirigido/Caminho (o mínimo conexo): 26",
       ]);
     });
   });
