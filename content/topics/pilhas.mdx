@@ -6,7 +6,7 @@ A pilha é a estrutura que você usa desde o primeiro dia de programação sem n
 
 Uma pilha é uma coleção com uma regra única: **o último que entra é o primeiro que sai**. É o LIFO, de *last in, first out*. Não existe entrar no meio, não existe sair pelo fundo, não existe olhar o terceiro elemento. Só existe o topo.
 
-A melhor imagem disso apareceu no encontro da comunidade e vale mais que qualquer definição. Você está no supermercado:
+A melhor imagem disso vale mais que qualquer definição. Você está no supermercado:
 
 <Colunas>
 <Cartao titulo="A fila do caixa é FIFO">
@@ -94,7 +94,7 @@ class Pilha:
         self.items = novo
 ```
 
-Três detalhes desse código apareceram na discussão do encontro e valem mais que o código em si.
+Três detalhes desse código valem mais que o código em si.
 
 **A capacidade inicial 4 não é aleatória.** É o número que aparece em implementações reais de array dinâmico, porque é pequeno o bastante para não desperdiçar e grande o bastante para evitar as primeiras cópias: a `List<T>` do .NET começa em 4 e vai para 8, 16, 32, e a `list` do CPython também salta para 4 no primeiro `append`. Nem todo mundo usa 4, a `ArrayList` do Java começa em 10, mas o formato é sempre o mesmo, um bloco pequeno que dobra.
 
@@ -135,7 +135,7 @@ O `push` inteiro é uma linha porque a operação é literalmente "crie um nó c
 
 A conta não fecha só de vantagens. Cada item deixou de ser um valor solto e virou um objeto com um campo a mais. Em uma máquina de 64 bits, são 8 bytes só do ponteiro `proximo`, mais o cabeçalho do objeto, para cada elemento. E os nós ficam espalhados pela memória, então some o prêmio de cache que o array tinha.
 
-Também some o acesso ao meio. No array, `items[3]` é uma conta; na lista ligada, chegar no quarto nó é andar por três ponteiros. A analogia que a comunidade usou é a do telefone sem fio: **você só enxerga quem está de mãos dadas com você**. O terceiro nó não faz ideia de que o primeiro existe.
+Também some o acesso ao meio. No array, `items[3]` é uma conta; na lista ligada, chegar no quarto nó é andar por três ponteiros. A analogia é a do telefone sem fio: **você só enxerga quem está de mãos dadas com você**. O terceiro nó não faz ideia de que o primeiro existe.
 
 Só que, para uma pilha, isso não custa nada: o contrato dela é acessar só o topo. A limitação da lista ligada cai justamente onde a pilha não precisa de nada.
 
@@ -151,7 +151,7 @@ Na vida real você quase nunca implementa isso na mão, e vale saber o que a lin
 
 ## Parênteses balanceados: o primeiro problema de verdade
 
-Este é o problema que a comunidade resolveu ao vivo no encontro, e é o **LeetCode 20**: dada uma string com `(`, `)`, `[`, `]`, `{` e `}`, diga se ela está balanceada. Três regras no enunciado:
+Este é o problema clássico da pilha, o **LeetCode 20**: dada uma string com `(`, `)`, `[`, `]`, `{` e `}`, diga se ela está balanceada. Três regras no enunciado:
 
 1. toda abertura fecha com o **mesmo tipo**;
 2. o fechamento vem na **ordem correta**;
@@ -189,7 +189,7 @@ def valida(s):
     return not pilha                          # sobrou aberto?
 ```
 
-O dicionário `pares` tem o fechamento como **chave** e a abertura como valor, e essa escolha foi debatida no encontro. O raciocínio: quando você lê uma abertura, não há nada a verificar, você só empilha. É no fechamento que existe uma pergunta, e a pergunta é "qual abertura eu esperava aqui?". Mapear fechamento para abertura responde isso em O(1). O caminho contrário é uma chave fraca, porque não há decisão a tomar na abertura.
+O dicionário `pares` tem o fechamento como **chave** e a abertura como valor, e essa escolha merece um parágrafo. O raciocínio: quando você lê uma abertura, não há nada a verificar, você só empilha. É no fechamento que existe uma pergunta, e a pergunta é "qual abertura eu esperava aqui?". Mapear fechamento para abertura responde isso em O(1). O caminho contrário é uma chave fraca, porque não há decisão a tomar na abertura.
 
 Existem duas variações que aparecem muito e valem conhecer:
 
@@ -212,7 +212,7 @@ Toda linguagem mantém uma pilha para executar o seu programa. Quando `a()` cham
 
 **Ler o stack trace substitui um monte de código defensivo.** É comum ver `try/catch` espalhado por todo canto só para acrescentar mensagens do tipo "cheguei aqui", quando o próprio rastro já diz exatamente por onde a execução passou. E não são só funções: atribuições, operações matemáticas e até o `print` acontecem sobre essa mesma pilha.
 
-Quando uma função chama a si mesma, a call stack fica visível. O exercício do encontro foi calcular uma potência de **três jeitos** e mostrar que os passos são sempre os mesmos: um laço simples, uma recursão, e uma pilha explícita escrita na mão.
+Quando uma função chama a si mesma, a call stack fica visível. O exercício aqui é calcular uma potência de **três jeitos** e ver que os passos são sempre os mesmos: um laço simples, uma recursão, e uma pilha explícita escrita na mão.
 
 ```python
 def potencia_laco(x, n):      # 1. sem pilha nenhuma, O(1) de espaço
@@ -411,6 +411,6 @@ A ordem abaixo é a dos problemas listados no fim desta página, e ela é propos
 4. **Evaluate Reverse Polish Notation (150)** é a avaliação de expressão da seção anterior, código pronto e tudo. Os dois pontos que reprovam: a ordem dos `pop`, porque o primeiro é o operando da direita, e a divisão, que precisa truncar em direção ao zero (`int(a / b)` em Python, nunca `//`).
 5. **Daily Temperatures (739)** é a pilha monotônica com uma linha de diferença: grave a distância `i - j` em vez do valor. É o mesmo array do visualizador, então dá para conferir o caminho passo a passo antes de escrever qualquer código.
 
-Um roteiro que funciona para os cinco: escreva a força bruta primeiro, calcule o Big O dela e só então pergunte o que a pilha economiza. Foi assim que o encontro chegou na solução dos parênteses, e é assim que o padrão fica na cabeça em vez de virar decoreba.
+Um roteiro que funciona para os cinco: escreva a força bruta primeiro, calcule o Big O dela e só então pergunte o que a pilha economiza. Foi assim que a solução dos parênteses apareceu nesta página, e é assim que o padrão fica na cabeça em vez de virar decoreba.
 
 Daqui, dois caminhos se abrem. Um é a estrutura irmã, a [fila](/topico/filas), que troca LIFO por FIFO e resolve a outra metade dos problemas de ordem. O outro é a [recursão](/topico/recursao), que é a call stack desta página vista de dentro, e a porta de entrada para árvores e grafos.
