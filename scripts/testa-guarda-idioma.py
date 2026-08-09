@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Suíte dos guardas: o de idioma e o de header de commit.
+"""Suíte dos guardas: o de idioma, o de header de commit e o de âncoras.
 
-    python3 scripts/testa-guarda-idioma.py                      # roda os guardas atuais
-    python3 scripts/testa-guarda-idioma.py --guarda <p>         # roda OUTRO guarda-idioma
-    python3 scripts/testa-guarda-idioma.py --guarda-commit <p>  # roda OUTRO guarda-commit
-    python3 scripts/testa-guarda-idioma.py -v                   # imprime a saída de cada caso
+    python3 scripts/testa-guarda-idioma.py                       # roda os guardas atuais
+    python3 scripts/testa-guarda-idioma.py --guarda <p>          # roda OUTRO guarda-idioma
+    python3 scripts/testa-guarda-idioma.py --guarda-commit <p>   # roda OUTRO guarda-commit
+    python3 scripts/testa-guarda-idioma.py --guarda-ancoras <p>  # roda OUTRO guarda-ancoras
+    python3 scripts/testa-guarda-idioma.py -v                    # imprime a saída de cada caso
 
 Os `--guarda*` existem para a prova de quebra: aponte para uma cópia da versão
 anterior e veja os casos passarem verdes com a aula estragada (ou com o guarda
 cego). Um guarda que você nunca viu falhar não é guarda.
 
 **O nome do arquivo ficou menor que o conteúdo, e é de propósito.** Ele cobre os
-DOIS guardas porque é este caminho que o portão da CI chama
+TRÊS guardas porque é este caminho que o portão da CI chama
 (`.github/workflows/tests.yml`, passo "Suíte do próprio guarda de idioma");
 renomear exigiria mexer no workflow, e uma suíte que a CI não roda protege
 menos que um nome errado.
 
-A suíte tem dois blocos:
+A suíte tem três blocos:
 
   FIXTURES — pares de arquivo em `fixtures-guarda-idioma/<caso>/`, com extensão
     `.tsx.txt` de propósito: o `tsconfig.json` inclui `**/*.tsx`, então fixture
@@ -30,6 +31,13 @@ A suíte tem dois blocos:
     O `guarda-commit.py` saía 0 e MUDO sem o pipe (dez agentes "rodaram o
     guarda" e nenhum guarda rodou), e o `guarda-idioma.py` saía 0 com dois
     diretórios sem um `.tsx` dentro.
+
+  ÂNCORAS — uma LINHA DE PROSA por caso, contra o `guarda-ancoras.py`, que
+    varre `content/topics/*.mdx` atrás de texto que só faz sentido para quem
+    assistiu à gravação. Metade dos casos existe para o guarda NÃO reprovar: o
+    "encontro" da lebre e da tartaruga, o "ao vivo" da animação, o "perdeu a
+    aula". A outra metade são âncoras de verdade que a varredura anterior (um
+    `grep` com `grep -v`) deixava passar.
 """
 import subprocess
 import sys
@@ -135,6 +143,64 @@ CASOS_CLI = [
      "diretório COM fonte e sem mudança de tela continua saindo 0"),
 ]
 
+# ---------------------------------------------------------------------------
+# Bloco 3: o guarda das âncoras na gravação (`guarda-ancoras.py`).
+#
+# Aqui o caso é UMA LINHA de prosa, e não um par de arquivos, porque é assim que
+# a âncora aparece: uma oração de procedência no meio de um parágrafo que, sem
+# ela, continua de pé. Cada caso vira um `.mdx` de uma linha num diretório
+# temporário e o guarda é chamado nele.
+#
+# Os casos 5 e 6 são a razão de o guarda existir em vez de um `grep`: os dois
+# passavam VERDES pelo filtro de falso positivo da versão anterior desta
+# varredura, que era um `grep -v` com as frases do ciclo de Floyd listadas uma a
+# uma. Um guarda que você nunca viu falhar não é guarda — e um filtro de falso
+# positivo que você nunca viu engolir achado de verdade é pior ainda.
+# ---------------------------------------------------------------------------
+# (nome, linha de prosa, deve_reprovar, o que o caso prova)
+CASOS_ANCORAS = [
+    ("ancora-classica",
+     "No encontro o problema apareceu assim: uma classe recebe um array.",
+     True, "a forma mais comum: oração de procedência (lente da gravação)"),
+    ("ancora-sem-palavra-de-gravacao",
+     "Isso custa dos dois lados. Como o Nelson resumiu: empilhar custa 1.",
+     True, "cita a PESSOA sem dizer 'encontro': só as lentes de nome e de fala pegam"),
+    ("ancora-com-nome-nao-cadastrado",
+     "Vale guardar a ressalva que o Anacleto fez ali: a constante importa.",
+     True, "nome que ninguém cadastrou: quem pega é a lente do VERBO DE FALA"),
+    ("floyd-nao-e-violacao",
+     "O encontro acontece no nó 5, na 5ª iteração, e o ciclo tem 5 nós.",
+     False, "o 'encontro' da lebre e da tartaruga é termo técnico, não procedência"),
+    ("o-encontro-foi-nao-e-floyd",
+     "O exercício do encontro foi calcular uma potência de três jeitos.",
+     True, "o `grep -v 'o encontro foi'` do inventário ENGOLIA esta linha real"),
+    ("ancora-numa-linha-que-fala-de-lento",
+     "O código está na seção do rápido e lento. É o problema que estava "
+     "sendo discutido no encontro.",
+     True, "co-ocorrência com 'lento' engolia a âncora; só 'ciclo'/λ/μ perdoam"),
+    ("animacao-ao-vivo-passa",
+     "O painel de array do visualizador mostra isso ao vivo: clique num nó.",
+     False, "'ao vivo' sobre a ANIMAÇÃO não é a gravação"),
+    ("perdeu-a-aula-passa",
+     "Se você usar `reversed()`, resolveu o exercício e perdeu a aula.",
+     False, "'perdeu a aula' é perder a lição, não faltar ao encontro"),
+    ("verbo-encontrar-passa",
+     "Quando eu encontro um fechamento, ele tem que casar com a abertura.",
+     False, "'encontro' como 1ª pessoa do verbo encontrar"),
+    ("sujeito-nao-humano-passa",
+     "A que está destacada é a que a leitura atual trouxe para o L1.",
+     False, "sujeito minúsculo não é gente: a lente de fala é sensível à CAIXA"),
+    ("artigo-como-sujeito-passa",
+     "O motivo é o que este artigo mediu, e a conta fecha com as constantes.",
+     False, "'o que este artigo mediu' entrava como âncora com `IGNORECASE`"),
+    ("comunidade-como-autoridade",
+     "A analogia que a comunidade usou é a do telefone sem fio.",
+     True, "'a comunidade' como autoridade é âncora, mesmo sem a palavra 'encontro'"),
+    ("sobrenome-de-pesquisador-passa",
+     "As entradas são pequenas o bastante para o Dijkstra resolver sozinho.",
+     False, "sobrenome de pesquisador é referência técnica, não gente do encontro"),
+]
+
 FONTE_DE_TESTE = 'export const Rotulo = () => <span>passo 1 de 7</span>;\n'
 
 
@@ -187,23 +253,71 @@ def rodar_cli(guardas: dict, tmp: Path, verboso: bool) -> list[str]:
     return falhas
 
 
+def rodar_ancoras(guarda: Path, tmp: Path, verboso: bool) -> list[str]:
+    """Bloco 3. Uma linha de prosa por caso. Devolve os nomes que falharam."""
+    print("  -- âncoras na gravação (uma linha de prosa por caso) --")
+    falhas = []
+    for nome, linha, deve_reprovar, oquê in CASOS_ANCORAS:
+        artigo = tmp / f"{nome}.mdx"
+        artigo.write_text(linha + "\n", encoding="utf-8")
+        r = subprocess.run(
+            [sys.executable, str(guarda), str(artigo)], capture_output=True, text=True
+        )
+        if r.returncode not in (0, 1):
+            print(f"  ERRO   {nome:<38} o guarda saiu {r.returncode}, não 0 nem 1")
+            for l in (r.stdout + r.stderr).rstrip().splitlines():
+                print(f"         | {l[:160]}")
+            falhas.append(nome)
+            continue
+        reprovou = r.returncode == 1
+        ok = reprovou == deve_reprovar
+        nota = "" if ok else ("passou VERDE com a âncora no artigo"
+                              if deve_reprovar else "reprovou um falso positivo conhecido")
+        print(f"  {'ok  ' if ok else 'FALHA'}  {nome:<38} "
+              f"{'reprova' if deve_reprovar else 'passa':<8} {oquê}")
+        if nota:
+            print(f"         -> {nota}")
+        if verboso or not ok:
+            for l in (r.stdout + r.stderr).rstrip().splitlines():
+                print(f"         | {l[:160]}")
+        if not ok:
+            falhas.append(nome)
+
+    # E o corpus de verdade, que é o comando que a CI roda. Ele é o único que
+    # exercita a conferência das EXCEÇÕES: se uma exceção declarada parou de
+    # casar qualquer linha dos artigos, o guarda sai 2 e este caso acusa.
+    r = subprocess.run([sys.executable, str(guarda)], capture_output=True, text=True)
+    ok = r.returncode == 0
+    print(f"  {'ok  ' if ok else 'FALHA'}  {'corpus-limpo-e-excecoes-vivas':<38} "
+          f"{'sai 0':<8} os artigos do roadmap não têm âncora e nenhuma exceção morreu")
+    if verboso or not ok:
+        for l in (r.stdout + r.stderr).rstrip().splitlines():
+            print(f"         | {l[:160]}")
+    if not ok:
+        falhas.append("corpus-limpo-e-excecoes-vivas")
+    return falhas
+
+
 def main() -> int:
     argv = sys.argv[1:]
     verboso = "-v" in argv or "--verbose" in argv
     # Sem o caminho depois do flag isto era um IndexError com traceback e
     # código 1 — o MESMO código de "um caso reprovou". Erro de uso não pode
     # ser confundido com resultado de teste, então sai 2.
-    if any(f in argv and argv.index(f) + 1 >= len(argv) for f in ("--guarda", "--guarda-commit")):
-        print("uso: testa-guarda-idioma.py [--guarda <p>] [--guarda-commit <p>] [-v]",
-              file=sys.stderr)
+    if any(f in argv and argv.index(f) + 1 >= len(argv)
+           for f in ("--guarda", "--guarda-commit", "--guarda-ancoras")):
+        print("uso: testa-guarda-idioma.py [--guarda <p>] [--guarda-commit <p>] "
+              "[--guarda-ancoras <p>] [-v]", file=sys.stderr)
         return 2
     guardas = {
         "idioma": caminho_do_flag(argv, "--guarda", AQUI / "guarda-idioma.py"),
         "commit": caminho_do_flag(argv, "--guarda-commit", AQUI / "guarda-commit.py"),
+        "ancoras": caminho_do_flag(argv, "--guarda-ancoras", AQUI / "guarda-ancoras.py"),
     }
 
-    print(f"guarda-idioma: {guardas['idioma']}")
-    print(f"guarda-commit: {guardas['commit']}\n")
+    print(f"guarda-idioma:  {guardas['idioma']}")
+    print(f"guarda-commit:  {guardas['commit']}")
+    print(f"guarda-ancoras: {guardas['ancoras']}\n")
     falhas = []
     print("  -- fixtures (o texto de tela) --")
     for pasta, deve_reprovar, oquê in CASOS:
@@ -244,14 +358,17 @@ def main() -> int:
         tmp = Path(bruto)
         preparar_tmp(tmp)
         falhas += rodar_cli(guardas, tmp, verboso)
+        print()
+        falhas += rodar_ancoras(guardas["ancoras"], tmp, verboso)
 
-    total = len(CASOS) + len(CASOS_CLI)
+    total = len(CASOS) + len(CASOS_CLI) + len(CASOS_ANCORAS) + 1
     print()
     if falhas:
         print(f"{len(falhas)} de {total} casos FALHARAM: {', '.join(falhas)}")
         return 1
     print(f"{total} de {total} casos ok "
-          f"({len(CASOS)} fixtures + {len(CASOS_CLI)} de linha de comando)")
+          f"({len(CASOS)} fixtures + {len(CASOS_CLI)} de linha de comando "
+          f"+ {len(CASOS_ANCORAS) + 1} de âncora na gravação)")
     return 0
 
 

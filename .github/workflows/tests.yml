@@ -70,7 +70,7 @@ jobs:
   # entra no caminho crítico do PR.
   guardas:
     runs-on: ubuntu-latest
-    name: Guardas (lint e idioma na tela)
+    name: Guardas (lint, idioma na tela e âncoras no artigo)
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -111,6 +111,18 @@ jobs:
             exit 0
           fi
           python3 scripts/testa-guarda-idioma.py
+
+      # PORTÃO. O artigo é autocontido: nenhuma prosa em `content/topics/*.mdx`
+      # pode exigir ter assistido à gravação («no encontro apareceu», «o Fulano
+      # perguntou»). O link e o embed do vídeo continuam permitidos — eles são o
+      # reforço que a regra promete, e nem moram no `.mdx`.
+      #
+      # Portão, e não relatório, porque aqui a resposta certa é sempre a mesma:
+      # o corpus limpo. O guarda também sai 2 se uma exceção declarada parou de
+      # casar qualquer linha, que é o jeito de uma exceção morta virar barulho
+      # em vez de buraco.
+      - name: Âncoras na gravação nos artigos
+        run: npm run guarda:ancoras
 
       # RELATÓRIO, não portão — e a distinção é o ponto.
       #
