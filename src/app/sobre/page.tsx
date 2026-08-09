@@ -11,14 +11,14 @@ import { pageMetadata } from "@/lib/seo";
 
 // A página que responde "quem está por trás disto?".
 //
-// Ela existe porque o site afirmava autoria em três lugares soltos — o "por
+// Ela existe porque o site afirmava autoria em três lugares soltos (o "por
 // Craft & Code Club" da marca, o "feito pela comunidade" do rodapé e o
-// `Organization` do JSON-LD — e não tinha uma única URL para onde apontar quem
+// `Organization` do JSON-LD) e não tinha uma única URL para onde apontar quem
 // quisesse conferir. Agora tem, e é ela que o `author` do tópico descreve.
 //
 // ⚠️ REGRA DESTA PÁGINA: só entra o que dá para conferir no próprio
 // repositório ou nos canais linkados. Nada de data de fundação, número de
-// membros, história de origem ou nome de pessoa — nenhum desses fatos existe
+// membros, história de origem ou nome de pessoa: nenhum desses fatos existe
 // escrito em lugar nenhum daqui, e uma página "sobre" com fato inventado é pior
 // do que uma página curta. O que falta está marcado em bloco, mais abaixo.
 //
@@ -90,7 +90,7 @@ export default function SobrePage() {
       <p className="prose-p">
         O que sai do seu navegador: em produção o site carrega o{" "}
         <strong className="prose-strong">Google Analytics</strong>, que registra as páginas
-        visitadas. É a única medição do site — não há outro rastreador, nem anúncio —, ela só é
+        visitadas. É a única medição do site: não há outro rastreador, nem anúncio. Ela só é
         carregada depois que a página termina de abrir, e não existe em preview de Pull Request
         nem quando você roda o projeto na sua máquina. O seu progresso não vai junto: ele nunca
         sai do armazenamento local.
@@ -115,7 +115,7 @@ export default function SobrePage() {
       </p>
 
       {/* ────────────────────────────────────────────────────────────────────
-          PARA O WILSON ESCREVER — bloco 1 de 2: a história da comunidade.
+          PARA O WILSON ESCREVER, bloco 1 de 2: a história da comunidade.
 
           O que falta, e o que eu NÃO escrevi por não ter como conferir:
 
@@ -125,7 +125,7 @@ export default function SobrePage() {
 
           Por que ficou vazio em vez de preenchido: nenhum desses fatos está
           escrito no repositório. O `LICENSE` traz "Copyright © 2026", que é ano
-          de copyright e NÃO data de fundação — usá-lo como tal seria inventar.
+          de copyright e NÃO data de fundação; usá-lo como tal seria inventar.
           Os 34 vídeos que alimentam os tópicos têm todos
           `ownerChannelName: "Craft & Code Club"` e nenhuma das 34 descrições
           cita o nome de uma pessoa; o `git log` deste repositório tem uma única
@@ -134,7 +134,7 @@ export default function SobrePage() {
           É a MESMA razão pela qual o `author` do JSON-LD aponta para a
           organização e não para uma pessoa (ver `src/lib/jsonld.ts`, constante
           `AUTOR`). Se você escrever nomes aqui, o `author` de lá pode passar a
-          nomear a mesma pessoa — a regra do arquivo é que a marcação reflita o
+          nomear a mesma pessoa, porque a regra do arquivo é que a marcação reflita o
           que está na tela, e a partir daí o nome estaria na tela.
 
           Onde escrever: um `<p className="prose-p">` logo abaixo, dentro desta
@@ -150,14 +150,14 @@ export default function SobrePage() {
           <a className="prose-a" href={LINKS.discord} target="_blank" rel="noopener noreferrer">
             Discord
           </a>{" "}
-          — dúvidas, revisão de código e as maratonas de problemas. É o canal mais rápido para
-          falar com a gente.
+          para dúvidas, revisão de código e as maratonas de problemas. É o canal mais rápido
+          para falar com a gente.
         </li>
         <li className="prose-li">
           <a className="prose-a" href={LINKS.youtube} target="_blank" rel="noopener noreferrer">
             YouTube
           </a>{" "}
-          — as gravações dos encontros, que são o vídeo de cada tópico.
+          com as gravações dos encontros, que são o vídeo de cada tópico.
         </li>
         <li className="prose-li">
           <a className="prose-a" href={LINKS.eventos} target="_blank" rel="noopener noreferrer">
@@ -172,13 +172,13 @@ export default function SobrePage() {
           >
             clube do livro
           </a>{" "}
-          — o que a comunidade faz além do roadmap.
+          mostram o que a comunidade faz além do roadmap.
         </li>
         <li className="prose-li">
           <a className="prose-a" href={LINKS.blog} target="_blank" rel="noopener noreferrer">
             Blog
           </a>{" "}
-          — artigos publicados fora do guia.
+          com artigos publicados fora do guia.
         </li>
       </ul>
 
@@ -186,7 +186,7 @@ export default function SobrePage() {
       <p className="prose-p">
         Tudo aqui é gratuito: sem paywall, sem login e sem anúncios. A ideia é que quem está
         estudando para uma entrevista, ou aprendendo do zero, não precise pagar por isso. O
-        projeto se mantém com o apoio de quem acha que ele deve continuar existindo — se for o seu
+        projeto se mantém com o apoio de quem acha que ele deve continuar existindo. Se for o seu
         caso,{" "}
         <Link className="prose-a" href="/apoie/">
           conheça a página de apoio
@@ -228,7 +228,7 @@ export default function SobrePage() {
 
       <h2 className="prose-h2">Licença</h2>
       <p className="prose-p">
-        São duas licenças, porque são duas coisas — e a fronteira não é por diretório: ela
+        São duas licenças, porque são duas coisas. E a fronteira não é por diretório: ela
         atravessa arquivos, porque num visualizador o componente é código e as explicações que
         aparecem na tela são conteúdo.
       </p>
@@ -274,9 +274,9 @@ export default function SobrePage() {
       </p>
 
       {/* ────────────────────────────────────────────────────────────────────
-          PARA O WILSON ESCREVER — bloco 2 de 2: o convite do fim.
+          PARA O WILSON ESCREVER, bloco 2 de 2: o convite do fim.
 
-          Falta a frase de fechamento — o que você quer que a pessoa faça
+          Falta a frase de fechamento: o que você quer que a pessoa faça
           depois de ler a página. Deixei sem porque as opções são decisão sua e
           nenhuma delas é um fato que dê para conferir: entrar no Discord,
           começar pelo Big O, apoiar, contribuir. As quatro já têm link em
@@ -284,7 +284,7 @@ export default function SobrePage() {
           informação nova.
 
           Se quiser um cartão com botão, o padrão pronto é o `.cta-card` do
-          `/apoie` (`src/app/apoie/page.tsx`) — mas atenção: lá o título do
+          `/apoie` (`src/app/apoie/page.tsx`). Mas atenção: lá o título do
           cartão é `<h2>` com estilo copiado da regra `.cta-card h3`, porque a
           hierarquia de títulos da página não pode pular nível. Um `<h3>` aqui
           logo depois de um `<h2>` é válido; um `<h3>` sem `<h2>` antes não é, e
