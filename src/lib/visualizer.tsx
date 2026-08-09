@@ -414,6 +414,9 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   //   1 — congela a animação e abre o blockName, que é o pior caso de altura;
   //   2 — mede o layout já estável e decide.
   useIsomorphicLayoutEffect(() => {
+    // A linha abaixo é o motivo de `data-anim` ficar em `"off"` para sempre numa
+    // peça `collapsible: false`: o efeito sai antes de chegar ao
+    // `setAnimate(true)` lá embaixo. Veja a nota no `figureProps`.
     if (!collapsible || !fontsReady || manualChoice.current !== null) return;
     if (measuredRound.current === measureTick) return;
     if (!measuring || !open) { setMeasuring(true); setOpen(true); return; }
@@ -708,6 +711,20 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
     figureProps: {
       className: "viz viz-fit",
       "data-codigo": open ? "on" : "off",
+      // ATENÇÃO, QUEM ESTÁ ESCREVENDO SPEC: este atributo NÃO é um sinal de "a
+      // casca hidratou". Ele é "a MEDIÇÃO terminou", e a medição só existe
+      // quando há bloco para recolher. Quem acende o `animate` é o
+      // `requestAnimationFrame` no fim do efeito de medição, e esse efeito sai
+      // na primeira linha quando `collapsible` é falso — então numa peça
+      // `collapsible: false` o valor é `"off"` para sempre, e um
+      // `toHaveAttribute("data-anim", "on")` ali morre num timeout de 10s antes
+      // da primeira asserção de verdade. Não é defeito: as transições que ele
+      // desliga são as do bloco que a peça não tem. Numa peça sem bloco, espere
+      // por outra coisa — um rótulo do próprio miolo, ou o `⤢ Expandir`.
+      // O contrato está em `content/visualizers/README.md`, §4. Quem o prende é
+      // `tests/viz-binary-numbers.spec.ts:208`
+      // (`toHaveAttribute("data-anim", "off")`, na peça das bases numéricas), o
+      // único ponto da suíte que afirma o `"off"` em vez de esperar pelo `"on"`.
       "data-anim": animate && !measuring ? "on" : "off",
       ref: figureRef,
       tabIndex: -1,

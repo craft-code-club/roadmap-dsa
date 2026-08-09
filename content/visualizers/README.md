@@ -591,14 +591,26 @@ o que está vendo no DOM e no CSS, não para digitar à mão.
 | `.viz-atalhos` | no rodapé | dica das teclas; some no celular |
 | `.viz-toggle-codigo` | no botão do cabeçalho | estado visual pelo `aria-expanded` |
 
-**`data-anim` nunca vira `"on"` numa peça `collapsible: false`.** Quem o acende
-é o efeito de medição, e ele sai na primeira linha quando não há bloco para
-recolher (`src/lib/visualizer.tsx:265`): sem decisão a tomar não há recolhimento
-a congelar, e o atributo fica em `"off"` para sempre. Não é defeito — as
-transições que ele desliga são as do bloco que a peça não tem —, mas é contrato,
-porque **boa parte dos specs da série usa `data-anim="on"` como sinal de "a
-casca terminou de medir"**, e esse helper nunca resolve aqui. Numa peça sem
-bloco, espere por outra coisa: um rótulo do próprio miolo, ou o `⤢ Expandir`.
+**`data-anim` nunca vira `"on"` numa peça `collapsible: false`.** Ele não quer
+dizer "a casca hidratou": quer dizer "a **medição** terminou", e a medição só
+existe quando há bloco para recolher. Quem acende é o `setAnimate(true)` no fim
+do efeito de medição (`src/lib/visualizer.tsx:436`), e o efeito **sai na primeira
+linha** quando `collapsible` é falso (`:420`). Sem decisão a tomar não há
+recolhimento a congelar, e o atributo fica em `"off"` para sempre.
+
+Não é defeito — as transições que ele desliga são as do bloco que a peça não tem
+—, mas é **armadilha de teste**, e a mina está posta: 18 asserções em 16 specs
+esperam `data-anim="on"` como sinal de "a casca terminou de medir", sob **seis
+nomes de helper diferentes** (`pronta`, `abrir`, `abrirTopico`,
+`medicaoTerminou`, `passo`, `figuraDe`). Nenhuma delas aponta hoje para peça
+`collapsible: false`, então ninguém pisou nela ainda — mas copiar qualquer um
+desses helpers para uma peça sem bloco mata o spec num timeout de 10 s **antes da
+primeira asserção de verdade**, e o erro que aparece ("expected on, received
+off") não diz nada sobre bloco recolhível.
+
+Numa peça sem bloco, espere por outra coisa: um rótulo do próprio miolo, ou o
+`⤢ Expandir`. O único ponto da suíte que afirma o `"off"` em vez de esperar pelo
+`"on"` é `tests/viz-binary-numbers.spec.ts:208`, e ele é o exemplo a copiar.
 
 **Não edite o bloco `viz-fit` do `globals.css` para acomodar um visualizador
 específico.** Ele é compartilhado por todos; regra que estende base compartilhada
@@ -875,8 +887,10 @@ Os itens 2, 3 e 4 — os três que falam do bloco recolhível — não existem q
 `collapsible: false`. No lugar deles, prove que a ausência tem o rótulo certo:
 **nenhum botão pode prometer esconder um bloco que o visualizador não tem.** E
 não copie para essas peças o helper que espera `data-anim="on"` para saber que a
-casca terminou: ali o atributo nunca vira `"on"` (§4), e o teste morre num
-timeout antes da primeira asserção.
+casca terminou — seja ele `pronta`, `abrir`, `abrirTopico`, `medicaoTerminou`,
+`passo` ou `figuraDe`, que são os seis nomes com que ele aparece na suíte. Ali o
+atributo nunca vira `"on"` (§4), e o teste morre num timeout antes da primeira
+asserção. Copie `tests/viz-binary-numbers.spec.ts:208`, que espera o `"off"`.
 
 E o inverso do item 6, que morde antes de você escrever teste nenhum: **adaptar
 uma peça quebra o teste de quem veio antes**. Pôr `viz-fit` numa figura faz um
