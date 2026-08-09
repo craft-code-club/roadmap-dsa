@@ -505,6 +505,7 @@ export function LinkedListVisualizer() {
           <div className="bigo-chips">
             {OPS.map((o) => (
               <button
+                type="button"
                 key={o.key}
                 className={`bigo-chip${op === o.key ? " on" : ""}`}
                 onClick={() => onOpChange(o.key)}
@@ -519,11 +520,11 @@ export function LinkedListVisualizer() {
         <div className="ll-grupo">
           <span className="ll-grupo-rot">Estrutura</span>
           <div className="bigo-chips">
-            <button className={`bigo-chip${sentinel ? " on" : ""}`} onClick={toggleSentinel} aria-pressed={sentinel}>
+            <button type="button" className={`bigo-chip${sentinel ? " on" : ""}`} onClick={toggleSentinel} aria-pressed={sentinel}>
               <span className="sw" style={{ background: sentinel ? "#a78bfa" : "#3a4a60" }} />
               nó sentinela
             </button>
-            <button className={`bigo-chip${hasTail ? " on" : ""}`} onClick={toggleTail} aria-pressed={hasTail}>
+            <button type="button" className={`bigo-chip${hasTail ? " on" : ""}`} onClick={toggleTail} aria-pressed={hasTail}>
               <span className="sw" style={{ background: hasTail ? "#34d399" : "#3a4a60" }} />
               ponteiro de cauda
             </button>
@@ -535,6 +536,7 @@ export function LinkedListVisualizer() {
           <div className="bigo-chips">
             {PRESETS.map((pr) => (
               <button
+                type="button"
                 key={pr.key}
                 className={`bigo-chip${preset === pr.key ? " on" : ""}`}
                 onClick={() => applyPreset(pr)}
@@ -563,7 +565,7 @@ export function LinkedListVisualizer() {
               <input className="viz-input k" type="number" value={value} onChange={(e) => onValueChange(e.target.value)} />
             </label>
           ) : null}
-          <button className="viz-btn" onClick={shuffle}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="ll-svg-wrap">

@@ -280,8 +280,9 @@ export function IntervalsSweepVisualizer() {
               placeholder="[9,12], [10,13], [11,14]"
             />
           </label>
-          <button className="viz-btn" onClick={randomize}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={randomize}>Sortear</button>
           <button
+            type="button"
             className="viz-btn"
             aria-pressed={exitFirst}
             onClick={() => { viz.reset(); setExitFirst((v) => !v); }}
@@ -294,6 +295,7 @@ export function IntervalsSweepVisualizer() {
           <span className="iv-presets-lbl">Cenários</span>
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.name}
               className={`iv-preset${input === pr.ivs ? " on" : ""}`}
               onClick={() => { viz.reset(); setInput(pr.ivs); }}

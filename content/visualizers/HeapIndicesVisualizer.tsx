@@ -189,7 +189,7 @@ export function HeapIndicesVisualizer() {
             <span>Filhos por nó (k)</span>
             <div className="sub-modo">
               {[2, 3, 4].map((v) => (
-                <button key={v} className={`sub-modo-btn${k === v ? " on" : ""}`} onClick={() => setK(v)} aria-pressed={k === v}>
+                <button type="button" key={v} className={`sub-modo-btn${k === v ? " on" : ""}`} onClick={() => setK(v)} aria-pressed={k === v}>
                   {v === 2 ? "2 (binário)" : v}
                 </button>
               ))}
@@ -254,7 +254,7 @@ export function HeapIndicesVisualizer() {
           </div>
           <div className="hp-arr">
             {arr.map((v, idx) => (
-              <button key={idx} className={`hp-cel botao ${classeDe(idx)}`} onClick={() => setSel(idx)} aria-pressed={idx === i} aria-label={`Índice ${idx}, valor ${v}`}>
+              <button type="button" key={idx} className={`hp-cel botao ${classeDe(idx)}`} onClick={() => setSel(idx)} aria-pressed={idx === i} aria-label={`Índice ${idx}, valor ${v}`}>
                 <i>{idx}</i>
                 {v}
               </button>
@@ -265,6 +265,7 @@ export function HeapIndicesVisualizer() {
         <div className="hp-formulas">
           {linhas.map((l) => (
             <button
+              type="button"
               key={l.chave}
               className={`hp-formula${l.existe ? "" : " fora"}${l.chave === "pai" ? " pai" : " filho"}`}
               onClick={() => l.existe && irPara(l.destino)}

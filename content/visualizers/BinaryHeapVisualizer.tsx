@@ -483,6 +483,7 @@ export function BinaryHeapVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${presetKey === pr.key ? " on" : ""}`}
               onClick={() => pickPreset(pr.key)}
@@ -499,13 +500,13 @@ export function BinaryHeapVisualizer() {
           <div className="viz-field">
             <span>Operação</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${mode === "insert" ? " on" : ""}`} onClick={() => pickMode("insert")} aria-pressed={mode === "insert"}>
+              <button type="button" className={`sub-modo-btn${mode === "insert" ? " on" : ""}`} onClick={() => pickMode("insert")} aria-pressed={mode === "insert"}>
                 inserir
               </button>
-              <button className={`sub-modo-btn${mode === "remove" ? " on" : ""}`} onClick={() => pickMode("remove")} aria-pressed={mode === "remove"}>
+              <button type="button" className={`sub-modo-btn${mode === "remove" ? " on" : ""}`} onClick={() => pickMode("remove")} aria-pressed={mode === "remove"}>
                 remover o topo
               </button>
-              <button className={`sub-modo-btn${mode === "build" ? " on" : ""}`} onClick={() => pickMode("build")} aria-pressed={mode === "build"}>
+              <button type="button" className={`sub-modo-btn${mode === "build" ? " on" : ""}`} onClick={() => pickMode("build")} aria-pressed={mode === "build"}>
                 construir de uma vez
               </button>
             </div>
@@ -513,10 +514,10 @@ export function BinaryHeapVisualizer() {
           <div className="viz-field">
             <span>Regra</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${kind === "min" ? " on" : ""}`} onClick={() => pickKind("min")} aria-pressed={kind === "min"}>
+              <button type="button" className={`sub-modo-btn${kind === "min" ? " on" : ""}`} onClick={() => pickKind("min")} aria-pressed={kind === "min"}>
                 min-heap
               </button>
-              <button className={`sub-modo-btn${kind === "max" ? " on" : ""}`} onClick={() => pickKind("max")} aria-pressed={kind === "max"}>
+              <button type="button" className={`sub-modo-btn${kind === "max" ? " on" : ""}`} onClick={() => pickKind("max")} aria-pressed={kind === "max"}>
                 max-heap
               </button>
             </div>

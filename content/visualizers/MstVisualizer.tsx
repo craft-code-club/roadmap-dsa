@@ -236,12 +236,12 @@ export function MstVisualizer() {
 
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          <button className={`bigo-chip${mode === "kruskal" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("kruskal"); }} aria-pressed={mode === "kruskal"}>Kruskal: ordena arestas</button>
-          <button className={`bigo-chip${mode === "prim" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("prim"); }} aria-pressed={mode === "prim"}>Prim: cresce de um vértice</button>
+          <button type="button" className={`bigo-chip${mode === "kruskal" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("kruskal"); }} aria-pressed={mode === "kruskal"}>Kruskal: ordena arestas</button>
+          <button type="button" className={`bigo-chip${mode === "prim" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("prim"); }} aria-pressed={mode === "prim"}>Prim: cresce de um vértice</button>
         </div>
         <div className="bigo-chips" style={{ marginTop: 2 }}>
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => { viz.reset(); setPresetKey(pr.key); }} aria-pressed={presetKey === pr.key}>{pr.label}</button>
+            <button type="button" key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => { viz.reset(); setPresetKey(pr.key); }} aria-pressed={presetKey === pr.key}>{pr.label}</button>
           ))}
         </div>
         <p className="tt-legenda-arvore">{preset.hint}</p>

@@ -274,6 +274,7 @@ export function QueueDuasPilhas() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -288,13 +289,13 @@ export function QueueDuasPilhas() {
           <div className="viz-field grow">
             <span>roteiro de operações</span>
             <div className="fila-botoes">
-              <button className="viz-btn" onClick={() => append({ kind: "enq", value: nextLetter(script) })}>
+              <button type="button" className="viz-btn" onClick={() => append({ kind: "enq", value: nextLetter(script) })}>
                 + enfileirar {nextLetter(script)}
               </button>
-              <button className="viz-btn" onClick={() => append({ kind: "deq" })}>
+              <button type="button" className="viz-btn" onClick={() => append({ kind: "deq" })}>
                 + desenfileirar
               </button>
-              <button className="viz-btn" disabled={!script.length} onClick={undo}>
+              <button type="button" className="viz-btn" disabled={!script.length} onClick={undo}>
                 ← desfazer
               </button>
             </div>

@@ -109,6 +109,7 @@ export function BinarioFaixa() {
         <div className="bigo-chips">
           {MILESTONES.map((m) => (
             <button
+              type="button"
               key={m.value}
               className={`bigo-chip${value === m.value ? " on" : ""}`}
               onClick={() => setValue(m.value)}
@@ -269,11 +270,11 @@ export function BinarioFaixa() {
           continua se explicando sozinha onde quer que esteja. */}
       <VizFooter viz={viz}>
         <div className="bn-passeio">
-          <button className="viz-btn" onClick={() => walk(-1)} aria-label="Padrão anterior">
+          <button type="button" className="viz-btn" onClick={() => walk(-1)} aria-label="Padrão anterior">
             ‹ menos 1
           </button>
           <span className="bn-passeio-txt">andar pelos padrões vizinhos</span>
-          <button className="viz-btn" onClick={() => walk(1)} aria-label="Próximo padrão">
+          <button type="button" className="viz-btn" onClick={() => walk(1)} aria-label="Próximo padrão">
             mais 1 ›
           </button>
         </div>

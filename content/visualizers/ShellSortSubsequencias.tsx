@@ -115,6 +115,7 @@ export function ShellSortSubsequencias() {
         <div className="bigo-chips">
           {GAPS.map((g, k) => (
             <button
+              type="button"
               key={g}
               className={`bigo-chip${rodadaIdx === k ? " on" : ""}`}
               onClick={() => setRodadaIdx(k)}

@@ -337,6 +337,7 @@ export function StringsRotateVisualizer() {
             const on = m.key === mode;
             return (
               <button
+                type="button"
                 key={m.key}
                 className={`bigo-chip${on ? " on" : ""}`}
                 style={on ? { borderColor: m.color, color: m.color } : undefined}
@@ -362,7 +363,7 @@ export function StringsRotateVisualizer() {
             <span>goal</span>
             <input className="viz-input" value={goal} onChange={(e) => apply(s, e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={pickRandom}>
+          <button type="button" className="viz-btn" onClick={pickRandom}>
             Sortear
           </button>
         </div>
@@ -370,6 +371,7 @@ export function StringsRotateVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.label}
               className={`bigo-chip${s === pr.s && goal === pr.goal ? " on" : ""}`}
               onClick={() => apply(pr.s, pr.goal)}

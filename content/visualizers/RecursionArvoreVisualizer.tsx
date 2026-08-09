@@ -304,6 +304,7 @@ export function RecursionArvoreVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -322,10 +323,10 @@ export function RecursionArvoreVisualizer() {
           <div className="viz-field">
             <span>Memoização</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${withMemo ? "" : " on"}`} onClick={() => { if (withMemo) toggleMemo(); }} aria-pressed={!withMemo}>
+              <button type="button" className={`sub-modo-btn${withMemo ? "" : " on"}`} onClick={() => { if (withMemo) toggleMemo(); }} aria-pressed={!withMemo}>
                 desligada
               </button>
-              <button className={`sub-modo-btn${withMemo ? " on" : ""}`} onClick={() => { if (!withMemo) toggleMemo(); }} aria-pressed={withMemo}>
+              <button type="button" className={`sub-modo-btn${withMemo ? " on" : ""}`} onClick={() => { if (!withMemo) toggleMemo(); }} aria-pressed={withMemo}>
                 ligada
               </button>
             </div>

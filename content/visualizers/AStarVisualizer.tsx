@@ -243,13 +243,13 @@ export function AStarVisualizer() {
 
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
-          <button className={`bigo-chip${mode === "astar" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("astar"); }} aria-pressed={mode === "astar"}>A*: f = g + h</button>
-          <button className={`bigo-chip${mode === "dijkstra" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("dijkstra"); }} aria-pressed={mode === "dijkstra"}>Dijkstra: f = g</button>
-          <button className={`bigo-chip na${mode === "greedy" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("greedy"); }} aria-pressed={mode === "greedy"}>Guloso: f = h</button>
+          <button type="button" className={`bigo-chip${mode === "astar" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("astar"); }} aria-pressed={mode === "astar"}>A*: f = g + h</button>
+          <button type="button" className={`bigo-chip${mode === "dijkstra" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("dijkstra"); }} aria-pressed={mode === "dijkstra"}>Dijkstra: f = g</button>
+          <button type="button" className={`bigo-chip na${mode === "greedy" ? " on" : ""}`} onClick={() => { viz.reset(); setMode("greedy"); }} aria-pressed={mode === "greedy"}>Guloso: f = h</button>
         </div>
         <div className="bigo-chips" style={{ marginTop: 2 }}>
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => { viz.reset(); setPresetKey(pr.key); }} aria-pressed={presetKey === pr.key}>
+            <button type="button" key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => { viz.reset(); setPresetKey(pr.key); }} aria-pressed={presetKey === pr.key}>
               {pr.label}
             </button>
           ))}

@@ -336,6 +336,7 @@ export function BigOChartVisualizer() {
             const on = activeKeys.has(f.key);
             return (
               <button
+                type="button"
                 key={f.key}
                 className={`bigo-chip${on ? " on" : ""}`}
                 style={on ? { borderColor: f.color, color: f.color } : undefined}
@@ -409,10 +410,11 @@ export function BigOChartVisualizer() {
             style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
           />
         </div>
-        <button className="viz-btn" onClick={() => setLogScale((v) => !v)}>
+        <button type="button" className="viz-btn" onClick={() => setLogScale((v) => !v)}>
           Escala: {logScale ? "logarítmica" : "linear"}
         </button>
         <button
+          type="button"
           className="viz-btn"
           onClick={() => {
             setActiveKeys(new Set(DEFAULT_KEYS));

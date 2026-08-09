@@ -139,6 +139,7 @@ export function SkipListNiveis() {
         <div className="bigo-chips">
           {PS.map((op) => (
             <button
+              type="button"
               key={op.value}
               className={`bigo-chip${p === op.value ? " on" : ""}`}
               onClick={() => {
@@ -233,10 +234,11 @@ export function SkipListNiveis() {
             style={{ accentColor: "var(--ccc-accent)", width: "100%" }}
           />
         </div>
-        <button className="viz-btn" onClick={rollCoins}>
+        <button type="button" className="viz-btn" onClick={rollCoins}>
           Sortear {thousands(n)} moedas
         </button>
         <button
+          type="button"
           className="viz-btn"
           onClick={() => {
             setIN(3);

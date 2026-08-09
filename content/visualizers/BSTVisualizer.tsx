@@ -264,7 +264,7 @@ export function BSTVisualizer() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => changePreset(pr.key)} aria-pressed={presetKey === pr.key}>
+            <button type="button" key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => changePreset(pr.key)} aria-pressed={presetKey === pr.key}>
               {pr.label}
             </button>
           ))}
@@ -276,10 +276,10 @@ export function BSTVisualizer() {
           <div className="viz-field">
             <span>O que mostrar</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${mode === "inserir" ? " on" : ""}`} onClick={() => changeMode("inserir")} aria-pressed={mode === "inserir"}>
+              <button type="button" className={`sub-modo-btn${mode === "inserir" ? " on" : ""}`} onClick={() => changeMode("inserir")} aria-pressed={mode === "inserir"}>
                 construir
               </button>
-              <button className={`sub-modo-btn${mode === "buscar" ? " on" : ""}`} onClick={() => changeMode("buscar")} aria-pressed={mode === "buscar"}>
+              <button type="button" className={`sub-modo-btn${mode === "buscar" ? " on" : ""}`} onClick={() => changeMode("buscar")} aria-pressed={mode === "buscar"}>
                 buscar
               </button>
             </div>

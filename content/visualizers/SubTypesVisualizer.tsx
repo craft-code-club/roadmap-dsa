@@ -139,10 +139,10 @@ export function SubTypesVisualizer() {
           <div className="viz-field">
             <span>Origem</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${mode === "array" ? " on" : ""}`} onClick={() => pickMode("array")}>
+              <button type="button" className={`sub-modo-btn${mode === "array" ? " on" : ""}`} onClick={() => pickMode("array")}>
                 Array
               </button>
-              <button className={`sub-modo-btn${mode === "string" ? " on" : ""}`} onClick={() => pickMode("string")}>
+              <button type="button" className={`sub-modo-btn${mode === "string" ? " on" : ""}`} onClick={() => pickMode("string")}>
                 String
               </button>
             </div>
@@ -220,10 +220,10 @@ export function SubTypesVisualizer() {
           atalhos e sem barra de progresso. */}
       <VizFooter viz={viz}>
         <span className="sub-exemplos-label">Tente:</span>
-        <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([1, 2])}>colado</button>
-        <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([0, 2])}>com buraco</button>
-        <button className="viz-btn" disabled={n < 3} onClick={() => setPicks([2, 0])}>fora de ordem</button>
-        <button className="viz-btn" disabled={empty} onClick={() => setPicks([])} style={{ marginLeft: "auto" }}>↺ Limpar</button>
+        <button type="button" className="viz-btn" disabled={n < 3} onClick={() => setPicks([1, 2])}>colado</button>
+        <button type="button" className="viz-btn" disabled={n < 3} onClick={() => setPicks([0, 2])}>com buraco</button>
+        <button type="button" className="viz-btn" disabled={n < 3} onClick={() => setPicks([2, 0])}>fora de ordem</button>
+        <button type="button" className="viz-btn" disabled={empty} onClick={() => setPicks([])} style={{ marginLeft: "auto" }}>↺ Limpar</button>
       </VizFooter>
     </figure>
   );

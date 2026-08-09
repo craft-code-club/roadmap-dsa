@@ -291,7 +291,7 @@ export function BuscaBinariaFronteira() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => changePreset(pr.key)} aria-pressed={presetKey === pr.key}>
+            <button type="button" key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}`} onClick={() => changePreset(pr.key)} aria-pressed={presetKey === pr.key}>
               {pr.label}
             </button>
           ))}
@@ -303,13 +303,13 @@ export function BuscaBinariaFronteira() {
           <div className="viz-field">
             <span>O que eu quero saber</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${mode === "first" ? " on" : ""}`} onClick={() => changeMode("first")} aria-pressed={mode === "first"}>
+              <button type="button" className={`sub-modo-btn${mode === "first" ? " on" : ""}`} onClick={() => changeMode("first")} aria-pressed={mode === "first"}>
                 primeira ocorrência
               </button>
-              <button className={`sub-modo-btn${mode === "last" ? " on" : ""}`} onClick={() => changeMode("last")} aria-pressed={mode === "last"}>
+              <button type="button" className={`sub-modo-btn${mode === "last" ? " on" : ""}`} onClick={() => changeMode("last")} aria-pressed={mode === "last"}>
                 última ocorrência
               </button>
-              <button className={`sub-modo-btn${mode === "insert" ? " on" : ""}`} onClick={() => changeMode("insert")} aria-pressed={mode === "insert"}>
+              <button type="button" className={`sub-modo-btn${mode === "insert" ? " on" : ""}`} onClick={() => changeMode("insert")} aria-pressed={mode === "insert"}>
                 onde entraria
               </button>
             </div>

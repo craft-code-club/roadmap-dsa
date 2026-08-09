@@ -423,7 +423,7 @@ export function ArraysOperacoes() {
               }}
             />
           </label>
-          <button className="viz-btn" onClick={randomize}>
+          <button type="button" className="viz-btn" onClick={randomize}>
             Sortear
           </button>
         </div>
@@ -431,6 +431,7 @@ export function ArraysOperacoes() {
         <div className="arr-tabs" role="group" aria-label="Operação">
           {OPS.map((o) => (
             <button
+              type="button"
               key={o}
               className={`arr-tab${o === op ? " on" : ""}`}
               aria-pressed={o === op}
@@ -506,33 +507,34 @@ export function ArraysOperacoes() {
             fora da tela — exatamente o que a casca existe para impedir. */}
         <div className="viz-controls">
           <span className="arr-presets-rot">Compare:</span>
-          <button className="viz-btn" onClick={() => pickOp("insert", 0)}>
+          <button type="button" className="viz-btn" onClick={() => pickOp("insert", 0)}>
             inserir no começo
           </button>
-          <button className="viz-btn" onClick={() => pickOp("insert", 3)}>
+          <button type="button" className="viz-btn" onClick={() => pickOp("insert", 3)}>
             inserir no meio
           </button>
-          <button className="viz-btn" onClick={() => pickOp("push-end")}>
+          <button type="button" className="viz-btn" onClick={() => pickOp("push-end")}>
             inserir no fim
           </button>
-          <button className="viz-btn" onClick={() => pickOp("remove", 0)}>
+          <button type="button" className="viz-btn" onClick={() => pickOp("remove", 0)}>
             remover o primeiro
           </button>
         </div>
 
         <div className="viz-controls">
           <span className="arr-presets-rot">Casos de borda:</span>
-          <button className="viz-btn" onClick={() => preset([42], "remove", 0)} title="Um elemento só, removendo a posição 0">
+          <button type="button" className="viz-btn" onClick={() => preset([42], "remove", 0)} title="Um elemento só, removendo a posição 0">
             n = 1, remover o único
           </button>
           <button
+            type="button"
             className="viz-btn"
             onClick={() => preset(DEFAULT_NUMS, "insert", DEFAULT_NUMS.length)}
             title="Inserir na posição igual ao tamanho é inserir no fim"
           >
             k = n, inserir logo após o último
           </button>
-          <button className="viz-btn" onClick={() => preset(DEFAULT_NUMS, "remove", DEFAULT_NUMS.length - 1)}>
+          <button type="button" className="viz-btn" onClick={() => preset(DEFAULT_NUMS, "remove", DEFAULT_NUMS.length - 1)}>
             remover a última posição
           </button>
         </div>

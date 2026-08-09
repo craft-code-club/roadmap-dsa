@@ -304,12 +304,12 @@ export function PrefixSumGrade2D() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.label} className="bigo-chip" onClick={() => applyPreset(pr)}>
+            <button type="button" key={pr.label} className="bigo-chip" onClick={() => applyPreset(pr)}>
               {pr.label}
             </button>
           ))}
-          <button className="bigo-chip" onClick={shuffle}>Sortear valores</button>
-          <button className="bigo-chip" onClick={toggleSize}>
+          <button type="button" className="bigo-chip" onClick={shuffle}>Sortear valores</button>
+          <button type="button" className="bigo-chip" onClick={toggleSize}>
             {rows === 5 ? "Aumentar para 8 × 8" : "Voltar para 5 × 5"}
           </button>
         </div>
@@ -337,6 +337,7 @@ export function PrefixSumGrade2D() {
                       if (anchor && anchor.r === r && anchor.c === c) cls += " ancora";
                       return (
                         <button
+                          type="button"
                           key={`m-${r}-${c}`}
                           className={cls}
                           onClick={() => pick(r, c)}

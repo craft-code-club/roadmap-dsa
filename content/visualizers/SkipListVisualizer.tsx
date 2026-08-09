@@ -404,6 +404,7 @@ export function SkipListVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -423,7 +424,7 @@ export function SkipListVisualizer() {
             <span>procurar</span>
             <input className="viz-input k" type="number" value={target} onChange={(e) => onTargetChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={shuffleHeights}>
+          <button type="button" className="viz-btn" onClick={shuffleHeights}>
             Sortear alturas
           </button>
         </div>

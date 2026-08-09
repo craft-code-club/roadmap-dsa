@@ -215,6 +215,7 @@ export function TailRecursionForma() {
         <div className="bigo-chips">
           {CASES.map((item, k) => (
             <button
+              type="button"
               key={item.key}
               className={`bigo-chip${k === viz.step ? " on" : ""}`}
               aria-pressed={k === viz.step}
@@ -231,6 +232,7 @@ export function TailRecursionForma() {
 
         <div className="bigo-chips">
           <button
+            type="button"
             className={`bigo-chip${training ? " on" : ""}`}
             aria-pressed={training}
             onClick={() => {
@@ -254,7 +256,7 @@ export function TailRecursionForma() {
           ) : (
             <>
               <span className="tr-selo">? decida antes de revelar</span>
-              <button className="viz-btn" onClick={() => setRevealedFor(viz.step)}>
+              <button type="button" className="viz-btn" onClick={() => setRevealedFor(viz.step)}>
                 Revelar veredito
               </button>
             </>

@@ -409,6 +409,7 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
         <div className="bigo-chips">
           {presets.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${presetKey === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -428,7 +429,7 @@ export function SlidingWindowVisualizer({ variant = "fixed" }: { variant?: Varia
             <span>{K_LABEL[mode]}</span>
             <input className="viz-input k" type="number" value={k} onChange={(e) => onKChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={shuffle}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={shuffle}>Sortear</button>
         </div>
 
         <div className="viz-cells">

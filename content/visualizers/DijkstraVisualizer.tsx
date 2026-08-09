@@ -194,7 +194,7 @@ export function DijkstraVisualizer() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
-            <button key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}${pr.negative ? " na" : ""}`} onClick={() => pickPreset(pr.key)} aria-pressed={presetKey === pr.key}>
+            <button type="button" key={pr.key} className={`bigo-chip${presetKey === pr.key ? " on" : ""}${pr.negative ? " na" : ""}`} onClick={() => pickPreset(pr.key)} aria-pressed={presetKey === pr.key}>
               {pr.label}
             </button>
           ))}

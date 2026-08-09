@@ -503,6 +503,7 @@ export function RecursionVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -519,6 +520,7 @@ export function RecursionVisualizer() {
             <div className="sub-modo">
               {MODES.map((m, i) => (
                 <button
+                  type="button"
                   key={m.key}
                   className={`sub-modo-btn${i === modeIndex ? " on" : ""}`}
                   onClick={() => pickMode(i)}

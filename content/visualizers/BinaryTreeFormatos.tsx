@@ -231,6 +231,7 @@ export function BinaryTreeFormatos() {
         <div className="bigo-chips">
           {PRESETS.map((p) => (
             <button
+              type="button"
               key={p.key}
               className={`bigo-chip${preset === p.key ? " on" : ""}`}
               onClick={() => apply(p)}

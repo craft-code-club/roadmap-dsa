@@ -614,6 +614,7 @@ export function IntervalsVisualizer({ mode: initialMode = "merge" }: { mode?: Mo
             const on = i === modeIndex;
             return (
               <button
+                type="button"
                 key={m.key}
                 className={`bigo-chip${on ? " on" : ""}`}
                 style={on ? { borderColor: m.color, color: m.color } : undefined}
@@ -648,13 +649,14 @@ export function IntervalsVisualizer({ mode: initialMode = "merge" }: { mode?: Mo
               />
             </label>
           )}
-          <button className="viz-btn" onClick={randomize}>Sortear</button>
+          <button type="button" className="viz-btn" onClick={randomize}>Sortear</button>
         </div>
 
         <div className="iv-presets">
           <span className="iv-presets-lbl">Cenários</span>
           {mode.presets.map((pr) => (
             <button
+              type="button"
               key={pr.name}
               className={`iv-preset${input === pr.ivs && (!pr.incoming || incomingInput === pr.incoming) ? " on" : ""}`}
               onClick={() => applyPreset(pr)}

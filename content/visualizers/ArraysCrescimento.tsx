@@ -257,6 +257,7 @@ export function ArraysCrescimento() {
         <div className="arr-tabs" role="group" aria-label="Estratégia de crescimento">
           {STRATEGIES.map((e) => (
             <button
+              type="button"
               key={e.key}
               className={`arr-tab${e.key === strategy ? " on" : ""}`}
               aria-pressed={e.key === strategy}
@@ -291,6 +292,7 @@ export function ArraysCrescimento() {
             <div className="arr-tabs">
               {INITIAL_CAPS.map((c) => (
                 <button
+                  type="button"
                   key={c}
                   className={`arr-tab${c === cap0 ? " on" : ""}`}
                   aria-pressed={c === cap0}

@@ -270,6 +270,7 @@ export function StackVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.key}
               className={`bigo-chip${preset === pr.key ? " on" : ""}`}
               onClick={() => applyPreset(pr)}
@@ -285,7 +286,7 @@ export function StackVisualizer() {
             <span>Expressão (só ( ) [ ] {"{"} {"}"} )</span>
             <input className="viz-input" value={expr} onChange={(e) => onExprChange(e.target.value)} />
           </label>
-          <button className="viz-btn" onClick={shuffle}>Sortear válida</button>
+          <button type="button" className="viz-btn" onClick={shuffle}>Sortear válida</button>
         </div>
 
         <div className="pl-arena">

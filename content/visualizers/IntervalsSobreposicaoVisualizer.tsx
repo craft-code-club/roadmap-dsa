@@ -274,7 +274,7 @@ export function IntervalsSobreposicaoVisualizer() {
             <input className="viz-input k" type="number" min={0} max={20} value={lenB}
               onChange={(e) => { pause(); setLenB(Math.min(20, Math.max(0, parseInt(e.target.value, 10) || 0))); }} />
           </label>
-          <button className="viz-btn" onClick={() => { pause(); setClosed((v) => !v); }} aria-pressed={closed}>
+          <button type="button" className="viz-btn" onClick={() => { pause(); setClosed((v) => !v); }} aria-pressed={closed}>
             Bordas: {closed ? "[início, fim]" : "[início, fim)"}
           </button>
         </div>
@@ -282,7 +282,7 @@ export function IntervalsSobreposicaoVisualizer() {
         <div className="iv-presets">
           <span className="iv-presets-lbl">Cenários</span>
           {scenarios.map((c) => (
-            <button key={c.name} className={`iv-preset${viz.step === Math.min(steps.length - 1, Math.max(0, c.t)) ? " on" : ""}`} onClick={() => goTo(c.t)}>
+            <button type="button" key={c.name} className={`iv-preset${viz.step === Math.min(steps.length - 1, Math.max(0, c.t)) ? " on" : ""}`} onClick={() => goTo(c.t)}>
               {c.name}
             </button>
           ))}
@@ -367,7 +367,7 @@ export function IntervalsSobreposicaoVisualizer() {
           1 e nada mais. Quem devolve A, a duração de B e o modelo de borda ao
           padrão é o botão ao lado — o rodapé não promete o que não faz. */}
       <VizFooter viz={viz} color={color}>
-        <button className="viz-btn" onClick={backToDefaults}>Voltar ao padrão</button>
+        <button type="button" className="viz-btn" onClick={backToDefaults}>Voltar ao padrão</button>
       </VizFooter>
     </figure>
   );

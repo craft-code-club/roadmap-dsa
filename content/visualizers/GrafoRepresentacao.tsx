@@ -157,7 +157,7 @@ export function GrafoRepresentacao() {
       <div {...viz.bodyProps}>
         <div className="bigo-chips">
           {PRESETS.map((p) => (
-            <button key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => applyPreset(p)} aria-pressed={presetKey === p.key}>
+            <button type="button" key={p.key} className={`bigo-chip${presetKey === p.key ? " on" : ""}`} onClick={() => applyPreset(p)} aria-pressed={presetKey === p.key}>
               {p.label}
             </button>
           ))}
@@ -167,10 +167,10 @@ export function GrafoRepresentacao() {
           <div className="viz-field">
             <span>Tipo</span>
             <div className="sub-modo">
-              <button className={`sub-modo-btn${directed ? "" : " on"}`} onClick={() => changeDirected(false)} aria-pressed={!directed}>
+              <button type="button" className={`sub-modo-btn${directed ? "" : " on"}`} onClick={() => changeDirected(false)} aria-pressed={!directed}>
                 não dirigido
               </button>
-              <button className={`sub-modo-btn${directed ? " on" : ""}`} onClick={() => changeDirected(true)} aria-pressed={directed}>
+              <button type="button" className={`sub-modo-btn${directed ? " on" : ""}`} onClick={() => changeDirected(true)} aria-pressed={directed}>
                 dirigido
               </button>
             </div>
@@ -247,6 +247,7 @@ export function GrafoRepresentacao() {
                     {row.map((v, j) => (
                       <td key={j}>
                         <button
+                          type="button"
                           className={`gr-cel${v ? " on" : ""}${i === j ? " diag" : ""}`}
                           onClick={() => toggleEdge(i, j)}
                           disabled={i === j}

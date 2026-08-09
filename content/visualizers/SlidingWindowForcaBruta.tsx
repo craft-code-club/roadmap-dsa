@@ -221,11 +221,11 @@ export function SlidingWindowForcaBruta() {
         </div>
 
         <div className="bigo-chips">
-          <button className="bigo-chip" onClick={() => applyPreset(DEFAULT_ARRAY, 3)}>k pequeno (3)</button>
-          <button className="bigo-chip" onClick={() => applyPreset(DEFAULT_ARRAY, 6)}>k grande (6)</button>
-          <button className="bigo-chip" onClick={() => applyPreset([4, 4, 4, 4, 4, 4, 4, 4], 3)}>tudo igual</button>
-          <button className="bigo-chip" onClick={() => applyPreset([9], 1)}>um elemento</button>
-          <button className="bigo-chip" onClick={() => applyPreset(DEFAULT_ARRAY, 12)}>k maior que n</button>
+          <button type="button" className="bigo-chip" onClick={() => applyPreset(DEFAULT_ARRAY, 3)}>k pequeno (3)</button>
+          <button type="button" className="bigo-chip" onClick={() => applyPreset(DEFAULT_ARRAY, 6)}>k grande (6)</button>
+          <button type="button" className="bigo-chip" onClick={() => applyPreset([4, 4, 4, 4, 4, 4, 4, 4], 3)}>tudo igual</button>
+          <button type="button" className="bigo-chip" onClick={() => applyPreset([9], 1)}>um elemento</button>
+          <button type="button" className="bigo-chip" onClick={() => applyPreset(DEFAULT_ARRAY, 12)}>k maior que n</button>
         </div>
 
         <div className="viz-cells">

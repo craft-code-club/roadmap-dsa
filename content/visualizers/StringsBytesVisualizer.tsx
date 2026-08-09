@@ -203,7 +203,7 @@ export function StringsBytesVisualizer() {
               onChange={(e) => setText(Array.from(e.target.value).slice(0, MAX_CP).join(""))}
             />
           </label>
-          <button className="viz-btn" onClick={() => setText(DEFAULT_TEXT)}>
+          <button type="button" className="viz-btn" onClick={() => setText(DEFAULT_TEXT)}>
             ↺ Reiniciar
           </button>
         </div>
@@ -211,6 +211,7 @@ export function StringsBytesVisualizer() {
         <div className="bigo-chips">
           {PRESETS.map((pr) => (
             <button
+              type="button"
               key={pr.label}
               className={`bigo-chip${text === pr.text ? " on" : ""}`}
               onClick={() => setText(pr.text)}
@@ -227,6 +228,7 @@ export function StringsBytesVisualizer() {
             const loses = e.key === "ascii" && lost > 0;
             return (
               <button
+                type="button"
                 key={e.key}
                 className={`str-enc${on ? " on" : ""}${loses ? " perde" : ""}`}
                 onClick={() => setEnc(e.key)}
