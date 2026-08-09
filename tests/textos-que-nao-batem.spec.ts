@@ -224,3 +224,55 @@ test.describe("n-ary-trees · a fila do BFS concorda com o número", () => {
     expect(vistos.filter((t) => t.includes("o único filho dele")).length).toBe(1);
   });
 });
+
+// -------------------------------------------------- 3. as três formas binárias
+//
+// O sufixo " (não bate com o esperado)" nunca apareceu: as três convenções leem
+// o próprio padrão de volta como -v para todo v ≤ 127, e os quatro presets são
+// 26, 1, 127 e 0. Não há campo de entrada, então não existe caminho pela
+// interface que produza o estado que ele prometia. Este teste percorre TUDO que
+// a interface alcança e mostra que a linha diz outra coisa — o que a tela de
+// fato tem: três padrões de bits diferentes lidos como o mesmo número.
+
+test.describe("negative-binary · a linha do 'lido de volta'", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("os quatro presets alcançáveis, os três cartões, e nenhuma promessa de falha", async ({
+    page,
+  }) => {
+    const fig = await abrir(page, "/topico/negative-binary/", "três formas de escrever um negativo");
+
+    // Os quatro chips são TUDO que a interface oferece: sem eles não há entrada.
+    await expect(fig.locator(".bigo-chips button")).toHaveText([
+      "negar 26",
+      "negar 1",
+      "negar 127",
+      "negar 0",
+    ]);
+
+    for (const v of [26, 1, 127, 0]) {
+      await fig.getByRole("button", { name: `negar ${v}`, exact: true }).click();
+      await expect(fig.locator(".viz-step")).toHaveText("1 de 3 passam nos três testes");
+
+      const fitas: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const card = fig.locator(".ms-op").nth(i);
+        // O número lido junto da frase, no mesmo parágrafo.
+        await expect(
+          card.locator(".bb-formula-fim"),
+          `negar ${v}, cartão ${i}: a linha do lido de volta`
+        ).toHaveText(`Lido de volta: ${-v} — bits diferentes, mesmo número.`);
+        fitas.push((await card.locator(".bn-fita .bn-bit-val").allInnerTexts()).join(""));
+      }
+
+      // "bits diferentes" é afirmação sobre a tela, então é medida na tela: as
+      // três fitas do mesmo número têm que ser diferentes duas a duas.
+      expect(new Set(fitas).size, `negar ${v}: as fitas ${fitas.join(" / ")} não são três`).toBe(3);
+      // E cada uma tem os 8 bits, senão "diferentes" seria comparar vazio.
+      for (const f of fitas) expect(f).toMatch(/^[01]{8}$/);
+    }
+
+    // A promessa que não tinha estado: em nenhum dos quatro presets.
+    await expect(fig).not.toContainText("não bate com o esperado");
+  });
+});

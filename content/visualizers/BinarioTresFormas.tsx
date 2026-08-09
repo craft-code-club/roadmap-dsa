@@ -147,9 +147,20 @@ export function BinarioTresFormas() {
                     </span>
                   ))}
                 </div>
+                {/* O sufixo " (não bate com o esperado)" morava aqui e nunca
+                    apareceu: para todo v ≤ 127 as três convenções leem o
+                    próprio padrão de volta como -v (conferido nos 128 valores,
+                    e nos quatro presets — 26, 1, 127 e 0 — que é tudo que a
+                    interface alcança: não há campo de entrada). Ele prometia um
+                    estado impossível, e prometer defeito onde não há ensina a
+                    procurar diferença no lugar errado.
+
+                    O que sobra no lugar é o que a tela de fato mostra: as três
+                    fitas de bits acima são diferentes entre si e as três leem o
+                    mesmo número. É por isso que o que separa as convenções são
+                    os três testes logo abaixo, e não a negação. */}
                 <p className="bb-formula-fim">
-                  Lido de volta: <strong>{l.readBack}</strong>
-                  {l.readBack === -value ? "" : " (não bate com o esperado)"}
+                  Lido de volta: <strong>{l.readBack}</strong> — bits diferentes, mesmo número.
                 </p>
                 <ol className="bb-passos">
                   <li className={l.zeros === 1 ? "" : "ruim"}>
