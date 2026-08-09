@@ -148,7 +148,7 @@ O enunciado fala de **subsequence, subset ou permutação**. Esses não exigem a
 
 Se você ficou em dúvida entre os termos, vale a leitura de [Subarray, Substring, Subsequence e Subset](/topico/subarray-substring-subsequence-subset), que separa os quatro com exemplos.
 
-Há também uma distinção fina, que veio de uma observação do Giovani no encontro, e que arruma a cabeça de vez:
+Há também uma distinção fina que arruma a cabeça de vez:
 
 <Callout>
 **Janela deslizante se importa com tudo que está dentro dela. [Two Pointers](/topico/two-pointers) só se importa com onde os ponteiros estão.**
@@ -179,7 +179,7 @@ Esse raciocínio tem nome: **análise amortizada**. Um passo isolado pode custar
 
 **Números negativos quebram a janela variável.** Toda a lógica depende de "encolher pela esquerda só melhora". Com valores negativos, remover um elemento pode **aumentar** a soma, e uma janela maior pode ter soma menor que uma pequena. O `while` deixa de fazer sentido, porque encolher não garante voltar a ser válida. Nesse caso o caminho costuma ser [Prefix Sum](/topico/prefix-sum) com hashmap.
 
-**Não ordene o array.** É a armadilha que o Eduardo levantou no encontro: ordenar destrói a adjacência, e subarray é definido por adjacência. Depois do `sort`, o pedaço que você achou não existe mais no array original. Ordenar é livre em problema de **subset**; é proibido em problema de **subarray**.
+**Não ordene o array.** É a armadilha mais cara desta técnica: ordenar destrói a adjacência, e subarray é definido por adjacência. Depois do `sort`, o pedaço que você achou não existe mais no array original. Ordenar é livre em problema de **subset**; é proibido em problema de **subarray**.
 
 **A resposta atualizada no lugar errado.** Para "a maior janela válida", atualize depois do `while`. Para "a menor janela válida", atualize dentro. Trocar os dois dá um resultado plausível e errado, do tipo que passa nos exemplos do enunciado e falha no caso 47.
 
