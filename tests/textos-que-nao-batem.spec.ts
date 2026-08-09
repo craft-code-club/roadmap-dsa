@@ -276,3 +276,79 @@ test.describe("negative-binary · a linha do 'lido de volta'", () => {
     await expect(fig).not.toContainText("não bate com o esperado");
   });
 });
+
+// ------------------------------------------------------------ 4. merge sort
+//
+// A linha da divergência é a do primeiro empate, na lista de decisões do `<=` —
+// onde o `<=` faz exatamente o que a peça defende. Ela levava `ruim`, que é o
+// vermelho de "quebrou" (o mesmo do selo `empates trocados` na coluna do `<`),
+// dentro do cartão cujo selo diz `estável`.
+
+test.describe("merge-sort · a cor da linha da divergência", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  /**
+   * As duas cores, MEDIDAS na folha de estilo desta página em vez de escritas
+   * na mão: um `<li>` de mentira entra na lista, diz que cor `.ruim` e `.foco`
+   * têm aqui, e sai. Constante copiada do `globals.css` envelhece calada, e o
+   * `not.toBe(vermelho)` viraria um teste que passa por não achar nada.
+   */
+  async function coresDaLista(fig: Locator) {
+    return fig.evaluate((f) => {
+      const ol = f.querySelector(".bb-passos")!;
+      const ler = (classe: string) => {
+        const li = document.createElement("li");
+        li.className = classe;
+        ol.appendChild(li);
+        const cor = getComputedStyle(li).backgroundColor;
+        li.remove();
+        return cor;
+      };
+      return { ruim: ler("ruim"), foco: ler("foco"), base: ler("") };
+    });
+  }
+
+  test("a linha destacada é a do acerto, e não pode vir pintada de falha", async ({ page }) => {
+    const fig = await abrir(page, "/topico/merge-sort/", "o sinal que decide a estabilidade");
+
+    const cores = await coresDaLista(fig);
+    // Sem três cores distintas a comparação abaixo não significa nada.
+    expect(new Set(Object.values(cores)).size, `as cores da lista: ${JSON.stringify(cores)}`).toBe(
+      3
+    );
+
+    for (const preset of [
+      "Linhas de log com o mesmo segundo",
+      "Um único empate, no fim da intercalação",
+      "Chaves todas iguais",
+    ]) {
+      await fig.getByRole("button", { name: preset, exact: true }).click();
+
+      // O cabeçalho diz QUAL decisão é a da divergência: é dele que sai o
+      // índice, em vez de um número escrito à mão.
+      const cabecalho = await fig.locator(".viz-step").innerText();
+      const k = parseInt(cabecalho.match(/se separam na decisão (\d+)/)![1], 10);
+      expect(k, `${preset}: o cabeçalho parou de nomear a decisão`).toBeGreaterThan(0);
+
+      const linha = fig.locator(".bb-passos li").nth(k - 1);
+      // Rótulo e cor no MESMO elemento: a linha que o cabeçalho aponta é a do
+      // empate, e é ela que a lista promete destacar.
+      await expect(linha, `${preset}: a decisão ${k} não é a do empate`).toContainText("empate");
+      await expect(fig.locator(".tt-painel-tit")).toContainText(
+        "a linha destacada é onde as duas versões se separam"
+      );
+
+      const fundo = await linha.evaluate((e) => getComputedStyle(e).backgroundColor);
+      expect(fundo, `${preset}: a linha da divergência está pintada de falha`).not.toBe(cores.ruim);
+      expect(fundo, `${preset}: a linha da divergência não está destacada`).toBe(cores.foco);
+
+      // E o cartão em que ela mora é o do acerto — o selo, ao lado, diz isso.
+      await expect(fig.locator(".ms-op.ok .bb-formula-selo")).toHaveText("estável");
+      // Vermelho é de "quebrou", e quem quebra aqui é a coluna do `<`.
+      await expect(fig.locator(".ms-op.quebrou .bb-formula-tit")).toHaveText("esq[i] < dir[j]");
+      await expect(fig.locator(".ms-op.quebrou .bb-formula-selo")).toHaveText("empates trocados");
+      // Nenhuma linha da lista pode carregar a classe de falha.
+      await expect(fig.locator(".bb-passos li.ruim")).toHaveCount(0);
+    }
+  });
+});
