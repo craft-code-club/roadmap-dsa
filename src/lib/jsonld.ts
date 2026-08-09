@@ -17,7 +17,6 @@ import { SITE_NAME } from "@/lib/seo";
 //   about             → o grupo, que a trilha mostra logo acima do título
 //   author            → "por Craft & Code Club", ao lado da marca no topo
 //   dateModified      → o selo "Atualizado em", no mesmo `.topic-chips`
-//   datePublished     → o selo "Publicado em", quando o dia é outro
 //   itemListElement   → os cards que o /roadmap renderiza, na mesma ordem
 //
 // Campo sem correspondente fica de fora, e é por isso que não há
@@ -120,7 +119,6 @@ export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: D
     // quando é o mesmo dia — 28 dos 36 tópicos hoje —, o valor que ele carrega
     // é exatamente a data que está impressa ali. Nos dois casos o número na
     // marcação é um número que o leitor vê.
-    ...(datas?.publicado ? { datePublished: datas.publicado.toISOString() } : {}),
     ...(datas?.atualizado ? { dateModified: datas.atualizado.toISOString() } : {}),
     isPartOf: { "@id": ID_SITE },
     author: AUTOR,
