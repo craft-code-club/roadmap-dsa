@@ -1,6 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { thousands, thousandsDecimal, thousandsSigned, plural, comNumero } from "../src/lib/format";
+import {
+  comNumero,
+  dataLonga,
+  diaIso,
+  plural,
+  thousands,
+  thousandsDecimal,
+  thousandsSigned,
+} from "../src/lib/format";
 import { DEFAULT_SPEEDS, SPEED_LABELS } from "../src/lib/visualizer";
 
 // Os utilitários que estavam copiados em `content/visualizers/`, agora em
@@ -269,4 +277,124 @@ test("sem a prop `speeds`, o controle de velocidade continua nomeando as marchas
   await slider.fill("1");
   await expect(slider).toHaveAttribute("aria-valuetext", "0.5x");
   expect(await painel.locator(".viz-speed .val").innerText()).toBe("0.5x");
+});
+
+// ---------------------------------------------------------------------------
+// 5 · As datas do selo "Atualizado em"
+//
+// Por que esta seção existe, e o que ela conserta: os testes de navegador
+// conferem o selo comparando o texto renderizado com `dataLonga(new
+// Date(datetime))` — ou seja, com A PRÓPRIA função que gerou o texto. Isso
+// prova que o atributo e o texto CONCORDAM, que é metade do que importa, e não
+// prova nada sobre o valor estar certo: trocar a tabela de meses inteira, ou
+// passar de UTC para o fuso da máquina, muda os dois lados junto e deixa a
+// suíte verde com o site mostrando outra data.
+//
+// Daí o oráculo escrito à mão aqui embaixo. Nenhuma asserção desta seção chama
+// `dataLonga` dos dois lados da comparação.
+// ---------------------------------------------------------------------------
+
+/** Os doze meses, escritos à mão. Se a tabela do `format.ts` mudar, morre aqui. */
+const MESES_ESPERADOS: ReadonlyArray<readonly [string, string]> = [
+  ["2026-01-09T12:00:00.000Z", "9 de janeiro de 2026"],
+  ["2026-02-28T12:00:00.000Z", "28 de fevereiro de 2026"],
+  ["2026-03-01T12:00:00.000Z", "1 de março de 2026"],
+  ["2026-04-30T12:00:00.000Z", "30 de abril de 2026"],
+  ["2026-05-15T12:00:00.000Z", "15 de maio de 2026"],
+  ["2026-06-12T12:00:00.000Z", "12 de junho de 2026"],
+  ["2026-07-04T12:00:00.000Z", "4 de julho de 2026"],
+  ["2026-08-03T12:00:00.000Z", "3 de agosto de 2026"],
+  ["2026-09-21T12:00:00.000Z", "21 de setembro de 2026"],
+  ["2026-10-10T12:00:00.000Z", "10 de outubro de 2026"],
+  ["2026-11-02T12:00:00.000Z", "2 de novembro de 2026"],
+  ["2026-12-31T12:00:00.000Z", "31 de dezembro de 2026"],
+];
+
+test("dataLonga escreve a data por extenso em português, mês a mês", () => {
+  for (const [iso, esperado] of MESES_ESPERADOS) {
+    expect(dataLonga(new Date(iso)), iso).toBe(esperado);
+  }
+  // O dia NÃO leva zero à esquerda: "1 de março", não "01 de março". É o que
+  // se escreve em português, e um `padStart` copiado do `diaIso` quebraria.
+  expect(dataLonga(new Date("2026-03-01T12:00:00.000Z"))).not.toContain("01 de");
+  // E `março` é a prova de que o arquivo não perdeu o acento numa reescrita.
+  expect(dataLonga(new Date("2026-03-01T12:00:00.000Z"))).toContain("março");
+});
+
+test("diaIso devolve o dia em UTC, no formato que o atributo datetime aceita", () => {
+  // Os dois lados da meia-noite UTC, com o resultado escrito à mão. É o caso
+  // que decide entre UTC e fuso local, e o único jeito de o texto e o
+  // `datetime` discordarem por um dia no ar.
+  //
+  //   23:30 em São Paulo (-03:00) já é o dia SEGUINTE em UTC;
+  //   01:00 em Tóquio (+09:00) ainda é o dia ANTERIOR em UTC.
+  expect(diaIso(new Date("2026-08-03T23:30:00.000-03:00"))).toBe("2026-08-04");
+  expect(dataLonga(new Date("2026-08-03T23:30:00.000-03:00"))).toBe("4 de agosto de 2026");
+  expect(diaIso(new Date("2026-08-04T01:00:00.000+09:00"))).toBe("2026-08-03");
+  expect(dataLonga(new Date("2026-08-04T01:00:00.000+09:00"))).toBe("3 de agosto de 2026");
+
+  // Vira o ano junto com a meia-noite.
+  expect(diaIso(new Date("2025-12-31T21:00:00.000-05:00"))).toBe("2026-01-01");
+  expect(dataLonga(new Date("2025-12-31T21:00:00.000-05:00"))).toBe("1 de janeiro de 2026");
+
+  // Formato exato, com zero à esquerda — aqui ELE é obrigatório.
+  expect(diaIso(new Date("2026-03-01T12:00:00.000Z"))).toBe("2026-03-01");
+  expect(diaIso(new Date("2026-03-01T12:00:00.000Z"))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("a data impressa não depende do fuso da máquina que rodou o build", () => {
+  // O defeito que este teste existe para pegar: trocar `getUTCDate()` por
+  // `getDate()`. Num runner em UTC — que é o caso da CI — a troca não muda
+  // NADA, e todo teste que compare os dois lados no mesmo processo passa. O
+  // estrago aparece quando o build roda noutro fuso: o mesmo commit vira duas
+  // datas diferentes no HTML.
+  //
+  // Então o teste varre fusos de verdade e exige a MESMA resposta, com o valor
+  // escrito à mão. `2026-08-04T02:30:00Z` é 23:30 do dia 3 em São Paulo: sob
+  // `getDate()` este teste devolveria duas respostas e reprovaria.
+  const instante = new Date("2026-08-04T02:30:00.000Z");
+  const tzOriginal = process.env.TZ;
+  const respostas = new Set<string>();
+  let oFusoMudou = false;
+  try {
+    for (const tz of ["UTC", "America/Sao_Paulo", "Asia/Tokyo", "Pacific/Kiritimati"]) {
+      process.env.TZ = tz;
+      // Canário: se esta plataforma ignorar a troca de `TZ` (o Node avisa que
+      // pode acontecer), o teste não pode PASSAR por não ter conseguido olhar.
+      if (instante.getDate() !== instante.getUTCDate()) oFusoMudou = true;
+      respostas.add(`${diaIso(instante)}|${dataLonga(instante)}`);
+    }
+  } finally {
+    if (tzOriginal === undefined) delete process.env.TZ;
+    else process.env.TZ = tzOriginal;
+  }
+  test.skip(
+    !oFusoMudou,
+    "esta plataforma não aplicou a troca de `process.env.TZ` em tempo de execução, " +
+      "então a varredura de fusos não mediu nada. Os casos de meia-noite do teste acima, " +
+      "com offset explícito no ISO, continuam valendo."
+  );
+  expect([...respostas], "a data mudou conforme o fuso do processo").toEqual([
+    "2026-08-04|4 de agosto de 2026",
+  ]);
+});
+
+test("o texto do selo e o atributo datetime são sempre o mesmo dia", () => {
+  // A invariante de que o selo depende, e a única asserção desta seção que usa
+  // as duas funções juntas: `dataLonga` do dia recortado por `diaIso` tem que
+  // dar o mesmo texto que `dataLonga` do instante inteiro. É exatamente a
+  // conta que o teste de navegador faz, aqui varrida sobre os horários que
+  // costumam quebrá-la.
+  const instantes = [
+    "2026-08-03T00:00:00.000Z",
+    "2026-08-03T23:59:59.999Z",
+    "2026-01-01T00:00:00.000Z",
+    "2026-12-31T23:59:59.999Z",
+    "2026-08-03T23:30:00.000-03:00",
+    "2026-08-04T01:00:00.000+09:00",
+  ];
+  for (const iso of instantes) {
+    const d = new Date(iso);
+    expect(dataLonga(new Date(diaIso(d))), iso).toBe(dataLonga(d));
+  }
 });
