@@ -31,7 +31,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.49.0",
-    "@shikijs/rehype": "^4.4.1",
+    "@shikijs/rehype": "^4.4.2",
     "@types/mdx": "^2.0.13",
     "@types/node": "^22",
     "@types/react": "^19",
