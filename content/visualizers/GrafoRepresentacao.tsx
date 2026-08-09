@@ -98,11 +98,28 @@ const PRESETS: Preset[] = [
   },
 ];
 
-function matrixFrom(edges: [number, number][], directed: boolean): number[][] {
+// O preset descreve um GRAFO — quais vértices estão ligados —, e não um
+// sentido. Por isso ele monta sempre a matriz simétrica, seja qual for o modo.
+//
+// Enquanto ele recebia `directed`, a MESMA peça tinha dois estados conforme a
+// ORDEM dos cliques: "Completo" e depois "dirigido" dava `E = 30 de 30`
+// (densidade 100%), e "dirigido" e depois "Completo" dava `E = 15 de 30`
+// (densidade 50%) — com a mesma dica dizendo "É o teto, e é onde a matriz fica
+// cheia" nos dois, e metade da matriz vazia num deles.
+//
+// A leitura certa é a de 30: o tipo é uma LEITURA da matriz, não uma reescrita.
+// É o que o `changeDirected` já fazia (ligar o dirigido não joga aresta fora) e
+// é o que mantém o nome do preset verdadeiro — grafo completo dirigido tem
+// V(V-1) arcos, e 15 de 30 não é completo nem é teto. De quebra a densidade
+// deixa de depender do caminho: 47%, 87%, 100% e 33% nos dois modos.
+//
+// O grafo dirigido assimétrico continua a um clique de distância, que é o que a
+// peça ensina: no modo dirigido, clicar numa célula liga só ela.
+function matrixFrom(edges: [number, number][]): number[][] {
   const m = Array.from({ length: V }, () => new Array(V).fill(0));
   for (const [a, b] of edges) {
     m[a][b] = 1;
-    if (!directed) m[b][a] = 1;
+    m[b][a] = 1;
   }
   return m;
 }
@@ -110,7 +127,7 @@ function matrixFrom(edges: [number, number][], directed: boolean): number[][] {
 export function GrafoRepresentacao() {
   const [presetKey, setPresetKey] = useState("social");
   const [directed, setDirected] = useState(false);
-  const [matrix, setMatrix] = useState<number[][]>(() => matrixFrom(PRESETS[0].edges, false));
+  const [matrix, setMatrix] = useState<number[][]>(() => matrixFrom(PRESETS[0].edges));
   const [focused, setFocused] = useState<number | null>(null);
 
   const viz = useVisualizer({
@@ -126,9 +143,9 @@ export function GrafoRepresentacao() {
     // anunciar uma medição que não acontece.
   });
 
-  const applyPreset = (p: Preset, dir = directed) => {
+  const applyPreset = (p: Preset) => {
     setPresetKey(p.key);
-    setMatrix(matrixFrom(p.edges, dir));
+    setMatrix(matrixFrom(p.edges));
   };
 
   const changeDirected = (v: boolean) => {

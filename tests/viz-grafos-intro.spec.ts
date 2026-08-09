@@ -159,9 +159,13 @@ test.describe("grafos-intro · casca adaptativa", () => {
     await painel.getByRole("button", { name: "dirigido", exact: true }).click();
     await expect(painel.locator(".viz-step")).toHaveText("V = 6 · E = 14 · densidade 47%");
 
-    // Já reaplicar o preset monta o grafo dirigido de verdade: 7 arcos de 30.
+    // E reaplicar o preset cai no MESMO grafo: o preset descreve quais vértices
+    // estão ligados, e o tipo é uma leitura da matriz — não uma reescrita dela.
+    // (Esta linha esperava "E = 7 · densidade 23%", que era o outro estado do
+    // mesmo par de cliques: o mesmo preset dava dois grafos conforme a ORDEM,
+    // com a mesma dica nos dois. Detalhe em `textos-que-nao-batem.spec.ts`.)
     await painel.getByRole("button", { name: "Esparso (rede social)", exact: true }).click();
-    await expect(painel.locator(".viz-step")).toHaveText("V = 6 · E = 7 · densidade 23%");
+    await expect(painel.locator(".viz-step")).toHaveText("V = 6 · E = 14 · densidade 47%");
   });
 
   test("os presets vivem no miolo e mudam os dois custos de memória no cartão certo", async ({

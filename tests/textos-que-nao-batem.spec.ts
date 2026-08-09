@@ -427,3 +427,76 @@ test.describe("grafos-intro · a dica de cada preset", () => {
     }
   });
 });
+
+// -------------------------------------------------- 6. a ordem dos cliques
+//
+// A mesma peça tinha dois estados conforme a ORDEM: "Completo" e depois
+// "dirigido" dava 30 de 30; "dirigido" e depois "Completo" dava 15 de 30, com a
+// mesma dica dizendo "é o teto" nos dois e metade da matriz vazia num deles. A
+// leitura certa é a de 30 — o preset descreve quais vértices estão ligados, e o
+// tipo é uma leitura da matriz, não uma reescrita dela.
+
+/** Tudo que a peça diz do estado atual, num objeto só: cabeçalho, os dois
+ *  cartões que a dica cita, a dica e a própria matriz. */
+async function lerGrafo(fig: Locator) {
+  return {
+    cabecalho: (await fig.locator(".viz-step").innerText()).trim(),
+    arestas: (await cartao(fig, "arestas (E)").locator("strong").innerText()).trim(),
+    zeros: (await cartao(fig, "células em zero").locator("strong").innerText()).trim(),
+    dica: (await fig.locator(".tt-legenda-arvore").innerText()).trim(),
+    ligadas: await fig.locator(".gr-cel.on").count(),
+  };
+}
+
+test.describe("grafos-intro · a ordem dos cliques", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("preset e tipo em qualquer ordem chegam ao mesmo grafo", async ({ page }) => {
+    for (const preset of PRESETS_GRAFO) {
+      // Ordem A: escolher o grafo e depois ligar o dirigido.
+      const a = await abrir(page, GRAFO.url, GRAFO.titulo);
+      await a.getByRole("button", { name: preset, exact: true }).click();
+      await a.getByRole("button", { name: "dirigido", exact: true }).click();
+      const viaPreset = await lerGrafo(a);
+
+      // Ordem B: ligar o dirigido e depois escolher o grafo.
+      const b = await abrir(page, GRAFO.url, GRAFO.titulo);
+      await b.getByRole("button", { name: "dirigido", exact: true }).click();
+      await b.getByRole("button", { name: preset, exact: true }).click();
+      const viaTipo = await lerGrafo(b);
+
+      expect(viaTipo, `${preset}: a ordem dos cliques mudou o grafo`).toEqual(viaPreset);
+      // E o estado é o do preset de verdade, não o de metade dele: a matriz
+      // simétrica tem duas células por ligação.
+      expect(viaPreset.ligadas, `${preset}: a matriz perdeu metade das células`).toBe(
+        parseInt(viaPreset.arestas.split(" de ")[0], 10)
+      );
+    }
+  });
+
+  test("o caso reportado: Completo + dirigido dá 30 de 30 pelos dois caminhos", async ({ page }) => {
+    const esperado = {
+      cabecalho: "V = 6 · E = 30 · densidade 100%",
+      arestas: "30 de 30",
+      zeros: "6",
+      dica: "Todo mundo ligado a todo mundo: V(V-1) = 30 arestas dirigidas. É o teto, e é onde a matriz fica cheia — só a diagonal sobra em zero.",
+      ligadas: 30,
+    };
+
+    const a = await abrir(page, GRAFO.url, GRAFO.titulo);
+    await a.getByRole("button", { name: "Completo", exact: true }).click();
+    await a.getByRole("button", { name: "dirigido", exact: true }).click();
+    expect(await lerGrafo(a), "Completo e depois dirigido").toEqual(esperado);
+
+    const b = await abrir(page, GRAFO.url, GRAFO.titulo);
+    await b.getByRole("button", { name: "dirigido", exact: true }).click();
+    await b.getByRole("button", { name: "Completo", exact: true }).click();
+    // Era aqui que a peça dizia "15 de 30" com a dica jurando ser o teto.
+    expect(await lerGrafo(b), "dirigido e depois Completo").toEqual(esperado);
+
+    // A diagonal é o que sobra em zero, e ela é DESENHADA: 36 botões, 30 em 1 e
+    // os 6 da diagonal em 0.
+    await expect(b.locator(".gr-cel")).toHaveCount(36);
+    await expect(b.locator(".gr-cel.diag")).toHaveCount(6);
+  });
+});
