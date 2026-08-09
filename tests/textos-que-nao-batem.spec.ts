@@ -352,3 +352,78 @@ test.describe("merge-sort · a cor da linha da divergência", () => {
     }
   });
 });
+
+// ------------------------------------------------------- 5. as dicas do grafo
+//
+// As quatro dicas eram prosa fixa por preset e ignoravam o modo: a do Completo
+// dizia "V(V-1)/2 = 15 arestas. É o teto" com o cartão mostrando 30 de 30 ao
+// lado. Agora elas recebem os mesmos números que os cartões mostram.
+
+const GRAFO = { url: "/topico/grafos-intro/", titulo: "o mesmo grafo em matriz e em lista" };
+
+const PRESETS_GRAFO = ["Esparso (rede social)", "Denso", "Completo", "Caminho (o mínimo conexo)"];
+
+/** Um cartão de resumo, pelo rótulo, com o valor lido ao lado dele. */
+const cartao = (fig: Locator, nome: string) =>
+  fig.locator(`.bigo-stat:has(span:text-is(${JSON.stringify(nome)}))`);
+
+test.describe("grafos-intro · a dica de cada preset", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  // As oito frases, medidas na tela. Elas existem escritas aqui porque a dica é
+  // CONTEÚDO: mudar o número dela sem mudar o cartão é o defeito voltando.
+  const DICAS: Record<string, { nao: string; sim: string }> = {
+    "Esparso (rede social)": {
+      nao: "O caso mais comum do mundo real: cada vértice tem poucos vizinhos. São 7 das 15 arestas possíveis, e 22 das 36 células da matriz ficam em zero.",
+      sim: "O caso mais comum do mundo real: cada vértice tem poucos vizinhos. São 14 das 30 arestas dirigidas possíveis, e 22 das 36 células da matriz ficam em zero.",
+    },
+    Denso: {
+      nao: "Muitas ligações por vértice: 13 das 15 arestas possíveis. Com só 10 células em zero, os dois custos se aproximam — 36 células contra 32 entradas.",
+      sim: "Muitas ligações por vértice: 26 das 30 arestas dirigidas possíveis. Com só 10 células em zero, os dois custos se aproximam — 36 células contra 32 entradas.",
+    },
+    Completo: {
+      nao: "Todo mundo ligado a todo mundo: V(V-1)/2 = 15 arestas. É o teto, e é onde a matriz fica cheia — só a diagonal sobra em zero.",
+      sim: "Todo mundo ligado a todo mundo: V(V-1) = 30 arestas dirigidas. É o teto, e é onde a matriz fica cheia — só a diagonal sobra em zero.",
+    },
+    "Caminho (o mínimo conexo)": {
+      nao: "V-1 = 5 arestas: o mínimo para conectar tudo sem ciclo. Uma árvore é exatamente isto.",
+      sim: "V-1 = 5 ligações, cada uma com ida e volta: 10 arestas dirigidas. É o mínimo para conectar tudo sem ciclo, e uma árvore é exatamente isto.",
+    },
+  };
+
+  test("a dica cita os mesmos números dos cartões, e muda quando o modo muda", async ({ page }) => {
+    const fig = await abrir(page, GRAFO.url, GRAFO.titulo);
+    const dica = fig.locator(".tt-legenda-arvore");
+
+    for (const preset of PRESETS_GRAFO) {
+      for (const modo of ["não dirigido", "dirigido"] as const) {
+        await fig.getByRole("button", { name: preset, exact: true }).click();
+        await fig.getByRole("button", { name: modo, exact: true }).click();
+
+        const esperada = DICAS[preset][modo === "dirigido" ? "sim" : "nao"];
+        await expect(dica, `${preset} / ${modo}: a dica`).toHaveText(esperada);
+
+        // A prova de que a dica e os cartões falam do mesmo estado: os números
+        // que ela cita saem da TELA, e não desta tabela. `arestas (E)` mostra
+        // "N de M" e a dica tem que citar os dois; `células em zero` mostra o
+        // terceiro, e as dicas que falam de zero têm que repeti-lo.
+        const [e, max] = (await cartao(fig, "arestas (E)").locator("strong").innerText())
+          .split(" de ")
+          .map((s) => s.trim());
+        const zeros = (await cartao(fig, "células em zero").locator("strong").innerText()).trim();
+
+        expect(esperada, `${preset} / ${modo}: a dica não cita as ${e} da tela`).toContain(e);
+        // O teto só entra nas dicas que falam dele. A do Caminho fala do
+        // mínimo, e citar o teto ali seria número sem assunto.
+        if (preset !== "Caminho (o mínimo conexo)")
+          expect(esperada, `${preset} / ${modo}: a dica não cita as ${max} possíveis`).toContain(
+            max
+          );
+        if (esperada.includes("células em zero") || esperada.includes("células da matriz"))
+          expect(esperada, `${preset} / ${modo}: a dica cita outro número de zeros`).toContain(
+            zeros
+          );
+      }
+    }
+  });
+});

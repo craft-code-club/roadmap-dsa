@@ -37,20 +37,44 @@ const POS: { x: number; y: number }[] = [
   { x: 36, y: 96 },
 ];
 
-type Preset = { key: string; label: string; edges: [number, number][]; hint: string };
+/**
+ * O que a dica de um preset recebe para poder citar número.
+ *
+ * As quatro dicas eram prosa fixa e ignoravam o modo: a do Completo dizia
+ * "V(V-1)/2 = 15 arestas. É o teto" com o cartão mostrando `30 de 30` ao lado,
+ * e a do Caminho dizia "V-1 arestas" com 10 na tela. Dica que carrega número
+ * escrito à mão envelhece no primeiro clique que muda o número — então ela
+ * passa a receber os MESMOS valores que os cartões mostram.
+ *
+ * `edgeWord` é o vocabulário do modo: no dirigido cada ligação vale por duas, e
+ * chamar as duas de "aresta" sem mais nada é o que fazia a conta parecer errada.
+ */
+type Counts = {
+  directed: boolean;
+  edges: number;
+  maxEdges: number;
+  zeros: number;
+  matrixCells: number;
+  listEntries: number;
+  edgeWord: string;
+};
+
+type Preset = { key: string; label: string; edges: [number, number][]; hint: (n: Counts) => string };
 
 const PRESETS: Preset[] = [
   {
     key: "social",
     label: "Esparso (rede social)",
     edges: [[0, 1], [0, 5], [1, 2], [2, 3], [3, 4], [4, 5], [1, 4]],
-    hint: "O caso mais comum do mundo real: cada vértice tem poucos vizinhos. A matriz fica quase toda em zero.",
+    hint: ({ edges, maxEdges, zeros, matrixCells, edgeWord }) =>
+      `O caso mais comum do mundo real: cada vértice tem poucos vizinhos. São ${edges} das ${maxEdges} ${edgeWord} possíveis, e ${zeros} das ${matrixCells} células da matriz ficam em zero.`,
   },
   {
     key: "dense",
     label: "Denso",
     edges: [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 5], [2, 3], [2, 4], [3, 4], [3, 5], [4, 5]],
-    hint: "Muitas arestas por vértice. Aqui a matriz para de desperdiçar e passa a ganhar da lista na consulta.",
+    hint: ({ edges, maxEdges, zeros, matrixCells, listEntries, edgeWord }) =>
+      `Muitas ligações por vértice: ${edges} das ${maxEdges} ${edgeWord} possíveis. Com só ${zeros} células em zero, os dois custos se aproximam — ${matrixCells} células contra ${listEntries} entradas.`,
   },
   {
     key: "complete",
@@ -60,13 +84,17 @@ const PRESETS: Preset[] = [
       for (let i = 0; i < V; i++) for (let j = i + 1; j < V; j++) a.push([i, j]);
       return a;
     })(),
-    hint: "Todo mundo ligado a todo mundo: V(V-1)/2 = 15 arestas. É o teto, e é onde a matriz fica cheia.",
+    hint: ({ directed, maxEdges, edgeWord }) =>
+      `Todo mundo ligado a todo mundo: ${directed ? "V(V-1)" : "V(V-1)/2"} = ${maxEdges} ${edgeWord}. É o teto, e é onde a matriz fica cheia — só a diagonal sobra em zero.`,
   },
   {
     key: "path",
     label: "Caminho (o mínimo conexo)",
     edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
-    hint: "V-1 arestas: o mínimo para conectar tudo sem ciclo. Uma árvore é exatamente isto.",
+    hint: ({ directed, edges }) =>
+      directed
+        ? `V-1 = ${V - 1} ligações, cada uma com ida e volta: ${edges} arestas dirigidas. É o mínimo para conectar tudo sem ciclo, e uma árvore é exatamente isto.`
+        : `V-1 = ${edges} arestas: o mínimo para conectar tudo sem ciclo. Uma árvore é exatamente isto.`,
   },
 ];
 
@@ -144,7 +172,18 @@ export function GrafoRepresentacao() {
   const density = Math.round((E / maxE) * 100);
   const matrixCost = V * V;
   const listCost = V + (directed ? E : 2 * E);
-  const hint = PRESETS.find((p) => p.key === presetKey)?.hint;
+  // Um só lugar para os zeros: o cartão e a dica contam a mesma coisa, e contar
+  // duas vezes é como dois textos que falam do mesmo número se separam.
+  const zeros = matrixCost - (directed ? E : 2 * E);
+  const hint = PRESETS.find((p) => p.key === presetKey)?.hint({
+    directed,
+    edges: E,
+    maxEdges: maxE,
+    zeros,
+    matrixCells: matrixCost,
+    listEntries: listCost,
+    edgeWord: directed ? "arestas dirigidas" : "arestas",
+  });
 
   return viz.inPanel(
     <figure {...viz.figureProps} style={{ margin: 0 }}>
@@ -299,7 +338,7 @@ export function GrafoRepresentacao() {
               desperdício de V² é o assunto da peça, e essa é a parte dele que
               nunca tem chance. O rótulo continua "células em zero" porque
               agora é literalmente isso que o número conta. */}
-          <div className="bigo-stat"><span>células em zero</span><strong>{matrixCost - (directed ? E : 2 * E)}</strong></div>
+          <div className="bigo-stat"><span>células em zero</span><strong>{zeros}</strong></div>
         </div>
 
         <p className="viz-caption" style={{ margin: "12px 0 0" }}>
