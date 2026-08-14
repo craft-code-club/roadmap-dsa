@@ -6,6 +6,7 @@ import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
 import { COURSES, courseHasMaterial, getPlacement, SITE_TOPICS } from "../content/courses";
 import { LINKS, SITE_URL } from "../src/lib/links";
 import {
+  atualizacaoDoCurso,
   atualizacaoDoTopico,
   caminhosDatados,
   CONTEUDO_DA_ROTA,
@@ -446,6 +447,12 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     }
     const slug = loc.match(/\/topico\/([^/]+)\//)?.[1];
     const rota = loc.replace(SITE_URL, "");
+    // A terceira forma de URL do sitemap, desde os cursos. Ela não é tópico (não
+    // tem `.mdx` próprio) nem rota fixa (não está no `CONTEUDO_DA_ROTA`), e sem
+    // este ramo o `dataEsperada` recebia `undefined` e o teste morria num
+    // TypeError — que é o pior jeito de descobrir uma rota nova, porque não
+    // parece com o defeito que ele existe para pegar.
+    const curso = COURSES.find((c) => rota === `/cursos/${c.slug}/`);
 
     // [PROPRIEDADE] O carimbo é de um commit que EXISTE. Nenhuma regra honesta
     // inventa um instante: ela escolhe um commit. É o que mata o `new Date()`
@@ -462,9 +469,21 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // se a regra passar a considerar mais entradas (foi o que aconteceu agora,
     // quando o intervalo do `roadmap.ts` entrou na conta), e teria pegado o
     // furo inverso — datar a página antes do próprio artigo.
-    const piso = dataEsperada(
-      slug ? [`content/topics/${slug}.mdx`] : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]
-    );
+    // A abertura de um curso é feita do `courses.ts` e dos artigos dos tópicos
+    // dele: publicar um tópico muda a página, que passa a mostrar um card a
+    // mais como publicado. O piso é o mais recente entre essas coisas.
+    const arquivosDaRota = slug
+      ? [`content/topics/${slug}.mdx`]
+      : curso
+        ? [
+            "content/courses.ts",
+            ...curso.groups
+              .flatMap((g) => g.topics)
+              .filter((t) => !isEmptyTopic(t))
+              .map((t) => `content/topics/${t.slug}.mdx`),
+          ]
+        : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA];
+    const piso = dataEsperada(arquivosDaRota);
     if (piso !== undefined && ms < piso) {
       velhasDemais.push(`${loc} → ${lastmod}, mais velho que ${new Date(piso).toISOString()}`);
     }
@@ -475,7 +494,9 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // sobrar, o bloco não guarda mais nada.
     const doModulo = slug
       ? atualizacaoDoTopico(slug)
-      : ultimaAlteracao(...CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]);
+      : curso
+        ? atualizacaoDoCurso(curso.slug)
+        : ultimaAlteracao(...CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]);
     if (doModulo && doModulo.getTime() !== ms) {
       fiacao.push(`${loc} → XML ${lastmod}, módulo ${doModulo.toISOString()}`);
     }

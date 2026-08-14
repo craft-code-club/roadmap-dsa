@@ -68,6 +68,23 @@ type Conhecida = {
  *    meio da pintura — não "nós do SSG que o aluno não vê": os 12 elementos
  *    estão no DOM, visíveis e dentro da figura nos dois momentos.
  *
+ * REMEDIDO DE NOVO com a entrada dos cursos, e DUAS entradas saíram por estarem
+ * obsoletas — o log vinha avisando ("passivo obsoleto"), e entrada obsoleta não é
+ * inofensiva: enquanto ela existe, a regra fica anistiada e a volta do defeito
+ * passa calada.
+ *
+ *  - `label` em `/topico/two-pointers/`: o range de velocidade da casca ganhou um
+ *    `<label class="viz-speed">` envolvendo o input (`src/lib/visualizer.tsx`), e
+ *    label que envolve o campo já dá nome acessível. Zero nós hoje;
+ *  - `heading-order` em `/apoie/`: a página não tem mais `<h3>` depois do `<h1>`
+ *    — os títulos do `out/apoie/index.html` são `h1` seguido só de `h2`.
+ *
+ * A amostra também cresceu de 5 para 9 rotas, com as classes de página que os
+ * cursos criaram: a vitrine `/cursos/`, a abertura de um curso (barra lateral
+ * que não é a da trilha), a página avulsa `/topico/trie/` (barra lateral
+ * NENHUMA) e `/topico/counting-sort/`, que assumiu a cobertura de "tópico em
+ * breve" que era do `/topico/trie/` antes de ele ganhar artigo.
+ *
  * O passivo antigo dizia que os 34 nós eram `.code-lang` e `.viz-var-name`, com
  * "o pior medido 3.48:1" atribuído ao segundo. Os dois rótulos estavam errados:
  * 3,48:1 é o `.code-lang`, e a outra família é `.viz-cell-idx`. Os números
@@ -89,14 +106,6 @@ const PASSIVO: Record<string, Conhecida[]> = {
         "Os dois contra os 4.5:1 exigidos; o pior é o `.code-lang`",
     },
     {
-      regra: "label",
-      teto: 3,
-      nota:
-        "o <input type=range> de velocidade da casca não tem <label> nem aria-label " +
-        "(src/lib/visualizer.tsx:562). São 3 nós porque a página tem 3 visualizadores; " +
-        "é UM defeito, num componente compartilhado por todos os 62",
-    },
-    {
       regra: "scrollable-region-focusable",
       teto: 1,
       nota:
@@ -108,24 +117,39 @@ const PASSIVO: Record<string, Conhecida[]> = {
   "/topico/trie/": [
     {
       regra: "color-contrast",
+      // Sem teto, pelo mesmo motivo do /topico/two-pointers/: o número acompanha
+      // quantos blocos de código o artigo tem, e um teto aqui ficaria vermelho
+      // a cada bloco novo — reprovando quem escreve, não quem quebra.
+      teto: null,
+      nota:
+        "6 nós, todos o selo de linguagem do bloco de código (`.code-lang`, " +
+        "src/app/globals.css:377, #5b6d85 sobre #0d1420, 3.48:1 contra os 4.5:1 " +
+        "exigidos) — um por cerca ```python do artigo. É o MESMO defeito de chrome " +
+        "compartilhado que o /topico/two-pointers/ congela; consertar o `.code-lang` " +
+        "apaga a entrada nas duas rotas de uma vez",
+    },
+  ],
+  // O tópico "em breve", que era a cobertura do `/topico/trie/` antes de ele
+  // virar página avulsa com artigo: é a única amostra em que o selo "em breve"
+  // e o item apagado do menu aparecem.
+  "/topico/counting-sort/": [
+    {
+      regra: "color-contrast",
       teto: 2,
       nota:
         "o nome do tópico 'em breve' no menu lateral (`.side-item.soon`, " +
-        "src/app/globals.css:197, #6f83a0 sobre #13233e, 4.05:1) e o selo 'em breve' " +
-        "(`.badge-soon`, src/app/globals.css:220, #7f93ad sobre #22314a, 4.15:1), os dois " +
-        "contra os 4.5:1 exigidos. Teto vale aqui: são dois elementos de chrome fixo, " +
-        "não de conteúdo",
+        "src/app/globals.css, #6f83a0 sobre #13233e, 4.05:1) e o selo 'em breve' " +
+        "(`.badge-soon`, #7f93ad sobre #22314a, 4.15:1), os dois contra os 4.5:1 " +
+        "exigidos. Teto vale aqui: são dois elementos de chrome fixo, não de conteúdo. " +
+        "Esta entrada morava no `/topico/trie/`, que era a amostra de tópico vazio " +
+        "até virar página avulsa com artigo",
     },
   ],
-  "/apoie/": [
-    {
-      regra: "heading-order",
-      teto: 1,
-      nota:
-        "o cartão de doação abre com <h3> logo depois do <h1>, pulando o <h2> " +
-        "(src/app/apoie/page.tsx:29)",
-    },
-  ],
+  // As duas telas novas. Listas vazias, que é a forma mais forte deste guarda:
+  // qualquer violação que apareça nelas vira "regra nova" e reprova.
+  "/cursos/": [],
+  "/cursos/estruturas-probabilisticas/": [],
+  "/apoie/": [],
 };
 
 /**
@@ -163,6 +187,31 @@ const AMOSTRA = Object.keys(PASSIVO);
  */
 async function esperarHidratar(page: Page) {
   await page.waitForSelector("html[data-hidratado]", { state: "attached" });
+  // E, ONDE EXISTE trilha lateral, o carimbo do menu também.
+  //
+  // Ele é escrito num efeito POSTERIOR ao do provedor, e a diferença é
+  // medível: com só o `data-hidratado`, o axe mediu `/topico/two-pointers/`
+  // antes de as ilhas de visualizador montarem e o `label` do range de
+  // velocidade "deixou de violar" — três violações conhecidas sumindo é o
+  // guarda afrouxando sozinho, que é pior do que ele reprovar.
+  //
+  // A condição é o CAMPO DE BUSCA, e não o `#menu-lateral`: a barra lateral de
+  // um curso usa o mesmo id de landmark e NÃO escreve carimbo nenhum (quem
+  // escreve é o `TrilhaSidebar`). Perguntar pelo landmark fazia
+  // `/cursos/<slug>/` esperar 30s por um carimbo que não vem.
+  //
+  // As duas esperas juntas, e não uma só: o carimbo cobre o caso da trilha e
+  // não existe fora dela; o atributo cobre toda rota. Este é o superconjunto.
+  if (await page.locator("#busca-topico").count()) {
+    await page.waitForFunction(() => {
+      try {
+        const salvo = JSON.parse(localStorage.getItem("ccc-dsa-menu") ?? "null");
+        return typeof salvo?.em === "number" && Date.now() - salvo.em < 60_000;
+      } catch {
+        return false;
+      }
+    });
+  }
   await page.waitForTimeout(400);
 }
 

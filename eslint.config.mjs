@@ -61,12 +61,17 @@ export default [
       "@next/next/no-page-custom-font": "off",
 
       // Fica em AVISO, não em erro, e é uma decisão de escopo declarada.
-      // São 8 ocorrências reais, todas em efeito que sincroniza estado externo
-      // na montagem (localStorage, medição de layout): `Shell.tsx:100`, `:115`,
-      // `:139`, `visualizer.tsx:213` e `:235`, `ProgressProvider.tsx:73`,
-      // `BigOChartVisualizer.tsx:111`, `HeapIndicesVisualizer.tsx:75`. Três
-      // desses arquivos estão sendo reescritos em PRs abertos agora; subir para
-      // erro pintaria os três de vermelho num defeito que não é deles.
+      // São 6 ocorrências reais, todas em efeito que sincroniza estado externo
+      // na montagem (localStorage, medição de layout): `Shell.tsx` (fechar a
+      // gaveta ao navegar), `TrilhaSidebar.tsx` (restaurar os grupos salvos e
+      // abrir o grupo da rota), `ProgressProvider.tsx` (ler o progresso) e
+      // `visualizer.tsx` (montagem e fim da animação).
+      //
+      // O inventário anterior tinha 8 e citava `BigOChartVisualizer.tsx:111` e
+      // `HeapIndicesVisualizer.tsx:75`, que foram consertados desde então, mais
+      // três linhas de `Shell.tsx` que mudaram de arquivo quando a barra lateral
+      // saiu de lá. Endereço velho num inventário de dívida é pior do que
+      // nenhum: quem for pagar a dívida vai procurar no lugar errado.
       "react-hooks/set-state-in-effect": "warn",
 
       // É a família que já virou bug neste repositório. Sobe para ERRO, que é o

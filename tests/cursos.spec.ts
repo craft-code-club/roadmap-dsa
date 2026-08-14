@@ -118,7 +118,7 @@ test("página da trilha continua com a barra lateral da trilha", async ({ page }
   await expect(barra).toHaveAttribute("aria-label", "Trilha de estudos");
   await expect(barra.getByLabel("Buscar tópico")).toHaveCount(1);
   // E ela oferece a porta para fora, no pé da lista.
-  await expect(barra.locator(".side-extras")).toHaveAttribute("href", "/cursos");
+  await expect(barra.locator(".side-extras")).toHaveAttribute("href", "/cursos/");
 });
 
 test("página avulsa não tem barra lateral nenhuma, e diz isso no layout", async ({ page }) => {
@@ -138,10 +138,10 @@ test("página avulsa fecha com a banda de vizinhos, e não com anterior/próximo
   const banda = page.locator(".continue-explorando");
   await expect(banda.getByRole("heading", { name: "Continue explorando" })).toBeVisible();
   const cards = banda.locator(".extra-card");
-  await expect(cards).toHaveCount(3);
+  await expect(cards).toHaveCount(2);
   // E ela não sugere a própria página.
   await expect(banda.locator(`.extra-card[href="/topico/${AVULSA_PRONTA.topic.slug}/"]`)).toHaveCount(0);
-  await expect(banda.getByRole("link", { name: /Ver tudo/ })).toHaveAttribute("href", "/cursos");
+  await expect(banda.getByRole("link", { name: /Ver tudo/ })).toHaveAttribute("href", "/cursos/");
 });
 
 test("tópico de curso recebe a barra DAQUELE curso, e não a da trilha", async ({ page }) => {
@@ -157,17 +157,17 @@ test("tópico de curso recebe a barra DAQUELE curso, e não a da trilha", async 
   const links = await barra.locator(".side-item").evaluateAll((as) =>
     as.map((a) => a.getAttribute("href") ?? "")
   );
-  expect(links).toEqual(courseTopics(CURSO_COM_MATERIAL).map((t) => `/topico/${t.slug}`));
+  expect(links).toEqual(courseTopics(CURSO_COM_MATERIAL).map((t) => `/topico/${t.slug}/`));
   for (const t of ALL_TOPICS.slice(0, 5)) {
-    expect(links, "tópico da trilha vazou para a barra do curso").not.toContain(`/topico/${t.slug}`);
+    expect(links, "tópico da trilha vazou para a barra do curso").not.toContain(`/topico/${t.slug}/`);
   }
 
   // E as portas de saída: a volta para a trilha e o nome do curso, que leva à
   // abertura dele.
-  await expect(barra.locator(".side-voltar")).toHaveAttribute("href", "/roadmap");
+  await expect(barra.locator(".side-voltar")).toHaveAttribute("href", "/roadmap/");
   await expect(barra.locator(".side-curso-nome")).toHaveAttribute(
     "href",
-    `/cursos/${CURSO_COM_MATERIAL.slug}`
+    `/cursos/${CURSO_COM_MATERIAL.slug}/`
   );
 });
 
@@ -198,7 +198,7 @@ test("o rastro de navegação tem uma forma por tipo de página", async ({ page 
 });
 
 test("o link Cursos do topo acende em toda a área de cursos", async ({ page }) => {
-  const aceso = () => page.locator('.nav-left a[href="/cursos"].on');
+  const aceso = () => page.locator('.nav-left a[href="/cursos/"].on');
   for (const rota of [
     "/cursos/",
     `/cursos/${CURSO_COM_MATERIAL.slug}/`,
@@ -229,9 +229,9 @@ test("a abertura do curso mostra os tópicos dele, os pré-requisitos e por onde
   const reqs = await page.locator(".req-link").evaluateAll((as) =>
     as.map((a) => a.getAttribute("href") ?? "")
   );
-  expect(reqs).toEqual((c.requires ?? []).map((s) => `/topico/${s}`));
+  expect(reqs).toEqual((c.requires ?? []).map((s) => `/topico/${s}/`));
   for (const href of reqs) {
-    const slug = href.replace("/topico/", "");
+    const slug = href.replace("/topico/", "").replace(/\/$/, "");
     expect(SITE_TOPICS.some((t) => t.slug === slug), `${href} não é tópico`).toBe(true);
   }
 
@@ -256,10 +256,10 @@ test("o primeiro tópico de um curso volta para a abertura, não para o vazio", 
   const [primeiro, segundo] = courseTopics(c);
   await page.goto(`/topico/${primeiro.slug}/`);
   const anterior = page.locator(".prevnext a").first();
-  await expect(anterior).toHaveAttribute("href", `/cursos/${c.slug}`);
+  await expect(anterior).toHaveAttribute("href", `/cursos/${c.slug}/`);
   await expect(anterior).toContainText("Abertura do curso");
   // E o próximo é o vizinho DENTRO do curso, não o da trilha.
-  await expect(page.locator(".prevnext a.next")).toHaveAttribute("href", `/topico/${segundo.slug}`);
+  await expect(page.locator(".prevnext a.next")).toHaveAttribute("href", `/topico/${segundo.slug}/`);
 });
 
 // ---------------------------------------------------------------------------
@@ -276,7 +276,7 @@ test("a Skip List saiu do grupo Listas Encadeadas", async ({ page }) => {
   await page.goto("/roadmap/");
   const grupo = page.locator("section#listas");
   await expect(grupo.locator(".topic-card-name")).toHaveText(["Listas Encadeadas"]);
-  await expect(grupo.locator('a[href="/topico/skip-list"]')).toHaveCount(0);
+  await expect(grupo.locator('a[href^="/topico/skip-list"]')).toHaveCount(0);
 });
 
 test("a URL da Skip List não mudou, e a página continua completa", async ({ page }) => {
@@ -343,6 +343,6 @@ test("no celular, Cursos continua alcançável pelo menu ⋯ @mobile", async ({ 
   const menu = page.locator(".nav-menu");
   await expect(menu.getByRole("link", { name: /Cursos e outras estruturas/ })).toHaveAttribute(
     "href",
-    "/cursos"
+    "/cursos/"
   );
 });

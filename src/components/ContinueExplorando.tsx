@@ -12,14 +12,20 @@ import { ExtrasGrid } from "@/components/ExtrasGrid";
  * estruturas fora da trilha —, e é isso que esta banda mostra, no fim do
  * artigo, que é onde o leitor está quando termina de ler.
  *
- * Três cards, e não a vitrine inteira: aqui isto é um destino sugerido, não um
+ * Dois cards, e não a vitrine inteira: aqui isto é um destino sugerido, não um
  * catálogo. O catálogo tem uma página, e o link para ela fecha a banda.
  *
+ * Dois, e não três, porque a banda vive na COLUNA DO ARTIGO — que tem o índice
+ * "Nesta página" ao lado e sobra com ~720px. Medido: três cards de 258px não
+ * cabem lado a lado ali e o terceiro cai sozinho numa segunda linha, com um
+ * buraco do tamanho de um card à direita dele. Dois fecham a linha em qualquer
+ * largura.
+ *
  * A ordem vem do `EXTRA_CARDS`, que já põe na frente o que tem material — então
- * a sugestão nunca é três páginas "em breve" seguidas enquanto existe coisa
- * publicada para ler.
+ * a sugestão nunca é duas páginas "em breve" enquanto existe coisa publicada
+ * para ler.
  */
-export function ContinueExplorando({ excluir, quantos = 3 }: { excluir?: string; quantos?: number }) {
+export function ContinueExplorando({ excluir, quantos = 2 }: { excluir?: string; quantos?: number }) {
   const vizinhos = EXTRA_CARDS.filter((c) => c.slug !== excluir).slice(0, quantos);
   if (vizinhos.length === 0) return null;
 

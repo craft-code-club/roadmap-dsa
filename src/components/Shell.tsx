@@ -70,14 +70,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [menu, setMenu] = useState(false);
 
   // Fecha o menu lateral ao navegar (mobile).
+  //
+  // Um efeito só, e ele já cobre o caso novo: sair de um tópico da trilha com a
+  // gaveta aberta e cair numa página avulsa, onde a gaveta (e o botão de
+  // fechar) não existem. O `layout` é DERIVADO do `pathname`, então não há
+  // troca de casca sem troca de rota — um segundo efeito ouvindo `comLateral`
+  // nunca dispararia sozinho.
   useEffect(() => setMobileNav(false), [pathname]);
-
-  // Página sem barra lateral não pode ficar com a gaveta "aberta" na memória: o
-  // leitor abriria a gaveta num tópico da trilha, clicaria numa avulsa, e o
-  // botão de fechar teria sumido junto com a barra.
-  useEffect(() => {
-    if (!comLateral) setMobileNav(false);
-  }, [comLateral]);
 
   // Com `trailingSlash: true`, a rota chega como "/roadmap/": comparar com o
   // href cru deixava Roadmap, Apoiar e Introdução sem o destaque de "você está aqui".
