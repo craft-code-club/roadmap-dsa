@@ -6,6 +6,7 @@ import {
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
 } from "@content/roadmap";
+import { TOTAL_EXTRA_TOPICS } from "@content/courses";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 
@@ -72,6 +73,11 @@ export default function SobrePage() {
         <li className="prose-li">
           <strong className="prose-strong">{TOTAL_PROBLEMS} problemas selecionados</strong> do
           LeetCode e do GeeksforGeeks, na ordem em que recomendamos resolver.
+        </li>
+        <li className="prose-li">
+          <strong className="prose-strong">{TOTAL_EXTRA_TOPICS} tópicos fora da trilha</strong>, em{" "}
+          <Link className="prose-a" href="/cursos/">cursos e páginas avulsas</Link>: estruturas que
+          são um assunto à parte, e famílias inteiras que não caberiam num tópico só.
         </li>
         <li className="prose-li">
           Progresso salvo <strong className="prose-strong">no seu navegador</strong>: os tópicos e

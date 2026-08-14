@@ -1,4 +1,4 @@
-import { ALL_TOPICS, getTopic } from "@content/roadmap";
+import { getSiteTopic, SITE_TOPICS } from "@content/courses";
 import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
 
 // Card de compartilhamento de CADA tópico.
@@ -52,10 +52,17 @@ export const alt =
 // Sem isto, o `output: "export"` não sabe para quais slugs gerar a imagem e a
 // rota simplesmente não sai no `out/` — sem erro nenhum, com o HTML continuando
 // a apontar para uma URL que passa a dar 404. A mesma lista da página do tópico:
-// um card por tópico do roadmap, inclusive os que ainda estão "em breve", porque
-// o link deles circula do mesmo jeito.
+// um card por tópico do SITE, inclusive os que ainda estão "em breve", porque o
+// link deles circula do mesmo jeito.
+//
+// `SITE_TOPICS`, e não `ALL_TOPICS`: com a lista da trilha aqui, os tópicos dos
+// cursos e as páginas avulsas continuariam apontando `og:image` para
+// `/topico/<slug>/opengraph-image` (o Next emite a meta a partir do ARQUIVO
+// existir no segmento, não a partir do slug ter sido enumerado), e a imagem
+// nunca sairia no `out/`. Card 404 é o defeito que este arquivo nasceu para
+// consertar, de volta pela porta dos fundos.
 export function generateStaticParams() {
-  return ALL_TOPICS.map((t) => ({ slug: t.slug }));
+  return SITE_TOPICS.map((t) => ({ slug: t.slug }));
 }
 
 // A fonte do card não é a fonte do navegador.
@@ -80,7 +87,7 @@ function exigirLatin1(campos: Record<string, string>, slug: string): void {
       throw new Error(
         `opengraph-image (${slug}): ${JSON.stringify(semFonte.join(""))} em "${campo}" está fora ` +
           "do Latin-1, e o card do Open Graph sai com um retângulo vazio no lugar. Troque o " +
-          "símbolo por palavras no texto do tópico, em content/roadmap.ts."
+          "símbolo por palavras no texto do tópico, em content/roadmap.ts ou content/courses.ts."
       );
     }
   }
@@ -131,11 +138,11 @@ function corpoDoTitulo(caracteres: number): number {
 
 export default async function TopicoOpengraphImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const t = getTopic(slug);
-  // `generateStaticParams` acima enumera exatamente `ALL_TOPICS`, então isto só
+  const t = getSiteTopic(slug);
+  // `generateStaticParams` acima enumera exatamente `SITE_TOPICS`, então isto só
   // acontece se as duas listas se separarem. Falhar o build é melhor que gerar
   // um card em branco que ninguém olha até o LinkedIn mostrar.
-  if (!t) throw new Error(`opengraph-image: slug fora do roadmap: ${slug}`);
+  if (!t) throw new Error(`opengraph-image: slug que não é tópico de lugar nenhum: ${slug}`);
 
   exigirLatin1({ name: t.name, group: t.group, description: t.description }, slug);
 

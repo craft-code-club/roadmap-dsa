@@ -146,11 +146,15 @@ const AMOSTRA = Object.keys(PASSIVO);
  * `color-contrast`. Hoje isso não deixa a suíte vermelha só porque essa regra
  * está com `teto: null` nessa rota; no dia em que alguém puser teto, vira flake.
  *
- * O SINAL É O CARIMBO DO MENU, e ele não é invenção deste arquivo: o
- * `navegacao.spec.ts` já espera por ele (`carimboRegravado`), pelo mesmo motivo
- * — conferir logo após o `goto` lê o menu de antes da hidratação, e foi assim
- * que aquele bloco ficou instável no CI. O `Shell` regrava `ccc-dsa-menu` num
- * efeito a cada carga, então o carimbo recente é prova de que o efeito rodou.
+ * O SINAL É `<html data-hidratado>`, posto pelo `ProgressProvider` no efeito de
+ * montagem. Ele substituiu o carimbo `ccc-dsa-menu`, e a troca não é
+ * preferência: aquele carimbo é escrito pela TRILHA LATERAL, e desde os cursos
+ * há rota sem trilha lateral nenhuma (a página avulsa e a vitrine `/cursos/`,
+ * ver `src/components/Shell.tsx`). Esperar por ele numa dessas era esperar 30s
+ * por um menu que não ia existir — medido, com `/topico/trie/` estourando o
+ * timeout. O provedor embrulha o site inteiro, então o novo sinal vale em toda
+ * rota. (O `navegacao.spec.ts` segue usando o carimbo no `carimboRegravado`, e
+ * ali está certo: aquele bloco é sobre o menu.)
  *
  * A folga curta depois dele cobre o que vem DEPOIS da hidratação do `Shell`: as
  * ilhas de visualizador, que chegam por `import()` do `VizLazy`. Ela é folga de
@@ -158,14 +162,7 @@ const AMOSTRA = Object.keys(PASSIVO);
  * Medido com as duas juntas: 6 cargas seguidas, 16 nós nas 6.
  */
 async function esperarHidratar(page: Page) {
-  await page.waitForFunction(() => {
-    try {
-      const salvo = JSON.parse(localStorage.getItem("ccc-dsa-menu") ?? "null");
-      return typeof salvo?.em === "number" && Date.now() - salvo.em < 60_000;
-    } catch {
-      return false;
-    }
-  });
+  await page.waitForSelector("html[data-hidratado]", { state: "attached" });
   await page.waitForTimeout(400);
 }
 

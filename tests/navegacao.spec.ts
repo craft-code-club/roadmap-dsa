@@ -1,5 +1,6 @@
 import { test, expect, type Locator } from "@playwright/test";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { SITE_TOPICS } from "../content/courses";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
@@ -1005,10 +1006,16 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 // controles de reprodução, o colapso de painel no celular e o overflow no
 // mobile.
 //
-// A LISTA DE SLUGS É DERIVADA de `ALL_TOPICS`, não escrita à mão. Escrita à mão
+// A LISTA DE SLUGS É DERIVADA de `SITE_TOPICS`, não escrita à mão. Escrita à mão
 // ela envelhece em silêncio: promover um tópico sem lembrar de acrescentá-lo
 // aqui deixa a página nova fora dos QUATRO guardas de uma vez, com o CI verde e
-// nenhum sinal de que faltou alguma coisa. São 11 promoções pela frente.
+// nenhum sinal de que faltou alguma coisa.
+//
+// `SITE_TOPICS`, e não `ALL_TOPICS`: a página de um tópico de curso e a de uma
+// página avulsa saem do MESMO template das da trilha, e o contrato que este
+// bloco cobra é do template. Com a lista da trilha aqui, os 31 tópicos de fora
+// dela ficariam sem os quatro guardas — inclusive o de overflow no celular, que
+// é o único teste de mobile que uma página de artigo tem.
 //
 // O que continua à mão é a DESCRIÇÃO de cada tópico, e de propósito:
 //
@@ -1016,7 +1023,10 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 //   porque a página renderiza `t.name` — o teste passaria a comparar o dado com
 //   ele mesmo e pararia de pegar título trocado;
 // - `vizMin` não existe na fonte: `viz` é o nome de UM visualizador, não a
-//   contagem dos que o MDX de fato instancia.
+//   contagem dos que o MDX de fato instancia. E `0` é um valor legítimo: as
+//   páginas escritas fora da trilha (Union-Find, Trie, Bloom Filter) ainda não
+//   têm visualizador, e o piso delas é zero até alguém escrever um. Elas
+//   continuam passando pelos outros três guardas.
 const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
   "big-o": { h1: "Notação Big O", vizMin: 2 },
   arrays: { h1: "Arrays e Listas", vizMin: 3 },
@@ -1054,20 +1064,25 @@ const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
   backtracking: { h1: "Backtracking", vizMin: 3 },
   "binary-numbers": { h1: "Números Binários", vizMin: 3 },
   "negative-binary": { h1: "Binários Negativos", vizMin: 3 },
+  // Fora da trilha (content/courses.ts). Sem visualizador ainda: o artigo é o
+  // conteúdo inteiro, e `vizMin: 0` diz isso em vez de fingir um piso.
+  "union-find": { h1: "Union-Find (DSU)", vizMin: 0 },
+  trie: { h1: "Trie (Árvore de Prefixos)", vizMin: 0 },
+  "bloom-filter": { h1: "Bloom Filter", vizMin: 0 },
 };
 
 // O fallback existe para que um tópico recém-promovido JÁ ENTRE nos quatro
 // guardas, mesmo antes de alguém descrevê-lo: `t.name` é o que a página
 // renderiza e `vizMin: 1` é o piso de qualquer página completa. Quem avisa que
 // falta descrever é o teste logo abaixo, e ele reprova alto.
-const TOPICOS_PRONTOS = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => ({
+const TOPICOS_PRONTOS = SITE_TOPICS.filter((t) => t.status === "ready").map((t) => ({
   slug: t.slug,
   h1: DESCRICAO[t.slug]?.h1 ?? t.name,
   vizMin: DESCRICAO[t.slug]?.vizMin ?? 1,
 }));
 
 test("todo tópico 'ready' está descrito na tabela dos guardas de contrato", () => {
-  const prontos = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => t.slug);
+  const prontos = SITE_TOPICS.filter((t) => t.status === "ready").map((t) => t.slug);
   const semDescricao = prontos.filter((s) => !DESCRICAO[s]);
   const descritosDeMais = Object.keys(DESCRICAO).filter((s) => !prontos.includes(s));
 

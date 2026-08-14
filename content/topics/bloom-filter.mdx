@@ -1,0 +1,323 @@
+<Callout>
+Você precisa perguntar "já vi este elemento?" sobre um bilhão de itens. Um `set` responde na hora e cobra por isso o preço de **guardar o bilhão de itens**: de dezenas a mais de cem gigabytes. O **bloom filter** responde a mesma pergunta com **9,6 bits por elemento** — 1,2 GB para o mesmo bilhão — e não guarda elemento nenhum, nem um byte. O preço é uma resposta que às vezes mente, mas **só para um lado**: "não está" é sempre verdade, "está" quer dizer "provavelmente está". Essa assimetria não é um detalhe da estrutura, é a estrutura inteira.
+</Callout>
+
+## O buraco: guardar o elemento para responder sim ou não
+
+A [tabela hash](/topico/hash-table) resolve o *lookup* em O(1) e é difícil de superar. Mas repare no que ela faz para conseguir isso: além do array de buckets, ela **guarda a chave**. Precisa guardar, porque o hash sozinho nunca prova nada — ele aponta um endereço, e quem confirma é a comparação de igualdade com a chave que está lá.
+
+Essa comparação é o que torna a resposta exata. E é exatamente ela que custa a memória.
+
+Faça a conta com um caso real: um rastreador de páginas que precisa saber se já visitou uma URL. São bilhões de URLs, cada uma com uns 32 bytes de texto.
+
+| Como guardar 1 bilhão de URLs de 32 bytes | Por elemento | Total |
+| --- | --- | --- |
+| `set` do CPython | ~107 bytes (859 bits) | ~107 GB |
+| hash set enxuto em C ou Go | ~40 bytes (320 bits) | ~40 GB |
+| bloom filter, p = 10% | 4,8 bits | 600 MB |
+| bloom filter, p = 1% | 9,6 bits | 1,2 GB |
+| bloom filter, p = 0,1% | 14,4 bits | 1,8 GB |
+| bloom filter, p = 0,01% | 19,2 bits | 2,4 GB |
+
+Os 107 bytes do CPython saem de uma conta que você pode refazer no seu terminal. `sys.getsizeof("a" * 32)` devolve **73 bytes** de objeto `str`. Cada slot da tabela do `set` guarda um hash e um ponteiro, 16 bytes, e a tabela dobra de tamanho antes de passar de 60% de ocupação — com um bilhão de chaves ela para em 2³¹ slots, o que dá **34,4 bytes por elemento, metade deles vazios**. 73 + 34,4 = 107,4. Mesmo a versão enxuta em C, com a chave inline e sem objeto em volta, não desce muito de 40 bytes.
+
+Agora olhe as quatro últimas linhas e repare em duas coisas que não são óbvias.
+
+A primeira: **nada na conta do bloom filter depende do tamanho do elemento**. URL de 32 bytes, documento de 4 KB, impressão digital de um arquivo de 2 GB — são os mesmos 9,6 bits por elemento. Você não guarda o dado, guarda o rastro dele.
+
+A segunda: cada casa decimal a mais de precisão custa **4,8 bits fixos** por elemento. Sair de 1% para 0,1% de erro não dobra nada; soma 4,8. O custo cresce com o *logaritmo* da precisão, e é por isso que dá para pedir uma resposta muito confiável por muito pouco.
+
+Trinta e três vezes menos memória que o hash set mais enxuto, com uma resposta que erra 1% das vezes. A pergunta que decide tudo é: **erra para que lado?**
+
+## A assimetria: o "não" é certeza, o "sim" é aposta
+
+Um bloom filter tem exatamente duas respostas possíveis:
+
+<Colunas>
+<Cartao titulo="Definitivamente não está">
+Resposta **exata**. Se o filtro diz que não, o elemento nunca foi inserido. Ponto final, sem consulta de confirmação, sem asterisco. Falso negativo é impossível.
+</Cartao>
+<Cartao titulo="Provavelmente está">
+Resposta **probabilística**. Quase sempre o elemento está mesmo, mas existe uma chance p de o filtro estar confundindo o rastro de outros elementos com o rastro deste. Falso positivo existe, e você escolhe a taxa dele na hora de dimensionar.
+</Cartao>
+</Colunas>
+
+Essa assimetria não é uma regra decorada, ela cai direto da mecânica: inserir só **liga** bits, e nunca desliga. Se um elemento foi inserido, os bits dele estão ligados agora e continuarão ligados para sempre, porque nenhuma operação apaga nada. Logo, um elemento que está lá jamais pode receber um "não". A recíproca não vale: os bits que outros elementos ligaram podem, por azar, cobrir exatamente o padrão de alguém que nunca entrou.
+
+<Callout tipo="aviso">
+Guarde a frase na forma útil: **o "não" é uma prova, o "sim" é uma pista**. Todo projeto que usa bloom filter é desenhado em cima disso — o "não" é a resposta barata e final, o "sim" é o pedido de uma verificação cara.
+</Callout>
+
+## A mecânica: m bits, k hashes, nenhum elemento guardado
+
+A estrutura tem duas peças, e as duas cabem numa linha:
+
+- um array de **m bits**, todos em zero no começo;
+- **k funções de hash**, cada uma mapeando um elemento para uma posição de 0 a m−1.
+
+E duas operações:
+
+- **Inserir**: calcule as k posições e **ligue** os k bits.
+- **Consultar**: calcule as k posições. Se **todos** os k bits estiverem ligados, responda "talvez". Se **qualquer um** estiver em zero, responda "não".
+
+Não existe operação de remover, não existe leitura do elemento, não existe iteração. É isto.
+
+Burton Howard Bloom publicou a estrutura em 1970, na *Communications of the ACM*, sob o título *Space/time trade-offs in hash coding with allowable errors*. O título é o resumo: ele já vendia a coisa como uma troca declarada, não como uma tabela hash melhorada.
+
+Veja com m = 16 e k = 3, inserindo dois animais:
+
+```
+m = 16 bits, k = 3 hashes
+
+índice    0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+vazio  [  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 ]
+
+add("gato")  ->  posições 2, 7, 13
+bits   [  0  0  1  0  0  0  0  1  0  0  0  0  0  1  0  0 ]
+                ^--------------^-----------------^
+
+add("rato")  ->  posições 3, 7, 11
+bits   [  0  0  1  1  0  0  0  1  0  0  0  1  0  1  0  0 ]
+                   ^-----------^-----------^
+                           já estava
+
+consultas:
+  "gato"?  ->  2, 7, 13   ->  1, 1, 1  ->  TALVEZ   (e está mesmo)
+  "pato"?  ->  5, 9, 13   ->  0, ...   ->  NÃO      (parou no primeiro zero)
+  "bode"?  ->  3, 11, 13  ->  1, 1, 1  ->  TALVEZ   <-- falso positivo
+```
+
+Acompanhe as três consultas, porque elas contam a história inteira.
+
+O `"gato"` acha os três bits ligados porque ele mesmo os ligou. O `"pato"` cai na posição 5, que está em zero, e a consulta **para ali**: um zero basta para provar a ausência, e nem vale a pena calcular o resto.
+
+E o `"bode"` é o falso positivo. Ele nunca foi inserido. Mas a posição 3 e a 11 foram ligadas pelo `"rato"`, a 13 foi ligada pelo `"gato"`, e o filtro não tem como saber disso — ele vê três uns e não guarda a informação de quem os ligou. **Falso positivo é sempre um empréstimo de bits alheios.**
+
+Repare também no que a consulta negativa custa. Como o teste é um "E" lógico, ele curto-circuita no primeiro zero. Num filtro dimensionado para 1%, cerca de metade dos bits está em zero, então uma consulta negativa gasta em média **duas** posições, não k. O caso caro é o positivo, que precisa conferir as k.
+
+## A implementação: um bitmap e dois hashes que viram k
+
+Duas decisões práticas separam o desenho do código que roda.
+
+A primeira é o bitmap. Em Python, `bytearray` é a escolha honesta: memória contígua, mutável, um byte por vez, e você acessa o bit `pos` com `pos // 8` para o byte e `pos % 8` para o deslocamento dentro dele. Um `int` gigante também funciona (Python tem inteiros de tamanho arbitrário), mas cada `|=` recria o número inteiro, o que é O(m) por inserção. Se as operações com bits ainda estiverem escorregadias, o caminho de volta é [Números Binários](/topico/binary-numbers).
+
+A segunda é mais interessante: **você não precisa de k funções de hash de verdade**. Escrever sete funções independentes e boas é chato e lento. O truque padrão, publicado por Kirsch e Mitzenmacher em 2006 sob o título *Less Hashing, Same Performance*, é calcular **dois** hashes e derivar os outros por combinação linear:
+
+```
+h_i(x) = ( h1(x) + i * h2(x) ) mod m,   para i = 0, 1, ..., k-1
+```
+
+O artigo deles mostra que a taxa de falso positivo assintótica continua a mesma da versão com k hashes independentes. A intuição: o que a análise precisa é que as k posições fiquem bem espalhadas por m, e `h1 + i*h2` com h1 e h2 independentes já entrega isso. Na prática, os dois hashes saem de uma chamada só — pegue um digest de 128 bits e corte no meio.
+
+```python
+import math
+from hashlib import blake2b
+
+
+class BloomFilter:
+    def __init__(self, n_esperado, p=0.01):
+        # m e k saem das fórmulas da próxima seção. É aqui que você paga
+        # o preço de estimar o n errado: os dois ficam dimensionados de uma vez.
+        self.m = math.ceil(-n_esperado * math.log(p) / (math.log(2) ** 2))
+        self.k = max(1, round((self.m / n_esperado) * math.log(2)))
+        self.bits = bytearray((self.m + 7) // 8)   # m bits, arredondado para cima
+        self.n = 0
+
+    def _posicoes(self, chave):
+        """Kirsch-Mitzenmacher: dois hashes viram k."""
+        digest = blake2b(chave.encode(), digest_size=16).digest()
+        h1 = int.from_bytes(digest[:8], "big")
+        h2 = int.from_bytes(digest[8:], "big") | 1   # ímpar: o passo nunca colapsa
+        for i in range(self.k):
+            yield (h1 + i * h2) % self.m
+
+    def adicionar(self, chave):
+        for pos in self._posicoes(chave):
+            self.bits[pos // 8] |= 1 << (pos % 8)    # liga o bit, e só liga
+        self.n += 1
+
+    def __contains__(self, chave):
+        # all() curto-circuita: um zero encerra a consulta na hora.
+        return all(self.bits[pos // 8] >> (pos % 8) & 1 for pos in self._posicoes(chave))
+
+    def taxa_estimada(self):
+        """A taxa de falso positivo com a ocupação de agora."""
+        return (1 - math.exp(-self.k * self.n / self.m)) ** self.k
+```
+
+O `| 1` no `h2` não é enfeite. Se o segundo hash cair num múltiplo de m — e o zero é o caso mais fácil de aparecer —, o `i * h2` some no `mod m`, as k posições viram a mesma posição, o filtro passa a se comportar como se k = 1 e a taxa de erro dispara sem nenhum sintoma visível. Forçar h2 ímpar custa uma instrução, elimina o zero de vez e, quando m é par, elimina todos os múltiplos junto.
+
+E repare no que a classe **não** tem: nenhum `remover`, nenhum `__iter__`, nenhuma referência à chave depois que `_posicoes` termina. A string `"gato"` some da memória assim que a função retorna. É literalmente impossível recuperar do filtro o que entrou nele.
+
+Rode e confira os números:
+
+```python
+bf = BloomFilter(n_esperado=100_000, p=0.01)
+print(bf.m, bf.k)                     # 958.506 bits (~117 KB) e k = 7
+
+for i in range(100_000):
+    bf.adicionar(f"chave-{i}")
+
+print("chave-42" in bf)               # True, sempre — falso negativo não existe
+print(f"{bf.taxa_estimada():.4f}")    # ~0,0100
+
+falsos = sum(1 for i in range(100_000, 200_000) if f"chave-{i}" in bf)
+print(falsos)                         # ~1.000 em 100.000 consultas de ausentes
+```
+
+117 KB para 100 mil chaves. O `set` equivalente ocupa **8,9 MB** — 4,0 MB de tabela mais 4,9 MB das strings em si: setenta e oito vezes mais memória para comprar 1% de certeza.
+
+## A matemática sem susto: três fórmulas e uma tabela
+
+São três fórmulas, e cada uma serve para uma decisão diferente. Com n elementos inseridos, m bits e k hashes:
+
+```
+taxa de falso positivo    p  ≈  ( 1 - e^(-k*n/m) ) ^ k
+
+quantos bits usar         m  =  -n * ln(p) / (ln 2)^2
+
+quantos hashes usar       k  =  (m / n) * ln 2
+```
+
+A primeira você usa para **auditar** um filtro que já existe: dado o que ele tem hoje, qual a chance de ele estar mentindo? A segunda e a terceira você usa uma vez só, no construtor, para **projetar**: escolha o n que espera e o p que aguenta, e as duas devolvem o resto.
+
+A primeira também dá para ler sem álgebra. `e^(-k*n/m)` é a chance de um bit específico ter escapado de todas as `k*n` ligações; então `1 - e^(-k*n/m)` é a chance de ele estar ligado, ou seja, a **fração ocupada** do array. Elevar a k é perguntar "qual a chance de as k posições de um estranho caírem todas em bits ocupados?". Falso positivo é exatamente isso, e nada mais.
+
+Convertendo as fórmulas em números para a mesa de trabalho:
+
+| Taxa de erro p | Bits por elemento (m/n) | k ótimo | 1 milhão de itens | 1 bilhão de itens |
+| --- | --- | --- | --- | --- |
+| 10% | 4,8 | 3 | 600 KB | 600 MB |
+| 1% | 9,6 | 7 | 1,2 MB | 1,2 GB |
+| 0,1% | 14,4 | 10 | 1,8 MB | 1,8 GB |
+| 0,01% | 19,2 | 13 | 2,4 MB | 2,4 GB |
+| 0,001% | 24,0 | 17 | 3,0 MB | 3,0 GB |
+
+Se você só decorar uma linha desta página, decore a segunda: **1% de erro custa 9,6 bits por elemento e 7 hashes**. É o padrão de fábrica de boa parte das bibliotecas — o RedisBloom nasce com p = 0,01, e os 10 bits por chave das LSM-trees são a mesma linha arredondada para cima. Ela serve de âncora para estimar as outras de cabeça.
+
+Compare com os 320 bits de um hash set enxuto: 33 vezes mais espaço para comprar o 1% de certeza que falta. Em muitos sistemas essa troca é obviamente boa; em outros, obviamente ruim. O ponto é que agora ela é uma **decisão numérica**, não uma questão de gosto.
+
+### k tem um ótimo, e passar dele piora
+
+A intuição de quem chega diz "mais hashes, mais preciso". Está errada, e o erro é fácil de ver: cada hash a mais liga **mais um bit por inserção**. Hash demais enche o array cedo demais, e num array cheio qualquer estranho encontra tudo ligado.
+
+Fixe m/n no valor de 1% — 9,585 bits, os 9,6 antes do arredondamento — e varie só o k:
+
+| k | Taxa de falso positivo |
+| --- | --- |
+| 1 | 9,9% |
+| 3 | 1,94% |
+| 5 | 1,11% |
+| 6 | 1,01% |
+| **7** | **1,00%** |
+| 8 | 1,05% |
+| 10 | 1,30% |
+| 16 | 3,54% |
+
+É uma curva em U com o fundo bem chato. Duas conclusões práticas saem daí. A primeira: passar do ótimo **piora de verdade** — com k = 16 você paga mais que o dobro de trabalho por consulta para receber um erro três vezes e meia maior. A segunda: perto do ótimo, tanto faz. Entre k = 6 e k = 8 a taxa vai de 1,01% a 1,05%: cinco centésimos de ponto percentual, ruído. Então arredonde `(m/n)·ln 2` para o inteiro mais próximo e siga a vida. Se a sua consulta for sensível a latência, arredondar **para baixo** costuma ser a escolha certa: menos hashes, quase o mesmo erro.
+
+## O que o bloom filter não faz
+
+Esta é a seção que evita a maior parte dos projetos ruins. Cada limitação vem com a saída ao lado — e "a saída" quase sempre significa trocar de estrutura, não remendar esta.
+
+**Não remove.** Zerar os bits de um elemento apaga bits que pertencem a outros. Volte ao desenho: o `"gato"` e o `"rato"` dividem a posição 7. Se você remover o `"rato"` zerando 3, 7 e 11, a consulta por `"gato"` passa a ver a posição 7 em zero e responde **NÃO** para um elemento que está lá. Você acabou de criar um falso negativo, que é justamente a resposta que a estrutura promete nunca dar. Um filtro assim está permanentemente corrompido, e nada no comportamento dele avisa. *A saída*: o **counting bloom filter**, que troca cada bit por um contador de 4 bits — inserir incrementa, remover decrementa. Custa 4 vezes mais memória e ainda pode estourar o contador; use quando a remoção for requisito real, não conveniência.
+
+**Não conta.** Ele responde "já vi?", nunca "quantas vezes vi?". *A saída*: o **Count-Min Sketch**, o vizinho direto deste tópico no curso.
+
+**Não devolve o elemento.** Não dá para listar o que está dentro, nem iterar, nem recuperar a chave a partir dos bits. Isso é limitação e é também propriedade: um bloom filter pode ser publicado sem expor o conjunto original. *A saída*: se você precisa dos elementos, precisa guardá-los — e aí é [tabela hash](/topico/hash-table) ou [trie](/topico/trie), não filtro.
+
+**Não redimensiona.** m e k entram no construtor e não saem mais. Dobrar o array depois não funciona, porque `mod m` com um m novo aponta para posições completamente diferentes: os bits antigos viram lixo aleatório. *A saída*: o **scalable bloom filter**, uma corrente de filtros — quando o atual satura, abre-se um novo, com p mais apertado, e a consulta é o "ou" lógico de todos.
+
+**A taxa estoura se você passar do n planejado.** Esta é a que mais dói, porque é silenciosa: o filtro continua respondendo, só que cada vez pior. Dimensionado para 9,6 bits e k = 7 sobre n elementos, veja o que acontece ao inserir mais:
+
+| Inseridos | Taxa de falso positivo real |
+| --- | --- |
+| n (o planejado) | 1% |
+| 2n | 16% |
+| 3n | 44% |
+| 4n | 68% |
+
+Com o quádruplo do previsto, dois em cada três "talvez" são mentira e o filtro parou de filtrar qualquer coisa. Monitore `taxa_estimada()` em produção como se fosse uso de disco, e trate o dia em que ela dobra como um alarme.
+
+## O porteiro: bloom filter na frente do que é caro
+
+Todo uso sério da estrutura é a mesma receita:
+
+1. A pergunta chega no filtro, que responde em algumas centenas de nanossegundos, sem tocar em disco nem em rede.
+2. **"Não está"** → responda na hora. Custo zero, e a resposta é exata.
+3. **"Talvez"** → pague a consulta cara no armazenamento de verdade e confirme lá.
+
+O filtro **nunca é a fonte da verdade**. Ele é o porteiro que dispensa a maioria das visitas sem incomodar ninguém lá dentro. O falso positivo, nesse desenho, não produz resposta errada nenhuma: produz apenas **uma consulta cara que era desnecessária**. É por isso que o padrão funciona tão bem — o erro custa desempenho, não correção.
+
+O exemplo que fecha a ideia são as **LSM-trees**, o motor de escrita do LevelDB, do RocksDB, do Cassandra e do HBase. Nessas bases, os dados vivem espalhados em dezenas de arquivos imutáveis (as SSTables) organizados em níveis. Procurar uma chave significa, no pior caso, abrir vários desses arquivos até achar — ou até provar que ela não existe em nenhum.
+
+Cada SSTable carrega, então, um bloom filter das chaves que ela contém, em geral com os canônicos 10 bits por chave. Antes de tocar no arquivo, a base pergunta ao filtro. A conta de padeiro, com um milhão de consultas em que 60% são para chaves inexistentes e 7 SSTables por consulta:
+
+- **sem filtro**: 600.000 × 7 = **4,2 milhões** de leituras de disco inúteis;
+- **com filtro a 1%**: 600.000 × 7 × 0,01 = **42 mil** leituras inúteis.
+
+Cem vezes menos I/O, comprado com alguns megabytes de RAM. E repare que o falso positivo aqui custa exatamente **uma leitura de disco à toa** — a base abre a SSTable, não encontra a chave, e segue. Nenhum dado errado sai pela porta.
+
+Outros lugares onde ele aparece com nome e sobrenome:
+
+- **Redis**, pelo módulo RedisBloom: `BF.RESERVE` dimensiona, `BF.ADD` insere e `BF.EXISTS` consulta. Por padrão os filtros dele são *scalable*, justamente porque ninguém acerta o n na primeira tentativa.
+- **Listas de URLs perigosas no navegador.** O catálogo de malware e phishing é grande demais para baixar inteiro, então o navegador guarda uma versão compacta que dá o "não" instantâneo para a esmagadora maioria dos sites e só consulta o serviço remoto no "talvez". O Chrome usou um bloom filter nesse posto por anos; hoje o Safe Browsing guarda prefixos de hash das URLs — outra estrutura, o mesmo desenho de porteiro.
+- **CDNs e o problema do *one-hit-wonder***: boa parte dos objetos de um cache é pedida uma única vez na vida, e escrevê-los em disco é desperdício puro. Um bloom filter registra "esta URL já foi pedida alguma vez", e o cache só grava o objeto na segunda visita. O falso positivo aqui é o mais barato de todos: um objeto guardado sem necessidade.
+- **Bancos de dados relacionais**, em *joins* — filtre a tabela grande com um bloom filter das chaves da tabela pequena antes de embaralhar dados pela rede. O PostgreSQL ainda traz a extensão `bloom`, um tipo de índice para tabelas com muitas colunas consultadas em combinações imprevisíveis.
+
+O padrão comum a todos: **existe um "não" que vale muito e é pedido o tempo todo**. Se, no seu caso, quase toda consulta é positiva, o porteiro não dispensa ninguém e você pagou memória por nada.
+
+## A família: aleatorizar a estrutura ou aleatorizar a resposta
+
+Este tópico abre o curso de [Estruturas Probabilísticas](/cursos/estruturas-probabilisticas/), e vale entender desde já que "probabilístico" quer dizer duas coisas bem diferentes.
+
+A [Skip List](/topico/skip-list) aleatoriza a **estrutura**. Ela joga uma moeda para decidir a altura de cada nó, e por isso o mesmo conjunto de dados produz desenhos diferentes na memória a cada execução. O que ela **não** aleatoriza é a resposta: buscar o 73 devolve o 73, sempre, exatamente como uma árvore balanceada devolveria. O sorteio compra simplicidade de código, e o risco que sobra é de **tempo** — num dia de azar extremo, a busca fica lenta, nunca errada.
+
+O bloom filter faz o oposto. A estrutura dele é rígida e determinística: mesmos m, k e mesma sequência de inserções produzem exatamente o mesmo array de bits, bit por bit. O que é aleatório é a **resposta** — ela pode estar errada, com uma probabilidade que você escolhe. O sorteio aqui compra **memória**.
+
+| Estrutura | O que ela responde | O que é sorteado | A natureza do erro |
+| --- | --- | --- | --- |
+| Skip List | conjunto ordenado, exato | a altura de cada nó | nenhum; o risco é no tempo |
+| Bloom Filter | "já vi este elemento?" | onde os bits caem | erra só para um lado |
+| Count-Min Sketch | "quantas vezes vi este elemento?" | onde os contadores caem | conta a mais, nunca a menos |
+| HyperLogLog | "quantos elementos distintos vi?" | os bits observados no hash | ~0,8% de erro, para os dois lados |
+| Reservoir Sampling | "me dê uma amostra uniforme" | quem fica na amostra | a amostra varia, não a resposta |
+
+Repare no fio que costura as três do meio — bloom filter, Count-Min Sketch e HyperLogLog: em nenhuma delas existe um `random()`. **A aleatoriedade vem do hash**, que espalha as chaves como se fossem sorteadas, mas de forma perfeitamente reproduzível — a mesma chave sempre cai nos mesmos bits, em qualquer máquina e em qualquer execução. É essa combinação de "parece sorteio" com "dá o mesmo resultado toda vez" que faz as três funcionarem, e é ela que permite construir um filtro num servidor e consultá-lo em outro. O Reservoir Sampling é a exceção da tabela: ali o sorteio é sorteio mesmo.
+
+E os números do resto da família são do mesmo naipe: um HyperLogLog conta bilhões de valores distintos em **12 KB**, com 0,81% de erro padrão. Não é 12 KB por milhão. É 12 KB, e pronto — é literalmente o tamanho que o Redis reserva para cada um. Se a ideia de trocar exatidão por ordens de grandeza de memória te pareceu boa, o resto do [curso](/cursos/estruturas-probabilisticas/) é sobre isso.
+
+## As armadilhas que pegam todo mundo
+
+**Usar onde o falso positivo custa caro.** O erro de projeto número um, e ele não aparece em teste — aparece em produção, uma vez a cada cem. Se você usa um filtro para deduplicar pagamentos, um falso positivo descarta um pagamento legítimo, para sempre, sem log e sem sintoma. A regra é dura e simples: o falso positivo só pode custar **trabalho extra**, nunca uma decisão errada. Se não existe um passo de confirmação depois do "talvez", você está usando a estrutura errada.
+
+**Tentar remover zerando bits.** Já foi dito na seção das limitações, mas repita para si mesmo com o desenho na frente: o `"gato"` e o `"rato"` dividem a posição 7, e apagar um mutila o outro. Falso negativo é o único defeito que quebra o contrato inteiro da estrutura, e é o mais silencioso deles.
+
+**Dimensionar para o n errado.** Estimou 1 milhão, entraram 4 milhões, a taxa foi de 1% para 68% e ninguém percebeu porque o filtro continua respondendo educadamente. Se você não consegue prever o n, não force: use um scalable bloom filter desde o começo, ou reconstrua o filtro periodicamente a partir da fonte da verdade.
+
+**Pagar por hash criptográfico sem precisar.** SHA-256 é feito para resistir a um adversário que quer forjar colisões. Um bloom filter não precisa de nada disso, precisa de **espalhamento uniforme e velocidade**. Trocar SHA-256 por MurmurHash3 ou xxHash costuma deixar o cálculo das posições várias vezes mais rápido, e a taxa de erro não muda um dígito. O `blake2b` do código lá de cima está ali por vir na biblioteca padrão e ser rápido o bastante para o exemplo, não porque a criptografia sirva para alguma coisa aqui. A exceção é o caso em que o conteúdo do filtro é público e alguém tem interesse em fabricar falsos positivos de propósito — aí é o mesmo raciocínio do *hash flooding* em [tabela hash](/topico/hash-table), e vale um hash com semente secreta.
+
+**Usar o `hash()` do Python como função de hash.** Ele é randomizado por processo, por segurança. Um filtro serializado em disco simplesmente para de funcionar depois de um reinício, porque as posições mudam todas — e o sintoma é falso negativo em massa, a pior falha possível. Use `hashlib`, ou uma biblioteca de hash não criptográfico com semente explícita.
+
+**Achar que consultar de novo ajuda.** Não ajuda. Dado um estado do filtro, um elemento **é** um falso positivo ou não é, deterministicamente. O p de 1% é a fração dos elementos ausentes que dá falso positivo, não a chance de a resposta variar entre duas chamadas. Repetir a consulta um milhão de vezes devolve "talvez" um milhão de vezes.
+
+**Combinar filtros sem olhar as regras.** O "ou" bit a bit de dois filtros com o **mesmo m, o mesmo k e as mesmas funções de hash** é exatamente o filtro da união dos dois conjuntos — propriedade excelente, e é ela que permite montar filtros em paralelo e juntar no fim. Já o "e" bit a bit **não** é o filtro da interseção: ele mantém bits que os dois conjuntos ligaram por elementos diferentes, e a taxa de erro dele é pior do que a de um filtro construído sobre a interseção de verdade. Com m, k ou hashes diferentes, nenhuma das duas operações faz sentido.
+
+## Como praticar
+
+Vale uma franqueza antes dos exercícios: **bloom filter é estrutura de projeto de sistemas, não de entrevista de algoritmo**. Ele quase nunca é a resposta esperada num problema de LeetCode, porque esses problemas exigem saída exata, e uma estrutura que erra 1% das vezes reprova no primeiro caso de teste. Onde ele aparece de verdade é numa pergunta de arquitetura: "como você evita ler o disco à toa?", "como você deduplica um bilhão de eventos com a RAM que tem?".
+
+Então os problemas abaixo não são "problemas de bloom filter". Eles são o **contraste** e o **vizinho**, e é assim que valem a pena:
+
+- **Design HashSet** e **Contains Duplicate** são a versão exata da mesma pergunta — "já vi este elemento?" — resolvida guardando tudo. Escreva os dois normalmente e depois faça a conta: quantos bytes por elemento a sua solução usa, e quantos um filtro usaria para o mesmo n? É a comparação que fixa o artigo inteiro. Repare, de passagem, que substituir o `set` por um bloom filter no *Contains Duplicate* daria respostas **erradas**: um falso positivo vira um "sim, tem duplicado" que não existe. Esse é o teste de fogo do "onde não usar".
+- **Equal Row and Column Pairs** é o exercício de reduzir um objeto grande (uma linha inteira da matriz) a uma chave hashável e comparar chaves em vez de dados. É a mesma mudança de mentalidade que faz o bloom filter aceitar elementos de qualquer tamanho pelo mesmo custo.
+- **Longest Duplicate Substring** é o mais próximo do espírito da coisa, e a semelhança é linda: a solução canônica é [busca binária](/topico/busca-binaria) no comprimento mais um hash rolante (Rabin-Karp), e hash rolante **produz falsos positivos**. A forma correta de lidar com eles é exatamente o padrão do porteiro — o hash diz "talvez estas duas substrings sejam iguais", e você confirma comparando os caracteres de verdade. Se você entendeu por que essa confirmação é obrigatória ali, entendeu bloom filter.
+
+E o exercício que realmente ensina esta estrutura não é de LeetCode, é de bancada. Pegue a classe da seção da implementação e **meça**:
+
+1. Construa com `n_esperado = 100_000` e `p = 0.01`, insira as 100 mil chaves e conte os falsos positivos em 100 mil consultas de chaves ausentes. Bateu perto de 1.000? A fórmula está viva.
+2. Agora enfie **mais 300 mil** chaves no mesmo filtro, chegando a 400 mil num filtro dimensionado para 100 mil, e meça de novo. Você deve encontrar algo perto de 68 mil falsos positivos em 100 mil consultas. Ver a tabela do estouro acontecer no seu terminal vale mais do que lê-la.
+3. Force o `self.k` na mão, de 1 a 16, reconstruindo o filtro a cada valor e mantendo sempre o mesmo m. O U da seção da matemática vai aparecer no seu terminal, e com ele a certeza de que hash a mais não é hash melhor.
+4. Por último, quebre de propósito: implemente um `remover` que zera os k bits, remova uma chave e depois procure as outras 99.999. Meia dúzia vai ter sumido — e é exatamente essa ordem de grandeza que torna o defeito perigoso. Raro demais para cair num teste, permanente demais para voltar. É a demonstração mais rápida de por que o counting bloom filter existe.
+
+Para fechar o quadro, as duas estruturas que ficam nas pontas: a [Tabela Hash](/topico/hash-table), que é o bloom filter com a chave guardada e a resposta exata, e a [Skip List](/topico/skip-list), a outra probabilística publicada aqui, que sorteia a forma e não a resposta. E se o que te chamou atenção foi a ideia de trocar exatidão por escala, o índice de [Cursos e outras estruturas](/cursos/) tem a vizinhança inteira — de [Union-Find](/topico/union-find) a [grafos avançados](/cursos/grafos-avancados/).

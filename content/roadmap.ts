@@ -369,34 +369,16 @@ export const GROUPS: Group[] = [
           { title: "LinkedList: a lista do Java é sempre duplamente encadeada", source: "Oracle Java Docs", url: "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/LinkedList.html" },
         ],
       },
-      {
-        slug: "skip-list",
-        name: "Skip List",
-        group: "Listas Encadeadas",
-        level: "Difícil",
-        status: "ready",
-        viz: "skip-list",
-        youtube: yt("R9sVLuJ7FSg"),
-        videoMinutes: "1:58:55",
-        article: "https://craftcodeclub.io/posts/dsa-skip-list",
-        readingTime: "19 min",
-        language: "Python",
-        description: "Lista encadeada em níveis: busca probabilística eficiente.",
-        problems: [
-          { id: "lc-703", name: "Kth Largest Element in a Stream", number: "703", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/kth-largest-element-in-a-stream/" },
-          { id: "lc-707", name: "Design Linked List", number: "707", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/design-linked-list/" },
-          { id: "lc-981", name: "Time Based Key-Value Store", number: "981", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/time-based-key-value-store/" },
-          { id: "lc-1206", name: "Design Skiplist", number: "1206", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/design-skiplist/" },
-          { id: "lc-295", name: "Find Median from Data Stream", number: "295", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/find-median-from-data-stream/" },
-          { id: "gfg-skip-list", name: "Skip List: guia completo com busca, inserção e remoção", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/skip-list/" },
-        ],
-        references: [
-          { title: "Skip Lists: A Probabilistic Alternative to Balanced Trees (o artigo original)", source: "William Pugh, CACM 1990", url: "https://15721.courses.cs.cmu.edu/spring2018/papers/08-oltpindexes1/pugh-skiplists-cacm1990.pdf" },
-          { title: "Skip List: o artigo do encontro", source: "Craft & Code Club", url: "https://craftcodeclub.io/posts/dsa-skip-list" },
-          { title: "Sorted sets: tabela hash mais skip list na prática", source: "Redis Docs", url: "https://redis.io/docs/latest/develop/data-types/sorted-sets/" },
-          { title: "ConcurrentSkipListMap: uma skip list na biblioteca padrão", source: "Oracle Java Docs", url: "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentSkipListMap.html" },
-        ],
-      },
+      // A Skip List MUDOU DE CASA e agora é uma página avulsa, em
+      // `content/courses.ts`. A URL não mudou (`/topico/skip-list/`): o que
+      // mudou é a vizinhança.
+      //
+      // Ela estava aqui porque é FEITA de listas encadeadas — uma verdade sobre
+      // a implementação dela, não sobre o assunto. O efeito era o aluno da
+      // terceira semana, que acabou de ver ponteiro rápido e lento, encontrar
+      // uma estrutura probabilística "Difícil" como o próximo item de um grupo
+      // de fundamentos. A trilha promete uma ordem, e esse item quebrava a
+      // ordem que ele mesmo estava dentro.
     ],
   },
   {
@@ -633,7 +615,10 @@ export const GROUPS: Group[] = [
           { title: "Red-Black Tree: o balanceamento que o TreeMap usa", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-red-black-tree/" },
         ],
       },
-      { slug: "trie", name: "Trie (Árvore de Prefixos)", group: "Árvores", level: "Médio", status: "soon", description: "Árvore de prefixos para busca de strings, autocomplete e dicionários." },
+      // A Trie MUDOU DE CASA e agora é uma página avulsa, em
+      // `content/courses.ts`. A URL não mudou (`/topico/trie/`): o que mudou é
+      // a vizinhança. Manter o registro nos dois lugares derruba o build, que
+      // recusa slug repetido — a segunda página sumiria em silêncio.
     ],
   },
   {
@@ -833,7 +818,19 @@ export const GROUPS: Group[] = [
           { title: "Disjoint Set Union (union-find) com compressão de caminho", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-disjoint-set-data-structure-or-union-find-algorithm/" },
         ],
       },
-      { slug: "grafos-avancados", name: "Grafos Avançados", group: "Grafos", level: "Difícil", status: "soon", description: "Componentes fortemente conexos, pontes, pontos de articulação e union-find." },
+      // "Grafos Avançados" VIROU UM CURSO, em `/cursos/grafos-avancados/`.
+      //
+      // Ele era um tópico só, e a descrição dele denunciava o problema:
+      // "componentes fortemente conexos, pontes, pontos de articulação e
+      // union-find" são quatro assuntos, cada um do tamanho do Dijkstra, num
+      // slot que promete uma página. Ninguém ia escrever essa página — e se
+      // escrevesse, seria quatro artigos empilhados sem ordem entre eles.
+      // Como curso, cada um vira um tópico com o seu lugar na fila, e o
+      // union-find, que nem é de grafo, saiu para a página avulsa dele.
+      //
+      // A URL `/topico/grafos-avancados/` deixa de existir. Ela era um tópico
+      // "em breve": sem vídeo, sem artigo e sem visualização, o site já a
+      // marcava `noindex` e o sitemap já não a convidava.
     ],
   },
   {
@@ -1201,6 +1198,20 @@ export const GROUPS: Group[] = [
 
 // ------------------------------ helpers ------------------------------
 
+/**
+ * Os tópicos da TRILHA, na ordem dela.
+ *
+ * Não é "todo tópico do site". Desde que existem cursos e páginas avulsas
+ * (`content/courses.ts`), o site publica tópicos que não estão aqui — eles têm
+ * página em `/topico/<slug>/` como qualquer outro, mas não entram na barra
+ * lateral, não contam no progresso da trilha e não mexem nos números da home.
+ * Quem precisa de TODOS os tópicos, como o `generateStaticParams` e o sitemap,
+ * usa o `SITE_TOPICS` de lá.
+ *
+ * O nome ficou como estava porque trocá-lo em 12 arquivos num PR que não é sobre
+ * renomear é como um `ALL_TOPICS` errado se espalha: no meio da lista de
+ * conflitos, ninguém revisa a decisão de cada um dos 12.
+ */
 export const ALL_TOPICS: Topic[] = GROUPS.flatMap((g) => g.topics);
 
 export const TOTAL_TOPICS = ALL_TOPICS.length;

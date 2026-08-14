@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { COURSES, courseHasMaterial, getPlacement, SITE_TOPICS } from "../content/courses";
 import { LINKS, SITE_URL } from "../src/lib/links";
 import {
   atualizacaoDoTopico,
@@ -44,16 +45,26 @@ const OUT = path.join(process.cwd(), "out");
 // do build DIVERGEM em silêncio — o teste que compara as duas passa a comparar
 // a rota nova consigo mesma ausente dos dois lados.
 const ROTAS_FIXAS = Object.keys(CONTEUDO_DA_ROTA);
-const ROTAS_TOPICO = ALL_TOPICS.map((t) => `/topico/${t.slug}/`);
-const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO];
+// `SITE_TOPICS`, e não `ALL_TOPICS`: a rota `/topico/<slug>/` serve os tópicos
+// da trilha, os dos cursos e as páginas avulsas, e todos precisam declarar
+// canonical, card social e dado estruturado. Com a lista da trilha aqui, os
+// tópicos de fora dela entrariam no site sem entrar em nenhuma das coberturas
+// deste arquivo — que é literalmente o defeito descrito no cabeçalho, repetido
+// um nível acima.
+const ROTAS_TOPICO = SITE_TOPICS.map((t) => `/topico/${t.slug}/`);
+const ROTAS_CURSO = COURSES.map((c) => `/cursos/${c.slug}/`);
+const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO, ...ROTAS_CURSO];
 
-// Rotas que o site quer no índice do Google: as fixas mais os tópicos que têm
-// material. É a MESMA função `isEmptyTopic` que a página usa para decidir o
-// `noindex` — dois predicados para a mesma decisão é como o buraco do sitemap
-// nasceu, e recriar a condição aqui recriaria o buraco dentro do teste.
+// Rotas que o site quer no índice do Google: as fixas, mais os tópicos que têm
+// material, mais os cursos que têm ao menos um tópico com material. São as
+// MESMAS funções que as páginas usam para decidir o `noindex` (`isEmptyTopic` e
+// `courseHasMaterial`) — dois predicados para a mesma decisão é como o buraco
+// do sitemap nasceu, e recriar a condição aqui recriaria o buraco dentro do
+// teste.
 const ROTAS_INDEXAVEIS = [
   ...ROTAS_FIXAS,
-  ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `/topico/${t.slug}/`),
+  ...SITE_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `/topico/${t.slug}/`),
+  ...COURSES.filter(courseHasMaterial).map((c) => `/cursos/${c.slug}/`),
 ];
 
 function arquivoDaRota(rota: string): string {
@@ -169,7 +180,7 @@ test("nenhuma página de tópico usa o card de compartilhamento de outra rota", 
   // do card compartilhado.
   const cards = new Map<string, string[]>();
   const daRaiz: string[] = [];
-  for (const t of ALL_TOPICS) {
+  for (const t of SITE_TOPICS) {
     const rota = `/topico/${t.slug}/`;
     const img = metaProp(html(rota), "og:image");
     if (img === null) continue;
@@ -195,7 +206,7 @@ test("o card de um tópico, quando existe, é gerado no segmento dele", () => {
   // tópico entrou inerte.
   const errados: string[] = [];
   let comCard = 0;
-  for (const t of ALL_TOPICS) {
+  for (const t of SITE_TOPICS) {
     const rota = `/topico/${t.slug}/`;
     const img = metaProp(html(rota), "og:image");
     if (img === null) continue;
@@ -204,10 +215,10 @@ test("o card de um tópico, quando existe, é gerado no segmento dele", () => {
   }
   expect(errados, "card apontando para um segmento que não é o do tópico").toEqual([]);
   expect(
-    [comCard, ALL_TOPICS.length],
+    [comCard, SITE_TOPICS.length],
     "quantos tópicos declaram card: 0 = o PR do card por tópico ainda não entrou; " +
-      `${ALL_TOPICS.length} = entrou e está valendo. Qualquer valor no meio é defeito.`
-  ).toEqual(comCard === 0 ? [0, ALL_TOPICS.length] : [ALL_TOPICS.length, ALL_TOPICS.length]);
+      `${SITE_TOPICS.length} = entrou e está valendo. Qualquer valor no meio é defeito.`
+  ).toEqual(comCard === 0 ? [0, SITE_TOPICS.length] : [SITE_TOPICS.length, SITE_TOPICS.length]);
 });
 
 // ---------------------------------------------------------------------------
@@ -508,7 +519,7 @@ test("toda rota traz Organization e WebSite com os perfis da comunidade", () => 
 
 test("cada página de tópico descreve o tópico, com os dados que estão na tela", () => {
   const sem: string[] = [];
-  for (const t of ALL_TOPICS) {
+  for (const t of SITE_TOPICS) {
     const rota = `/topico/${t.slug}/`;
     const recurso = doTipo(jsonLd(rota), "LearningResource");
     // Os dois lados da condicional, não só o que interessa: página sem material
@@ -540,17 +551,38 @@ test("cada página de tópico descreve o tópico, com os dados que estão na tel
     else expect(recurso.programmingLanguage, rota).toBeUndefined();
     expect((recurso.about as No | undefined)?.name, rota).toBe(t.group);
   }
-  const indexaveis = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
+  const indexaveis = SITE_TOPICS.filter((t) => !isEmptyTopic(t)).length;
   expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem LearningResource`).toEqual([]);
 });
 
+// O rastro esperado de um tópico, derivado de ONDE ele mora — a mesma pergunta
+// que a página faz (`getPlacement`) para desenhar os links. São três formas hoje
+// e o teste conhece as três; escrever a da trilha e deixar as outras de fora
+// seria dizer que um tópico de curso não precisa de rastro.
+function rastroEsperado(t: { slug: string; name: string; group: string }) {
+  const onde = getPlacement(t.slug);
+  const eu = { name: t.name, href: `/topico/${t.slug}/` };
+  if (onde?.trilha === "curso") {
+    return [
+      { name: "Início", href: "/" },
+      { name: "Cursos", href: "/cursos/" },
+      { name: onde.course.name, href: `/cursos/${onde.course.slug}/` },
+      eu,
+    ];
+  }
+  if (onde?.trilha === "avulso") {
+    return [{ name: "Início", href: "/" }, { name: "Cursos", href: "/cursos/" }, eu];
+  }
+  return [{ name: "Início", href: "/" }, { name: t.group, href: "/roadmap/" }, eu];
+}
+
 test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () => {
   const sem: string[] = [];
-  for (const t of ALL_TOPICS) {
+  for (const t of SITE_TOPICS) {
     const rota = `/topico/${t.slug}/`;
     const trilha = doTipo(jsonLd(rota), "BreadcrumbList");
-    // A trilha DESENHADA continua nas 47 páginas; só a marcação some junto com o
-    // resto do JSON-LD nas que pedem para não ser indexadas.
+    // A trilha DESENHADA continua em todas as páginas; só a marcação some junto
+    // com o resto do JSON-LD nas que pedem para não ser indexadas.
     if (isEmptyTopic(t)) {
       expect(trilha, `${rota} é noindex e não pode declarar BreadcrumbList`).toBeUndefined();
       continue;
@@ -559,17 +591,47 @@ test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () =
       sem.push(rota);
       continue;
     }
+    const esperado = rastroEsperado(t);
     const itens = trilha.itemListElement as No[];
-    expect(itens.map((i) => i.name), rota).toEqual(["Início", t.group, t.name]);
-    expect(itens.map((i) => i.position), rota).toEqual([1, 2, 3]);
-    expect(itens.map((i) => i.item), rota).toEqual([
-      urlAbsoluta("/"),
-      urlAbsoluta("/roadmap/"),
-      urlAbsoluta(rota),
+    expect(itens.map((i) => i.name), rota).toEqual(esperado.map((m) => m.name));
+    expect(itens.map((i) => i.position), rota).toEqual(esperado.map((_, i) => i + 1));
+    expect(itens.map((i) => i.item), rota).toEqual(esperado.map((m) => urlAbsoluta(m.href)));
+  }
+  const indexaveis = SITE_TOPICS.filter((t) => !isEmptyTopic(t)).length;
+  expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem BreadcrumbList`).toEqual([]);
+});
+
+test("a abertura de cada curso indexável declara a trilha e a lista dele", () => {
+  for (const c of COURSES.filter(courseHasMaterial)) {
+    const rota = `/cursos/${c.slug}/`;
+    const nos = jsonLd(rota);
+
+    const lista = doTipo(nos, "ItemList");
+    expect(lista, `${rota} sem ItemList`).toBeTruthy();
+    const topicos = c.groups.flatMap((g) => g.topics);
+    expect(lista!.numberOfItems, rota).toBe(topicos.length);
+    expect((lista!.itemListElement as No[]).map((i) => i.name), rota).toEqual(
+      topicos.map((t) => t.name)
+    );
+    expect((lista!.itemListElement as No[]).map((i) => i.url), rota).toEqual(
+      topicos.map((t) => urlAbsoluta(`/topico/${t.slug}/`))
+    );
+
+    const trilha = doTipo(nos, "BreadcrumbList");
+    expect(trilha, `${rota} sem BreadcrumbList`).toBeTruthy();
+    expect((trilha!.itemListElement as No[]).map((i) => i.name), rota).toEqual([
+      "Início",
+      "Cursos",
+      c.name,
     ]);
   }
-  const indexaveis = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
-  expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem BreadcrumbList`).toEqual([]);
+  // A outra metade: curso sem material nenhum é `noindex`, e página noindex não
+  // declara ser recurso de coisa alguma.
+  for (const c of COURSES.filter((c) => !courseHasMaterial(c))) {
+    const nos = jsonLd(`/cursos/${c.slug}/`);
+    expect(doTipo(nos, "ItemList"), `/cursos/${c.slug}/ é noindex e não pode declarar ItemList`)
+      .toBeUndefined();
+  }
 });
 
 test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
@@ -614,8 +676,21 @@ test("a trilha do tópico é navegável e diz onde o aluno está", async ({ page
 
 test("a trilha marcada é a trilha desenhada", async ({ page }) => {
   // Regra do Google que decide o desenho: a marcação reflete o que está na tela.
-  const comMarcacao = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
-  for (const t of [comMarcacao[0], comMarcacao[comMarcacao.length - 1]]) {
+  //
+  // A amostra tem uma de cada FORMA de rastro, e não duas quaisquer: a da
+  // trilha tem três degraus, a de curso tem quatro e a avulsa tem três com
+  // outros nomes. Só o primeiro e o último de `ALL_TOPICS` (como era) exercita
+  // uma forma só, e as outras duas — que são as novas — passariam sem ninguém
+  // olhar.
+  const daTrilha = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
+  const amostra = [
+    daTrilha[0],
+    daTrilha[daTrilha.length - 1],
+    ...SITE_TOPICS.filter((t) => !isEmptyTopic(t) && getPlacement(t.slug)?.trilha === "curso").slice(0, 1),
+    ...SITE_TOPICS.filter((t) => !isEmptyTopic(t) && getPlacement(t.slug)?.trilha === "avulso").slice(0, 1),
+  ];
+  expect(amostra, "a amostra perdeu uma das três formas de rastro").toHaveLength(4);
+  for (const t of amostra) {
     const rota = `/topico/${t.slug}/`;
     await page.goto(rota);
     const naTela = await page

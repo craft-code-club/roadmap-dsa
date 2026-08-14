@@ -1,28 +1,36 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTopic, getNeighbors, isEmptyTopic, ALL_TOPICS } from "@content/roadmap";
+import { getNeighbors, isEmptyTopic } from "@content/roadmap";
+import { getCourseNeighbors, getPlacement, getSiteTopic, SITE_TOPICS } from "@content/courses";
 import { getArticle } from "@content/topics";
 import { datasDoTopico } from "@/lib/datas-do-git";
 import { dataLonga, diaIso } from "@/lib/format";
-import { breadcrumbJsonLd, JsonLd, topicJsonLd } from "@/lib/jsonld";
+import { breadcrumbJsonLd, JsonLd, topicJsonLd, type Migalha } from "@/lib/jsonld";
 import { LINKS, ytWatch } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
 import { slugify } from "@/lib/slug";
+import { ContinueExplorando } from "@/components/ContinueExplorando";
 import { TopicComplete } from "@/components/TopicComplete";
 import { ProblemList } from "@/components/ProblemList";
 import { VideoFacade } from "@/components/VideoFacade";
 
 export const dynamicParams = false;
 
+// `SITE_TOPICS`, e não `ALL_TOPICS`: esta rota serve TODO tópico do site, venha
+// ele da trilha, de um curso ou de uma página avulsa. Com `ALL_TOPICS` aqui, os
+// tópicos dos cursos existiriam nos dados, apareceriam na barra lateral do curso
+// e devolveriam 404 no clique — sem erro de build, porque `dynamicParams = false`
+// simplesmente não gera o que não foi pedido.
 export function generateStaticParams() {
-  return ALL_TOPICS.map((t) => ({ slug: t.slug }));
+  return SITE_TOPICS.map((t) => ({ slug: t.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const t = getTopic(slug);
+  const t = getSiteTopic(slug);
   if (!t) return { title: "Tópico" };
   // Passa pelo `pageMetadata` para declarar a própria URL: as 47 páginas de
   // tópico montavam o metadata à mão e eram 47 das 48 rotas sem canonical nem
@@ -56,12 +64,47 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function TopicoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const t = getTopic(slug);
+  const t = getSiteTopic(slug);
   if (!t) notFound();
 
   const article = getArticle(slug);
   const Body = article?.Body;
-  const { previous, next } = getNeighbors(slug);
+
+  // Onde este tópico mora decide TRÊS coisas nesta página — o rastro de
+  // navegação, quem são anterior e próximo, e o que fecha o artigo. O `Shell`
+  // faz a mesma pergunta para escolher a barra lateral, e as duas respostas vêm
+  // da mesma função: barra lateral de um curso com rastro de outro é o defeito
+  // que isto impede.
+  const onde = getPlacement(slug) ?? ({ trilha: "roadmap" } as const);
+  const emCurso = onde.trilha === "curso" ? onde.course : null;
+  const avulso = onde.trilha === "avulso";
+
+  const { previous, next } = emCurso ? getCourseNeighbors(emCurso, slug) : avulso ? {} : getNeighbors(slug);
+
+  // O rastro é montado UMA vez e usado duas: nos links que o leitor vê e no
+  // `BreadcrumbList` que o Google lê. A regra que decide o desenho do JSON-LD
+  // deste projeto é "a marcação reflete o que está na tela", e a única forma de
+  // isso continuar verdade sem depender de alguém lembrar é os dois lerem o
+  // mesmo array.
+  const migalhas: Migalha[] = emCurso
+    ? [
+        { name: "Início", href: "/" },
+        { name: "Cursos", href: "/cursos/" },
+        { name: emCurso.name, href: `/cursos/${emCurso.slug}/` },
+        { name: t.name, href: `/topico/${t.slug}/` },
+      ]
+    : avulso
+      ? [
+          { name: "Início", href: "/" },
+          { name: "Cursos", href: "/cursos/" },
+          { name: t.name, href: `/topico/${t.slug}/` },
+        ]
+      : [
+          { name: "Início", href: "/" },
+          { name: t.group, href: "/roadmap/" },
+          { name: t.name, href: `/topico/${t.slug}/` },
+        ];
+  const caminho = migalhas.slice(0, -1);
   // Datas do Git, ou nada. Ver `src/lib/datas-do-git.ts`: em clone raso o
   // `git log` responde o mesmo para todo caminho, e aí o selo não é desenhado e
   // os campos de data do JSON-LD não saem — exatamente como o `lastmod`.
@@ -89,35 +132,53 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
   ];
 
   return (
-    <div className="topic-layout">
+    // A página avulsa não tem barra lateral (ver `Shell.tsx`), e sem o
+    // modificador ela herdaria a medida de linha de um layout que contava com
+    // 290px de menu à esquerda: em 1440px o parágrafo passaria de 110 caracteres,
+    // que é onde o olho começa a perder a linha de volta. A classe recentra a
+    // coluna e devolve a medida de leitura.
+    <div className={`topic-layout${avulso ? " solto" : ""}`}>
       {/* O MESMO `isEmptyTopic` do `noindex` acima e do filtro do sitemap. Sem
           este terceiro uso, a página de um tópico sem material declarava ser um
           recurso de aprendizado e, duas tags adiante, pedia para não ser
           indexada. O `noindex` vence no Google, então não é defeito de ranking —
           é a mesma contradição que este PR foi escrito para fechar, e o
           consumidor que lê JSON-LD sem olhar `robots` acredita na declaração. */}
-      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t, datas), breadcrumbJsonLd(t)]} />}
+      {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t, datas), breadcrumbJsonLd(migalhas)]} />}
       <article>
         {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
             leva ao roadmap e o tópico corrente se identifica com `aria-current`.
             O `color: "inherit"` é o que mantém a trilha com a MESMA aparência de
-            antes — `globals.css:37` pinta toda âncora com a cor de destaque, e
-            este PR não pode tocar naquele arquivo. Dar às âncoras uma afirmação
-            visual de link (sublinhado no hover, por exemplo) é uma regra
-            `.breadcrumb a` de quem for dono do CSS.
+            antes — `globals.css:37` pinta toda âncora com a cor de destaque.
+            Dar às âncoras uma afirmação visual de link (sublinhado no hover,
+            por exemplo) é uma regra `.breadcrumb a` de quem for dono do CSS.
             O grupo aponta para `/roadmap/` porque a âncora `#<id>` do grupo não
             existe: `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
-            não vira atributo. Quando o `id` existir, muda só o destino. */}
+            não vira atributo. Quando o `id` existir, muda só o destino.
+            Os degraus vêm do array `migalhas`, o mesmo que vira `BreadcrumbList`
+            — desenho e marcação não têm como divergir. */}
         <nav className="breadcrumb" aria-label="Trilha de navegação">
-          <Link href="/" style={{ color: "inherit" }}>Início</Link>
-          <span aria-hidden="true">/</span>
-          <Link href="/roadmap/" style={{ color: "inherit" }}>{t.group}</Link>
-          <span aria-hidden="true">/</span>
+          {/* `Fragment`, e não um `<span>` embrulhando o par: o teste "a trilha
+              marcada é a trilha desenhada" lê os FILHOS DIRETOS do `.breadcrumb`
+              e compara com os nomes do JSON-LD. Um elemento a mais no meio
+              agrupa "Início" com a barra e o array deixa de bater. */}
+          {caminho.map((m) => (
+            <Fragment key={m.href}>
+              <Link href={m.href} style={{ color: "inherit" }}>{m.name}</Link>
+              <span aria-hidden="true">/</span>
+            </Fragment>
+          ))}
           <span className="cur" aria-current="page">{t.name}</span>
         </nav>
         <h1 className="topic-h1">{t.name}</h1>
 
         <div className="topic-chips">
+          {/* O assunto da página avulsa, e só nela. Num tópico da trilha e num
+              de curso o rastro logo acima já nomeia a família (o grupo, o
+              curso); numa avulsa ele diz só "Cursos", e sem esta pastilha o
+              `about` do JSON-LD carregaria um nome que não está em lugar nenhum
+              da tela — que é justamente o que este projeto não faz. */}
+          {avulso && <span className="chip">{t.group}</span>}
           {t.readingTime && <span className="chip">⏱ {t.readingTime} de leitura</span>}
           <span className={`level ${levelClass(t.level)}`} style={{ borderStyle: "solid" }}>{t.level}</span>
           {t.language && <span className="chip">{t.language}</span>}
@@ -256,24 +317,45 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           <TopicComplete slug={t.slug} grande />
         </div>
 
-        <div className="prevnext">
-          {previous ? (
-            <Link href={`/topico/${previous.slug}`}>
-              <span className="lbl">‹ Anterior</span>
-              <span className="nm">{previous.name}</span>
-            </Link>
-          ) : (
-            <span style={{ flex: 1 }} />
-          )}
-          {next ? (
-            <Link href={`/topico/${next.slug}`} className="next">
-              <span className="lbl">Próximo ›</span>
-              <span className="nm">{next.name}</span>
-            </Link>
-          ) : (
-            <span style={{ flex: 1 }} />
-          )}
-        </div>
+        {/* O fim da página é diferente em cada trilha, e a diferença não é
+            estética: é o que existe para oferecer.
+
+            TRILHA e CURSO são filas, e a fila tem anterior e próximo. No curso,
+            quando não há anterior, o degrau de trás é a abertura dele — que é
+            onde estão a descrição, os pré-requisitos e a ordem sugerida, e é
+            justamente o que o leitor pulou se entrou pelo card de um tópico.
+
+            AVULSA não é fila. Ela não tem "próximo": inventar um levaria o
+            leitor de Skip List para Union-Find como se uma continuasse a outra.
+            O que ela tem são vizinhos, e é a banda "Continue explorando" que os
+            mostra. */}
+        {avulso ? (
+          <ContinueExplorando excluir={t.slug} />
+        ) : (
+          <div className="prevnext">
+            {previous ? (
+              <Link href={`/topico/${previous.slug}`}>
+                <span className="lbl">‹ Anterior</span>
+                <span className="nm">{previous.name}</span>
+              </Link>
+            ) : emCurso ? (
+              <Link href={`/cursos/${emCurso.slug}`}>
+                <span className="lbl">‹ Abertura do curso</span>
+                <span className="nm">{emCurso.name}</span>
+              </Link>
+            ) : (
+              <span style={{ flex: 1 }} />
+            )}
+            {next ? (
+              <Link href={`/topico/${next.slug}`} className="next">
+                <span className="lbl">Próximo ›</span>
+                <span className="nm">{next.name}</span>
+              </Link>
+            ) : (
+              <span style={{ flex: 1 }} />
+            )}
+          </div>
+        )}
       </article>
 
       {/* `aria-labelledby`, e não `aria-label`, no índice abaixo: o rótulo visível

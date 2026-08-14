@@ -9,6 +9,8 @@ import {
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
 } from "@content/roadmap";
+import { EXTRA_CARDS } from "@content/courses";
+import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
@@ -106,6 +108,24 @@ export default function Home() {
             </Link>
           ))}
         </div>
+      </section>
+
+      {/* A porta para fora da trilha, na home.
+          Ela existe porque a vitrine mora em dois lugares que quem chega hoje
+          não abre: o FIM do /roadmap/ (depois de 16 grupos de rolagem) e a
+          /cursos/, que só se descobre pelo link do topo. Três cards aqui — os
+          que já têm material, que é a ordem do `EXTRA_CARDS` — contam que o
+          site é maior que a fila, sem competir com o "Comece por aqui" logo
+          acima, que continua sendo o convite principal. */}
+      <section className="section-pad-x">
+        <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 6 }}>
+          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Além da trilha</h2>
+          <Link href="/cursos" className="link-btn">Ver tudo →</Link>
+        </div>
+        <p className="sub" style={{ margin: "0 0 18px", fontSize: 15, color: "var(--ccc-muted)" }}>
+          Estruturas que são um assunto à parte, e cursos sobre famílias inteiras.
+        </p>
+        <ExtrasGrid cards={EXTRA_CARDS.slice(0, 3)} />
       </section>
 
       <section className="grid-2 section-pad-x">

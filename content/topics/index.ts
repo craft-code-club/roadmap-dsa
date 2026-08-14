@@ -3,6 +3,9 @@ import RecursaoFuncional from "./recursao-funcional.mdx";
 import Filas from "./filas.mdx";
 import Pilhas from "./pilhas.mdx";
 import SkipList from "./skip-list.mdx";
+import Trie from "./trie.mdx";
+import BloomFilter from "./bloom-filter.mdx";
+import UnionFind from "./union-find.mdx";
 import ListasLigadas from "./listas-ligadas.mdx";
 import Intervals from "./intervals.mdx";
 import PrefixSum from "./prefix-sum.mdx";
@@ -102,6 +105,52 @@ export const ARTICLES: Record<string, Article> = {
       "A pilha que você já usava sem saber: a call stack",
       "Inverter, desfazer e avaliar: três padrões diretos",
       "Pilha monotônica: o próximo maior elemento em O(n)",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  "union-find": {
+    Body: UnionFind,
+    summary: [
+      "O buraco: perguntar e juntar, um milhão de vezes",
+      "A floresta que mora dentro de um array",
+      "O find ingênuo e a corrente que estraga tudo",
+      "As duas otimizações, uma de cada vez",
+      'O α(n): o que "praticamente constante" quer dizer',
+      "A implementação completa",
+      "Onde o Union-Find aparece de verdade",
+      "A limitação que define a estrutura: ela não desune",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  "bloom-filter": {
+    Body: BloomFilter,
+    summary: [
+      "O buraco: guardar o elemento para responder sim ou não",
+      'A assimetria: o "não" é certeza, o "sim" é aposta',
+      "A mecânica: m bits, k hashes, nenhum elemento guardado",
+      "A implementação: um bitmap e dois hashes que viram k",
+      "A matemática sem susto: três fórmulas e uma tabela",
+      "O que o bloom filter não faz",
+      "O porteiro: bloom filter na frente do que é caro",
+      "A família: aleatorizar a estrutura ou aleatorizar a resposta",
+      "As armadilhas que pegam todo mundo",
+      "Como praticar",
+    ],
+  },
+  trie: {
+    Body: Trie,
+    summary: [
+      "O buraco: a hash não sabe soletrar",
+      "Cada nó é um prefixo, cada aresta é uma letra",
+      'O flag de fim de palavra separa "existe" de "começa com"',
+      "A implementação: dict de filhos, e a variante de 26 posições",
+      "Remover: a operação que ninguém escreve",
+      "Autocomplete: descer até o prefixo e colher o resto",
+      "O preço real é memória",
+      "Trie binária: quando as letras são bits",
+      "Onde ela aparece de verdade",
       "As armadilhas que pegam todo mundo",
       "Como praticar",
     ],

@@ -132,24 +132,36 @@ export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: D
   };
 }
 
+/** Um degrau da trilha de navegação: o que a página desenha e o que ela marca. */
+export type Migalha = { name: string; href: string };
+
 /**
  * A trilha do tópico, item a item igual à que a página desenha.
  *
- * O nível do meio aponta para `/roadmap/` e não para o grupo: a âncora do grupo
+ * Ela recebe a trilha PRONTA, e não o tópico, desde que existem cursos: um
+ * tópico da trilha principal tem três degraus (Início / grupo / tópico) e um
+ * tópico de curso tem quatro (Início / Cursos / curso / tópico). Montar a
+ * marcação aqui a partir do `Topic` significaria esta função reimplementar a
+ * decisão de onde o tópico mora — a mesma decisão que a página acabou de tomar
+ * para desenhar os links —, e as duas versões divergiriam no dia em que um
+ * formato novo aparecesse. A página monta uma vez e usa nos dois lugares, que é
+ * o que o teste "a trilha marcada é a trilha desenhada" cobra.
+ *
+ * O nível do grupo aponta para `/roadmap/` e não para o grupo: a âncora do grupo
  * não existe hoje. `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
  * não vira atributo — não há `#<id>` no HTML para linkar. Quando a `<section>`
- * ganhar o `id`, este destino vira `/roadmap/#<id>` e a marcação continua com os
- * mesmos três níveis.
+ * ganhar o `id`, este destino vira `/roadmap/#<id>` e a marcação continua igual.
  */
-export function breadcrumbJsonLd(t: Topic) {
+export function breadcrumbJsonLd(migalhas: Migalha[]) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Início", item: abs("/") },
-      { "@type": "ListItem", position: 2, name: t.group, item: abs("/roadmap/") },
-      { "@type": "ListItem", position: 3, name: t.name, item: abs(`/topico/${t.slug}/`) },
-    ],
+    itemListElement: migalhas.map((m, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: m.name,
+      item: abs(m.href),
+    })),
   };
 }
 
@@ -163,6 +175,50 @@ export function roadmapJsonLd() {
     numberOfItems: ALL_TOPICS.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
     itemListElement: ALL_TOPICS.map((t, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: t.name,
+      url: abs(`/topico/${t.slug}/`),
+    })),
+  };
+}
+
+/**
+ * A vitrine de `/cursos/`, na ordem em que a página desenha os cards.
+ *
+ * `ItemList`, e não `Course` para cada item, pela mesma razão que a página de
+ * tópico é `LearningResource` e não `Course`: o tipo `Course` do schema.org só
+ * rende resultado rico com `hasCourseInstance`/`offers` — turma, instrutor,
+ * matrícula, preço —, e nada disso existe aqui. Declarar o tipo sem os campos é
+ * marcação que o Google descarta; declarar os campos é inventar dado.
+ */
+export function extrasJsonLd(cards: { name: string; href: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${SITE_URL}/cursos/#vitrine`,
+    name: "Cursos e outras estruturas",
+    numberOfItems: cards.length,
+    itemListOrder: "https://schema.org/ItemListOrderAscending",
+    itemListElement: cards.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      url: abs(c.href),
+    })),
+  };
+}
+
+/** Os tópicos de um curso, na ordem em que a abertura dele os apresenta. */
+export function courseJsonLd(curso: { slug: string; name: string; topics: Topic[] }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${SITE_URL}/cursos/${curso.slug}/#trilha`,
+    name: curso.name,
+    numberOfItems: curso.topics.length,
+    itemListOrder: "https://schema.org/ItemListOrderAscending",
+    itemListElement: curso.topics.map((t, i) => ({
       "@type": "ListItem",
       position: i + 1,
       name: t.name,

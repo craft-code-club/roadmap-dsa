@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
+import { isEmptyTopic } from "@content/roadmap";
+import { COURSES, EXTRA_TOPICS, SITE_TOPICS } from "@content/courses";
 
 // As rotas fixas e os arquivos que respondem pelo conteúdo de cada uma.
 //
@@ -20,17 +21,20 @@ import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 // O tipo do `Record` é o que cobra a segunda metade: acrescentar uma rota em
 // `ROTAS_FIXAS` sem declarar de que arquivos ela tira data é erro de
 // compilação, não uma URL sem `lastmod` descoberta meses depois.
-export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/apoie/", "/sobre/"] as const;
+export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/cursos/", "/apoie/", "/sobre/"] as const;
 
 export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly string[]> = {
-  "/": ["src/app/page.tsx", "content/roadmap.ts"],
+  "/": ["src/app/page.tsx", "content/roadmap.ts", "content/courses.ts"],
   "/introducao/": ["src/app/introducao/page.tsx"],
   "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
+  // A vitrine lê o `courses.ts` (é de lá que saem os cards) e o `roadmap.ts`
+  // (o texto de abertura cita o tamanho da trilha).
+  "/cursos/": ["src/app/cursos/page.tsx", "content/courses.ts", "content/roadmap.ts"],
   "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
   // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
   // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
   // página sem ninguém tocar no `page.tsx` dela.
-  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts"],
+  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts", "content/courses.ts"],
 };
 
 // A data de uma página, derivada do `git log`. Um lugar só, porque são dois
@@ -163,9 +167,29 @@ export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefine
 }
 
 const ARQUIVO_DO_ROADMAP = "content/roadmap.ts";
+const ARQUIVO_DOS_CURSOS = "content/courses.ts";
+
+/**
+ * Os arquivos de dados que descrevem tópicos, na ordem em que são varridos.
+ *
+ * Eram um só até os cursos existirem, e a diferença é visível: o selo
+ * "Atualizado em" de um tópico de curso saía da data do `roadmap.ts`, um arquivo
+ * que aquele tópico não tem uma linha dentro. Página datada por arquivo que não
+ * é dela é exatamente o defeito que o mecanismo de intervalo veio consertar,
+ * reaberto pela porta ao lado.
+ */
+const ARQUIVOS_DE_TOPICO = [ARQUIVO_DO_ROADMAP, ARQUIVO_DOS_CURSOS] as const;
+
+/** Em que arquivo de dados o tópico é descrito. É o plano B da data dele. */
+function arquivoDoTopico(slug: string): string {
+  return EXTRA_TOPICS.some((t) => t.slug === slug) ? ARQUIVO_DOS_CURSOS : ARQUIVO_DO_ROADMAP;
+}
+
+/** Onde um tópico é descrito: arquivo e intervalo de linhas (1-based). */
+type Trecho = { arquivo: string; ini: number; fim: number };
 
 /** Os intervalos, lidos e validados uma vez por build. */
-let intervalos: Map<string, readonly [number, number]> | undefined;
+let intervalos: Map<string, Trecho> | undefined;
 
 /**
  * O intervalo de linhas que descreve cada tópico dentro do `roadmap.ts`.
@@ -188,14 +212,19 @@ let intervalos: Map<string, readonly [number, number]> | undefined;
  *
  * Medido na `main` de hoje: 47 de 47 tópicos validam.
  */
-function intervalosDosTopicos(): Map<string, readonly [number, number]> {
+function intervalosDosTopicos(): Map<string, Trecho> {
   if (intervalos) return intervalos;
   intervalos = new Map();
+  for (const arquivo of ARQUIVOS_DE_TOPICO) varrerArquivoDeTopicos(arquivo, intervalos);
+  return intervalos;
+}
+
+function varrerArquivoDeTopicos(arquivo: string, intervalos: Map<string, Trecho>): void {
   let linhas: string[];
   try {
-    linhas = readFileSync(ARQUIVO_DO_ROADMAP, "utf8").split("\n");
+    linhas = readFileSync(arquivo, "utf8").split("\n");
   } catch {
-    return intervalos; // sem o arquivo, todo tópico cai no plano B
+    return; // sem o arquivo, todo tópico dele cai no plano B
   }
 
   // Onde cada `slug:` começa, em linha e coluna. A coluna importa: no objeto de
@@ -239,9 +268,8 @@ function intervalosDosTopicos(): Map<string, readonly [number, number]> {
     // A validação: um slug dentro, e um só.
     let quantosSlugs = 0;
     for (const [, [j]] of posicaoDoSlug) if (j >= inicio && j <= fim) quantosSlugs++;
-    if (quantosSlugs === 1) intervalos.set(slug, [inicio + 1, fim + 1]);
+    if (quantosSlugs === 1) intervalos.set(slug, { arquivo, ini: inicio + 1, fim: fim + 1 });
   }
-  return intervalos;
 }
 
 const cacheDoIntervalo = new Map<string, number | undefined>();
@@ -265,15 +293,15 @@ const cacheDoIntervalo = new Map<string, number | undefined>();
  * de `git log` que o build já pagava. É custo de build, uma vez, num site
  * estático — e vem com cache, então as 47 páginas dividem as 47 consultas.
  */
-function commitDoIntervalo(ini: number, fim: number): number | undefined {
-  const chave = `${ini},${fim}`;
+function commitDoIntervalo({ arquivo, ini, fim }: Trecho): number | undefined {
+  const chave = `${arquivo}:${ini},${fim}`;
   const emCache = cacheDoIntervalo.get(chave);
   if (emCache !== undefined || cacheDoIntervalo.has(chave)) return emCache;
   let valor: number | undefined;
   try {
     const saida = execFileSync(
       "git",
-      ["log", "-L", `${ini},${fim}:${ARQUIVO_DO_ROADMAP}`, "--no-patch", "--format=%cI"],
+      ["log", "-L", `${ini},${fim}:${arquivo}`, "--no-patch", "--format=%cI"],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
     );
     const iso = saida.split("\n", 1)[0].trim();
@@ -312,12 +340,31 @@ function commitDoIntervalo(ini: number, fim: number): number | undefined {
  */
 export function atualizacaoDoTopico(slug: string): Date | undefined {
   const doArtigo = ultimaAlteracao(`content/topics/${slug}.mdx`);
-  const intervalo = intervalosDosTopicos().get(slug);
-  const doIntervalo = intervalo ? commitDoIntervalo(intervalo[0], intervalo[1]) : undefined;
+  const trecho = intervalosDosTopicos().get(slug);
+  const doIntervalo = trecho ? commitDoIntervalo(trecho) : undefined;
   if (doIntervalo === undefined) {
-    return doArtigo ?? ultimaAlteracao(ARQUIVO_DO_ROADMAP);
+    return doArtigo ?? ultimaAlteracao(arquivoDoTopico(slug));
   }
   return new Date(Math.max(doIntervalo, doArtigo?.getTime() ?? 0));
+}
+
+/**
+ * Quando a abertura de um curso mudou pela última vez.
+ *
+ * Ela é feita do `courses.ts` (nome, descrição, pré-requisitos, a lista de
+ * tópicos que ela desenha) e dos ARTIGOS dos tópicos dele — publicar um tópico
+ * muda a abertura, que passa a mostrar um card a mais como publicado. A data é
+ * a mais recente entre as duas coisas, pelo mesmo raciocínio do tópico: o
+ * carimbo é uma afirmação sobre a página inteira.
+ */
+export function atualizacaoDoCurso(slug: string): Date | undefined {
+  const curso = COURSES.find((c) => c.slug === slug);
+  if (!curso) return undefined;
+  const artigos = curso.groups
+    .flatMap((g) => g.topics)
+    .filter((t) => !isEmptyTopic(t))
+    .map((t) => `content/topics/${t.slug}.mdx`);
+  return ultimaAlteracao(ARQUIVO_DOS_CURSOS, ...artigos);
 }
 
 /**
@@ -362,7 +409,7 @@ export function datasDistinguemCaminhos(carimbos: readonly (number | undefined)[
 export function caminhosDatados(): string[] {
   return [
     ...Object.values(CONTEUDO_DA_ROTA).flat(),
-    ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `content/topics/${t.slug}.mdx`),
+    ...SITE_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `content/topics/${t.slug}.mdx`),
   ];
 }
 
