@@ -19,6 +19,41 @@ test("nav do topo abre os Fundamentos e um tópico", async ({ page }) => {
   await expect(page).toHaveURL(/roadmaps\/fundamentos\/two-pointers/);
 });
 
+// O botão que leva ao percurso principal NOMEIA o destino.
+//
+// Ele já disse "Ver os Fundamentos" (home e introdução) e "Ver o roadmap"
+// (404): três rótulos que descreviam o gesto e não o lugar, e o do 404 ainda
+// prometia um roadmap definido num site que hoje tem vários. Quem chega pela
+// home não sabe o que são "os Fundamentos" antes de clicar.
+//
+// O guarda é de mão dupla, porque o conserto tem uma armadilha vizinha: a
+// palavra "Fundamentos" também é o ITEM DA BARRA DO TOPO, e renomeá-lo junto
+// levaria a navegação embora. Por isso o teste cobra o rótulo novo nos três
+// botões E cobra que o item da barra continue exatamente "Fundamentos".
+const BOTOES_DO_ROADMAP_PRINCIPAL = ["/", "/introducao/", "/404.html"];
+
+test("o botão para o percurso principal se chama pelo nome, e a barra do topo não", async ({
+  page,
+}) => {
+  for (const rota of BOTOES_DO_ROADMAP_PRINCIPAL) {
+    await page.goto(rota);
+    const botao = page.locator("a.btn", { hasText: "Roadmap Fundamentos" });
+    await expect(botao, `${rota}: o botão do percurso principal sumiu ou mudou de nome`).toHaveCount(1);
+    await expect(botao).toHaveAttribute("href", /\/roadmaps\/fundamentos\/?$/);
+    await expect(
+      page.locator("a.btn", { hasText: /^Ver os Fundamentos$|^Ver o roadmap$/ }),
+      `${rota}: voltou um rótulo que descreve o gesto em vez do destino`
+    ).toHaveCount(0);
+  }
+
+  // A barra do topo é outra coisa: item de navegação, não chamada para ação.
+  await page.goto("/");
+  const naBarra = page.locator(".nav-left a", { hasText: /^Fundamentos$/ });
+  await expect(naBarra, "o item da barra do topo deixou de se chamar 'Fundamentos'").toHaveCount(1);
+  await naBarra.click();
+  await expect(page).toHaveURL(/\/roadmaps\/fundamentos/);
+});
+
 test("página de tópico traz vídeo e problemas com links externos certos", async ({ page }) => {
   await page.goto("/topicos/sliding-window/");
   // A seção do vídeo chega como FACHADA: o `<iframe>` só nasce no clique

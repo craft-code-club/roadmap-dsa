@@ -76,7 +76,12 @@ export default function Home() {
           <Link href="/roadmaps/fundamentos/big-o" className="btn btn-primary">
             Começar por Big O
           </Link>
-          <Link href="/roadmaps/fundamentos" className="btn">Ver os Fundamentos</Link>
+          {/* O rótulo NOMEIA o destino em vez de descrever o gesto: quem chega
+              na home não sabe o que são "os Fundamentos", e "Ver os
+              Fundamentos" não dizia que do outro lado do clique tem um
+              roadmap. O par de botões fica com as duas portas explicadas: um
+              tópico para começar, e o percurso inteiro. */}
+          <Link href="/roadmaps/fundamentos" className="btn">Roadmap Fundamentos</Link>
         </div>
       </section>
 
