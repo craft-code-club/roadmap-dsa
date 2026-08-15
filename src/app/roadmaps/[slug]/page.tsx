@@ -111,7 +111,11 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
       </nav>
 
       <span className="roadmap-eyebrow">{principal ? "Do zero à entrevista" : "Roadmap"}</span>
-      <h1>{r.name}</h1>
+      {/* O título por extenso só no principal. Em todo o resto do site o nome
+          curto é o certo (barra do topo, rastro, cards), mas o `h1` de uma
+          página é o que o Google mostra e o que um leitor de tela anuncia
+          primeiro: "Fundamentos", sozinho, não diz fundamentos DE QUÊ. */}
+      <h1>{principal ? "Fundamentos de Algoritmos e Estruturas de Dados" : r.name}</h1>
 
       <div className="topic-chips" style={{ marginTop: 14 }}>
         <span className={`level ${levelClass(r.level)}`} style={{ borderStyle: "solid" }}>{r.level}</span>

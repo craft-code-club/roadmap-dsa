@@ -53,8 +53,13 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
   return (
     <>
       <div className="side-head">
-        <Link className="side-voltar" href="/roadmaps/fundamentos">
-          <span aria-hidden="true">‹</span> Fundamentos
+        {/* Sobe um nível, e o nível de cima é a VITRINE — não os Fundamentos.
+            Enquanto eles eram "o roadmap" e os demais eram os extras, voltar
+            para eles fazia sentido; hoje são um percurso ao lado dos outros, e
+            mandar quem lê Bancos de Dados "voltar" para lá é oferecer um desvio
+            no lugar de uma saída. */}
+        <Link className="side-voltar" href="/roadmaps">
+          <span aria-hidden="true">‹</span> Roadmaps
         </Link>
         <div className="side-head-row">
           <span className="side-label">Roadmap</span>

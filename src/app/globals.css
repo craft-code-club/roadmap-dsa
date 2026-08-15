@@ -210,6 +210,39 @@ html { scroll-behavior: smooth; }
 .side-extras-nome { display: block; font-size: 12.5px; font-weight: 600; color: #dbe6f4; }
 .side-extras-sub { display: block; margin-top: 2px; font-size: 11px; color: var(--ccc-muted); }
 
+/* ------------------------------------------------------------------
+   A barra de `/topicos/<slug>/`: os roadmaps que citam o tópico.
+
+   Cada item é um CARD, e não uma linha de lista, porque ele carrega três
+   coisas com pesos diferentes (o nome do roadmap, o quanto o leitor já andou
+   nele, e o convite para continuar a leitura lá dentro). Em linha corrida as
+   três brigavam pela mesma altura, e o "0/44 · 0%" colava no nome.
+   ------------------------------------------------------------------ */
+/* O rastro passou a existir na abertura de roadmap, e a chamadinha logo abaixo
+   colava nele. */
+.roadmap-wrap .breadcrumb + .roadmap-eyebrow { display: block; margin-top: 14px; }
+
+.side-topico-nome { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #e7edf6; }
+
+.side-roadmap-item {
+  margin: 0 4px 8px; padding: 11px 12px 10px;
+  border: 1px solid var(--ccc-line); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.side-roadmap-item:first-child { margin-top: 12px; }
+.side-roadmap-item:hover { border-color: rgba(59, 130, 246, 0.35); }
+.side-roadmap-link { display: flex; align-items: flex-start; gap: 9px; color: inherit; text-decoration: none; }
+.side-roadmap-glifo { flex: none; margin-top: 1px; font-size: 13px; color: var(--ccc-accent-2); }
+.side-roadmap-texto { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.side-roadmap-titulo { font-size: 12.5px; font-weight: 600; line-height: 1.35; color: #dbe6f4; }
+.side-roadmap-link:hover .side-roadmap-titulo { color: #fff; }
+.side-roadmap-item .progress-track { margin-top: 9px; }
+.side-roadmap-abrir {
+  display: inline-block; margin-top: 9px; font-size: 11.5px; font-weight: 500;
+  color: var(--ccc-accent-2); text-decoration: none;
+}
+.side-roadmap-abrir:hover { text-decoration: underline; text-underline-offset: 2px; }
+
 .side-group { margin-bottom: 2px; }
 .side-group-btn {
   display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px;
