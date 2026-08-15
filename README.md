@@ -27,9 +27,11 @@ npm test         # testes de navegação (Playwright)
 
 ```
 content/                    conteúdo (irmão de src/): dados, artigos e visualizadores
-  roadmap.ts                ÍNDICE do ROADMAP: fonte única do menu e da trilha principal
-  tracks.ts                 o que existe FORA do roadmap: trilhas e tópicos avulsos
-  topics/*.mdx              corpo dos artigos "ready" (do roadmap e de fora dele)
+  fundamentos.ts            a sequência principal: fonte única do menu e do /fundamentos/
+  roadmaps/index.ts         o modelo, o registro e os derivados das três casas
+  roadmaps/<slug>.ts        um arquivo por roadmap
+  avulsos.ts                os tópicos que se bastam numa página só
+  topics/*.mdx              corpo dos artigos "ready" (de qualquer casa)
   topics/index.ts           registro slug -> MDX
   visualizers/              visualizadores (ilhas client usadas nos artigos)
     SlidingWindowVisualizer.tsx
@@ -37,9 +39,11 @@ content/                    conteúdo (irmão de src/): dados, artigos e visuali
 src/                        código de estrutura (não é conteúdo)
   app/                      rotas (App Router)
     page.tsx                home
-    roadmap/                o roadmap inteiro
-    trilha/                 vitrine dos extras
-      [slug]/               abertura de uma trilha (sub-roadmap)
+    fundamentos/            a sequência principal
+    roadmaps/               vitrine dos roadmaps e avulsos
+      [slug]/               abertura de um roadmap
+        [topico]/           um tópico servido dentro dele
+    topicos/                o índice completo
     topico/[slug]/          página de tópico (artigo + vídeo + problemas + referências)
     apoie/                  página de apoio
       apoiadores.ts         apoiadores (da APOIA.se, no build) e parceiros
@@ -47,10 +51,12 @@ src/                        código de estrutura (não é conteúdo)
     sitemap.ts, robots.ts   SEO
   components/
     Shell.tsx               moldura: header + gaveta + rodapé; escolhe a barra lateral
-    RoadmapSidebar.tsx      barra lateral do roadmap (busca, progresso, 16 grupos)
-    TrackSidebar.tsx        barra lateral de uma trilha
-    GrupoCards.tsx          grade de grupos e tópicos (roadmap e abertura de trilha)
-    ExtrasGrid.tsx          os cards de "Trilhas e outros tópicos"
+    FundamentosSidebar.tsx  barra lateral dos Fundamentos (busca, progresso, 16 grupos)
+    RoadmapSidebar.tsx      barra lateral de um roadmap
+    TopicoPagina.tsx        o artigo de um tópico, usado pelas DUAS rotas que o servem
+    GrupoCards.tsx          grade de grupos e tópicos (Fundamentos e abertura de roadmap)
+    TodosOsTopicos.tsx      o índice completo, com busca e filtros
+    ExtrasGrid.tsx          os cards de "Roadmaps e outros tópicos"
     ProgressProvider.tsx    progresso no localStorage (tópicos + problemas)
     ProblemList.tsx         lista de problemas com checkbox
   lib/
@@ -93,36 +99,67 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
 
 3. **Ligue o artigo:** registre em `content/topics/index.ts` e mude `status` para `"ready"`.
 
-## Roadmap, trilha ou tópico avulso: onde o tópico mora
+## Fundamentos, roadmap ou tópico avulso: onde o tópico mora
 
-Nem tudo que vale a pena aprender cabe na fila do roadmap. Existem **três casas**, e todas
-publicam o tópico em `/topico/<slug>/` — a URL de um tópico não depende de onde ele mora.
+Nem tudo que vale a pena aprender cabe na fila dos Fundamentos. Existem **três casas**, e todas
+publicam a página canônica do tópico em `/topico/<slug>/` — a URL de um tópico não depende de
+onde ele mora.
 
 | Casa | Onde se registra | O que o aluno vê |
 | --- | --- | --- |
-| **Roadmap** | `content/roadmap.ts`, dentro de um grupo | a barra lateral com os tópicos do roadmap, e anterior/próximo dentro dele |
-| **Tópico avulso** | `content/tracks.ts`, em `STANDALONES` | **nenhuma** barra lateral: a página é o assunto inteiro, e fecha com a banda "Continue explorando" |
-| **Trilha** (sub-roadmap) | `content/tracks.ts`, em `TRACKS` | a barra lateral **daquela trilha**, com progresso próprio e a volta para o roadmap. A abertura fica em `/trilha/<slug>/` |
+| **Fundamentos** | `content/fundamentos.ts`, dentro de um grupo | a barra lateral dos Fundamentos, e anterior/próximo dentro deles |
+| **Tópico avulso** | `content/avulsos.ts` | **nenhuma** barra lateral: a página é o assunto inteiro |
+| **Roadmap** | `content/roadmaps/<slug>.ts` | a barra lateral **daquele roadmap**, com progresso próprio e a volta para os Fundamentos. A abertura fica em `/roadmaps/<slug>/` |
 
-O vocabulário é fixo, e vale a pena guardar: **roadmap** é a sequência principal, **trilha** é
-uma das extras, **tópico** é uma página. Nos identificadores, `Track` e `Standalone`.
+O vocabulário é fixo: **Fundamentos** é a sequência principal, **roadmap** é um percurso extra,
+**tópico** é uma página. Nos identificadores, `Roadmap` e `Standalone`.
 
-Como escolher, em uma pergunta: **cabe numa página?** Se cabe e é um assunto à parte (Skip List,
-Union-Find, Trie), é tópico avulso. Se é uma família que precisa de várias páginas em ordem
-(árvores balanceadas, consultas em intervalos), é trilha. Se é um degrau que os degraus
-seguintes pressupõem, é roadmap.
+### Um tópico em mais de um roadmap
 
-Três coisas que o código já cobra por você, no `npm run build`:
+O grupo de um roadmap aceita **duas coisas** na lista `topics`:
 
-- **slug único no site inteiro.** Roadmap, trilha e avulso dividem o namespace de `/topico/`, e
-  slug repetido faria a segunda página sumir em silêncio. O guarda em `content/tracks.ts`
-  derruba o build dizendo quais são os dois donos.
-- **id de grupo único**, pelo mesmo motivo (é chave de React e âncora de `/roadmap/#<id>`).
-- **pré-requisito que existe**: os slugs em `requires` têm que ser tópicos de verdade.
+```ts
+topics: [
+  "hash-table",        // CITAÇÃO: o tópico mora em outra casa, este roadmap só o lista
+  { slug: "lsm-tree", name: "LSM-Tree", /* … */ },   // PRÓPRIO: este roadmap é o dono
+]
+```
 
-E duas que dependem de você: uma trilha só entra no índice do Google quando tem ao menos um
-tópico com material (`trackHasMaterial`), e a ordem dos cards da vitrine é derivada — o que tem
-material vem primeiro, sozinho, sem lista à mão.
+O **dono** é quem decide a casca da página canônica e quem reivindica o slug no namespace. Quem
+**cita** não muda nada da casa alheia: ganha o tópico na própria lista, na própria ordem, e uma
+URL própria (`/roadmaps/<roadmap>/<topico>/`) que aponta `canonical` de volta para
+`/topico/<slug>/` e fica fora do sitemap.
+
+Na tela: o card do tópico citado leva a etiqueta da casa dele, a abertura do roadmap avisa quantos
+vieram de fora, e a página canônica ganha a banda **"Este tópico faz parte de"** no fim.
+`content/roadmaps/bancos-de-dados.ts` é o exemplo: 4 dos 6 tópicos são citados, de 3 casas
+diferentes.
+
+### Rotas
+
+```
+/fundamentos/                a sequência principal
+/roadmaps/                   a vitrine dos roadmaps e dos avulsos
+/roadmaps/<r>/               a abertura de um roadmap
+/roadmaps/<r>/<topico>/      um tópico servido DENTRO dele (canonical → /topico/)
+/topico/<slug>/              a página canônica de um tópico
+/topicos/                    o índice completo, com busca e filtros
+```
+
+### O que o código já cobra por você
+
+No `npm run build`, direto do import de `content/roadmaps/index.ts`:
+
+- **slug único no site inteiro** entre as três casas (citação não conta, porque citar é
+  justamente não reivindicar);
+- **id de grupo único** (é chave de React e âncora de `/fundamentos/#<id>`);
+- **citação que resolve**: citar um slug inexistente sumiria da lista em silêncio;
+- **sem tópico repetido** no mesmo roadmap, que daria duas caixas de progresso para o mesmo slug;
+- **pré-requisito que existe**.
+
+E no `npm test`: `todo arquivo de content/roadmaps/ está registrado no índice`. O índice é uma
+lista à mão (o módulo é importado por componente de cliente, e código de cliente não tem `fs`),
+então é o teste que impede um arquivo criado e não registrado de virar um roadmap invisível.
 
 ## Como adicionar um visualizador
 

@@ -49,26 +49,33 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
 
 ## Modelo de conteúdo
 
-- **`content/roadmap.ts` é a fonte única da TRILHA** (dirige menu, roadmap, tags, SEO).
-  `content/` fica na raiz, irmão de `src/`: `src/` é o código de estrutura, `content/` são os
-  dados, artigos e visualizadores. Agrupamento estilo LeetCode (16 grupos): cada estrutura junto
-  das técnicas que operam sobre ela; paradigmas (Recursão, Backtracking, Programação Dinâmica,
-  Greedy Algorithms) como grupos próprios.
-- **`content/tracks.ts` é a fonte única do que fica FORA do roadmap.** Duas formas: `TRACKS`
-  (as **trilhas**, sub-roadmaps com abertura em `/trilha/<slug>/` e barra lateral própria) e
-  `STANDALONES` (os **tópicos avulsos**, servidos **sem** barra lateral). Os tópicos das duas
-  continuam em `/topico/<slug>/`: **a URL de um tópico não depende de onde ele mora**. Quem
+- **`content/fundamentos.ts` é a fonte única dos FUNDAMENTOS**, a sequência principal (dirige o
+  menu lateral, o `/fundamentos/`, as tags e o SEO). `content/` fica na raiz, irmão de `src/`:
+  `src/` é o código de estrutura, `content/` são os dados, artigos e visualizadores. Agrupamento
+  estilo LeetCode (16 grupos): cada estrutura junto das técnicas que operam sobre ela; paradigmas
+  (Recursão, Backtracking, Programação Dinâmica, Greedy Algorithms) como grupos próprios.
+- **`content/roadmaps/` é a casa dos roadmaps extras**, um arquivo por roadmap
+  (`content/roadmaps/<slug>.ts`), com `index.ts` guardando o modelo, o registro e os derivados
+  das três casas. **`content/avulsos.ts`** guarda os tópicos que se bastam numa página só.
+  O índice é uma lista à mão porque o módulo é importado por componente de cliente (o `Shell`
+  decide a barra lateral com ele) e código de cliente não tem `fs`; quem impede que ela envelheça
+  é o teste `todo arquivo de content/roadmaps/ está registrado no índice`, que lê a pasta.
+- **Vocabulário, e ele importa:** *Fundamentos* é a sequência principal; *roadmap* é um percurso
+  extra; *tópico* é uma página. "Trilha" e "curso" não existem mais no produto nem no código
+  (só sobrou "Trilha de navegação", que é o nome do breadcrumb).
+- **A página canônica de um tópico é sempre `/topico/<slug>/`**, venha ele de onde vier. Quem
   precisa de todos os tópicos do site (`generateStaticParams`, sitemap, guarda de datas) usa
-  `SITE_TOPICS`; quem fala do roadmap (progresso, barra lateral, números da home) usa
-  `ALL_TOPICS`. Trocar um pelo outro não dá erro — dá número errado na home ou 404 num tópico
-  de trilha.
-  **Vocabulário, e ele importa:** *roadmap* é a sequência principal; *trilha* é uma das extras;
-  *tópico* é uma página. "Curso" não existe mais no produto nem no código.
-  O **namespace é global e o build cobra**: slug de tópico, id de grupo e slug de trilha são
-  conferidos no import do módulo, e repetido derruba o `npm run build` com os dois donos na
-  mensagem. Sem esse guarda, a segunda página some em silêncio.
-  Como escolher a casa de um tópico novo, e o que cada uma muda na tela: ver a tabela em
-  [README](./README.md#roadmap-trilha-ou-tópico-avulso-onde-o-tópico-mora).
+  `SITE_TOPICS`; quem fala dos Fundamentos (progresso, barra lateral, números da home) usa
+  `ALL_TOPICS`. Trocar um pelo outro não dá erro — dá número errado na home ou 404 num tópico.
+- **UM TÓPICO PODE ESTAR EM MAIS DE UM ROADMAP.** O grupo de um roadmap aceita um `Topic` escrito
+  ali (ele é o DONO) ou uma `string` com o slug (ele só CITA). O dono decide a casca da página
+  canônica e reivindica o slug; quem cita ganha o tópico na lista e uma URL própria
+  (`/roadmaps/<r>/<topico>/`) com `canonical` de volta para `/topico/<slug>/` e fora do sitemap.
+  Exemplo vivo: `content/roadmaps/bancos-de-dados.ts`, 4 dos 6 tópicos citados de 3 casas.
+  O **namespace é global e o build cobra**: slug de tópico, id de grupo, slug de roadmap, citação
+  que resolve e tópico não repetido são conferidos no import de `content/roadmaps/index.ts`.
+  Como escolher a casa de um tópico novo: ver a tabela em
+  [README](./README.md#fundamentos-roadmap-ou-tópico-avulso-onde-o-tópico-mora).
 - **Identificadores em inglês; qualquer coisa que o aluno lê em português.** Vale para os
   campos do roadmap **e para o código dos visualizadores** (variáveis, tipos, props, funções).
   Comentários podem ser em português; nome de componente, o que fizer sentido. A fronteira que
@@ -118,14 +125,19 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   clique só. *Fora do app* (README, CONTRIBUTING, SECURITY, templates do `.github/`, qualquer
   `.md`): `https://craftcodeclub.io/join`, que é o ponto de rotação da comunidade. Nunca cole
   `discord.gg/<código>` cru em arquivo de documentação.
-- Barra: **esquerda** = Início, Roadmap, Trilhas; **direita** = YouTube, Discord, Apoiar + menu `⋯`.
-  O menu `⋯` tem: Sobre o projeto, Craft & Code Club, GitHub do projeto, Apoiadores e Parceiros
-  (e, só no mobile, Início/Roadmap/Trilhas/YouTube que somem da barra).
-- **A casca muda com a rota, e é o `Shell` que decide** (`layoutDaRota`): a barra do roadmap no
-  padrão, a barra da trilha em `/trilha/<slug>/` e nos tópicos dela, e **nenhuma barra** na
-  vitrine `/trilha/` e nos tópicos avulsos. A ausência é a decisão, não um esquecimento: num
-  tópico avulso a barra ao lado seria uma lista para lugar nenhum. Mexeu no `Shell`? Rode
-  `tests/trilhas.spec.ts`, que é quem mede as três cascas.
+- Barra: **esquerda** = Início, Fundamentos, Roadmaps, Tópicos; **direita** = YouTube, Discord,
+  Apoiar + menu `⋯`. O menu `⋯` tem: Sobre o projeto, Craft & Code Club, GitHub do projeto,
+  Apoiadores e Parceiros (e, só no mobile, os quatro da esquerda + YouTube).
+- **A casca muda com a rota, e é o `Shell` que decide** (`layoutDaRota`): a barra dos Fundamentos
+  no padrão, a barra do roadmap em `/roadmaps/<slug>/` e em tudo abaixo dele, e **nenhuma barra**
+  na vitrine `/roadmaps/`, no índice `/topicos/` e nos tópicos avulsos. A ausência é a decisão,
+  não um esquecimento: num tópico avulso a barra ao lado seria uma lista para lugar nenhum.
+  ⚠️ O `layoutDaRota` casa o PRIMEIRO SEGMENTO da rota por string. Renomeou rota? Aquele `if` não
+  quebra o build nem o tipo: ele silenciosamente devolve a casca padrão, e o roadmap inteiro passa
+  a abrir com a barra dos Fundamentos. Mexeu no `Shell` ou numa rota? Rode
+  `tests/roadmaps.spec.ts`, que é quem mede as cascas — foi ele que pegou exatamente isso.
+- **`/roadmap/` tem 301 para `/fundamentos/`** em `public/_redirects`. Rota renomeada que já era
+  indexada leva redirecionamento junto, no mesmo PR.
 - Links **externos** mostram `↗` (classe `ext`; a regra CSS é `.topnav > a.ext` para não afetar o
   menu). Bolinhas de marca: Discord blurple, YouTube vermelho, Apoiar âmbar.
 
@@ -135,12 +147,17 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   `export const dynamic = "force-static"`** por causa do `output: "export"`.
 - Tópicos realmente vazios (`soon` sem youtube/article/viz/extraVideos) recebem `noindex`
   (ver `generateMetadata` em `topico/[slug]/page.tsx`). Ao ganhar conteúdo, saem do noindex sozinhos.
-- **A mesma régua vale um nível acima:** a abertura de uma trilha sem NENHUM tópico com material
-  também é `noindex` e fica fora do sitemap (`trackHasMaterial`, em `content/tracks.ts`). Ela
-  continua no site — mapear o território vale para quem estuda —, mas não pede lugar no índice.
-- O rastro de navegação tem **três formas** (roadmap, trilha, tópico avulso) e a página monta o
-  array de migalhas UMA vez, usando-o nos links e no `BreadcrumbList`. Não recrie a decisão
-  dentro do `jsonld.ts`: o teste "o rastro marcado é o rastro desenhado" existe por causa disso.
+- **A mesma régua vale um nível acima:** a abertura de um roadmap sem NENHUM tópico com material
+  também é `noindex` e fica fora do sitemap (`roadmapHasMaterial`). Ela continua no site (mapear
+  o território vale para quem estuda), mas não pede lugar no índice.
+- **`/roadmaps/<r>/<topico>/` serve o mesmo texto de `/topico/<slug>/`**, então ela aponta
+  `canonical` (e `og:url`) para a canônica, fica FORA do sitemap e não emite JSON-LD nenhum: quem
+  declara o recurso é a canônica, e declarar de novo numa página que acabou de dizer "a principal
+  é outra" é a mesma contradição do `noindex` com `LearningResource`.
+- O rastro de navegação tem **quatro formas** (Fundamentos, roadmap, avulso, e o tópico dentro de
+  um roadmap) e a página monta o array de migalhas UMA vez, usando-o nos links e no
+  `BreadcrumbList`. Não recrie a decisão dentro do `jsonld.ts`: o teste "o rastro marcado é o
+  rastro desenhado" existe por causa disso.
 
 ## Responsividade
 
