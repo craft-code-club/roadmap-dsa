@@ -116,6 +116,68 @@ function realNameIndexes(parts: string[]): number[] {
 }
 
 /**
+ * O nome está TODO em maiúsculas?
+ *
+ * A pergunta é feita com as duas caixas, e não com uma regex de letra maiúscula,
+ * porque só assim ela responde "não" para o que não tem caixa nenhuma: "123" e
+ * "김" são iguais em maiúscula e em minúscula, e nenhum dos dois está gritando.
+ */
+function isShouting(name: string): boolean {
+  return name === name.toUpperCase() && name !== name.toLowerCase();
+}
+
+/**
+ * Uma palavra com a primeira letra maiúscula e o resto minúsculo.
+ *
+ * Capitaliza cada PEDAÇO alfanumérico, e não só o início da palavra, porque o
+ * separador de dentro do nome não é só o espaço: "SANT'ANA" vira "Sant'Ana",
+ * "D'ÁVILA" vira "D'Ávila" e "ANA-MARIA" vira "Ana-Maria". Cortar só no espaço
+ * devolveria "Sant'ana".
+ *
+ * O `[...]` antes de pegar a primeira letra é o mesmo cuidado de `initials`: não
+ * partir caractere fora do BMP no meio.
+ */
+function capitalizeWord(word: string): string {
+  return word.replace(/[\p{L}\p{N}]+/gu, (pedaco) => {
+    const letras = [...pedaco.toLowerCase()];
+    if (letras.length === 0) return pedaco;
+    return letras[0].toUpperCase() + letras.slice(1).join("");
+  });
+}
+
+/**
+ * Tira o grito do nome: "ELIEL SOUSA" vira "Eliel Sousa".
+ *
+ * ⚠️ SÓ MEXE EM NOME QUE ESTÁ INTEIRO EM MAIÚSCULAS, e essa condição é a função
+ * toda. Capitalizar palavra por palavra sem perguntar isso primeiro destrói os
+ * nomes que têm maiúscula legítima no meio: "McDonald" viraria "Mcdonald",
+ * "DiCaprio" viraria "Dicaprio", "d'Ávila" viraria "D'ávila". Um nome misto já
+ * está escrito do jeito que a pessoa escreve o próprio nome, e a regra aqui é
+ * não tocar nele.
+ *
+ * As partículas voltam em minúscula ("DE", "DA", "DOS" → "de", "da", "dos"),
+ * inclusive quando abrem o nome, que é a grafia portuguesa e é a mesma leitura
+ * que `shortenName` e `initials` já fazem da lista `NAME_PARTICLES`.
+ *
+ * O espaçamento sai como entrou: quem normaliza espaço é `normalizeSupporters`,
+ * e uma função que faz as duas coisas é uma função que ninguém consegue testar.
+ *
+ * POR QUE ISTO É UMA FUNÇÃO, e não um nome já capitalizado na lista de plano B.
+ * A lista fixa a gente digita, então nela bastaria escrever certo. Mas o muro
+ * também vem da API da APOIA.se, e lá o nome é digitado pela pessoa que apoia,
+ * num formulário sem validação de caixa: no dia em que a listagem for ligada,
+ * um "FULANO DA SILVA" cadastrado com Caps Lock chega direto ao HTML público.
+ * Escrever certo na lista conserta três nomes uma vez; a função conserta todos,
+ * inclusive os que ainda não existem.
+ */
+export function normalizeNameCase(name: string): string {
+  if (!isShouting(name)) return name;
+  return name.replace(/\S+/g, (palavra) =>
+    NAME_PARTICLES.has(palavra.toLowerCase()) ? palavra.toLowerCase() : capitalizeWord(palavra)
+  );
+}
+
+/**
  * O nome como ele aparece no card: primeiro e último, e só.
  *
  * "Maria Aparecida da Silva Souza" vira "Maria Souza". O muro tem cards
@@ -189,12 +251,23 @@ export function initials(name: string): string {
  *
  * A chave normaliza espaço e caixa porque "  maria   souza " e "Maria Souza"
  * são a mesma inscrição digitada duas vezes, e isso é repetição de verdade.
+ *
+ * É AQUI que a caixa do nome é arrumada (`normalizeNameCase`), e o lugar foi
+ * escolhido: esta é a única função por onde os DOIS caminhos do muro passam, o
+ * da API (`normalizeSupporters(toSupporters(raw))`) e o do plano B
+ * (`normalizeSupporters(FALLBACK_SUPPORTERS)`). Arrumar na página trataria só o
+ * que a página desenha, e a contagem do painel de gratidão sairia da lista
+ * ainda gritando; arrumar em cada chamada é a mesma regra escrita cinco vezes.
+ * A identidade que a API deu continua inteira: muda a caixa de quem estava com
+ * Caps Lock, e mais nada.
  */
 export function normalizeSupporters(list: Supporter[]): Supporter[] {
   const seen = new Set<string>();
   const out: Supporter[] = [];
   for (const s of list) {
-    const name = s.name.trim().replace(/\s+/g, " ");
+    const name = normalizeNameCase(s.name.trim().replace(/\s+/g, " "));
+    // A chave é minúscula, então arrumar a caixa acima não muda quem é repetido:
+    // "ELIEL SOUSA" e "Eliel Sousa" já eram o mesmo card antes desta linha.
     const key = name.toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
