@@ -1,5 +1,5 @@
 import { chromium } from '@playwright/test';
-const BASE='http://localhost:4611';
+const BASE='http://localhost:4612';
 const routes=process.argv.slice(2);
 const b=await chromium.launch();
 for (const r of routes){

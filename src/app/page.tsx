@@ -46,8 +46,12 @@ const FEATURES = [
 ];
 
 export default function Home() {
+  // O rótulo dizia "tópicos nos Fundamentos" e o número era `TOTAL_TOPICS`, que
+  // é o site inteiro. Enquanto os Fundamentos eram a única sequência os dois
+  // batiam; hoje um tópico pode estar em vários roadmaps ou em nenhum, e o
+  // número da home conta CADA TÓPICO UMA VEZ, venha ele de onde vier.
   const stats = [
-    { n: `${TOTAL_TOPICS}`, rot: "tópicos nos Fundamentos" },
+    { n: `${TOTAL_TOPICS}`, rot: "tópicos no guia" },
     { n: `${TOTAL_VISUALIZERS}`, rot: "tópicos com visualização" },
     { n: `${TOTAL_PROBLEMS}`, rot: "problemas selecionados" },
     { n: "Gratuito", rot: "para sempre" },

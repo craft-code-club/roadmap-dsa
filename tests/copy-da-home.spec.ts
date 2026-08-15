@@ -12,9 +12,13 @@ import { TOPICOS, TOTAL_TOPICS, isEmptyTopic } from "../content/topicos";
 // Os dois testes de número LEEM A FONTE (`content/topicos/index.ts`) em vez de fixar
 // 36 e 47: no dia em que um tópico ganhar material eles continuam verdes, e o
 // que eles protegem não é o valor, é a ESCOLHA entre os dois números. Por isso
-// vem junto a asserção do outro lado: a frase que fala do tamanho da trilha
-// ("tópicos nos Fundamentos", o título) tem que continuar com o total. Trocar a
+// vem junto a asserção do outro lado: a frase que fala do tamanho do guia
+// ("tópicos no guia", o título) tem que continuar com o total. Trocar a
 // constante em toda ocorrência conserta a mentira e cria outra.
+//
+// O rótulo já disse "tópicos nos Fundamentos" com o número do site inteiro.
+// Batia enquanto os Fundamentos eram a única sequência; parou de bater quando
+// um tópico passou a poder estar em vários roadmaps ou em nenhum.
 
 const PRONTOS = TOPICOS.filter((t) => !isEmptyTopic(t));
 
@@ -82,7 +86,7 @@ test("o total dos Fundamentos continua onde ele é verdade: título e card", asy
   // Pelo RÓTULO, não pela posição: o card vizinho mostra 36 hoje ("tópicos com
   // visualização"), e um `.first()` daria um teste que passa lendo o número
   // errado.
-  const cartao = page.locator(".stat").filter({ hasText: "tópicos nos Fundamentos" });
+  const cartao = page.locator(".stat").filter({ hasText: "tópicos no guia" });
   await expect(cartao).toHaveCount(1);
   await expect(cartao.locator(".stat-n")).toHaveText(`${TOTAL_TOPICS}`);
 });
