@@ -26,6 +26,7 @@ function resolvePort(): number {
 }
 
 const PORT = resolvePort();
+const PYTHON = process.platform === "win32" ? "python" : "python3";
 
 export default defineConfig({
   testDir: "./tests",
@@ -91,7 +92,7 @@ export default defineConfig({
     // `navegacao.spec.ts`, com `BrokenPipeError` no servidor. Três adaptações
     // desta série perderam tempo caçando um bug que não existia no código
     // delas. O flake é do servidor de teste; o `out/` servido é o mesmo.
-    command: `python3 -c "from functools import partial; from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler as H; ThreadingHTTPServer(('', ${PORT}), partial(H, directory='out')).serve_forever()"`,
+    command: `${PYTHON} -c "from functools import partial; from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler as H; ThreadingHTTPServer(('', ${PORT}), partial(H, directory='out')).serve_forever()"`,
     url: `http://localhost:${PORT}`,
     // `false` de propósito, e não `!process.env.CI` como era: reusar o servidor
     // que já está na porta faz a suíte testar o `out/` DE OUTRA PESSOA sem dizer
