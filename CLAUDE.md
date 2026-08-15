@@ -149,7 +149,17 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   `discord.gg/<código>` cru em arquivo de documentação.
 - Barra: **esquerda** = Início, Fundamentos, Roadmaps, Tópicos; **direita** = YouTube, Discord,
   Apoiar + menu `⋯`. O menu `⋯` tem: Sobre o projeto, Craft & Code Club, GitHub do projeto,
-  Apoiadores e Parceiros (e, só no mobile, os quatro da esquerda + YouTube).
+  Apoiadores e Parceiros — e, conforme a largura aperta, os itens que saíram da barra.
+- **A barra encolhe em degraus, e a ordem é comprimir antes de esconder** (a mesma filosofia da
+  casca dos visualizadores). São quatro, todos no `globals.css`: **1000px** comprime o respiro
+  (é onde nasce a gaveta e ela rouba 42px); **940px** manda Início e YouTube para o `⋯`
+  (`nav-hide-md` na barra, `only-mobile only-md` no menu); **760px** manda Fundamentos, Roadmaps
+  e Tópicos (`nav-hide-sm` / `only-mobile`); **400px** comprime o que sobrou.
+  Duas regras que não se negociam: **nada some da barra sem aparecer no `⋯`**, e **as peças da
+  barra são rígidas** (sem `min-width: 0`, sem quebra de linha). A rigidez é de propósito: peça
+  que encolhe em silêncio se sobrepõe sem estourar a página, e nenhuma medição de overflow pega
+  isso — foi assim que a marca passou a quebrar em três linhas em 920px. Quem mede os quatro
+  degraus é `tests/barra-do-topo-responsiva.spec.ts`, varrendo 1400 → 320px.
 - **Um tópico tem DUAS URLs, e elas não competem.** `/topicos/<slug>/` é a **canônica**: quem chega
   pelo índice geral, sem percurso, e vê na barra os roadmaps que citam o tópico.
   `/roadmaps/<r>/<slug>/` é a mesma página dentro de um percurso: menu do roadmap, anterior/próximo,

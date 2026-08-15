@@ -160,7 +160,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {/* Cada landmark com nome próprio: são três `nav` na página, e sem
               rótulo o leitor de tela anuncia "navegação" três vezes. */}
           <nav className="topnav nav-left" aria-label="Principal">
-            <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
+            {/* `nav-hide-md`, e não `nav-hide-sm`: "Início" é o primeiro a sair
+                da barra (940px) porque é o único item cujo destino já tem outro
+                caminho visível ao lado dele — o logo. */}
+            <Link href="/" className={`nav-hide-md${navOn("/") ? " on" : ""}`}>Início</Link>
             <Link href={URL_DOS_FUNDAMENTOS} className={`nav-hide-sm${nosFundamentos ? " on" : ""}`}>Fundamentos</Link>
             <Link href="/roadmaps" className={`nav-hide-sm${naAreaDeRoadmaps ? " on" : ""}`}>Roadmaps</Link>
             <Link href="/topicos" className={`nav-hide-sm${naAreaDeTopicos ? " on" : ""}`}>Tópicos</Link>
@@ -168,7 +171,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="topnav nav-right" aria-label="Comunidade e apoio">
-          <a href={LINKS.youtube} className="nav-yt nav-hide-sm ext" target="_blank" rel="noopener noreferrer">
+          {/* Sai junto com o "Início", em 940px: é o mais leve dos três da
+              direita (Discord e Apoiar têm borda de marca) e já era o primeiro
+              a sair no celular. */}
+          <a href={LINKS.youtube} className="nav-yt nav-hide-md ext" target="_blank" rel="noopener noreferrer">
             <span className="dot" />YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
           </a>
           <a href={LINKS.discord} className="nav-discord ext" target="_blank" rel="noopener noreferrer">
@@ -187,8 +193,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <>
                 <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setMenu(false)} />
                 <div className="nav-menu">
-                  {/* somem da barra no mobile → voltam aqui */}
-                  <Link className="menu-item only-mobile" href="/" onClick={() => setMenu(false)}>
+                  {/* Somem da barra → voltam aqui, e cada um no degrau em que
+                      saiu: `only-md` abre em 940px (Início e YouTube),
+                      `only-mobile` sozinho em 760px (o resto da esquerda).
+                      Nada sai da barra sem ter para onde ir. */}
+                  <Link className="menu-item only-mobile only-md" href="/" onClick={() => setMenu(false)}>
                     <span className="mi-ico">⌂</span> Início
                   </Link>
                   <Link className="menu-item only-mobile" href={URL_DOS_FUNDAMENTOS} onClick={() => setMenu(false)}>
@@ -200,7 +209,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <Link className="menu-item only-mobile" href="/topicos" onClick={() => setMenu(false)}>
                     <span className="mi-ico">≡</span> Todos os tópicos
                   </Link>
-                  <a className="menu-item only-mobile ext" href={LINKS.youtube} target="_blank" rel="noopener noreferrer" onClick={() => setMenu(false)}>
+                  <a className="menu-item only-mobile only-md ext" href={LINKS.youtube} target="_blank" rel="noopener noreferrer" onClick={() => setMenu(false)}>
                     <span className="mi-ico" style={{ color: "#ff0000" }}>▶</span> YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
                   </a>
                   {/* sempre no menu, e a `/sobre` primeiro: é a resposta à
