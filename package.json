@@ -37,7 +37,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9.39.5",
+    "eslint": "^10.8.1",
     "eslint-config-next": "16.2.12",
     "shiki": "^4.4.1",
     "typescript": "^5.7.0"
