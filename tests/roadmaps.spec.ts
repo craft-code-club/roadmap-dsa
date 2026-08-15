@@ -273,6 +273,23 @@ test("dentro de um roadmap, a navegação não expulsa o leitor dele", async ({ 
   await expect(page.locator(".pagina-canonica a")).toHaveAttribute("href", `/topicos/${lista[0].slug}/`);
 });
 
+test("a página canônica NUNCA termina no ponto final do artigo", async ({ page }) => {
+  // Ela é a URL indexada e o destino do 301 de `/topico/*`: é nela que mais
+  // gente chega, e é nela que o refactor abriu um buraco. A banda do fim lia a
+  // lista da VITRINE, que exclui os Fundamentos de propósito, então nos 44
+  // tópicos que só os Fundamentos citam ela achava zero cards e não desenhava
+  // nada. O tópico avulso ganhava saída e o tópico da sequência principal não.
+  for (const t of TOPICOS.filter((x) => !isEmptyTopic(x))) {
+    await page.goto(`/topicos/${t.slug}/`);
+    const banda = page.locator(".continue-explorando");
+    await expect(banda, `${t.slug} acaba no ponto final do artigo`).toHaveCount(1);
+    await expect(
+      banda.locator(".extra-card"),
+      `${t.slug}: a banda existe e está vazia`
+    ).not.toHaveCount(0);
+  }
+});
+
 test("a página canônica mostra os roadmaps do tópico, na barra e no fim", async ({ page }) => {
   await page.goto(`/topicos/${COMPARTILHADO}/`);
   const barra = page.locator("#menu-lateral");
@@ -341,9 +358,9 @@ for (const [rota, onde] of [
 
 test("o índice /topicos/ lista cada tópico UMA vez, com os roadmaps dele", async ({ page }) => {
   await page.goto("/topicos/");
-  await expect(page.locator(".topico-linha")).toHaveCount(TOPICOS.length);
+  await expect(page.locator(".topic-card-wrap")).toHaveCount(TOPICOS.length);
 
-  const nomes = await page.locator(".topico-linha-nome").allTextContents();
+  const nomes = await page.locator(".topic-card-name").allTextContents();
   const faltando = TOPICOS.filter((t) => !nomes.some((n) => n.startsWith(t.name)));
   expect(faltando.map((t) => t.slug), "tópicos fora do índice completo").toEqual([]);
 
@@ -351,8 +368,8 @@ test("o índice /topicos/ lista cada tópico UMA vez, com os roadmaps dele", asy
     // `filter` pelo NOME da linha, e não pelo texto dela: a descrição de outro
   // tópico pode citar este, e o `hasText` casaria as duas linhas.
   const linha = page
-    .locator(".topico-linha")
-    .filter({ has: page.locator(".topico-linha-nome", { hasText: getTopico(COMPARTILHADO)!.name }) });
+    .locator(".topic-card-wrap")
+    .filter({ has: page.locator(".topic-card-name", { hasText: getTopico(COMPARTILHADO)!.name }) });
   const etiquetas = await linha.locator(".ttag-origem").allTextContents();
   expect(etiquetas).toEqual(roadmapsDoTopico(COMPARTILHADO).map((r) => r.name));
 });
@@ -363,9 +380,9 @@ test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
   // menciona no texto. O que o teste cobra é que ela FILTRE (de 47 para um
   // punhado) e que o alvo esteja lá.
   await page.getByLabel("Buscar entre todos os tópicos").fill("Skip");
-  const achados = page.locator(".topico-linha");
+  const achados = page.locator(".topic-card-wrap");
   expect(await achados.count()).toBeLessThan(TOPICOS.length / 4);
-  await expect(achados.locator(".topico-linha-nome", { hasText: "Skip List" })).toHaveCount(1);
+  await expect(achados.locator(".topic-card-name", { hasText: "Skip List" })).toHaveCount(1);
   await page.getByLabel("Buscar entre todos os tópicos").fill("zzzzzz");
   await expect(page.locator(".topicos-contagem")).toHaveText("Nenhum tópico com esse filtro.");
 });

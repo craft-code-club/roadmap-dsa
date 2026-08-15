@@ -239,6 +239,20 @@ export const EXTRA_CARDS: ExtraCard[] = ROADMAPS_EXTRAS.map(cardDoRoadmap).sort(
 export const TOTAL_EXTRA_CARDS = EXTRA_CARDS.length;
 
 /**
+ * O card de QUALQUER roadmap, os Fundamentos incluídos, indexado por slug.
+ *
+ * `EXTRA_CARDS` é a lista da VITRINE, e ela deixa os Fundamentos de fora de
+ * propósito. Quem precisa do card de um roadmap ESPECÍFICO não pode usar
+ * aquela lista: a banda "Este tópico faz parte de" fazia isso, e nos 44
+ * tópicos que só os Fundamentos citam ela procurava um card que não estava
+ * lá, achava zero e não desenhava nada. A página canônica, que é a indexada,
+ * acabava sem nenhuma saída.
+ */
+export const CARD_DE_ROADMAP: Record<string, ExtraCard> = Object.fromEntries(
+  ROADMAPS.map((r) => [r.slug, cardDoRoadmap(r)])
+);
+
+/**
  * Quantos tópicos existem fora dos Fundamentos.
  *
  * Conta o tópico UMA vez, mesmo citado por três roadmaps: a pergunta que a

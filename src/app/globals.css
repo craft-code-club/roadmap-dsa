@@ -229,7 +229,10 @@ html { scroll-behavior: smooth; }
   border: 1px solid var(--ccc-line); border-radius: 10px;
   background: rgba(255, 255, 255, 0.02);
 }
-.side-roadmap-item:first-child { margin-top: 12px; }
+/* O rótulo da lista, dentro do rolável: ele é o título dos cards, e não do
+   cabeçalho, então acompanha a rolagem em vez de ficar preso em cima. */
+.side-label-solto { display: block; padding: 14px 16px 0; }
+.side-label-solto + .side-roadmap-item { margin-top: 10px; }
 .side-roadmap-item:hover { border-color: rgba(59, 130, 246, 0.35); }
 .side-roadmap-link { display: flex; align-items: flex-start; gap: 9px; color: inherit; text-decoration: none; }
 .side-roadmap-glifo { flex: none; margin-top: 1px; font-size: 13px; color: var(--ccc-accent-2); }
@@ -425,7 +428,11 @@ html { scroll-behavior: smooth; }
 /* De onde o tópico veio, quando o card não é da casa dele. Cinza de propósito:
    é contexto, não material — as outras `ttag` dizem O QUE o tópico tem, e uma
    sexta cor competiria com elas. */
-.ttag-origem { color: #a9b3ff; border-color: rgba(124, 58, 237, 0.35); background: rgba(124, 58, 237, 0.08); }
+/* Onde o tópico aparece, e não o que ele tem: mais apagada que as etiquetas de
+   material, de propósito. Ela repete em quase todo card do índice completo (46
+   dos 50 estão nos Fundamentos), e com o peso das outras virava a primeira
+   coisa que o olho encontrava em cinquenta cards seguidos. */
+.ttag-origem { color: #8b93c4; border-color: rgba(124, 58, 237, 0.22); background: none; }
 .ttag-origem::before { display: none; }
 
 /* level pills */
@@ -526,22 +533,11 @@ html { scroll-behavior: smooth; }
 .topicos-filtro.on { border-color: var(--ccc-accent); background: var(--ccc-accent-soft); color: #dbeafe; font-weight: 600; }
 .topicos-contagem { margin: 0 0 26px; font-size: 12.5px; color: var(--ccc-muted); font-family: var(--mono); }
 .topicos-sub { margin: -8px 0 14px; font-size: 13.5px; color: #8ea3bd; }
-.topicos-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-/* Linha, e não card: o que se faz aqui é ACHAR, e 80 cards de três colunas são
-   uma tela de rolagem para responder "existe?". A borda de baixo separa sem
-   fechar caixa, que é o que deixa a lista lida como lista. */
-.topico-linha {
-  display: flex; align-items: baseline; gap: 12px;
-  padding: 11px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.topico-linha:hover { background: rgba(255, 255, 255, 0.02); }
-.topico-linha.done { background: rgba(52, 211, 153, 0.04); }
-.topico-linha .side-check { position: relative; top: 3px; }
-.topico-linha-link { flex: 1 1 260px; min-width: 0; color: inherit; text-decoration: none; }
-.topico-linha-nome { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 14.5px; font-weight: 600; }
-.topico-linha-link:hover .topico-linha-nome { color: var(--ccc-accent-2); }
-.topico-linha-desc { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: #8ea3bd; }
-.topico-linha-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 1 auto; }
+/* A etiqueta do tópico que não está em roadmap nenhum.
+   Neutra de propósito: não é aviso nem falta, é uma escolha (a Skip List saiu
+   da sequência porque o assunto dela é outro). Ela só aparece no índice
+   completo, que é a única tela que fala de todos os percursos ao mesmo tempo. */
+.ttag-avulso { border-color: rgba(148, 163, 184, 0.3); color: #94a3b8; }
 
 /* A banda do pé do tópico avulso. */
 .continue-explorando { margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--ccc-line); }
@@ -2275,9 +2271,6 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .prevnext { flex-direction: column; }
   /* A linha do índice vira bloco: nome e descrição em cima, etiquetas embaixo.
      Lado a lado em 390px a coluna de etiquetas espremia o nome em três linhas. */
-  .topico-linha { flex-wrap: wrap; }
-  .topico-linha-link { flex-basis: calc(100% - 32px); }
-  .topico-linha-tags { flex-basis: 100%; padding-left: 32px; }
   .topic-done { flex-direction: column; align-items: flex-start; }
 }
 /* Consulta por ALTURA, que é a dimensão que estoura no notebook: a largura

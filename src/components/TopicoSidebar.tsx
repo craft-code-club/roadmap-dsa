@@ -22,15 +22,20 @@ export function TopicoSidebar({ slug, nome }: { slug: string; nome: string }) {
 
   return (
     <>
+      {/* Só o nome do tópico.
+          O cabeçalho dizia "ESTE TÓPICO ESTÁ EM" com um contador ao lado, e em
+          caixa alta, copiando o cabeçalho do menu de roadmap. Nas duas barras
+          irmãs aquele rótulo nomeia o que vem abaixo ("Roadmap", "Fundamentos");
+          aqui ele estava nomeando o que vem ACIMA, e a frase quebrava sozinha na
+          maioria dos casos: "Este tópico está em / 1". O rótulo desceu para
+          junto da lista, onde é o título dela, e o contador saiu: a lista tem
+          uma ou duas linhas, e contar o que já se vê é ruído. */}
       <div className="side-head">
-        <div className="side-head-row">
-          <span className="side-label">Este tópico está em</span>
-          <span className="side-count">{roadmaps.length}</span>
-        </div>
         <p className="side-topico-nome">{nome}</p>
       </div>
 
       <div className="side-scroll">
+        <span className="side-label side-label-solto">Roadmaps sobre o tema</span>
         {roadmaps.map((r) => {
           const lista = roadmapTopics(r);
           const feitos = contarTopicos(lista.map((t) => t.slug));

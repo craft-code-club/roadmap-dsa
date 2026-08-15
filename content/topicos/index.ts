@@ -58,6 +58,9 @@ import { topico as dijkstra, sumario as dijkstraSumario } from "./dijkstra";
 import { topico as bellmanFord, sumario as bellmanFordSumario } from "./bellman-ford";
 import { topico as aStar, sumario as aStarSumario } from "./a-star";
 import { topico as floydWarshall } from "./floyd-warshall";
+import { topico as mssp } from "./mssp";
+import { topico as sssp } from "./sssp";
+import { topico as caminhosMinimosIntro } from "./caminhos-minimos-intro";
 import { topico as topologicalSort, sumario as topologicalSortSumario } from "./topological-sort";
 import { topico as mst, sumario as mstSumario } from "./mst";
 import { topico as grafosAvancados } from "./grafos-avancados";
@@ -107,6 +110,9 @@ const MODULOS: ModuloDeTopico[] = [
   { topico: bellmanFord, sumario: bellmanFordSumario },
   { topico: aStar, sumario: aStarSumario },
   { topico: floydWarshall },
+  { topico: mssp },
+  { topico: sssp },
+  { topico: caminhosMinimosIntro },
   { topico: topologicalSort, sumario: topologicalSortSumario },
   { topico: mst, sumario: mstSumario },
   { topico: grafosAvancados },

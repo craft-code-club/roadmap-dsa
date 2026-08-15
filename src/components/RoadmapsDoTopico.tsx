@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { EXTRA_CARDS } from "@content/roadmaps";
+import { CARD_DE_ROADMAP } from "@content/roadmaps";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 
 /**
@@ -30,11 +30,11 @@ export function RoadmapsDoTopico({
   slugs,
   nomeDoTopico,
 }: {
-  /** Slugs dos roadmaps que contêm este tópico, sem contar a casa dele. */
+  /** Slugs dos roadmaps que citam este tópico. Os Fundamentos contam. */
   slugs: string[];
   nomeDoTopico: string;
 }) {
-  const cards = EXTRA_CARDS.filter((c) => slugs.includes(c.slug));
+  const cards = slugs.map((s) => CARD_DE_ROADMAP[s]).filter(Boolean);
   if (cards.length === 0) return null;
 
   return (

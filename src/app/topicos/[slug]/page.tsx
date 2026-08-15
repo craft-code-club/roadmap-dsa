@@ -70,6 +70,10 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
       jsonLd={
         !isEmptyTopic(t) ? <JsonLd data={[topicJsonLd(t, datas), breadcrumbJsonLd(migalhas)]} /> : null
       }
+      // A página canônica é a que o Google indexa e a que o 301 de `/topico/*`
+      // alimenta: é nela que mais gente chega, e ela não pode acabar no ponto
+      // final do artigo. Duas saídas, e a segunda existe porque a primeira
+      // depende de o tópico estar em algum percurso.
       fim={
         roadmaps.length > 0 ? (
           <RoadmapsDoTopico slugs={roadmaps.map((r) => r.slug)} nomeDoTopico={t.name} />

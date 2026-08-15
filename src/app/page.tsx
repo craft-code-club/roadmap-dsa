@@ -6,7 +6,7 @@ import {
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
 } from "@content/topicos";
-import { EXTRA_CARDS } from "@content/roadmaps";
+import { EXTRA_CARDS, FUNDAMENTOS, urlDoTopicoNoRoadmap } from "@content/roadmaps";
 import { TOTAL_LEETCODE_PROBLEMS, TOTAL_PROBLEMS } from "@content/topicos/pratica";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { LINKS } from "@/lib/links";
@@ -110,7 +110,14 @@ export default function Home() {
         </div>
         <div className="grid-3">
           {destaques.map((t) => (
-            <Link key={t.slug} href={`/topicos/${t.slug}`} className="destaque-card">
+            // Dentro dos Fundamentos, como o botão "Começar por Big O" logo
+            // acima: estes seis são a porta de entrada da sequência, e abrir a
+            // página solta seria dar o tópico e tirar o percurso.
+            <Link
+              key={t.slug}
+              href={urlDoTopicoNoRoadmap(FUNDAMENTOS, t.slug)}
+              className="destaque-card"
+            >
               <div className="destaque-top">
                 <span className="destaque-grupo">{t.group}</span>
                 <span className={`level ${levelClass(t.level)}`}>{t.level}</span>

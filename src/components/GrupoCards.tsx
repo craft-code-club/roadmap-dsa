@@ -24,8 +24,19 @@ import { useProgress } from "@/components/ProgressProvider";
 export type CardItem = {
   topic: Topic;
   href: string;
-  /** "Fundamentos", o nome de outro roadmap… Só em tópico CITADO. */
-  origem?: string;
+  /**
+   * Em que roadmaps este tópico aparece, pelo nome.
+   *
+   * Três estados, e os três importam:
+   *   `undefined`  não mostre esta dimensão. É o caso da abertura de um
+   *                roadmap: o leitor já sabe em qual está, e repetir o nome em
+   *                cada card seria a mesma etiqueta trinta vezes.
+   *   `["A", "B"]` o tópico aparece nesses percursos.
+   *   `[]`         SEI que ele não aparece em nenhum, e isso é informação: o
+   *                card ganha a etiqueta "avulso". Sem o array vazio esse caso
+   *                seria indistinguível de "não perguntei".
+   */
+  origens?: string[];
 };
 
 export type CardGroup = {
@@ -61,7 +72,7 @@ export function GrupoCards({ groups }: { groups: CardGroup[] }) {
                   <p>{g.intro.description}</p>
                 </Link>
               )}
-              {g.itens.map(({ topic: t, href, origem }) => {
+              {g.itens.map(({ topic: t, href, origens }) => {
                 const feito = isTopico(t.slug);
                 return (
                   // A marca de concluído é IRMÃ do link, como no `ProblemList`:
@@ -112,11 +123,15 @@ export function GrupoCards({ groups }: { groups: CardGroup[] }) {
                         {topicTags(t).map((tag) => (
                           <span key={tag.kind} className={`ttag ttag-${tag.kind}`}>{tag.label}</span>
                         ))}
-                        {/* De onde o tópico veio, quando não é daqui. O aluno
-                            precisa saber de duas coisas: marcar este card conta
-                            na casa dele também, e o "em breve" que ele
-                            porventura tenha é promessa de outro dono. */}
-                        {origem && <span className="ttag ttag-origem">{origem}</span>}
+                        {/* Em que percursos ele aparece. Só o índice completo
+                            pede isso: nas outras telas o leitor vê um roadmap
+                            por vez e a etiqueta seria a mesma em toda a grade. */}
+                        {origens?.map((nome) => (
+                          <span key={nome} className="ttag ttag-origem">{nome}</span>
+                        ))}
+                        {origens?.length === 0 && (
+                          <span className="ttag ttag-avulso">avulso</span>
+                        )}
                       </div>
                     </Link>
                   </div>
