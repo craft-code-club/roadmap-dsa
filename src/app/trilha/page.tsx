@@ -1,31 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  COURSES,
+  TRACKS,
   EXTRA_CARDS,
   STANDALONES,
   TOTAL_EXTRA_TOPICS,
-} from "@content/courses";
+} from "@content/tracks";
 import { TOTAL_TOPICS } from "@content/roadmap";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { extrasJsonLd, JsonLd } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 
-// A vitrine do que existe fora da trilha.
+// A vitrine do que existe fora do roadmap.
 //
 // Ela e a seção do fim do `/roadmap/` mostram a MESMA grade, pelo mesmo
 // componente. A diferença é a intenção de quem chega: no roadmap a vitrine é o
-// que vem depois de rolar a trilha inteira; aqui ela é o destino, e por isso
+// que vem depois de rolar o roadmap inteiro; aqui ela é o destino, e por isso
 // esta página explica os dois formatos antes de listar.
 
 export function generateMetadata(): Metadata {
   return pageMetadata({
-    title: "Cursos e outras estruturas de dados além do roadmap",
-    description: `Estruturas e algoritmos fora da trilha principal: ${STANDALONES.length} páginas avulsas que se bastam sozinhas e ${COURSES.length} cursos sobre famílias inteiras — árvores balanceadas, consultas em intervalos, padrões em strings, grafos avançados e estruturas probabilísticas.`,
-    ogTitle: "Cursos e outras estruturas de dados",
-    ogDescription: `${COURSES.length} cursos e ${STANDALONES.length} páginas avulsas além dos ${TOTAL_TOPICS} tópicos do roadmap. Visual, em português, grátis.`,
-    path: "/cursos/",
+    title: "Trilhas e outros tópicos de estruturas de dados, além do roadmap",
+    description: `Estruturas e algoritmos fora do roadmap: ${STANDALONES.length} tópicos avulsos que se bastam sozinhos e ${TRACKS.length} trilhas sobre famílias inteiras — árvores balanceadas, consultas em intervalos, padrões em strings, grafos avançados e estruturas probabilísticas.`,
+    ogTitle: "Trilhas e outros tópicos de estruturas de dados",
+    ogDescription: `${TRACKS.length} trilhas e ${STANDALONES.length} tópicos avulsos além dos ${TOTAL_TOPICS} tópicos do roadmap. Visual, em português, grátis.`,
+    path: "/trilha/",
   });
 }
 
@@ -33,30 +33,30 @@ export const dynamic = "force-static";
 
 const FORMATOS = [
   {
-    kind: "avulso",
-    titulo: "Página avulsa",
+    kind: "standalone",
+    titulo: "Tópico",
     texto:
       "Uma estrutura que se basta numa tela só: o artigo, o código e os problemas no mesmo lugar, sem trilha ao lado. Você abre, lê do começo ao fim e sai sabendo.",
   },
   {
-    kind: "curso",
-    titulo: "Curso",
+    kind: "track",
+    titulo: "Trilha",
     texto:
-      "Uma família que não cabe numa página: vários tópicos em ordem, com trilha própria e progresso próprio. Você percorre como percorre o roadmap, só que sobre um assunto só.",
+      "Uma família que não cabe numa página: vários tópicos em ordem, com barra lateral própria e progresso próprio. Você percorre como percorre o roadmap, só que sobre um assunto só.",
   },
 ] as const;
 
-export default function CursosPage() {
+export default function TrilhasPage() {
   return (
     <div className="roadmap-wrap">
       <JsonLd data={extrasJsonLd(EXTRA_CARDS.map((c) => ({ name: c.name, href: c.href })))} />
-      <span className="roadmap-eyebrow">Além da trilha</span>
-      <h1>Cursos e outras estruturas</h1>
+      <span className="roadmap-eyebrow">Além do roadmap</span>
+      <h1>Trilhas e outros tópicos</h1>
       <p className="roadmap-intro">
         O <Link href="/roadmap">roadmap</Link> é a ordem em que se aprende do zero à entrevista:{" "}
         {TOTAL_TOPICS} tópicos que se apoiam uns nos outros. Nem tudo que vale a pena aprender cabe
         nessa fila — tem estrutura que é um assunto à parte, e tem família inteira que precisa de
-        um curso. É o que está aqui: {TOTAL_EXTRA_TOPICS} tópicos que não estão na trilha, e não
+        uma trilha. É o que está aqui: {TOTAL_EXTRA_TOPICS} tópicos que não estão no roadmap, e não
         precisam estar.
       </p>
 
@@ -71,7 +71,7 @@ export default function CursosPage() {
 
       <section className="rgroup" id="vitrine">
         <div className="rgroup-head">
-          <h2>Tudo que existe fora da trilha</h2>
+          <h2>Tudo que existe fora do roadmap</h2>
           <span className="rgroup-count">{EXTRA_CARDS.length}</span>
           <div className="rgroup-rule" />
         </div>

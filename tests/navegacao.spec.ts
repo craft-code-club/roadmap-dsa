@@ -1,6 +1,6 @@
 import { test, expect, type Locator } from "@playwright/test";
 import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
-import { SITE_TOPICS } from "../content/courses";
+import { SITE_TOPICS } from "../content/tracks";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
@@ -1011,9 +1011,9 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 // aqui deixa a página nova fora dos QUATRO guardas de uma vez, com o CI verde e
 // nenhum sinal de que faltou alguma coisa.
 //
-// `SITE_TOPICS`, e não `ALL_TOPICS`: a página de um tópico de curso e a de uma
-// página avulsa saem do MESMO template das da trilha, e o contrato que este
-// bloco cobra é do template. Com a lista da trilha aqui, os 31 tópicos de fora
+// `SITE_TOPICS`, e não `ALL_TOPICS`: a página de um tópico de trilha e a de uma
+// tópico avulso saem do MESMO template das do roadmap, e o contrato que este
+// bloco cobra é do template. Com a lista do roadmap aqui, os 31 tópicos de fora
 // dela ficariam sem os quatro guardas — inclusive o de overflow no celular, que
 // é o único teste de mobile que uma página de artigo tem.
 //
@@ -1024,7 +1024,7 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 //   ele mesmo e pararia de pegar título trocado;
 // - `vizMin` não existe na fonte: `viz` é o nome de UM visualizador, não a
 //   contagem dos que o MDX de fato instancia. E `0` é um valor legítimo: as
-//   páginas escritas fora da trilha (Union-Find, Trie, Bloom Filter) ainda não
+//   páginas escritas fora do roadmap (Union-Find, Trie, Bloom Filter) ainda não
 //   têm visualizador, e o piso delas é zero até alguém escrever um. Elas
 //   continuam passando pelos outros três guardas.
 const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
@@ -1064,7 +1064,7 @@ const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
   backtracking: { h1: "Backtracking", vizMin: 3 },
   "binary-numbers": { h1: "Números Binários", vizMin: 3 },
   "negative-binary": { h1: "Binários Negativos", vizMin: 3 },
-  // Fora da trilha (content/courses.ts). Sem visualizador ainda: o artigo é o
+  // Fora do roadmap (content/tracks.ts). Sem visualizador ainda: o artigo é o
   // conteúdo inteiro, e `vizMin: 0` diz isso em vez de fingir um piso.
   "union-find": { h1: "Union-Find (DSU)", vizMin: 0 },
   trie: { h1: "Trie (Árvore de Prefixos)", vizMin: 0 },

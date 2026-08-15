@@ -3,25 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { getCourse, getPlacement, type Course } from "@content/courses";
+import { getTrack, getPlacement, type Track } from "@content/tracks";
 import { LINKS } from "@/lib/links";
 import { mesmaRota } from "@/lib/ui";
-import { CursoSidebar } from "@/components/CursoSidebar";
-import { TrilhaSidebar } from "@/components/TrilhaSidebar";
+import { TrackSidebar } from "@/components/TrackSidebar";
+import { RoadmapSidebar } from "@/components/RoadmapSidebar";
 
 // A moldura do site: topo, gaveta lateral, conteúdo, rodapé.
 //
-// O que ela decide, e passou a decidir quando os cursos chegaram, é UMA coisa:
-// que trilha fica ao lado do conteúdo. São três respostas, e a terceira é uma
+// O que ela decide, e passou a decidir quando as trilhas chegaram, é UMA coisa:
+// que roadmap fica ao lado do conteúdo. São três respostas, e a terceira é uma
 // ausência:
 //
-//   trilha   o menu dos 46 tópicos. É o padrão, e vale para todas as rotas que
+//   roadmap   o menu dos 46 tópicos. É o padrão, e vale para todas as rotas que
 //            já existiam: home, roadmap, introdução, apoie, sobre e os tópicos
-//            da trilha.
-//   curso    o menu daquele curso, em `/cursos/<slug>/` e nos tópicos dele.
-//   nenhuma  a página avulsa e a vitrine `/cursos/`. Aqui a ausência é a
-//            decisão: uma página avulsa é o assunto inteiro numa tela só, e uma
-//            trilha ao lado dela é uma trilha para lugar nenhum — 46 links que
+//            do roadmap.
+//   trilha    o menu daquela trilha, em `/trilha/<slug>/` e nos tópicos dele.
+//   nenhuma  o tópico avulso e a vitrine `/trilha/`. Aqui a ausência é a
+//            decisão: um tópico avulso é o assunto inteiro numa tela só, e uma
+//            roadmap ao lado dela é um roadmap para lugar nenhum — 46 links que
 //            não têm relação com o que o leitor está lendo, competindo com o
 //            texto. Quem sai daqui sai pela banda "Continue explorando" no fim
 //            do artigo, que mostra os vizinhos DE VERDADE.
@@ -30,35 +30,35 @@ import { TrilhaSidebar } from "@/components/TrilhaSidebar";
 // mora no layout raiz: ele não recebe nada da página. O preço é o
 // `usePathname`, que já era usado aqui para o destaque de "você está aqui".
 
-type Layout = { modo: "trilha" } | { modo: "curso"; course: Course } | { modo: "solto" };
+type Layout = { modo: "roadmap" } | { modo: "track"; track: Track } | { modo: "solto" };
 
 /**
  * A rota → a casca.
  *
  * O caso `undefined` do `getPlacement` (slug que não é tópico de lugar nenhum)
- * cai em "trilha" de propósito: é o que acontece hoje, e uma rota desconhecida
- * com a trilha ao lado é melhor do que uma rota desconhecida sem navegação
+ * cai em "roadmap" de propósito: é o que acontece hoje, e uma rota desconhecida
+ * com o roadmap ao lado é melhor do que uma rota desconhecida sem navegação
  * nenhuma.
  */
 function layoutDaRota(pathname: string | null): Layout {
   const partes = (pathname ?? "/").split("/").filter(Boolean);
 
-  if (partes[0] === "cursos") {
-    // `/cursos/` é a vitrine: ela É a navegação, e uma trilha ao lado seria a
+  if (partes[0] === "trilha") {
+    // `/trilha/` é a vitrine: ela É a navegação, e uma barra ao lado seria a
     // segunda lista de links da mesma tela.
     if (!partes[1]) return { modo: "solto" };
-    const course = getCourse(partes[1]);
-    return course ? { modo: "curso", course } : { modo: "solto" };
+    const track = getTrack(partes[1]);
+    return track ? { modo: "track", track } : { modo: "solto" };
   }
 
   if (partes[0] === "topico" && partes[1]) {
     const onde = getPlacement(partes[1]);
-    if (onde?.trilha === "curso") return { modo: "curso", course: onde.course };
-    if (onde?.trilha === "avulso") return { modo: "solto" };
-    return { modo: "trilha" };
+    if (onde?.kind === "track") return { modo: "track", track: onde.track };
+    if (onde?.kind === "standalone") return { modo: "solto" };
+    return { modo: "roadmap" };
   }
 
-  return { modo: "trilha" };
+  return { modo: "roadmap" };
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -71,8 +71,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   // Fecha o menu lateral ao navegar (mobile).
   //
-  // Um efeito só, e ele já cobre o caso novo: sair de um tópico da trilha com a
-  // gaveta aberta e cair numa página avulsa, onde a gaveta (e o botão de
+  // Um efeito só, e ele já cobre o caso novo: sair de um tópico do roadmap com a
+  // gaveta aberta e cair num tópico avulso, onde a gaveta (e o botão de
   // fechar) não existem. O `layout` é DERIVADO do `pathname`, então não há
   // troca de casca sem troca de rota — um segundo efeito ouvindo `comLateral`
   // nunca dispararia sozinho.
@@ -81,10 +81,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // Com `trailingSlash: true`, a rota chega como "/roadmap/": comparar com o
   // href cru deixava Roadmap, Apoiar e Introdução sem o destaque de "você está aqui".
   const navOn = (href: string) => mesmaRota(pathname, href);
-  // "Cursos" fica aceso em toda a área: a vitrine, a abertura de um curso e os
-  // tópicos que pertencem a um curso ou a uma avulsa. Sem isto, o leitor dentro
+  // "Trilhas" fica aceso em toda a área: a vitrine, a abertura de uma trilha e os
+  // tópicos que pertencem a uma trilha ou a um avulso. Sem isto, o leitor dentro
   // de `/topico/bloom-filter/` não teria pista nenhuma de onde está no site.
-  const naAreaDeCursos = layout.modo === "curso" || (pathname?.startsWith("/cursos") ?? false) ||
+  const naAreaDeTrilhas =
+    layout.modo === "track" ||
+    (pathname?.startsWith("/trilha") ?? false) ||
     (layout.modo === "solto" && (pathname?.startsWith("/topico/") ?? false));
 
   return (
@@ -128,7 +130,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <nav className="topnav nav-left" aria-label="Principal">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
             <Link href="/roadmap" className={`nav-hide-sm${navOn("/roadmap") ? " on" : ""}`}>Roadmap</Link>
-            <Link href="/cursos" className={`nav-hide-sm${naAreaDeCursos ? " on" : ""}`}>Cursos</Link>
+            <Link href="/trilha" className={`nav-hide-sm${naAreaDeTrilhas ? " on" : ""}`}>Trilhas</Link>
           </nav>
         </div>
 
@@ -159,8 +161,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <Link className="menu-item only-mobile" href="/roadmap" onClick={() => setMenu(false)}>
                     <span className="mi-ico">▤</span> Roadmap
                   </Link>
-                  <Link className="menu-item only-mobile" href="/cursos" onClick={() => setMenu(false)}>
-                    <span className="mi-ico">✧</span> Cursos e outras estruturas
+                  <Link className="menu-item only-mobile" href="/trilha" onClick={() => setMenu(false)}>
+                    <span className="mi-ico">✧</span> Trilhas e outros tópicos
                   </Link>
                   <a className="menu-item only-mobile ext" href={LINKS.youtube} target="_blank" rel="noopener noreferrer" onClick={() => setMenu(false)}>
                     <span className="mi-ico" style={{ color: "#ff0000" }}>▶</span> YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
@@ -190,22 +192,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
-      {/* `nav`, e não `aside`: a trilha inteira é navegação, e o landmark
+      {/* `nav`, e não `aside`: o roadmap inteiro é navegação, e o landmark
           "complementar" do `aside` mandava o leitor de tela procurar o menu de
           tópicos fora da lista de navegação da página.
-          O `aria-label` diz QUAL trilha: com duas barras laterais possíveis, um
-          rótulo fixo faria o leitor de tela anunciar "Trilha de estudos" ao lado
-          de um curso que não é a trilha. */}
+          O `aria-label` diz QUAL lista é esta: com duas barras laterais
+          possíveis, um rótulo fixo faria o leitor de tela anunciar "Roadmap de
+          estudos" ao lado de uma trilha que não é o roadmap. */}
       {comLateral && (
         <nav
           id="menu-lateral"
           className={`sidebar${mobileNav ? " open" : ""}`}
-          aria-label={layout.modo === "curso" ? `Curso: ${layout.course.name}` : "Trilha de estudos"}
+          aria-label={layout.modo === "track" ? `Trilha: ${layout.track.name}` : "Roadmap de estudos"}
         >
-          {layout.modo === "curso" ? (
-            <CursoSidebar course={layout.course} mobileNav={mobileNav} />
+          {layout.modo === "track" ? (
+            <TrackSidebar track={layout.track} mobileNav={mobileNav} />
           ) : (
-            <TrilhaSidebar mobileNav={mobileNav} />
+            <RoadmapSidebar mobileNav={mobileNav} />
           )}
         </nav>
       )}

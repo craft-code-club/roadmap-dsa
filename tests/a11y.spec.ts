@@ -68,7 +68,7 @@ type Conhecida = {
  *    meio da pintura — não "nós do SSG que o aluno não vê": os 12 elementos
  *    estão no DOM, visíveis e dentro da figura nos dois momentos.
  *
- * REMEDIDO DE NOVO com a entrada dos cursos, e DUAS entradas saíram por estarem
+ * REMEDIDO DE NOVO com a entrada das trilhas, e DUAS entradas saíram por estarem
  * obsoletas — o log vinha avisando ("passivo obsoleto"), e entrada obsoleta não é
  * inofensiva: enquanto ela existe, a regra fica anistiada e a volta do defeito
  * passa calada.
@@ -80,8 +80,8 @@ type Conhecida = {
  *    — os títulos do `out/apoie/index.html` são `h1` seguido só de `h2`.
  *
  * A amostra também cresceu de 5 para 9 rotas, com as classes de página que os
- * cursos criaram: a vitrine `/cursos/`, a abertura de um curso (barra lateral
- * que não é a da trilha), a página avulsa `/topico/trie/` (barra lateral
+ * trilhas criaram: a vitrine `/trilha/`, a abertura de uma trilha (barra lateral
+ * que não é a do roadmap), o tópico avulso `/topico/trie/` (barra lateral
  * NENHUMA) e `/topico/counting-sort/`, que assumiu a cobertura de "tópico em
  * breve" que era do `/topico/trie/` antes de ele ganhar artigo.
  *
@@ -130,7 +130,7 @@ const PASSIVO: Record<string, Conhecida[]> = {
     },
   ],
   // O tópico "em breve", que era a cobertura do `/topico/trie/` antes de ele
-  // virar página avulsa com artigo: é a única amostra em que o selo "em breve"
+  // virar tópico avulso com artigo: é a única amostra em que o selo "em breve"
   // e o item apagado do menu aparecem.
   "/topico/counting-sort/": [
     {
@@ -142,13 +142,13 @@ const PASSIVO: Record<string, Conhecida[]> = {
         "(`.badge-soon`, #7f93ad sobre #22314a, 4.15:1), os dois contra os 4.5:1 " +
         "exigidos. Teto vale aqui: são dois elementos de chrome fixo, não de conteúdo. " +
         "Esta entrada morava no `/topico/trie/`, que era a amostra de tópico vazio " +
-        "até virar página avulsa com artigo",
+        "até virar tópico avulso com artigo",
     },
   ],
   // As duas telas novas. Listas vazias, que é a forma mais forte deste guarda:
   // qualquer violação que apareça nelas vira "regra nova" e reprova.
-  "/cursos/": [],
-  "/cursos/estruturas-probabilisticas/": [],
+  "/trilha/": [],
+  "/trilha/estruturas-probabilisticas/": [],
   "/apoie/": [],
 };
 
@@ -172,8 +172,8 @@ const AMOSTRA = Object.keys(PASSIVO);
  *
  * O SINAL É `<html data-hidratado>`, posto pelo `ProgressProvider` no efeito de
  * montagem. Ele substituiu o carimbo `ccc-dsa-menu`, e a troca não é
- * preferência: aquele carimbo é escrito pela TRILHA LATERAL, e desde os cursos
- * há rota sem trilha lateral nenhuma (a página avulsa e a vitrine `/cursos/`,
+ * preferência: aquele carimbo é escrito pela TRILHA LATERAL, e desde as trilhas
+ * há rota sem roadmap lateral nenhuma (o tópico avulso e a vitrine `/trilha/`,
  * ver `src/components/Shell.tsx`). Esperar por ele numa dessas era esperar 30s
  * por um menu que não ia existir — medido, com `/topico/trie/` estourando o
  * timeout. O provedor embrulha o site inteiro, então o novo sinal vale em toda
@@ -187,7 +187,7 @@ const AMOSTRA = Object.keys(PASSIVO);
  */
 async function esperarHidratar(page: Page) {
   await page.waitForSelector("html[data-hidratado]", { state: "attached" });
-  // E, ONDE EXISTE trilha lateral, o carimbo do menu também.
+  // E, ONDE EXISTE roadmap lateral, o carimbo do menu também.
   //
   // Ele é escrito num efeito POSTERIOR ao do provedor, e a diferença é
   // medível: com só o `data-hidratado`, o axe mediu `/topico/two-pointers/`
@@ -196,11 +196,11 @@ async function esperarHidratar(page: Page) {
   // guarda afrouxando sozinho, que é pior do que ele reprovar.
   //
   // A condição é o CAMPO DE BUSCA, e não o `#menu-lateral`: a barra lateral de
-  // um curso usa o mesmo id de landmark e NÃO escreve carimbo nenhum (quem
-  // escreve é o `TrilhaSidebar`). Perguntar pelo landmark fazia
-  // `/cursos/<slug>/` esperar 30s por um carimbo que não vem.
+  // uma trilha usa o mesmo id de landmark e NÃO escreve carimbo nenhum (quem
+  // escreve é o `RoadmapSidebar`). Perguntar pelo landmark fazia
+  // `/trilha/<slug>/` esperar 30s por um carimbo que não vem.
   //
-  // As duas esperas juntas, e não uma só: o carimbo cobre o caso da trilha e
+  // As duas esperas juntas, e não uma só: o carimbo cobre o caso do roadmap e
   // não existe fora dela; o atributo cobre toda rota. Este é o superconjunto.
   if (await page.locator("#busca-topico").count()) {
     await page.waitForFunction(() => {

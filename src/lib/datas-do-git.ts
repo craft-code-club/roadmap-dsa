@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { isEmptyTopic } from "@content/roadmap";
-import { COURSES, EXTRA_TOPICS, SITE_TOPICS } from "@content/courses";
+import { TRACKS, EXTRA_TOPICS, SITE_TOPICS } from "@content/tracks";
 
 // As rotas fixas e os arquivos que respondem pelo conteúdo de cada uma.
 //
@@ -21,20 +21,20 @@ import { COURSES, EXTRA_TOPICS, SITE_TOPICS } from "@content/courses";
 // O tipo do `Record` é o que cobra a segunda metade: acrescentar uma rota em
 // `ROTAS_FIXAS` sem declarar de que arquivos ela tira data é erro de
 // compilação, não uma URL sem `lastmod` descoberta meses depois.
-export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/cursos/", "/apoie/", "/sobre/"] as const;
+export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/trilha/", "/apoie/", "/sobre/"] as const;
 
 export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly string[]> = {
-  "/": ["src/app/page.tsx", "content/roadmap.ts", "content/courses.ts"],
+  "/": ["src/app/page.tsx", "content/roadmap.ts", "content/tracks.ts"],
   "/introducao/": ["src/app/introducao/page.tsx"],
   "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
   // A vitrine lê o `courses.ts` (é de lá que saem os cards) e o `roadmap.ts`
-  // (o texto de abertura cita o tamanho da trilha).
-  "/cursos/": ["src/app/cursos/page.tsx", "content/courses.ts", "content/roadmap.ts"],
+  // (o texto de abertura cita o tamanho do roadmap).
+  "/trilha/": ["src/app/trilha/page.tsx", "content/tracks.ts", "content/roadmap.ts"],
   "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
   // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
   // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
   // página sem ninguém tocar no `page.tsx` dela.
-  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts", "content/courses.ts"],
+  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts", "content/tracks.ts"],
 };
 
 // A data de uma página, derivada do `git log`. Um lugar só, porque são dois
@@ -167,22 +167,22 @@ export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefine
 }
 
 const ARQUIVO_DO_ROADMAP = "content/roadmap.ts";
-const ARQUIVO_DOS_CURSOS = "content/courses.ts";
+const ARQUIVO_DA_TRILHA = "content/tracks.ts";
 
 /**
  * Os arquivos de dados que descrevem tópicos, na ordem em que são varridos.
  *
- * Eram um só até os cursos existirem, e a diferença é visível: o selo
- * "Atualizado em" de um tópico de curso saía da data do `roadmap.ts`, um arquivo
+ * Eram um só até as trilhas existirem, e a diferença é visível: o selo
+ * "Atualizado em" de um tópico de trilha saía da data do `roadmap.ts`, um arquivo
  * que aquele tópico não tem uma linha dentro. Página datada por arquivo que não
  * é dela é exatamente o defeito que o mecanismo de intervalo veio consertar,
  * reaberto pela porta ao lado.
  */
-const ARQUIVOS_DE_TOPICO = [ARQUIVO_DO_ROADMAP, ARQUIVO_DOS_CURSOS] as const;
+const ARQUIVOS_DE_TOPICO = [ARQUIVO_DO_ROADMAP, ARQUIVO_DA_TRILHA] as const;
 
 /** Em que arquivo de dados o tópico é descrito. É o plano B da data dele. */
 function arquivoDoTopico(slug: string): string {
-  return EXTRA_TOPICS.some((t) => t.slug === slug) ? ARQUIVO_DOS_CURSOS : ARQUIVO_DO_ROADMAP;
+  return EXTRA_TOPICS.some((t) => t.slug === slug) ? ARQUIVO_DA_TRILHA : ARQUIVO_DO_ROADMAP;
 }
 
 /** Onde um tópico é descrito: arquivo e intervalo de linhas (1-based). */
@@ -349,7 +349,7 @@ export function atualizacaoDoTopico(slug: string): Date | undefined {
 }
 
 /**
- * Quando a abertura de um curso mudou pela última vez.
+ * Quando a abertura de uma trilha mudou pela última vez.
  *
  * Ela é feita do `courses.ts` (nome, descrição, pré-requisitos, a lista de
  * tópicos que ela desenha) e dos ARTIGOS dos tópicos dele — publicar um tópico
@@ -357,14 +357,14 @@ export function atualizacaoDoTopico(slug: string): Date | undefined {
  * a mais recente entre as duas coisas, pelo mesmo raciocínio do tópico: o
  * carimbo é uma afirmação sobre a página inteira.
  */
-export function atualizacaoDoCurso(slug: string): Date | undefined {
-  const curso = COURSES.find((c) => c.slug === slug);
-  if (!curso) return undefined;
-  const artigos = curso.groups
+export function atualizacaoDaTrilha(slug: string): Date | undefined {
+  const trilha = TRACKS.find((c) => c.slug === slug);
+  if (!trilha) return undefined;
+  const artigos = trilha.groups
     .flatMap((g) => g.topics)
     .filter((t) => !isEmptyTopic(t))
     .map((t) => `content/topics/${t.slug}.mdx`);
-  return ultimaAlteracao(ARQUIVO_DOS_CURSOS, ...artigos);
+  return ultimaAlteracao(ARQUIVO_DA_TRILHA, ...artigos);
 }
 
 /**

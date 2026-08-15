@@ -27,9 +27,9 @@ npm test         # testes de navegação (Playwright)
 
 ```
 content/                    conteúdo (irmão de src/): dados, artigos e visualizadores
-  roadmap.ts                ÍNDICE da TRILHA: fonte única do menu/roadmap
-  courses.ts                o que existe FORA da trilha: cursos e páginas avulsas
-  topics/*.mdx              corpo dos artigos "ready" (da trilha e de fora dela)
+  roadmap.ts                ÍNDICE do ROADMAP: fonte única do menu e da trilha principal
+  tracks.ts                 o que existe FORA do roadmap: trilhas e tópicos avulsos
+  topics/*.mdx              corpo dos artigos "ready" (do roadmap e de fora dele)
   topics/index.ts           registro slug -> MDX
   visualizers/              visualizadores (ilhas client usadas nos artigos)
     SlidingWindowVisualizer.tsx
@@ -38,8 +38,8 @@ src/                        código de estrutura (não é conteúdo)
   app/                      rotas (App Router)
     page.tsx                home
     roadmap/                o roadmap inteiro
-    cursos/                 vitrine dos extras
-      [curso]/              abertura de um curso (sub-roadmap)
+    trilha/                 vitrine dos extras
+      [slug]/               abertura de uma trilha (sub-roadmap)
     topico/[slug]/          página de tópico (artigo + vídeo + problemas + referências)
     apoie/                  página de apoio
       apoiadores.ts         apoiadores (da APOIA.se, no build) e parceiros
@@ -47,10 +47,10 @@ src/                        código de estrutura (não é conteúdo)
     sitemap.ts, robots.ts   SEO
   components/
     Shell.tsx               moldura: header + gaveta + rodapé; escolhe a barra lateral
-    TrilhaSidebar.tsx       barra lateral da trilha (busca, progresso, 16 grupos)
-    CursoSidebar.tsx        barra lateral de um curso
-    GrupoCards.tsx          grade de grupos e tópicos (roadmap e abertura de curso)
-    ExtrasGrid.tsx          os cards de "Cursos e outras estruturas"
+    RoadmapSidebar.tsx      barra lateral do roadmap (busca, progresso, 16 grupos)
+    TrackSidebar.tsx        barra lateral de uma trilha
+    GrupoCards.tsx          grade de grupos e tópicos (roadmap e abertura de trilha)
+    ExtrasGrid.tsx          os cards de "Trilhas e outros tópicos"
     ProgressProvider.tsx    progresso no localStorage (tópicos + problemas)
     ProblemList.tsx         lista de problemas com checkbox
   lib/
@@ -93,33 +93,36 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
 
 3. **Ligue o artigo:** registre em `content/topics/index.ts` e mude `status` para `"ready"`.
 
-## Trilha, curso ou página avulsa: onde o tópico mora
+## Roadmap, trilha ou tópico avulso: onde o tópico mora
 
 Nem tudo que vale a pena aprender cabe na fila do roadmap. Existem **três casas**, e todas
 publicam o tópico em `/topico/<slug>/` — a URL de um tópico não depende de onde ele mora.
 
 | Casa | Onde se registra | O que o aluno vê |
 | --- | --- | --- |
-| **Trilha** | `content/roadmap.ts`, dentro de um grupo | a barra lateral com os tópicos da trilha, e anterior/próximo dentro dela |
-| **Página avulsa** | `content/courses.ts`, em `STANDALONES` | **nenhuma** barra lateral: a página é o assunto inteiro, e fecha com a banda "Continue explorando" |
-| **Curso** (sub-roadmap) | `content/courses.ts`, em `COURSES` | a barra lateral **daquele curso**, com progresso próprio e a volta para o roadmap. A abertura fica em `/cursos/<slug>/` |
+| **Roadmap** | `content/roadmap.ts`, dentro de um grupo | a barra lateral com os tópicos do roadmap, e anterior/próximo dentro dele |
+| **Tópico avulso** | `content/tracks.ts`, em `STANDALONES` | **nenhuma** barra lateral: a página é o assunto inteiro, e fecha com a banda "Continue explorando" |
+| **Trilha** (sub-roadmap) | `content/tracks.ts`, em `TRACKS` | a barra lateral **daquela trilha**, com progresso próprio e a volta para o roadmap. A abertura fica em `/trilha/<slug>/` |
+
+O vocabulário é fixo, e vale a pena guardar: **roadmap** é a sequência principal, **trilha** é
+uma das extras, **tópico** é uma página. Nos identificadores, `Track` e `Standalone`.
 
 Como escolher, em uma pergunta: **cabe numa página?** Se cabe e é um assunto à parte (Skip List,
-Union-Find, Trie), é avulsa. Se é uma família que precisa de várias páginas em ordem (árvores
-balanceadas, consultas em intervalos), é curso. Se é um degrau que os degraus seguintes
-pressupõem, é trilha.
+Union-Find, Trie), é tópico avulso. Se é uma família que precisa de várias páginas em ordem
+(árvores balanceadas, consultas em intervalos), é trilha. Se é um degrau que os degraus
+seguintes pressupõem, é roadmap.
 
 Três coisas que o código já cobra por você, no `npm run build`:
 
-- **slug único no site inteiro.** Trilha, curso e avulsa dividem o namespace de `/topico/`, e
-  slug repetido faria a segunda página sumir em silêncio. O guarda em `content/courses.ts`
+- **slug único no site inteiro.** Roadmap, trilha e avulso dividem o namespace de `/topico/`, e
+  slug repetido faria a segunda página sumir em silêncio. O guarda em `content/tracks.ts`
   derruba o build dizendo quais são os dois donos.
 - **id de grupo único**, pelo mesmo motivo (é chave de React e âncora de `/roadmap/#<id>`).
 - **pré-requisito que existe**: os slugs em `requires` têm que ser tópicos de verdade.
 
-E duas que dependem de você: um curso só entra no índice do Google quando tem ao menos um
-tópico com material (`courseHasMaterial`), e a ordem dos cards da vitrine é derivada — o que
-tem material vem primeiro, sozinho, sem lista à mão.
+E duas que dependem de você: uma trilha só entra no índice do Google quando tem ao menos um
+tópico com material (`trackHasMaterial`), e a ordem dos cards da vitrine é derivada — o que tem
+material vem primeiro, sozinho, sem lista à mão.
 
 ## Como adicionar um visualizador
 

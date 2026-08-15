@@ -8,11 +8,11 @@ import { useProgress } from "@/components/ProgressProvider";
 /**
  * Grupos de tópicos em cards, com progresso.
  *
- * É o corpo do `/roadmap/` e o corpo da abertura de cada curso. Os dois mostram
+ * É o corpo do `/roadmap/` e o corpo da abertura de cada trilha. Os dois mostram
  * a mesma coisa — grupos, cada um com os seus tópicos, cada tópico com nível,
  * etiquetas de material e marca de concluído — e a única diferença é DE ONDE
- * vêm os grupos. Uma segunda cópia deste componente para os cursos seria a
- * quinta cópia do traço do ✓ neste repositório (`TrilhaSidebar`, `CursoSidebar`,
+ * vêm os grupos. Uma segunda cópia deste componente para as trilhas seria a
+ * quinta cópia do traço do ✓ neste repositório (`RoadmapSidebar`, `TrackSidebar`,
  * `ProblemList` e esta), e o teste `check-alinhado` mede as que existem
  * justamente porque cópia de desenho é o que mais desalinha sozinho.
  */
@@ -49,7 +49,7 @@ export function GrupoCards({ groups }: { groups: Group[] }) {
                   // Ela sai do fluxo (o CSS a posiciona) para o card inteiro
                   // continuar sendo um alvo de clique só.
                   <div className="topic-card-wrap" key={t.slug}>
-                    {/* A marca vem ANTES do link no DOM, como na trilha lateral
+                    {/* A marca vem ANTES do link no DOM, como no roadmap lateral
                         e no `ProblemList`. Ela é a primeira coisa do card em
                         todas as outras listas, e aqui era a última: o teclado
                         chegava ao card, entrava no tópico, e só encontrava o
@@ -64,7 +64,7 @@ export function GrupoCards({ groups }: { groups: Group[] }) {
                       aria-label={`Marcar ${t.name} como concluído`}
                       onClick={() => toggleTopico(t.slug)}
                     >
-                      {/* O mesmo traço do `TrilhaSidebar` e do `ProblemList`; o
+                      {/* O mesmo traço do `RoadmapSidebar` e do `ProblemList`; o
                           porquê medido de ser desenho, e não o caractere `✓`,
                           está no `globals.css`. `aria-hidden` porque é
                           decoração: o estado é `aria-checked`, o nome é o

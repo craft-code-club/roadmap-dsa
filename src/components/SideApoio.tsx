@@ -4,10 +4,10 @@ import { LINKS } from "@/lib/links";
 /**
  * O pé de toda barra lateral: Discord e apoio.
  *
- * Existe como componente porque agora são DUAS barras laterais (a da trilha e a
- * de cada curso), e este bloco é o mesmo nas duas. Copiar os dois cards é o
+ * Existe como componente porque agora são DUAS barras laterais (a do roadmap e a
+ * de cada trilha), e este bloco é o mesmo nas duas. Copiar os dois cards é o
  * caminho conhecido para o dia em que o texto de um deles mudar e o do outro
- * não — e o leitor de curso ver a chamada velha.
+ * não — e o leitor de trilha ver a chamada velha.
  */
 export function SideApoio() {
   return (

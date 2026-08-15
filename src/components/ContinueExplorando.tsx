@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { EXTRA_CARDS } from "@content/courses";
+import { EXTRA_CARDS } from "@content/tracks";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 
 /**
- * O que vem depois de uma página avulsa.
+ * O que vem depois de um tópico avulso.
  *
- * A página avulsa não tem barra lateral, e por isso não tem "anterior" nem
- * "próximo": ela não está numa fila. O que ela tem são VIZINHOS — as outras
- * estruturas fora da trilha —, e é isso que esta banda mostra, no fim do
+ * O tópico avulso não tem barra lateral, e por isso não tem "anterior" nem
+ * "próximo": ele não está numa fila. O que ele tem são VIZINHOS — as outras
+ * estruturas fora do roadmap —, e é isso que esta banda mostra, no fim do
  * artigo, que é onde o leitor está quando termina de ler.
  *
  * Dois cards, e não a vitrine inteira: aqui isto é um destino sugerido, não um
@@ -33,10 +33,10 @@ export function ContinueExplorando({ excluir, quantos = 2 }: { excluir?: string;
     <section className="continue-explorando">
       <div className="continue-head">
         <h2 className="prose-h2" style={{ margin: 0 }}>Continue explorando</h2>
-        <Link href="/cursos" className="link-btn">Ver tudo →</Link>
+        <Link href="/trilha" className="link-btn">Ver tudo →</Link>
       </div>
       <p className="prose-p" style={{ color: "var(--ccc-muted)", marginTop: 0 }}>
-        Outras estruturas e cursos fora da trilha principal.
+        Outras estruturas e trilhas fora do roadmap.
       </p>
       <ExtrasGrid cards={vizinhos} />
     </section>

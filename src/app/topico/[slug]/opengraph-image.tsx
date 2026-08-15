@@ -1,4 +1,4 @@
-import { getSiteTopic, SITE_TOPICS } from "@content/courses";
+import { getSiteTopic, SITE_TOPICS } from "@content/tracks";
 import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
 
 // Card de compartilhamento de CADA tópico.
@@ -55,8 +55,8 @@ export const alt =
 // um card por tópico do SITE, inclusive os que ainda estão "em breve", porque o
 // link deles circula do mesmo jeito.
 //
-// `SITE_TOPICS`, e não `ALL_TOPICS`: com a lista da trilha aqui, os tópicos dos
-// cursos e as páginas avulsas continuariam apontando `og:image` para
+// `SITE_TOPICS`, e não `ALL_TOPICS`: com a lista do roadmap aqui, os tópicos dos
+// trilhas e os tópicos avulsos continuariam apontando `og:image` para
 // `/topico/<slug>/opengraph-image` (o Next emite a meta a partir do ARQUIVO
 // existir no segmento, não a partir do slug ter sido enumerado), e a imagem
 // nunca sairia no `out/`. Card 404 é o defeito que este arquivo nasceu para
@@ -87,7 +87,7 @@ function exigirLatin1(campos: Record<string, string>, slug: string): void {
       throw new Error(
         `opengraph-image (${slug}): ${JSON.stringify(semFonte.join(""))} em "${campo}" está fora ` +
           "do Latin-1, e o card do Open Graph sai com um retângulo vazio no lugar. Troque o " +
-          "símbolo por palavras no texto do tópico, em content/roadmap.ts ou content/courses.ts."
+          "símbolo por palavras no texto do tópico, em content/roadmap.ts ou content/tracks.ts."
       );
     }
   }

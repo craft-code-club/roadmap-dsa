@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// Cursos e outras estruturas — o que existe FORA da trilha principal.
+// Trilhas e outros tópicos — o que existe FORA do roadmap.
 //
-// O `content/roadmap.ts` é a trilha: uma sequência, do Big O aos grafos, que o
-// aluno percorre na ordem. Nem tudo que vale a pena aprender cabe nela. A Skip
+// O `content/roadmap.ts` é o roadmap: uma sequência, do Big O aos grafos, que o
+// aluno percorre na ordem. Nem tudo que vale a pena aprender cabe nele. A Skip
 // List é o caso que abriu esta porta: ela vivia dentro do grupo "Listas
 // Encadeadas" porque é feita de listas encadeadas, e a consequência era o aluno
 // de terceira semana encontrar uma estrutura probabilística difícil no meio de
@@ -12,21 +12,21 @@
 // Este arquivo é a casa desse "outro assunto". São duas formas, e a diferença
 // entre elas é o tamanho do assunto, não a importância:
 //
-//   AVULSO  uma estrutura que se basta numa página só. Vive em `/topico/<slug>/`,
-//           exatamente como os tópicos da trilha, e é servida sem barra lateral:
+//   TÓPICO  uma estrutura que se basta numa página só. Vive em `/topico/<slug>/`,
+//           exatamente como os tópicos do roadmap, e é servido sem barra lateral:
 //           a página é o assunto inteiro, e uma trilha ao lado dela seria uma
 //           trilha para lugar nenhum.
 //
-//   CURSO   uma FAMÍLIA que precisa de várias páginas em ordem. Ganha uma página
-//           de abertura em `/cursos/<slug>/` e uma barra lateral própria, com os
-//           tópicos daquele curso e o caminho de volta. Os tópicos continuam em
+//   TRILHA  uma FAMÍLIA que precisa de várias páginas em ordem. Ganha uma página
+//           de abertura em `/trilha/<slug>/` e uma barra lateral própria, com os
+//           tópicos dela e o caminho de volta. Os tópicos continuam em
 //           `/topico/<slug>/`: um tópico é um tópico, e a URL dele não muda por
-//           ele pertencer a um curso em vez de à trilha.
+//           ele pertencer a uma trilha em vez de ao roadmap.
 //
 // A REGRA DE NAMESPACE, e por que ela é código e não convenção
 // ------------------------------------------------------------
-// Como todo tópico do site — trilha, curso ou avulso — mora em `/topico/<slug>/`,
-// o slug é um identificador GLOBAL. Dois tópicos com o mesmo slug em trilhas
+// Como todo tópico do site — roadmap, trilha ou avulso — mora em `/topico/<slug>/`,
+// o slug é um identificador GLOBAL. Dois tópicos com o mesmo slug em casas
 // diferentes não dão erro de compilação, não dão erro de build: o
 // `generateStaticParams` emite a rota duas vezes, o Next gera uma página só, e o
 // segundo tópico simplesmente não existe no site publicado. Silêncio total.
@@ -37,24 +37,24 @@
 // no `npm run dev`.
 //
 // A mesma regra vale para o id de grupo (`Group.id`), que é chave de React e
-// âncora de URL, e para o slug de curso, que divide o namespace de `/cursos/`.
+// âncora de URL, e para o slug de trilha, que divide o namespace de `/trilha/`.
 // ---------------------------------------------------------------------------
 
 import { ALL_TOPICS, GROUPS, isEmptyTopic, type Group, type Level, type Topic } from "./roadmap";
 
 /**
- * Um curso: um sub-roadmap com grupos e tópicos próprios.
+ * Uma trilha: um sub-roadmap com grupos e tópicos próprios.
  *
- * Reusa `Group` e `Topic` do roadmap principal de propósito. A trilha extra não
+ * Reusa `Group` e `Topic` do roadmap de propósito. A trilha extra não
  * é um formato novo de conteúdo — é o MESMO conteúdo em outra ordem. Um tipo
  * paralelo significaria dois lugares para consertar quando o modelo de tópico
  * mudasse, e a página de tópico teria que saber de qual dos dois ela veio.
  */
-export type Course = {
-  /** Vira `/cursos/<slug>/`. */
+export type Track = {
+  /** Vira `/trilha/<slug>/`. */
   slug: string;
   name: string;
-  /** A frase do card, no imperativo do que o curso entrega. Uma linha. */
+  /** A frase do card, no imperativo do que a trilha entrega. Uma linha. */
   tagline: string;
   /** O parágrafo da abertura, e a `description` do SEO. */
   description: string;
@@ -62,12 +62,12 @@ export type Course = {
   /** Glifo do card. Só decoração — sempre `aria-hidden`. */
   glyph: string;
   groups: Group[];
-  /** Slugs da trilha principal que convém ter antes. Vira a linha "Antes daqui". */
+  /** Slugs do roadmap que convém ter antes. Vira a linha "Antes daqui". */
   requires?: string[];
 };
 
 /**
- * Uma página avulsa: um tópico só, que se basta.
+ * Um tópico avulso: um tópico só, que se basta.
  *
  * O tópico é um `Topic` normal e vive em `/topico/<slug>/`. O que este envelope
  * acrescenta é só o que o CARD precisa saber e o tópico não carrega: a frase de
@@ -77,19 +77,19 @@ export type Standalone = {
   topic: Topic;
   tagline: string;
   glyph: string;
-  /** Slugs da trilha principal que convém ter antes. */
+  /** Slugs do roadmap que convém ter antes. */
   requires?: string[];
 };
 
-// ------------------------------- os cursos -------------------------------
+// ------------------------------- as trilhas -------------------------------
 
-export const COURSES: Course[] = [
+export const TRACKS: Track[] = [
   {
     slug: "estruturas-probabilisticas",
     name: "Estruturas Probabilísticas",
     tagline: "Respostas quase certas, por uma fração da memória.",
     description:
-      "Quando o dado não cabe na memória, a saída é trocar exatidão por espaço — de um jeito medido, com a margem de erro escrita no contrato. Este curso percorre as estruturas que respondem “já vi isto?”, “quantos distintos?” e “uma amostra justa” usando alguns bits por elemento, e mostra onde cada uma mente e o quanto.",
+      "Quando o dado não cabe na memória, a saída é trocar exatidão por espaço — de um jeito medido, com a margem de erro escrita no contrato. Esta trilha percorre as estruturas que respondem “já vi isto?”, “quantos distintos?” e “uma amostra justa” usando alguns bits por elemento, e mostra onde cada uma mente e o quanto.",
     level: "Médio",
     glyph: "◐",
     requires: ["hash-table", "big-o"],
@@ -162,7 +162,7 @@ export const COURSES: Course[] = [
     name: "Árvores Balanceadas",
     tagline: "A rotação que impede a BST de virar uma lista.",
     description:
-      "Uma árvore de busca binária só entrega O(log n) enquanto ninguém insere em ordem crescente — e inserir em ordem crescente é o caso mais comum do mundo real. Este curso é sobre as estruturas que garantem altura logarítmica no pior caso, e sobre o preço que cada uma cobra por essa garantia: rotação, cor, sorteio ou grau.",
+      "Uma árvore de busca binária só entrega O(log n) enquanto ninguém insere em ordem crescente — e inserir em ordem crescente é o caso mais comum do mundo real. Esta trilha é sobre as estruturas que garantem altura logarítmica no pior caso, e sobre o preço que cada uma cobra por essa garantia: rotação, cor, sorteio ou grau.",
     level: "Difícil",
     glyph: "❖",
     requires: ["bst", "arvores-binarias", "tree-traversals"],
@@ -197,7 +197,7 @@ export const COURSES: Course[] = [
     name: "Consultas em Intervalos",
     tagline: "Somar, minimizar e atualizar faixas em O(log n).",
     description:
-      "O Prefix Sum responde “a soma de i até j” em O(1), com uma condição: o array não pode mudar. Uma única escrita no meio invalida o prefixo inteiro e custa O(n) para refazer. Este curso é sobre as estruturas que aceitam consulta e atualização intercaladas, as duas em tempo logarítmico.",
+      "O Prefix Sum responde “a soma de i até j” em O(1), com uma condição: o array não pode mudar. Uma única escrita no meio invalida o prefixo inteiro e custa O(n) para refazer. Esta trilha é sobre as estruturas que aceitam consulta e atualização intercaladas, as duas em tempo logarítmico.",
     level: "Difícil",
     glyph: "▤",
     requires: ["prefix-sum", "arvores-binarias", "binary-numbers"],
@@ -231,7 +231,7 @@ export const COURSES: Course[] = [
     name: "Casamento de Padrões em Strings",
     tagline: "Achar a agulha no texto sem nunca voltar atrás.",
     description:
-      "A busca ingênua compara o padrão com o texto, erra no último caractere, e recomeça uma casa adiante — jogando fora tudo o que tinha acabado de descobrir. Este curso é sobre os algoritmos que não jogam nada fora: eles usam o que já casou para saber exatamente para onde pular.",
+      "A busca ingênua compara o padrão com o texto, erra no último caractere, e recomeça uma casa adiante — jogando fora tudo o que tinha acabado de descobrir. Esta trilha é sobre os algoritmos que não jogam nada fora: eles usam o que já casou para saber exatamente para onde pular.",
     level: "Difícil",
     glyph: "✱",
     requires: ["strings", "trie", "hash-table"],
@@ -266,7 +266,7 @@ export const COURSES: Course[] = [
     name: "Grafos Avançados",
     tagline: "Depois do Dijkstra: componentes, pontes e fluxo.",
     description:
-      "A trilha principal cobre percorrer o grafo e achar o caminho mais curto. Este curso é o que vem depois: descobrir a estrutura escondida dentro dele — que pedaços são indivisíveis, que arestas são únicas, quanta coisa cabe passando ao mesmo tempo — e reconhecer os problemas que só viram fáceis quando você os desenha como grafo.",
+      "O roadmap cobre percorrer o grafo e achar o caminho mais curto. Esta trilha é o que vem depois: descobrir a estrutura escondida dentro dele — que pedaços são indivisíveis, que arestas são únicas, quanta coisa cabe passando ao mesmo tempo — e reconhecer os problemas que só viram fáceis quando você os desenha como grafo.",
     level: "Difícil",
     glyph: "◉",
     requires: ["dfs-bfs", "dijkstra", "topological-sort", "union-find"],
@@ -299,7 +299,7 @@ export const COURSES: Course[] = [
   },
 ];
 
-// ----------------------------- as avulsas --------------------------------
+// -------------------------- os tópicos avulsos ----------------------------
 
 export const STANDALONES: Standalone[] = [
   {
@@ -313,7 +313,7 @@ export const STANDALONES: Standalone[] = [
       // porque a skip list é FEITA de listas encadeadas — que é uma verdade
       // sobre a implementação, não sobre o assunto. O que ela é, é uma
       // estrutura probabilística; é isso que o leitor precisa saber antes de
-      // clicar, e é isso que o curso vizinho continua.
+      // clicar, e é isso que a trilha vizinho continua.
       group: "Estruturas probabilísticas",
       level: "Difícil",
       status: "ready",
@@ -459,14 +459,14 @@ export const STANDALONES: Standalone[] = [
 
 // ------------------------------- derivados -------------------------------
 
-/** Tópicos que pertencem a um curso, na ordem em que o curso os apresenta. */
-export const COURSE_TOPICS: Topic[] = COURSES.flatMap((c) => c.groups.flatMap((g) => g.topics));
+/** Tópicos que pertencem a uma trilha, na ordem em que a trilha os apresenta. */
+export const TRACK_TOPICS: Topic[] = TRACKS.flatMap((t) => t.groups.flatMap((g) => g.topics));
 
 /** Tópicos que se bastam sozinhos. */
 export const STANDALONE_TOPICS: Topic[] = STANDALONES.map((s) => s.topic);
 
-/** Tudo que existe fora da trilha principal. */
-export const EXTRA_TOPICS: Topic[] = [...COURSE_TOPICS, ...STANDALONE_TOPICS];
+/** Tudo que existe fora do roadmap. */
+export const EXTRA_TOPICS: Topic[] = [...TRACK_TOPICS, ...STANDALONE_TOPICS];
 
 /**
  * TODO tópico do site que tem uma página em `/topico/<slug>/`.
@@ -474,33 +474,33 @@ export const EXTRA_TOPICS: Topic[] = [...COURSE_TOPICS, ...STANDALONE_TOPICS];
  * É esta lista — e não `ALL_TOPICS` — que o `generateStaticParams`, o sitemap e
  * o guarda de datas precisam. `ALL_TOPICS` continua sendo a TRILHA: é ele que
  * conta o progresso, desenha a barra lateral e alimenta os números da home, e
- * nenhuma dessas três coisas deve crescer porque um curso ganhou um tópico.
+ * nenhuma dessas três coisas deve crescer porque uma trilha ganhou um tópico.
  */
 export const SITE_TOPICS: Topic[] = [...ALL_TOPICS, ...EXTRA_TOPICS];
 
 /**
- * Um curso tem material quando pelo menos um tópico dele tem.
+ * Uma trilha tem material quando pelo menos um tópico dele tem.
  *
  * Deriva de `isEmptyTopic`, a mesma função que decide o selo "em breve" no menu
- * e o `noindex` da página de tópico. Curso em que todo tópico está vazio é uma
+ * e o `noindex` da página de tópico. Trilha em que todo tópico está vazio é uma
  * página de abertura sem nada para abrir: ela continua no site (ela mapeia o
  * território, e isso vale para quem estuda), mas fica fora do índice do Google e
- * fora do sitemap, exatamente como os 11 tópicos vazios da trilha.
+ * fora do sitemap, exatamente como os 11 tópicos vazios do roadmap.
  */
-export function courseHasMaterial(c: Course): boolean {
-  return c.groups.some((g) => g.topics.some((t) => !isEmptyTopic(t)));
+export function trackHasMaterial(track: Track): boolean {
+  return track.groups.some((g) => g.topics.some((t) => !isEmptyTopic(t)));
 }
 
-/** Os tópicos de um curso, achatados na ordem de leitura. */
-export function courseTopics(c: Course): Topic[] {
-  return c.groups.flatMap((g) => g.topics);
+/** Os tópicos de uma trilha, achatados na ordem de leitura. */
+export function trackTopics(track: Track): Topic[] {
+  return track.groups.flatMap((g) => g.topics);
 }
 
-export function getCourse(slug: string): Course | undefined {
-  return COURSES.find((c) => c.slug === slug);
+export function getTrack(slug: string): Track | undefined {
+  return TRACKS.find((t) => t.slug === slug);
 }
 
-/** Qualquer tópico do site, venha ele da trilha, de um curso ou de uma avulsa. */
+/** Qualquer tópico do site, venha ele do roadmap, de uma trilha ou de um avulso. */
 export function getSiteTopic(slug: string): Topic | undefined {
   return SITE_TOPICS.find((t) => t.slug === slug);
 }
@@ -511,24 +511,24 @@ export function getSiteTopic(slug: string): Topic | undefined {
  * A página de tópico e o `Shell` fazem a MESMA pergunta e precisam da mesma
  * resposta: uma calcula o rastro de navegação e os vizinhos, o outro decide se
  * desenha barra lateral e qual. Duas versões desta função é o começo de uma
- * página de curso com o menu da trilha principal ao lado.
+ * página de trilha com o menu do roadmap ao lado.
  */
 export type Placement =
-  | { trilha: "roadmap" }
-  | { trilha: "curso"; course: Course }
-  | { trilha: "avulso"; standalone: Standalone };
+  | { kind: "roadmap" }
+  | { kind: "track"; track: Track }
+  | { kind: "standalone"; standalone: Standalone };
 
 export function getPlacement(slug: string): Placement | undefined {
-  const curso = COURSES.find((c) => c.groups.some((g) => g.topics.some((t) => t.slug === slug)));
-  if (curso) return { trilha: "curso", course: curso };
-  const avulso = STANDALONES.find((s) => s.topic.slug === slug);
-  if (avulso) return { trilha: "avulso", standalone: avulso };
-  return ALL_TOPICS.some((t) => t.slug === slug) ? { trilha: "roadmap" } : undefined;
+  const track = TRACKS.find((t) => t.groups.some((g) => g.topics.some((x) => x.slug === slug)));
+  if (track) return { kind: "track", track };
+  const standalone = STANDALONES.find((s) => s.topic.slug === slug);
+  if (standalone) return { kind: "standalone", standalone };
+  return ALL_TOPICS.some((t) => t.slug === slug) ? { kind: "roadmap" } : undefined;
 }
 
-/** Anterior e próximo DENTRO do curso. A trilha principal tem o seu, no roadmap. */
-export function getCourseNeighbors(c: Course, slug: string): { previous?: Topic; next?: Topic } {
-  const lista = courseTopics(c);
+/** Anterior e próximo DENTRO da trilha. O roadmap tem o dele, no `getNeighbors`. */
+export function getTrackNeighbors(track: Track, slug: string): { previous?: Topic; next?: Topic } {
+  const lista = trackTopics(track);
   const i = lista.findIndex((t) => t.slug === slug);
   if (i < 0) return {};
   return { previous: lista[i - 1], next: lista[i + 1] };
@@ -537,23 +537,23 @@ export function getCourseNeighbors(c: Course, slug: string): { previous?: Topic;
 // --------------------------- os cards da vitrine ---------------------------
 
 /**
- * Um card da seção "Cursos e outras estruturas".
+ * Um card da seção "Trilhas e outros tópicos".
  *
- * Curso e avulsa viram o MESMO tipo aqui de propósito: a vitrine é uma grade só,
+ * Trilha e avulso viram o MESMO tipo aqui de propósito: a vitrine é uma grade só,
  * e o que muda entre os dois é uma etiqueta e o destino do clique. Duas grades
- * lado a lado obrigariam o aluno a entender a diferença entre curso e avulsa
+ * lado a lado obrigariam o aluno a entender a diferença entre trilha e avulso
  * ANTES de olhar o que tem em cada um, que é a ordem errada.
  */
 export type ExtraCard = {
-  kind: "curso" | "avulso";
-  /** Slug do curso, ou do tópico avulso. Único dentro da vitrine. */
+  kind: "track" | "standalone";
+  /** Slug da trilha, ou do tópico avulso. Único dentro da vitrine. */
   slug: string;
   href: string;
   name: string;
   tagline: string;
   level: Level;
   glyph: string;
-  /** Quantos tópicos o curso tem. `1` para avulsa — ela é a própria página. */
+  /** Quantos tópicos a trilha tem. `1` para um avulso — ele é a própria página. */
   topics: number;
   /** Quantos já têm material para abrir hoje. */
   ready: number;
@@ -566,25 +566,25 @@ export type ExtraCard = {
   topicSlugs: string[];
 };
 
-function cardDoCurso(c: Course): ExtraCard {
-  const lista = courseTopics(c);
+function cardDaTrilha(track: Track): ExtraCard {
+  const lista = trackTopics(track);
   return {
-    kind: "curso",
-    slug: c.slug,
-    href: `/cursos/${c.slug}/`,
-    name: c.name,
-    tagline: c.tagline,
-    level: c.level,
-    glyph: c.glyph,
+    kind: "track",
+    slug: track.slug,
+    href: `/trilha/${track.slug}/`,
+    name: track.name,
+    tagline: track.tagline,
+    level: track.level,
+    glyph: track.glyph,
     topics: lista.length,
     ready: lista.filter((t) => !isEmptyTopic(t)).length,
     topicSlugs: lista.map((t) => t.slug),
   };
 }
 
-function cardDaAvulsa(s: Standalone): ExtraCard {
+function cardDoTopico(s: Standalone): ExtraCard {
   return {
-    kind: "avulso",
+    kind: "standalone",
     slug: s.topic.slug,
     href: `/topico/${s.topic.slug}/`,
     name: s.topic.name,
@@ -608,8 +608,8 @@ function cardDaAvulsa(s: Standalone): ExtraCard {
  * ES2019, então empate mantém a ordem de entrada.
  */
 export const EXTRA_CARDS: ExtraCard[] = [
-  ...STANDALONES.map(cardDaAvulsa),
-  ...COURSES.map(cardDoCurso),
+  ...STANDALONES.map(cardDoTopico),
+  ...TRACKS.map(cardDaTrilha),
 ].sort((a, b) => Number(b.ready > 0) - Number(a.ready > 0));
 
 export const TOTAL_EXTRA_CARDS = EXTRA_CARDS.length;
@@ -636,51 +636,53 @@ function conferirUnicos(rotulo: string, pares: [chave: string, dono: string][]) 
 /**
  * Roda no import, e reprova o build.
  *
- * Sem isto, um slug repetido entre a trilha e um curso não acusa em lugar
+ * Sem isto, um slug repetido entre o roadmap e uma trilha não acusa em lugar
  * nenhum: `generateStaticParams` devolve o slug duas vezes, o Next gera uma
  * página só, e o tópico perdedor deixa de existir no site publicado sem uma
  * linha de aviso. O mesmo vale para o id de grupo, que é chave de React e
- * âncora de `/roadmap/#<id>`, e para o slug de curso, que divide `/cursos/`.
+ * âncora de `/roadmap/#<id>`, e para o slug de trilha, que divide `/trilha/`.
  */
 function conferirNamespaces() {
   conferirUnicos("slug de tópico", [
-    ...ALL_TOPICS.map((t): [string, string] => [t.slug, "a trilha principal"]),
-    ...COURSES.flatMap((c) =>
-      c.groups.flatMap((g) => g.topics.map((t): [string, string] => [t.slug, `o curso "${c.name}"`]))
+    ...ALL_TOPICS.map((t): [string, string] => [t.slug, "o roadmap"]),
+    ...TRACKS.flatMap((track) =>
+      track.groups.flatMap((g) =>
+        g.topics.map((t): [string, string] => [t.slug, `a trilha "${track.name}"`])
+      )
     ),
-    ...STANDALONES.map((s): [string, string] => [s.topic.slug, "as páginas avulsas"]),
+    ...STANDALONES.map((s): [string, string] => [s.topic.slug, "os tópicos avulsos"]),
   ]);
 
   conferirUnicos("id de grupo", [
-    ...GROUPS.map((g): [string, string] => [g.id, "a trilha principal"]),
-    ...COURSES.flatMap((c) => c.groups.map((g): [string, string] => [g.id, `o curso "${c.name}"`])),
+    ...GROUPS.map((g): [string, string] => [g.id, "o roadmap"]),
+    ...TRACKS.flatMap((track) => track.groups.map((g): [string, string] => [g.id, `a trilha "${track.name}"`])),
   ]);
 
-  conferirUnicos("slug de curso", COURSES.map((c): [string, string] => [c.slug, "os cursos"]));
+  conferirUnicos("slug de trilha", TRACKS.map((t): [string, string] => [t.slug, "as trilhas"]));
 
-  // Um curso não pode ter o mesmo slug de um tópico: os dois convivem, em
-  // `/cursos/x/` e `/topico/x/`, mas o leitor não tem como saber qual é qual, e
+  // Uma trilha não pode ter o mesmo slug de um tópico: os dois convivem, em
+  // `/trilha/x/` e `/topico/x/`, mas o leitor não tem como saber qual é qual, e
   // o rastro de navegação passaria a ter dois nós com o mesmo nome.
   const slugsDeTopico = new Set(SITE_TOPICS.map((t) => t.slug));
-  for (const c of COURSES) {
-    if (slugsDeTopico.has(c.slug)) {
+  for (const track of TRACKS) {
+    if (slugsDeTopico.has(track.slug)) {
       throw new Error(
-        `slug "${c.slug}" é de curso E de tópico ao mesmo tempo. ` +
-          `As duas rotas existiriam (/cursos/${c.slug}/ e /topico/${c.slug}/) e ninguém saberia qual é qual.`
+        `slug "${track.slug}" é de trilha E de tópico ao mesmo tempo. ` +
+          `As duas rotas existiriam (/trilha/${track.slug}/ e /topico/${track.slug}/) e ninguém saberia qual é qual.`
       );
     }
   }
 
-  // Pré-requisito é link para a trilha principal. Um slug errado aqui vira um
-  // link para 404 numa página que o build gera sem reclamar.
-  const daTrilha = new Set(ALL_TOPICS.map((t) => t.slug));
+  // Pré-requisito é link para um tópico. Um slug errado aqui vira um link
+  // para 404 numa página que o build gera sem reclamar.
+  const doRoadmap = new Set(ALL_TOPICS.map((t) => t.slug));
   const extras = new Set(EXTRA_TOPICS.map((t) => t.slug));
   for (const [dono, reqs] of [
-    ...COURSES.map((c): [string, string[] | undefined] => [`o curso "${c.name}"`, c.requires]),
-    ...STANDALONES.map((s): [string, string[] | undefined] => [`a avulsa "${s.topic.name}"`, s.requires]),
+    ...TRACKS.map((t): [string, string[] | undefined] => [`a trilha "${t.name}"`, t.requires]),
+    ...STANDALONES.map((s): [string, string[] | undefined] => [`o tópico avulso "${s.topic.name}"`, s.requires]),
   ]) {
     for (const slug of reqs ?? []) {
-      if (!daTrilha.has(slug) && !extras.has(slug)) {
+      if (!doRoadmap.has(slug) && !extras.has(slug)) {
         throw new Error(`${dono} pede o pré-requisito "${slug}", que não é tópico de lugar nenhum.`);
       }
     }

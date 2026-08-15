@@ -48,7 +48,7 @@ export type Topic = {
   // a página deixa de exibir o aviso de "visualização em construção".
   noViz?: boolean;
   // Selo "NOVO" no menu lateral. É uma TAG manual, não uma data: quem entra na
-  // trilha recebe `isNew: true` no PR que publica o tópico, e perde a marca no
+  // roadmap recebe `isNew: true` no PR que publica o tópico, e perde a marca no
   // PR seguinte, quando outro tópico assume o posto. Sem data para envelhecer
   // sozinha, o combinado é simples: tirar daqui é parte de publicar o próximo.
   isNew?: boolean;
@@ -369,15 +369,15 @@ export const GROUPS: Group[] = [
           { title: "LinkedList: a lista do Java é sempre duplamente encadeada", source: "Oracle Java Docs", url: "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/LinkedList.html" },
         ],
       },
-      // A Skip List MUDOU DE CASA e agora é uma página avulsa, em
-      // `content/courses.ts`. A URL não mudou (`/topico/skip-list/`): o que
+      // A Skip List MUDOU DE CASA e agora é um tópico avulso, em
+      // `content/tracks.ts`. A URL não mudou (`/topico/skip-list/`): o que
       // mudou é a vizinhança.
       //
       // Ela estava aqui porque é FEITA de listas encadeadas — uma verdade sobre
       // a implementação dela, não sobre o assunto. O efeito era o aluno da
       // terceira semana, que acabou de ver ponteiro rápido e lento, encontrar
       // uma estrutura probabilística "Difícil" como o próximo item de um grupo
-      // de fundamentos. A trilha promete uma ordem, e esse item quebrava a
+      // de fundamentos. O roadmap promete uma ordem, e esse item quebrava a
       // ordem que ele mesmo estava dentro.
     ],
   },
@@ -615,8 +615,8 @@ export const GROUPS: Group[] = [
           { title: "Red-Black Tree: o balanceamento que o TreeMap usa", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-red-black-tree/" },
         ],
       },
-      // A Trie MUDOU DE CASA e agora é uma página avulsa, em
-      // `content/courses.ts`. A URL não mudou (`/topico/trie/`): o que mudou é
+      // A Trie MUDOU DE CASA e agora é um tópico avulso, em
+      // `content/tracks.ts`. A URL não mudou (`/topico/trie/`): o que mudou é
       // a vizinhança. Manter o registro nos dois lugares derruba o build, que
       // recusa slug repetido — a segunda página sumiria em silêncio.
     ],
@@ -818,15 +818,15 @@ export const GROUPS: Group[] = [
           { title: "Disjoint Set Union (union-find) com compressão de caminho", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-disjoint-set-data-structure-or-union-find-algorithm/" },
         ],
       },
-      // "Grafos Avançados" VIROU UM CURSO, em `/cursos/grafos-avancados/`.
+      // "Grafos Avançados" VIROU UMA TRILHA, em `/trilha/grafos-avancados/`.
       //
       // Ele era um tópico só, e a descrição dele denunciava o problema:
       // "componentes fortemente conexos, pontes, pontos de articulação e
       // union-find" são quatro assuntos, cada um do tamanho do Dijkstra, num
       // slot que promete uma página. Ninguém ia escrever essa página — e se
       // escrevesse, seria quatro artigos empilhados sem ordem entre eles.
-      // Como curso, cada um vira um tópico com o seu lugar na fila, e o
-      // union-find, que nem é de grafo, saiu para a página avulsa dele.
+      // Como trilha, cada um vira um tópico com o seu lugar na fila, e o
+      // union-find, que nem é de grafo, saiu para o tópico avulso dele.
       //
       // A URL `/topico/grafos-avancados/` deixa de existir. Ela era um tópico
       // "em breve": sem vídeo, sem artigo e sem visualização, o site já a
@@ -1201,10 +1201,10 @@ export const GROUPS: Group[] = [
 /**
  * Os tópicos da TRILHA, na ordem dela.
  *
- * Não é "todo tópico do site". Desde que existem cursos e páginas avulsas
- * (`content/courses.ts`), o site publica tópicos que não estão aqui — eles têm
+ * Não é "todo tópico do site". Desde que existem trilhas e tópicos avulsos
+ * (`content/tracks.ts`), o site publica tópicos que não estão aqui — eles têm
  * página em `/topico/<slug>/` como qualquer outro, mas não entram na barra
- * lateral, não contam no progresso da trilha e não mexem nos números da home.
+ * lateral, não contam no progresso do roadmap e não mexem nos números da home.
  * Quem precisa de TODOS os tópicos, como o `generateStaticParams` e o sitemap,
  * usa o `SITE_TOPICS` de lá.
  *
@@ -1227,7 +1227,7 @@ export const TOTAL_LEETCODE_PROBLEMS = ALL_TOPICS.reduce(
 );
 // Tópicos que já têm alguma coisa para o aluno abrir. É o mesmo rigor do
 // `TOTAL_LEETCODE_PROBLEMS` logo acima, aplicado à outra ponta: `TOTAL_TOPICS`
-// conta a trilha inteira, e a trilha inclui os tópicos que o próprio site marca
+// conta o roadmap inteiro, e o roadmap inclui os tópicos que o próprio site marca
 // como "em breve" e tira do índice do Google por não terem vídeo, artigo nem
 // visualização. Prometer o total onde a frase descreve o que a página entrega
 // conta o que não existe.

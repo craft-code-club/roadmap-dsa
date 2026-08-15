@@ -74,7 +74,7 @@ test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ 
   // `outlineWidth` sozinho NÃO serve de prova: com `outline: none` o Chrome
   // devolve `3px` (a largura `medium` do padrão) e só o estilo vira `none`.
   // Medido nesta branch, antes da correção: `{ largura: "3px", estilo: "none" }`.
-  expect(busca.estilo, "a busca da trilha ficou sem anel de foco").not.toBe("none");
+  expect(busca.estilo, "a busca do roadmap ficou sem anel de foco").not.toBe("none");
   expect(parseFloat(busca.largura)).toBeGreaterThan(0);
 
   // Campo de visualizador: mesma regra, e é o campo de 41 páginas. Ele fica no
@@ -160,7 +160,7 @@ test("a marca de progresso não mora dentro do link, e o progresso sobrevive à 
   ).toHaveAttribute("aria-checked", "true");
 
   // O mesmo tópico, marcado no /roadmap, aparece marcado no menu lateral: é o
-  // mesmo dado, e o card e a trilha continuam falando a mesma língua.
+  // mesmo dado, e o card e o roadmap continuam falando a mesma língua.
   await page.goto("/topico/two-pointers/");
   const noMenu = page
     .locator(".sidebar")
@@ -201,7 +201,7 @@ test("a marca de progresso vem antes do link nas três listas", async ({ page })
   expect(await ordemEm(".topic-card-wrap"), "card do /roadmap").toEqual(["BUTTON", "A"]);
 
   await page.goto("/topico/two-pointers/");
-  // Na trilha, o par é `button` + `a` dentro do item; o primeiro focável tem que
+  // No roadmap, o par é `button` + `a` dentro do item; o primeiro focável tem que
   // ser o checkbox.
   const naTrilha = await page.evaluate(() => {
     const btn = document.querySelector('.sidebar [role="checkbox"]')!;
@@ -209,7 +209,7 @@ test("a marca de progresso vem antes do link nas três listas", async ({ page })
     // `compareDocumentPosition` responde a pergunta certa: quem vem antes no DOM.
     return (btn.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
   });
-  expect(naTrilha, "na trilha lateral a marca tem que vir antes do link").toBe(true);
+  expect(naTrilha, "no roadmap lateral a marca tem que vir antes do link").toBe(true);
 
   const naListaDeProblemas = await page.evaluate(() => {
     const btn = document.querySelector('.problem-row [role="checkbox"], .problem-row button');
@@ -225,11 +225,11 @@ test("todo landmark de navegação tem nome próprio", async ({ page }) => {
   // "navegação" três vezes e o aluno não sabe qual é o menu de tópicos.
   await page.goto("/");
   await expect(page.getByRole("navigation")).toHaveCount(3);
-  for (const nome of ["Principal", "Comunidade e apoio", "Trilha de estudos"]) {
+  for (const nome of ["Principal", "Comunidade e apoio", "Roadmap de estudos"]) {
     await expect(page.getByRole("navigation", { name: nome })).toHaveCount(1);
   }
 
-  // A trilha é navegação, e não `aside` (landmark "complementar").
+  // O roadmap é navegação, e não `aside` (landmark "complementar").
   await expect(page.locator("nav#menu-lateral.sidebar")).toHaveCount(1);
 });
 

@@ -9,7 +9,7 @@ import {
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
 } from "@content/roadmap";
-import { EXTRA_CARDS } from "@content/courses";
+import { EXTRA_CARDS } from "@content/tracks";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
@@ -19,7 +19,7 @@ import { levelClass } from "@/lib/ui";
 // novo já entra no título e no card sem ninguém lembrar de atualizar o SEO.
 //
 // São DOIS números, e a escolha é frase a frase. `TOTAL_TOPICS` é o tamanho da
-// trilha, o que o roadmap mapeia: continua certo no título e no card de
+// roadmap, o que o roadmap mapeia: continua certo no título e no card de
 // estatística ("tópicos no roadmap"). `TOTAL_TOPICS_PRONTOS` é quem tem material
 // para o aluno abrir, e é ele que vale em toda frase que QUALIFICA os tópicos
 // pelo que eles entregam. Os 11 de diferença não têm vídeo, artigo nem
@@ -110,20 +110,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* A porta para fora da trilha, na home.
+      {/* A porta para fora do roadmap, na home.
           Ela existe porque a vitrine mora em dois lugares que quem chega hoje
           não abre: o FIM do /roadmap/ (depois de 16 grupos de rolagem) e a
-          /cursos/, que só se descobre pelo link do topo. Três cards aqui — os
+          /trilha/, que só se descobre pelo link do topo. Três cards aqui — os
           que já têm material, que é a ordem do `EXTRA_CARDS` — contam que o
           site é maior que a fila, sem competir com o "Comece por aqui" logo
           acima, que continua sendo o convite principal. */}
       <section className="section-pad-x">
         <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 6 }}>
-          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Além da trilha</h2>
-          <Link href="/cursos" className="link-btn">Ver tudo →</Link>
+          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Além do roadmap</h2>
+          <Link href="/trilha" className="link-btn">Ver tudo →</Link>
         </div>
         <p className="sub" style={{ margin: "0 0 18px", fontSize: 15, color: "var(--ccc-muted)" }}>
-          Estruturas que são um assunto à parte, e cursos sobre famílias inteiras.
+          Estruturas que são um assunto à parte, e trilhas sobre famílias inteiras.
         </p>
         <ExtrasGrid cards={EXTRA_CARDS.slice(0, 3)} />
       </section>

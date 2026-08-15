@@ -1,25 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { EXTRA_CARDS, type ExtraCard } from "@content/courses";
+import { EXTRA_CARDS, type ExtraCard } from "@content/tracks";
 import { levelClass } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 
-// A vitrine do que existe fora da trilha, em um componente só.
+// A vitrine do que existe fora do roadmap, em um componente só.
 //
 // Ela aparece em dois lugares — no fim do `/roadmap/` e como corpo do
-// `/cursos/` — e os dois têm que mostrar exatamente a mesma coisa. Uma segunda
+// `/trilha/` — e os dois têm que mostrar exatamente a mesma coisa. Uma segunda
 // cópia da grade é como a home e o roadmap acabariam contando duas histórias
 // diferentes sobre o mesmo catálogo, cada uma envelhecendo por conta própria.
 //
-// Curso e página avulsa dividem o mesmo card de propósito. O aluno que chega
-// aqui está perguntando "o que mais tem?", e não "quais são os cursos?": pedir
+// Trilha e tópico avulso dividem o mesmo card de propósito. O aluno que chega
+// aqui está perguntando "o que mais tem?", e não "quais são as trilhas?": pedir
 // que ele entenda a diferença entre os dois formatos ANTES de ver o que tem em
 // cada um é a ordem errada. A etiqueta no canto responde a diferença depois,
 // para quem quiser saber quanto tempo aquilo vai tomar.
 
 function metaDoCard(c: ExtraCard, feitos: number, hydrated: boolean): string {
-  if (c.kind === "avulso") {
+  if (c.kind === "standalone") {
     if (c.ready === 0) return "em breve";
     return hydrated && feitos > 0 ? "concluído" : "página única";
   }
@@ -43,7 +43,7 @@ function CardExtra({ card }: { card: ExtraCard }) {
             logo abaixo, e um glifo anunciado como "◈" só atrapalha. */}
         <span className="extra-glyph" aria-hidden="true">{card.glyph}</span>
         <span className={`extra-kind extra-kind-${card.kind}`}>
-          {card.kind === "curso" ? "Curso" : "Página avulsa"}
+          {card.kind === "track" ? "Trilha" : "Tópico"}
         </span>
       </div>
       <div className="extra-name">{card.name}</div>

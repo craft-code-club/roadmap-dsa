@@ -299,7 +299,7 @@ E aqui vai a fronteira que quase todo mundo cruza sem perceber: **isso não func
 
 **Sequências e percolação.** O LeetCode 128, *Longest Consecutive Sequence*, sai unindo `v` com `v+1` e devolvendo o maior `tamanho_do_grupo` — vale escrever, embora a solução com [conjunto hash](/topico/hash-table) seja mais simples e igualmente O(n). E o experimento clássico de **percolação** (a partir de que fração de células abertas a água atravessa a grade?) é Union-Find com um truque bonito: dois nós virtuais, um ligado a toda a linha de cima e outro a toda a linha de baixo. A grade percola no exato instante em que os dois nós virtuais entram no mesmo grupo.
 
-O que fica de fora dessa lista é tudo que depende de direção ou de estrutura interna do grafo: componentes fortemente conexos, pontes, pontos de articulação. Esse é o assunto de [Grafos Avançados](/cursos/grafos-avancados/), e a ferramenta lá é o DFS com lowlink, não o Union-Find.
+O que fica de fora dessa lista é tudo que depende de direção ou de estrutura interna do grafo: componentes fortemente conexos, pontes, pontos de articulação. Esse é o assunto de [Grafos Avançados](/trilha/grafos-avancados/), e a ferramenta lá é o DFS com lowlink, não o Union-Find.
 
 ## A limitação que define a estrutura: ela não desune
 

@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 import { isEmptyTopic } from "@content/roadmap";
-import { COURSES, courseHasMaterial, SITE_TOPICS } from "@content/courses";
+import { TRACKS, trackHasMaterial, SITE_TOPICS } from "@content/tracks";
 import {
-  atualizacaoDoCurso,
+  atualizacaoDaTrilha,
   atualizacaoDoTopico,
   comDataUtil,
   CONTEUDO_DA_ROTA,
@@ -47,8 +47,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: rota === "/" || rota === "/roadmap/" ? ("weekly" as const) : ("monthly" as const),
     lastModified: ultimaAlteracao(...CONTEUDO_DA_ROTA[rota]),
   }));
-  // `SITE_TOPICS`, e não `ALL_TOPICS`: os tópicos de curso e as páginas avulsas
-  // têm página em `/topico/<slug>/` igual aos da trilha, e ficar de fora do
+  // `SITE_TOPICS`, e não `ALL_TOPICS`: os tópicos de trilha e os tópicos avulsos
+  // têm página em `/topico/<slug>/` igual aos do roadmap, e ficar de fora do
   // sitemap não os tira do índice — só faz o Google descobri-los mais tarde,
   // por link, enquanto o próprio site diz (pelo `lastmod` que não existe) que
   // não sabe quando eles mudaram.
@@ -58,15 +58,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly" as const,
     lastModified: atualizacaoDoTopico(t.slug),
   }));
-  // A abertura de um curso entra pelo MESMO critério dos tópicos: só quando tem
-  // material. Curso em que todo tópico está "em breve" emite `noindex`, e
+  // A abertura de uma trilha entra pelo MESMO critério dos tópicos: só quando tem
+  // material. Trilha em que todo tópico está "em breve" emite `noindex`, e
   // convidar o robô para uma página que manda ignorá-la é o erro vermelho
   // permanente do Search Console que o filtro acima existe para não criar.
-  const cursos = COURSES.filter(courseHasMaterial).map((c) => ({
-    url: `${SITE_URL}/cursos/${c.slug}/`,
+  const trilhas = TRACKS.filter(trackHasMaterial).map((c) => ({
+    url: `${SITE_URL}/trilha/${c.slug}/`,
     priority: 0.7,
     changeFrequency: "monthly" as const,
-    lastModified: atualizacaoDoCurso(c.slug),
+    lastModified: atualizacaoDaTrilha(c.slug),
   }));
-  return comDataUtil([...base, ...topicos, ...cursos]);
+  return comDataUtil([...base, ...topicos, ...trilhas]);
 }

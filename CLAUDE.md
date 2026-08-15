@@ -54,18 +54,21 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   dados, artigos e visualizadores. Agrupamento estilo LeetCode (16 grupos): cada estrutura junto
   das técnicas que operam sobre ela; paradigmas (Recursão, Backtracking, Programação Dinâmica,
   Greedy Algorithms) como grupos próprios.
-- **`content/courses.ts` é a fonte única do que fica FORA da trilha.** Duas formas: `COURSES`
-  (sub-roadmaps, com abertura em `/cursos/<slug>/` e barra lateral própria) e `STANDALONES`
-  (páginas avulsas, servidas **sem** barra lateral). Os tópicos das duas continuam em
-  `/topico/<slug>/`: **a URL de um tópico não depende de onde ele mora**. Quem precisa de todos
-  os tópicos do site (`generateStaticParams`, sitemap, guarda de datas) usa `SITE_TOPICS`; quem
-  fala da trilha (progresso, barra lateral, números da home) usa `ALL_TOPICS`. Trocar um pelo
-  outro não dá erro — dá número errado na home ou 404 num tópico de curso.
-  O **namespace é global e o build cobra**: slug de tópico, id de grupo e slug de curso são
+- **`content/tracks.ts` é a fonte única do que fica FORA do roadmap.** Duas formas: `TRACKS`
+  (as **trilhas**, sub-roadmaps com abertura em `/trilha/<slug>/` e barra lateral própria) e
+  `STANDALONES` (os **tópicos avulsos**, servidos **sem** barra lateral). Os tópicos das duas
+  continuam em `/topico/<slug>/`: **a URL de um tópico não depende de onde ele mora**. Quem
+  precisa de todos os tópicos do site (`generateStaticParams`, sitemap, guarda de datas) usa
+  `SITE_TOPICS`; quem fala do roadmap (progresso, barra lateral, números da home) usa
+  `ALL_TOPICS`. Trocar um pelo outro não dá erro — dá número errado na home ou 404 num tópico
+  de trilha.
+  **Vocabulário, e ele importa:** *roadmap* é a sequência principal; *trilha* é uma das extras;
+  *tópico* é uma página. "Curso" não existe mais no produto nem no código.
+  O **namespace é global e o build cobra**: slug de tópico, id de grupo e slug de trilha são
   conferidos no import do módulo, e repetido derruba o `npm run build` com os dois donos na
   mensagem. Sem esse guarda, a segunda página some em silêncio.
   Como escolher a casa de um tópico novo, e o que cada uma muda na tela: ver a tabela em
-  [README](./README.md#trilha-curso-ou-página-avulsa-onde-o-tópico-mora).
+  [README](./README.md#roadmap-trilha-ou-tópico-avulso-onde-o-tópico-mora).
 - **Identificadores em inglês; qualquer coisa que o aluno lê em português.** Vale para os
   campos do roadmap **e para o código dos visualizadores** (variáveis, tipos, props, funções).
   Comentários podem ser em português; nome de componente, o que fizer sentido. A fronteira que
@@ -115,14 +118,14 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   clique só. *Fora do app* (README, CONTRIBUTING, SECURITY, templates do `.github/`, qualquer
   `.md`): `https://craftcodeclub.io/join`, que é o ponto de rotação da comunidade. Nunca cole
   `discord.gg/<código>` cru em arquivo de documentação.
-- Barra: **esquerda** = Início, Roadmap, Cursos; **direita** = YouTube, Discord, Apoiar + menu `⋯`.
+- Barra: **esquerda** = Início, Roadmap, Trilhas; **direita** = YouTube, Discord, Apoiar + menu `⋯`.
   O menu `⋯` tem: Sobre o projeto, Craft & Code Club, GitHub do projeto, Apoiadores e Parceiros
-  (e, só no mobile, Início/Roadmap/Cursos/YouTube que somem da barra).
-- **A casca muda com a rota, e é o `Shell` que decide** (`layoutDaRota`): trilha lateral no
-  padrão, barra do curso em `/cursos/<slug>/` e nos tópicos dele, e **nenhuma barra** na vitrine
-  `/cursos/` e nas páginas avulsas. A ausência é a decisão, não um esquecimento: numa página
-  avulsa a trilha ao lado seria uma trilha para lugar nenhum. Mexeu no `Shell`? Rode
-  `tests/cursos.spec.ts`, que é quem mede as três cascas.
+  (e, só no mobile, Início/Roadmap/Trilhas/YouTube que somem da barra).
+- **A casca muda com a rota, e é o `Shell` que decide** (`layoutDaRota`): a barra do roadmap no
+  padrão, a barra da trilha em `/trilha/<slug>/` e nos tópicos dela, e **nenhuma barra** na
+  vitrine `/trilha/` e nos tópicos avulsos. A ausência é a decisão, não um esquecimento: num
+  tópico avulso a barra ao lado seria uma lista para lugar nenhum. Mexeu no `Shell`? Rode
+  `tests/trilhas.spec.ts`, que é quem mede as três cascas.
 - Links **externos** mostram `↗` (classe `ext`; a regra CSS é `.topnav > a.ext` para não afetar o
   menu). Bolinhas de marca: Discord blurple, YouTube vermelho, Apoiar âmbar.
 
@@ -132,12 +135,12 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   `export const dynamic = "force-static"`** por causa do `output: "export"`.
 - Tópicos realmente vazios (`soon` sem youtube/article/viz/extraVideos) recebem `noindex`
   (ver `generateMetadata` em `topico/[slug]/page.tsx`). Ao ganhar conteúdo, saem do noindex sozinhos.
-- **A mesma régua vale um nível acima:** a abertura de um curso sem NENHUM tópico com material
-  também é `noindex` e fica fora do sitemap (`courseHasMaterial`, em `content/courses.ts`). Ela
+- **A mesma régua vale um nível acima:** a abertura de uma trilha sem NENHUM tópico com material
+  também é `noindex` e fica fora do sitemap (`trackHasMaterial`, em `content/tracks.ts`). Ela
   continua no site — mapear o território vale para quem estuda —, mas não pede lugar no índice.
-- O rastro de navegação tem **três formas** (trilha, curso, avulsa) e a página monta o array de
-  migalhas UMA vez, usando-o nos links e no `BreadcrumbList`. Não recrie a decisão dentro do
-  `jsonld.ts`: o teste "a trilha marcada é a trilha desenhada" existe por causa disso.
+- O rastro de navegação tem **três formas** (roadmap, trilha, tópico avulso) e a página monta o
+  array de migalhas UMA vez, usando-o nos links e no `BreadcrumbList`. Não recrie a decisão
+  dentro do `jsonld.ts`: o teste "o rastro marcado é o rastro desenhado" existe por causa disso.
 
 ## Responsividade
 

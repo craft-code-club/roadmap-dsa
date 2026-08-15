@@ -4,14 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GROUPS, TOTAL_TOPICS, isEmptyTopic } from "@content/roadmap";
-import { TOTAL_EXTRA_CARDS } from "@content/courses";
+import { TOTAL_EXTRA_CARDS } from "@content/tracks";
 import { mesmaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
 
 // A barra lateral da TRILHA principal — o menu de 46 tópicos, a busca e o
-// progresso. Saiu do `Shell.tsx` quando os cursos ganharam uma barra lateral
-// própria: o `Shell` passou a ser a moldura (topo, gaveta, rodapé) e cada trilha
+// progresso. Saiu do `Shell.tsx` quando as trilhas ganharam uma barra lateral
+// própria: o `Shell` passou a ser a moldura (topo, gaveta, rodapé) e cada barra
 // desenha o seu miolo. O markup aqui é o MESMO de antes, classe por classe.
 
 // Grupos abertos no menu lateral, salvos no navegador (mesma ideia do progresso:
@@ -66,7 +66,7 @@ function gravarAbertos(abertos: Record<string, boolean>) {
 const semAcento = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export function TrilhaSidebar({ mobileNav }: { mobileNav: boolean }) {
+export function RoadmapSidebar({ mobileNav }: { mobileNav: boolean }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
 
@@ -176,7 +176,7 @@ export function TrilhaSidebar({ mobileNav }: { mobileNav: boolean }) {
     <>
       <div className="side-head">
         <div className="side-head-row">
-          <span className="side-label">Sua trilha</span>
+          <span className="side-label">Seu roadmap</span>
           <span className="side-count">{feitosTotal}/{TOTAL_TOPICS} · {pct}%</span>
         </div>
         <div className="progress-track">
@@ -302,17 +302,17 @@ export function TrilhaSidebar({ mobileNav }: { mobileNav: boolean }) {
           </p>
         )}
 
-        {/* A porta para fora da trilha, no fim dela — e só quando a busca não
+        {/* A porta para fora do roadmap, no fim dele — e só quando a busca não
             está filtrando, que é quando o leitor está procurando outra coisa.
             Sem esta linha, quem estuda pelo menu lateral não tem como descobrir
             que existe conteúdo além dos 46 tópicos: a vitrine mora no fim do
             `/roadmap/`, uma página que quem navega pela barra não abre. */}
         {!b && (
-          <Link className="side-extras" href="/cursos">
+          <Link className="side-extras" href="/trilha">
             <span className="side-extras-ico" aria-hidden="true">✧</span>
             <span>
-              <span className="side-extras-nome">Cursos e outras estruturas</span>
-              <span className="side-extras-sub">{TOTAL_EXTRA_CARDS} além da trilha</span>
+              <span className="side-extras-nome">Trilhas e outros tópicos</span>
+              <span className="side-extras-sub">{TOTAL_EXTRA_CARDS} além do roadmap</span>
             </span>
           </Link>
         )}

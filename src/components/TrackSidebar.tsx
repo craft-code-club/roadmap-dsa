@@ -2,34 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { courseTopics, type Course } from "@content/courses";
+import { trackTopics, type Track } from "@content/tracks";
 import { isEmptyTopic } from "@content/roadmap";
 import { mesmaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
 
-// A barra lateral de um CURSO. Mesmas classes da trilha principal, três
+// A barra lateral de uma TRILHA. Mesmas classes da barra do roadmap, três
 // diferenças de propósito:
 //
-//   1. Não tem busca. A trilha tem 46 tópicos e a busca é o que a torna
-//      navegável; um curso tem 4 a 6, e um campo de busca sobre seis itens é
+//   1. Não tem busca. O roadmap tem 46 tópicos e a busca é o que a torna
+//      navegável; uma trilha tem 4 a 6, e um campo de busca sobre seis itens é
 //      um controle que só ocupa espaço.
 //   2. Os grupos não abrem nem fecham. Sanfona existe para caber 16 grupos numa
-//      coluna; com dois ou três, ela esconde metade do curso atrás de um clique
+//      coluna; com dois ou três, ela esconde metade da trilha atrás de um clique
 //      e não economiza rolagem nenhuma.
-//   3. Tem porta de saída no topo e no pé. Uma trilha lateral sem volta é um
+//   3. Tem porta de saída no topo e no pé. Uma barra lateral sem volta é um
 //      beco: o leitor entrou por um card e precisa saber como voltar para o
-//      roadmap e como chegar aos outros cursos.
+//      roadmap e como chegar às outras trilhas.
 
-export function CursoSidebar({ course, mobileNav: _mobileNav }: { course: Course; mobileNav: boolean }) {
+export function TrackSidebar({ track, mobileNav: _mobileNav }: { track: Track; mobileNav: boolean }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
 
   const slugAtivo = pathname?.startsWith("/topico/") ? pathname.split("/")[2] : null;
-  const lista = courseTopics(course);
+  const lista = trackTopics(track);
   const feitos = contarTopicos(lista.map((t) => t.slug));
   const pct = hydrated && lista.length ? Math.round((feitos / lista.length) * 100) : 0;
-  const naAbertura = mesmaRota(pathname, `/cursos/${course.slug}/`);
+  const naAbertura = mesmaRota(pathname, `/trilha/${track.slug}/`);
 
   return (
     <>
@@ -38,19 +38,19 @@ export function CursoSidebar({ course, mobileNav: _mobileNav }: { course: Course
           <span aria-hidden="true">‹</span> Roadmap
         </Link>
         <div className="side-head-row">
-          <span className="side-label">Curso</span>
+          <span className="side-label">Trilha</span>
           <span className="side-count">{feitos}/{lista.length} · {pct}%</span>
         </div>
-        {/* O nome do curso é link para a abertura dele: é de lá que vem a
+        {/* O nome da trilha é link para a abertura dela: é de lá que vem a
             descrição, os pré-requisitos e a ordem sugerida, e sem esta linha o
             leitor que clicou num tópico direto do card nunca chega àquela
             página. */}
         <Link
-          href={`/cursos/${course.slug}`}
-          className={`side-curso-nome${naAbertura ? " on" : ""}`}
+          href={`/trilha/${track.slug}`}
+          className={`side-trilha-nome${naAbertura ? " on" : ""}`}
           aria-current={naAbertura ? "page" : undefined}
         >
-          {course.name}
+          {track.name}
         </Link>
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -58,7 +58,7 @@ export function CursoSidebar({ course, mobileNav: _mobileNav }: { course: Course
       </div>
 
       <div className="side-scroll">
-        {course.groups.map((g) => (
+        {track.groups.map((g) => (
           <div className="side-group" key={g.id}>
             <div className="side-group-rotulo">{g.name}</div>
             <div className="side-items">
@@ -76,7 +76,7 @@ export function CursoSidebar({ course, mobileNav: _mobileNav }: { course: Course
                       aria-label={`Marcar ${t.name} como concluído`}
                       onClick={() => toggleTopico(t.slug)}
                     >
-                      {/* O mesmo traço do `TrilhaSidebar`, do `RoadmapGroups` e
+                      {/* O mesmo traço do `RoadmapSidebar`, do `RoadmapGroups` e
                           do `ProblemList`; o porquê medido de ser desenho, e
                           não o caractere `✓`, está no `globals.css`. */}
                       {feito ? (
@@ -108,10 +108,10 @@ export function CursoSidebar({ course, mobileNav: _mobileNav }: { course: Course
           </div>
         ))}
 
-        <Link className="side-extras" href="/cursos">
+        <Link className="side-extras" href="/trilha">
           <span className="side-extras-ico" aria-hidden="true">✧</span>
           <span>
-            <span className="side-extras-nome">Outros cursos e estruturas</span>
+            <span className="side-extras-nome">Outras trilhas e tópicos</span>
             <span className="side-extras-sub">a vitrine completa</span>
           </span>
         </Link>

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNeighbors, isEmptyTopic } from "@content/roadmap";
-import { getCourseNeighbors, getPlacement, getSiteTopic, SITE_TOPICS } from "@content/courses";
+import { getTrackNeighbors, getPlacement, getSiteTopic, SITE_TOPICS } from "@content/tracks";
 import { getArticle } from "@content/topics";
 import { datasDoTopico } from "@/lib/datas-do-git";
 import { dataLonga, diaIso } from "@/lib/format";
@@ -20,8 +20,8 @@ import { VideoFacade } from "@/components/VideoFacade";
 export const dynamicParams = false;
 
 // `SITE_TOPICS`, e não `ALL_TOPICS`: esta rota serve TODO tópico do site, venha
-// ele da trilha, de um curso ou de uma página avulsa. Com `ALL_TOPICS` aqui, os
-// tópicos dos cursos existiriam nos dados, apareceriam na barra lateral do curso
+// ele do roadmap, de uma trilha ou de um tópico avulso. Com `ALL_TOPICS` aqui, os
+// tópicos das trilhas existiriam nos dados, apareceriam na barra lateral da trilha
 // e devolveriam 404 no clique — sem erro de build, porque `dynamicParams = false`
 // simplesmente não gera o que não foi pedido.
 export function generateStaticParams() {
@@ -73,30 +73,34 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
   // Onde este tópico mora decide TRÊS coisas nesta página — o rastro de
   // navegação, quem são anterior e próximo, e o que fecha o artigo. O `Shell`
   // faz a mesma pergunta para escolher a barra lateral, e as duas respostas vêm
-  // da mesma função: barra lateral de um curso com rastro de outro é o defeito
+  // da mesma função: barra lateral de uma trilha com rastro de outra é o defeito
   // que isto impede.
-  const onde = getPlacement(slug) ?? ({ trilha: "roadmap" } as const);
-  const emCurso = onde.trilha === "curso" ? onde.course : null;
-  const avulso = onde.trilha === "avulso";
+  const onde = getPlacement(slug) ?? ({ kind: "roadmap" } as const);
+  const naTrilha = onde.kind === "track" ? onde.track : null;
+  const avulso = onde.kind === "standalone";
 
-  const { previous, next } = emCurso ? getCourseNeighbors(emCurso, slug) : avulso ? {} : getNeighbors(slug);
+  const { previous, next } = naTrilha
+    ? getTrackNeighbors(naTrilha, slug)
+    : avulso
+      ? {}
+      : getNeighbors(slug);
 
   // O rastro é montado UMA vez e usado duas: nos links que o leitor vê e no
   // `BreadcrumbList` que o Google lê. A regra que decide o desenho do JSON-LD
   // deste projeto é "a marcação reflete o que está na tela", e a única forma de
   // isso continuar verdade sem depender de alguém lembrar é os dois lerem o
   // mesmo array.
-  const migalhas: Migalha[] = emCurso
+  const migalhas: Migalha[] = naTrilha
     ? [
         { name: "Início", href: "/" },
-        { name: "Cursos", href: "/cursos/" },
-        { name: emCurso.name, href: `/cursos/${emCurso.slug}/` },
+        { name: "Trilhas", href: "/trilha/" },
+        { name: naTrilha.name, href: `/trilha/${naTrilha.slug}/` },
         { name: t.name, href: `/topico/${t.slug}/` },
       ]
     : avulso
       ? [
           { name: "Início", href: "/" },
-          { name: "Cursos", href: "/cursos/" },
+          { name: "Trilhas", href: "/trilha/" },
           { name: t.name, href: `/topico/${t.slug}/` },
         ]
       : [
@@ -132,7 +136,7 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
   ];
 
   return (
-    // A página avulsa não tem barra lateral (ver `Shell.tsx`), e sem o
+    // O tópico avulso não tem barra lateral (ver `Shell.tsx`), e sem o
     // modificador ela herdaria a medida de linha de um layout que contava com
     // 290px de menu à esquerda: em 1440px o parágrafo passaria de 110 caracteres,
     // que é onde o olho começa a perder a linha de volta. A classe recentra a
@@ -146,9 +150,9 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
           consumidor que lê JSON-LD sem olhar `robots` acredita na declaração. */}
       {!isEmptyTopic(t) && <JsonLd data={[topicJsonLd(t, datas), breadcrumbJsonLd(migalhas)]} />}
       <article>
-        {/* Trilha navegável, e não três `<span>`: "Início" leva à home, o grupo
+        {/* Roadmap navegável, e não três `<span>`: "Início" leva à home, o grupo
             leva ao roadmap e o tópico corrente se identifica com `aria-current`.
-            O `color: "inherit"` é o que mantém a trilha com a MESMA aparência de
+            O `color: "inherit"` é o que mantém o roadmap com a MESMA aparência de
             antes — `globals.css:37` pinta toda âncora com a cor de destaque.
             Dar às âncoras uma afirmação visual de link (sublinhado no hover,
             por exemplo) é uma regra `.breadcrumb a` de quem for dono do CSS.
@@ -158,8 +162,8 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
             Os degraus vêm do array `migalhas`, o mesmo que vira `BreadcrumbList`
             — desenho e marcação não têm como divergir. */}
         <nav className="breadcrumb" aria-label="Trilha de navegação">
-          {/* `Fragment`, e não um `<span>` embrulhando o par: o teste "a trilha
-              marcada é a trilha desenhada" lê os FILHOS DIRETOS do `.breadcrumb`
+          {/* `Fragment`, e não um `<span>` embrulhando o par: o teste "o rastro
+              marcado é o rastro desenhado" lê os FILHOS DIRETOS do `.breadcrumb`
               e compara com os nomes do JSON-LD. Um elemento a mais no meio
               agrupa "Início" com a barra e o array deixa de bater. */}
           {caminho.map((m) => (
@@ -173,9 +177,9 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
         <h1 className="topic-h1">{t.name}</h1>
 
         <div className="topic-chips">
-          {/* O assunto da página avulsa, e só nela. Num tópico da trilha e num
-              de curso o rastro logo acima já nomeia a família (o grupo, o
-              curso); numa avulsa ele diz só "Cursos", e sem esta pastilha o
+          {/* O assunto da tópico avulso, e só nela. Num tópico do roadmap e num
+              de trilha o rastro logo acima já nomeia a família (o grupo, o
+              trilha); numa avulso ele diz só "Trilhas", e sem esta pastilha o
               `about` do JSON-LD carregaria um nome que não está em lugar nenhum
               da tela — que é justamente o que este projeto não faz. */}
           {avulso && <span className="chip">{t.group}</span>}
@@ -312,22 +316,22 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
         <div className="topic-done">
           <div>
             <div className="topic-done-title">Concluiu este tópico?</div>
-            <div className="topic-done-sub">Marque para acompanhar seu progresso na trilha.</div>
+            <div className="topic-done-sub">Marque para acompanhar seu progresso no roadmap.</div>
           </div>
           <TopicComplete slug={t.slug} grande />
         </div>
 
-        {/* O fim da página é diferente em cada trilha, e a diferença não é
+        {/* O fim da página é diferente em cada casa, e a diferença não é
             estética: é o que existe para oferecer.
 
-            TRILHA e CURSO são filas, e a fila tem anterior e próximo. No curso,
-            quando não há anterior, o degrau de trás é a abertura dele — que é
-            onde estão a descrição, os pré-requisitos e a ordem sugerida, e é
-            justamente o que o leitor pulou se entrou pelo card de um tópico.
+            ROADMAP e TRILHA são filas, e a fila tem anterior e próximo. Numa
+            trilha, quando não há anterior, o degrau de trás é a abertura dela —
+            que é onde estão a descrição, os pré-requisitos e a ordem sugerida, e
+            é justamente o que o leitor pulou se entrou pelo card de um tópico.
 
-            AVULSA não é fila. Ela não tem "próximo": inventar um levaria o
-            leitor de Skip List para Union-Find como se uma continuasse a outra.
-            O que ela tem são vizinhos, e é a banda "Continue explorando" que os
+            TÓPICO AVULSO não é fila. Ele não tem "próximo": inventar um levaria
+            o leitor de Skip List para Union-Find como se um continuasse o outro.
+            O que ele tem são vizinhos, e é a banda "Continue explorando" que os
             mostra. */}
         {avulso ? (
           <ContinueExplorando excluir={t.slug} />
@@ -338,10 +342,10 @@ export default async function TopicoPage({ params }: { params: Promise<{ slug: s
                 <span className="lbl">‹ Anterior</span>
                 <span className="nm">{previous.name}</span>
               </Link>
-            ) : emCurso ? (
-              <Link href={`/cursos/${emCurso.slug}`}>
-                <span className="lbl">‹ Abertura do curso</span>
-                <span className="nm">{emCurso.name}</span>
+            ) : naTrilha ? (
+              <Link href={`/trilha/${naTrilha.slug}`}>
+                <span className="lbl">‹ Abertura da trilha</span>
+                <span className="nm">{naTrilha.name}</span>
               </Link>
             ) : (
               <span style={{ flex: 1 }} />

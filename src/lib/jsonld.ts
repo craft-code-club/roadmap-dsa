@@ -14,7 +14,7 @@ import { SITE_NAME } from "@/lib/seo";
 //   timeRequired      → o selo "⏱ N min de leitura", no mesmo lugar
 //   programmingLanguage → o selo "Python", que é a linguagem do CÓDIGO
 //   inLanguage        → `pt-BR`, o `lang` do `<html>` (não confundir com o de cima)
-//   about             → o grupo, que a trilha mostra logo acima do título
+//   about             → o grupo, que o roadmap mostra logo acima do título
 //   author            → "por Craft & Code Club", ao lado da marca no topo
 //   dateModified      → o selo "Atualizado em", no mesmo `.topic-chips`
 //   itemListElement   → os cards que o /roadmap renderiza, na mesma ordem
@@ -95,9 +95,9 @@ export function webSiteJsonLd() {
 /**
  * A página de um tópico como recurso de aprendizado.
  *
- * `LearningResource` e não `Course`: um tópico é material de estudo, não um
- * programa com turma, instrutor e matrícula — e `Course` só rende resultado rico
- * com `hasCourseInstance`/`offers`, que este produto não tem para declarar.
+ * `LearningResource` e não `Track`: um tópico é material de estudo, não um
+ * programa com turma, instrutor e matrícula — e `Track` só rende resultado rico
+ * com `hasTrackInstance`/`offers`, que este produto não tem para declarar.
  */
 export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: Date }) {
   const url = abs(`/topico/${t.slug}/`);
@@ -136,16 +136,16 @@ export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: D
 export type Migalha = { name: string; href: string };
 
 /**
- * A trilha do tópico, item a item igual à que a página desenha.
+ * O rastro de navegação do tópico, item a item igual ao que a página desenha.
  *
- * Ela recebe a trilha PRONTA, e não o tópico, desde que existem cursos: um
- * tópico da trilha principal tem três degraus (Início / grupo / tópico) e um
- * tópico de curso tem quatro (Início / Cursos / curso / tópico). Montar a
+ * Ela recebe o rastro PRONTO, e não o tópico, desde que existem trilhas: um
+ * tópico do roadmap tem três degraus (Início / grupo / tópico) e um
+ * tópico de trilha tem quatro (Início / Trilhas / trilha / tópico). Montar a
  * marcação aqui a partir do `Topic` significaria esta função reimplementar a
  * decisão de onde o tópico mora — a mesma decisão que a página acabou de tomar
  * para desenhar os links —, e as duas versões divergiriam no dia em que um
  * formato novo aparecesse. A página monta uma vez e usa nos dois lugares, que é
- * o que o teste "a trilha marcada é a trilha desenhada" cobra.
+ * o que o teste "o rastro marcado é o rastro desenhado" cobra.
  *
  * O nível do grupo aponta para `/roadmap/` e não para o grupo: a âncora do grupo
  * não existe hoje. `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
@@ -165,12 +165,12 @@ export function breadcrumbJsonLd(migalhas: Migalha[]) {
   };
 }
 
-/** A trilha inteira do /roadmap, na ordem em que a página renderiza os cards. */
+/** O roadmap inteiro, na ordem em que a página renderiza os cards. */
 export function roadmapJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "@id": `${SITE_URL}/roadmap/#trilha`,
+    "@id": `${SITE_URL}/roadmap/#roadmap`,
     name: "Roadmap de Algoritmos e Estruturas de Dados",
     numberOfItems: ALL_TOPICS.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
@@ -184,11 +184,11 @@ export function roadmapJsonLd() {
 }
 
 /**
- * A vitrine de `/cursos/`, na ordem em que a página desenha os cards.
+ * A vitrine de `/trilha/`, na ordem em que a página desenha os cards.
  *
- * `ItemList`, e não `Course` para cada item, pela mesma razão que a página de
- * tópico é `LearningResource` e não `Course`: o tipo `Course` do schema.org só
- * rende resultado rico com `hasCourseInstance`/`offers` — turma, instrutor,
+ * `ItemList`, e não `Track` para cada item, pela mesma razão que a página de
+ * tópico é `LearningResource` e não `Track`: o tipo `Track` do schema.org só
+ * rende resultado rico com `hasTrackInstance`/`offers` — turma, instrutor,
  * matrícula, preço —, e nada disso existe aqui. Declarar o tipo sem os campos é
  * marcação que o Google descarta; declarar os campos é inventar dado.
  */
@@ -196,8 +196,8 @@ export function extrasJsonLd(cards: { name: string; href: string }[]) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "@id": `${SITE_URL}/cursos/#vitrine`,
-    name: "Cursos e outras estruturas",
+    "@id": `${SITE_URL}/trilha/#vitrine`,
+    name: "Trilhas e outros tópicos",
     numberOfItems: cards.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
     itemListElement: cards.map((c, i) => ({
@@ -209,16 +209,16 @@ export function extrasJsonLd(cards: { name: string; href: string }[]) {
   };
 }
 
-/** Os tópicos de um curso, na ordem em que a abertura dele os apresenta. */
-export function courseJsonLd(curso: { slug: string; name: string; topics: Topic[] }) {
+/** Os tópicos de uma trilha, na ordem em que a abertura dela os apresenta. */
+export function trackJsonLd(trilha: { slug: string; name: string; topics: Topic[] }) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "@id": `${SITE_URL}/cursos/${curso.slug}/#trilha`,
-    name: curso.name,
-    numberOfItems: curso.topics.length,
+    "@id": `${SITE_URL}/trilha/${trilha.slug}/#trilha`,
+    name: trilha.name,
+    numberOfItems: trilha.topics.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
-    itemListElement: curso.topics.map((t, i) => ({
+    itemListElement: trilha.topics.map((t, i) => ({
       "@type": "ListItem",
       position: i + 1,
       name: t.name,

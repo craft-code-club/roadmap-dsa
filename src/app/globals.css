@@ -69,7 +69,7 @@ html { scroll-behavior: smooth; }
 
 /* ------------------------------- shell ---------------------------------- */
 .shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); align-items: start; }
-/* Página avulsa e vitrine `/cursos/` não têm barra lateral (ver `Shell.tsx`).
+/* Tópico avulso e vitrine `/trilha/` não têm barra lateral (ver `Shell.tsx`).
    Sem esta linha o grid reservaria os 290px para um elemento que não existe, e
    a página inteira nasceria com uma faixa vazia à esquerda. Recentrar o miolo é
    trabalho das duas regras marcadas com `.sem-lateral` mais abaixo: os
@@ -179,16 +179,16 @@ html { scroll-behavior: smooth; }
 .side-search:focus { border-color: var(--ccc-accent); }
 .side-scroll { flex: 1; overflow-y: auto; padding: 10px 10px 4px; }
 
-/* --- cabeça da barra lateral de um CURSO (src/components/CursoSidebar.tsx) --- */
+/* --- cabeça da barra lateral de uma TRILHA (src/components/TrackSidebar.tsx) --- */
 /* A porta de saída, no topo: o leitor chegou aqui por um card da vitrine, e sem
    esta linha o caminho de volta para a trilha é o botão do navegador. */
 .side-voltar { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 12.5px; color: var(--ccc-muted); text-decoration: none; }
 .side-voltar:hover { color: #fff; }
-.side-curso-nome { display: block; margin: 8px 0 11px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #e7edf6; text-decoration: none; }
-.side-curso-nome:hover { color: #fff; }
-.side-curso-nome.on { color: #dbeafe; }
-/* O grupo do curso é rótulo, não botão: com dois ou três grupos a sanfona só
-   esconde metade do curso atrás de um clique (ver o cabeçalho do CursoSidebar).
+.side-trilha-nome { display: block; margin: 8px 0 11px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #e7edf6; text-decoration: none; }
+.side-trilha-nome:hover { color: #fff; }
+.side-trilha-nome.on { color: #dbeafe; }
+/* O grupo da trilha é rótulo, não botão: com dois ou três grupos a sanfona só
+   esconde metade dela atrás de um clique (ver o cabeçalho do TrackSidebar).
    Alinhado com o `.side-group-btn` da trilha para as duas barras terem a mesma
    régua vertical. */
 .side-group-rotulo { padding: 10px 10px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ccc-muted); }
@@ -391,14 +391,14 @@ html { scroll-behavior: smooth; }
 .level-dificil { border-color: rgba(248, 113, 113, 0.4); color: #fca5a5; }
 .level-guia { border-color: rgba(255, 255, 255, 0.16); color: #9fb4cf; }
 
-/* ------ cursos e outras estruturas ------ */
+/* ------ trilhas e outros tópicos ------ */
 /* A vitrine do que existe fora da trilha: a seção do fim do /roadmap/, a página
-   /cursos/ e a banda "Continue explorando" no pé de cada página avulsa. As três
+   /trilha/ e a banda "Continue explorando" no pé de cada tópico avulso. As três
    desenham o MESMO card (src/components/ExtrasGrid.tsx). */
 
 /* `auto-fill` em vez das três colunas fixas do `.grid-3`: esta grade aparece em
-   três larguras diferentes — a página inteira em /cursos/, a página inteira no
-   /roadmap/ e a COLUNA DO ARTIGO no pé de uma avulsa, que tem o índice "Nesta
+   três larguras diferentes — a página inteira em /trilha/, a página inteira no
+   /roadmap/ e a COLUNA DO ARTIGO no pé de um avulso, que tem o índice "Nesta
    página" ao lado e sobra com ~760px. Três colunas fixas ali dariam cards de
    240px com o título quebrando em três linhas. Vem depois do `.grid-3` no
    arquivo de propósito: mesma especificidade, e quem vem por último vence. */
@@ -424,17 +424,17 @@ html { scroll-behavior: smooth; }
   font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
   color: var(--ccc-muted); white-space: nowrap;
 }
-/* Roxo para curso, azul para avulsa: são os dois tons que a marca já usa (o
+/* Roxo para trilha, azul para tópico: são os dois tons que a marca já usa (o
    quadrado "DSA" do topo é um gradiente de um para o outro), então a distinção
    não introduz cor nova no sistema. */
-.extra-kind-curso { color: #c4b5fd; border-color: rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.12); }
-.extra-kind-avulso { color: #93bbfd; border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08); }
+.extra-kind-track { color: #c4b5fd; border-color: rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.12); }
+.extra-kind-standalone { color: #93bbfd; border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08); }
 .extra-name { margin-top: 14px; font-size: 15px; font-weight: 600; }
 .extra-card p { margin: 7px 0 0; font-size: 12.5px; line-height: 1.5; color: #8ea3bd; }
 .extra-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 13px; }
 .extra-meta { font-size: 11.5px; color: var(--ccc-muted); font-family: var(--mono); }
 
-/* A seção no fim do /roadmap/. A linha em cima é o que diz "a trilha acabou
+/* A seção no fim do /roadmap/. A linha em cima é o que diz "o roadmap acabou
    aqui" — sem ela, a vitrine parece o 17º grupo da sequência. */
 .extras-no-roadmap { margin-top: 46px; padding-top: 34px; border-top: 1px solid var(--ccc-line); }
 .extras-intro { margin: 0 0 20px; max-width: 68ch; font-size: 14.5px; line-height: 1.6; color: #a3b6cf; }
@@ -449,19 +449,19 @@ html { scroll-behavior: smooth; }
    parágrafos foram os primeiros com link no meio da frase. */
 .roadmap-intro a, .extras-intro a { text-decoration: underline; text-underline-offset: 2px; }
 
-/* Os dois formatos, explicados antes da grade em /cursos/. */
+/* Os dois formatos, explicados antes da grade em /trilha/. */
 .formatos { margin-bottom: 36px; }
 .formato-card { padding: 18px 20px; border: 1px solid var(--ccc-line); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
 .formato-card p { margin: 11px 0 0; font-size: 13.5px; line-height: 1.6; color: #9db1c9; }
 
-/* "Antes daqui": os tópicos da trilha que o curso pressupõe. */
-.curso-requisitos { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -16px 0 28px; }
-.curso-requisitos-rot { font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ccc-muted); }
-.curso-requisitos-links { display: flex; flex-wrap: wrap; gap: 8px; }
+/* "Antes daqui": os tópicos do roadmap que a trilha pressupõe. */
+.trilha-requisitos { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -16px 0 28px; }
+.trilha-requisitos-rot { font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ccc-muted); }
+.trilha-requisitos-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .req-link { padding: 5px 11px; border: 1px solid var(--ccc-line); border-radius: 99px; background: rgba(255, 255, 255, 0.02); font-size: 12.5px; color: #a7bad2; text-decoration: none; }
 .req-link:hover { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
 
-/* A banda do pé da página avulsa. */
+/* A banda do pé do tópico avulso. */
 .continue-explorando { margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--ccc-line); }
 .continue-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 16px; }
 .continue-explorando .extras-grid { margin-top: 16px; }
@@ -472,7 +472,7 @@ html { scroll-behavior: smooth; }
    folga nenhuma para deslizar. */
 .topic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 40px; padding: 40px 48px 80px; max-width: 1180px; align-items: start; }
 .topic-layout > article { min-width: 0; }
-/* Página avulsa: sem os 290px de barra lateral, o `max-width` sozinho encosta o
+/* Tópico avulso: sem os 290px de barra lateral, o `max-width` sozinho encosta o
    artigo na borda esquerda de uma janela larga e deixa 400px de vazio à
    direita. A margem automática recentra, e o teto um pouco menor devolve a
    medida de leitura — a coluna de texto passava de 110 caracteres em 1440px. */

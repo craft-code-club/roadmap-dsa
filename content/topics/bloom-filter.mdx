@@ -222,7 +222,7 @@ Esta é a seção que evita a maior parte dos projetos ruins. Cada limitação v
 
 **Não remove.** Zerar os bits de um elemento apaga bits que pertencem a outros. Volte ao desenho: o `"gato"` e o `"rato"` dividem a posição 7. Se você remover o `"rato"` zerando 3, 7 e 11, a consulta por `"gato"` passa a ver a posição 7 em zero e responde **NÃO** para um elemento que está lá. Você acabou de criar um falso negativo, que é justamente a resposta que a estrutura promete nunca dar. Um filtro assim está permanentemente corrompido, e nada no comportamento dele avisa. *A saída*: o **counting bloom filter**, que troca cada bit por um contador de 4 bits — inserir incrementa, remover decrementa. Custa 4 vezes mais memória e ainda pode estourar o contador; use quando a remoção for requisito real, não conveniência.
 
-**Não conta.** Ele responde "já vi?", nunca "quantas vezes vi?". *A saída*: o **Count-Min Sketch**, o vizinho direto deste tópico no curso.
+**Não conta.** Ele responde "já vi?", nunca "quantas vezes vi?". *A saída*: o **Count-Min Sketch**, o vizinho direto deste tópico na trilha.
 
 **Não devolve o elemento.** Não dá para listar o que está dentro, nem iterar, nem recuperar a chave a partir dos bits. Isso é limitação e é também propriedade: um bloom filter pode ser publicado sem expor o conjunto original. *A saída*: se você precisa dos elementos, precisa guardá-los — e aí é [tabela hash](/topico/hash-table) ou [trie](/topico/trie), não filtro.
 
@@ -269,7 +269,7 @@ O padrão comum a todos: **existe um "não" que vale muito e é pedido o tempo t
 
 ## A família: aleatorizar a estrutura ou aleatorizar a resposta
 
-Este tópico abre o curso de [Estruturas Probabilísticas](/cursos/estruturas-probabilisticas/), e vale entender desde já que "probabilístico" quer dizer duas coisas bem diferentes.
+Este tópico abre a trilha de [Estruturas Probabilísticas](/trilha/estruturas-probabilisticas/), e vale entender desde já que "probabilístico" quer dizer duas coisas bem diferentes.
 
 A [Skip List](/topico/skip-list) aleatoriza a **estrutura**. Ela joga uma moeda para decidir a altura de cada nó, e por isso o mesmo conjunto de dados produz desenhos diferentes na memória a cada execução. O que ela **não** aleatoriza é a resposta: buscar o 73 devolve o 73, sempre, exatamente como uma árvore balanceada devolveria. O sorteio compra simplicidade de código, e o risco que sobra é de **tempo** — num dia de azar extremo, a busca fica lenta, nunca errada.
 
@@ -285,7 +285,7 @@ O bloom filter faz o oposto. A estrutura dele é rígida e determinística: mesm
 
 Repare no fio que costura as três do meio — bloom filter, Count-Min Sketch e HyperLogLog: em nenhuma delas existe um `random()`. **A aleatoriedade vem do hash**, que espalha as chaves como se fossem sorteadas, mas de forma perfeitamente reproduzível — a mesma chave sempre cai nos mesmos bits, em qualquer máquina e em qualquer execução. É essa combinação de "parece sorteio" com "dá o mesmo resultado toda vez" que faz as três funcionarem, e é ela que permite construir um filtro num servidor e consultá-lo em outro. O Reservoir Sampling é a exceção da tabela: ali o sorteio é sorteio mesmo.
 
-E os números do resto da família são do mesmo naipe: um HyperLogLog conta bilhões de valores distintos em **12 KB**, com 0,81% de erro padrão. Não é 12 KB por milhão. É 12 KB, e pronto — é literalmente o tamanho que o Redis reserva para cada um. Se a ideia de trocar exatidão por ordens de grandeza de memória te pareceu boa, o resto do [curso](/cursos/estruturas-probabilisticas/) é sobre isso.
+E os números do resto da família são do mesmo naipe: um HyperLogLog conta bilhões de valores distintos em **12 KB**, com 0,81% de erro padrão. Não é 12 KB por milhão. É 12 KB, e pronto — é literalmente o tamanho que o Redis reserva para cada um. Se a ideia de trocar exatidão por ordens de grandeza de memória te pareceu boa, o resto da [trilha](/trilha/estruturas-probabilisticas/) é sobre isso.
 
 ## As armadilhas que pegam todo mundo
 
@@ -320,4 +320,4 @@ E o exercício que realmente ensina esta estrutura não é de LeetCode, é de ba
 3. Force o `self.k` na mão, de 1 a 16, reconstruindo o filtro a cada valor e mantendo sempre o mesmo m. O U da seção da matemática vai aparecer no seu terminal, e com ele a certeza de que hash a mais não é hash melhor.
 4. Por último, quebre de propósito: implemente um `remover` que zera os k bits, remova uma chave e depois procure as outras 99.999. Meia dúzia vai ter sumido — e é exatamente essa ordem de grandeza que torna o defeito perigoso. Raro demais para cair num teste, permanente demais para voltar. É a demonstração mais rápida de por que o counting bloom filter existe.
 
-Para fechar o quadro, as duas estruturas que ficam nas pontas: a [Tabela Hash](/topico/hash-table), que é o bloom filter com a chave guardada e a resposta exata, e a [Skip List](/topico/skip-list), a outra probabilística publicada aqui, que sorteia a forma e não a resposta. E se o que te chamou atenção foi a ideia de trocar exatidão por escala, o índice de [Cursos e outras estruturas](/cursos/) tem a vizinhança inteira — de [Union-Find](/topico/union-find) a [grafos avançados](/cursos/grafos-avancados/).
+Para fechar o quadro, as duas estruturas que ficam nas pontas: a [Tabela Hash](/topico/hash-table), que é o bloom filter com a chave guardada e a resposta exata, e a [Skip List](/topico/skip-list), a outra probabilística publicada aqui, que sorteia a forma e não a resposta. E se o que te chamou atenção foi a ideia de trocar exatidão por escala, o índice de [Trilhas e outros tópicos](/trilha/) tem a vizinhança inteira — de [Union-Find](/topico/union-find) a [grafos avançados](/trilha/grafos-avancados/).
