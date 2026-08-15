@@ -14,7 +14,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // não se mexeu, e "o painel REALMENTE abriu" antes de medir dentro dele.
 // ---------------------------------------------------------------------------
 
-const ARRAYS = "/topico/arrays/";
+const ARRAYS = "/topicos/arrays/";
 
 const VIZ = [
   { nome: "memória contígua", titulo: /memória contígua e o endereço de nums\[i\]/ },

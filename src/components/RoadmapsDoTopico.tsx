@@ -34,7 +34,7 @@ export function RoadmapsDoTopico({
   slugs: string[];
   nomeDoTopico: string;
 }) {
-  const cards = EXTRA_CARDS.filter((c) => c.kind === "roadmap" && slugs.includes(c.slug));
+  const cards = EXTRA_CARDS.filter((c) => slugs.includes(c.slug));
   if (cards.length === 0) return null;
 
   return (

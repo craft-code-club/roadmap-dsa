@@ -1,4 +1,4 @@
-import { ROADMAPS, roadmapTopics, getRoadmap } from "@content/roadmaps";
+import { ROADMAPS_EXTRAS, roadmapTopics, getRoadmap } from "@content/roadmaps";
 import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
 
 // Card de compartilhamento de cada roadmap. Mesmo template das outras rotas
@@ -11,12 +11,15 @@ export const dynamic = "force-static";
 // medida no card por tópico: o Next lê este export UMA vez, e o caminho para
 // variá-lo (`generateImageMetadata`) não recebe os params do segmento pai. O
 // porquê, com o erro exato do Next 16, está no cabeçalho de
-// `src/app/topico/[slug]/opengraph-image.tsx`.
+// `src/app/topicos/[slug]/opengraph-image.tsx`.
 export const alt =
   "Card do Roadmap DSA: o nome de um roadmap de estruturas de dados e o que ele cobre, no guia visual e gratuito em português";
 
+// Sem os Fundamentos: a página deles é `/fundamentos/`, e o card sai de
+// `src/app/fundamentos/opengraph-image.tsx`. Gerar um aqui criava um arquivo
+// em `/roadmaps/fundamentos/` que nenhuma página referencia.
 export function generateStaticParams() {
-  return ROADMAPS.map((t) => ({ slug: t.slug }));
+  return ROADMAPS_EXTRAS.map((t) => ({ slug: t.slug }));
 }
 
 // O mesmo guarda do card por tópico: fora do Latin-1, o Satori não consegue

@@ -3,8 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GROUPS, TOTAL_TOPICS, isEmptyTopic } from "@content/fundamentos";
-import { TOTAL_EXTRA_CARDS } from "@content/roadmaps";
+import { isEmptyTopic, type Topic } from "@content/topicos";
+import {
+  FUNDAMENTOS,
+  roadmapGroups,
+  roadmapTopics,
+  TOTAL_EXTRA_CARDS,
+  urlDoTopicoNoRoadmap,
+} from "@content/roadmaps";
 import { mesmaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
@@ -27,7 +33,9 @@ const KEY_MENU = "ccc-dsa-menu";
 const VALIDADE_MENU_MS = 24 * 60 * 60 * 1000;
 
 /** Ids válidos hoje. Grupo renomeado ou removido sai do que estava salvo. */
-const IDS_DE_GRUPO = new Set(GROUPS.map((g) => g.id));
+const GRUPOS = roadmapGroups(FUNDAMENTOS);
+const TODOS: Topic[] = roadmapTopics(FUNDAMENTOS);
+const IDS_DE_GRUPO = new Set(GRUPOS.map((g) => g.id));
 
 function lerAbertos(): Record<string, boolean> | null {
   try {
@@ -50,7 +58,7 @@ function lerAbertos(): Record<string, boolean> | null {
 function gravarAbertos(abertos: Record<string, boolean>) {
   try {
     const salvo = {
-      abertos: GROUPS.filter((g) => abertos[g.id]).map((g) => g.id),
+      abertos: GRUPOS.filter((g) => abertos[g.id]).map((g) => g.id),
       em: Date.now(),
     };
     localStorage.setItem(KEY_MENU, JSON.stringify(salvo));
@@ -70,14 +78,19 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
 
-  const slugAtivo = pathname?.startsWith("/topico/") ? pathname.split("/")[2] : null;
+  // O tópico ativo chega por duas rotas: dentro dos Fundamentos
+  // (`/fundamentos/<slug>/`, o caso normal aqui) e a canônica
+  // (`/topicos/<slug>/`). As duas acendem a mesma linha.
+  const partes = (pathname ?? "").split("/").filter(Boolean);
+  const slugAtivo =
+    partes[0] === "fundamentos" && partes[1] ? partes[1] : partes[0] === "topico" ? partes[1] : null;
 
   // Onde o leitor está: o grupo do tópico aberto ou o grupo da página de
   // introdução dele. É o único grupo que o menu abre por conta própria.
   const grupoDaRota = useMemo(() => {
-    const porTopico = slugAtivo && GROUPS.find((g) => g.topics.some((t) => t.slug === slugAtivo));
+    const porTopico = slugAtivo && GRUPOS.find((g) => g.topicos.some((t) => t.slug === slugAtivo));
     if (porTopico) return porTopico.id;
-    const porIntro = GROUPS.find((g) => g.intro && mesmaRota(pathname, g.intro.href));
+    const porIntro = GRUPOS.find((g) => g.intro && mesmaRota(pathname, g.intro.href));
     return porIntro?.id ?? null;
   }, [slugAtivo, pathname]);
 
@@ -88,7 +101,7 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
   // estava salvo entra logo depois, no efeito — ler o localStorage aqui daria
   // divergência de hidratação.
   const [abertos, setAbertos] = useState<Record<string, boolean>>(() => ({
-    [grupoDaRota ?? GROUPS[0].id]: true,
+    [grupoDaRota ?? GRUPOS[0].id]: true,
   }));
   const [restaurado, setRestaurado] = useState(false);
   const listaRef = useRef<HTMLDivElement>(null);
@@ -146,8 +159,8 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
     // leitor abre a gaveta.
   }, [grupoDaRota, slugAtivo, pathname, restaurado, mobileNav]);
 
-  const feitosTotal = contarTopicos(GROUPS.flatMap((g) => g.topics.map((t) => t.slug)));
-  const pct = hydrated && TOTAL_TOPICS ? Math.round((feitosTotal / TOTAL_TOPICS) * 100) : 0;
+  const feitosTotal = contarTopicos(TODOS.map((t) => t.slug));
+  const pct = hydrated && TODOS.length ? Math.round((feitosTotal / TODOS.length) * 100) : 0;
 
   const b = semAcento(busca.trim());
 
@@ -158,11 +171,11 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
   // as descrições já vêm no mesmo chunk que os nomes.
   const grupos = useMemo(
     () =>
-      GROUPS.map((g) => {
+      GRUPOS.map((g) => {
         // Grupo que casa pelo nome entrega a lista inteira dele: quem digita
         // "grafos" quer o grupo, não o subconjunto que repete a palavra.
         const grupoCasa = !!b && semAcento(g.name).includes(b);
-        const itens = g.topics.filter(
+        const itens = g.topicos.filter(
           (t) => !b || grupoCasa || semAcento(`${t.name} ${t.description}`).includes(b)
         );
         return { ...g, itens, aberto: b ? itens.length > 0 : !!abertos[g.id] };
@@ -177,7 +190,7 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
       <div className="side-head">
         <div className="side-head-row">
           <span className="side-label">Fundamentos</span>
-          <span className="side-count">{feitosTotal}/{TOTAL_TOPICS} · {pct}%</span>
+          <span className="side-count">{feitosTotal}/{TODOS.length} · {pct}%</span>
         </div>
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -200,7 +213,7 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
 
       <div className="side-scroll" ref={listaRef}>
         {grupos.map((g) => {
-          const feitos = contarTopicos(g.topics.map((t) => t.slug));
+          const feitos = contarTopicos(g.topicos.map((t) => t.slug));
           return (
             <div className="side-group" key={g.id}>
               {/* `aria-expanded` porque o triângulo é a única pista de aberto/fechado,
@@ -214,7 +227,7 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
               >
                 <span className={`side-caret${g.aberto ? " open" : ""}`} aria-hidden="true">▸</span>
                 <span style={{ flex: 1 }}>{g.name}</span>
-                <span className="side-count">{feitos}/{g.topics.length}</span>
+                <span className="side-count">{feitos}/{g.topicos.length}</span>
               </button>
               {/* O grupo fechado esconde os itens, e não deixa de renderizá-los:
                   o menu era a única lista de tópicos de toda página, e com
@@ -278,7 +291,7 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
                         ) : null}
                       </button>
                       <Link
-                        href={`/topico/${t.slug}`}
+                        href={urlDoTopicoNoRoadmap(FUNDAMENTOS, t.slug)}
                         className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
                         aria-current={ativo ? "page" : undefined}
                       >

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { isEmptyTopic, topicTags, type Topic } from "@content/fundamentos";
+import { isEmptyTopic, topicTags, type Topic } from "@content/topicos";
 import { levelClass } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 
@@ -25,10 +25,8 @@ import { useProgress } from "@/components/ProgressProvider";
 
 export type LinhaDeTopico = {
   topic: Topic;
-  /** Onde ele mora: "Fundamentos", o nome de um roadmap, "Avulso". */
-  casa: string;
-  /** Roadmaps que também o listam, pelo nome. */
-  tambemEm: string[];
+  /** Os roadmaps que citam este tópico, pelo nome. Pode ser vazio. */
+  roadmaps: string[];
 };
 
 export type SecaoDeTopicos = { id: string; nome: string; sub?: string; linhas: LinhaDeTopico[] };
@@ -67,7 +65,7 @@ export function TodosOsTopicos({ secoes }: { secoes: SecaoDeTopicos[] }) {
           linhas: s.linhas.filter((l) => {
             if (!passaNoFiltro(l.topic, filtro)) return false;
             if (!b) return true;
-            const alvo = `${l.topic.name} ${l.topic.description} ${l.topic.group} ${l.casa} ${l.tambemEm.join(" ")}`;
+            const alvo = `${l.topic.name} ${l.topic.description} ${l.topic.group} ${l.roadmaps.join(" ")}`;
             return semAcento(alvo).includes(b);
           }),
         }))
@@ -124,7 +122,7 @@ export function TodosOsTopicos({ secoes }: { secoes: SecaoDeTopicos[] }) {
           </div>
           {s.sub && <p className="topicos-sub">{s.sub}</p>}
           <ul className="topicos-lista">
-            {s.linhas.map(({ topic: t, tambemEm }) => {
+            {s.linhas.map(({ topic: t, roadmaps }) => {
               const feito = isTopico(t.slug);
               const vazio = isEmptyTopic(t);
               return (
@@ -150,7 +148,7 @@ export function TodosOsTopicos({ secoes }: { secoes: SecaoDeTopicos[] }) {
                       </svg>
                     ) : null}
                   </button>
-                  <Link href={`/topico/${t.slug}`} className="topico-linha-link">
+                  <Link href={`/topicos/${t.slug}`} className="topico-linha-link">
                     <span className="topico-linha-nome">
                       {t.name}
                       {t.isNew && <span className="badge-novo">NOVO</span>}
@@ -163,10 +161,10 @@ export function TodosOsTopicos({ secoes }: { secoes: SecaoDeTopicos[] }) {
                     {topicTags(t).map((tag) => (
                       <span key={tag.kind} className={`ttag ttag-${tag.kind}`}>{tag.label}</span>
                     ))}
-                    {/* Onde mais o tópico aparece. É a informação que só esta
-                        página tem condição de dar: nas outras telas o leitor vê
-                        uma casa por vez. */}
-                    {tambemEm.map((nome) => (
+                    {/* Em que percursos ele aparece. É a informação que só
+                        esta página tem condição de dar: nas outras telas o
+                        leitor vê um roadmap por vez. */}
+                    {roadmaps.map((nome) => (
                       <span key={nome} className="ttag ttag-origem">{nome}</span>
                     ))}
                   </span>

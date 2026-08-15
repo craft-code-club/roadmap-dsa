@@ -439,7 +439,7 @@ html { scroll-behavior: smooth; }
    quadrado "DSA" do topo é um gradiente de um para o outro), então a distinção
    não introduz cor nova no sistema. */
 .extra-kind-roadmap { color: #c4b5fd; border-color: rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.12); }
-.extra-kind-standalone { color: #93bbfd; border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08); }
+.extra-kind-topico { color: #93bbfd; border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08); }
 .extra-name { margin-top: 14px; font-size: 15px; font-weight: 600; }
 .extra-card p { margin: 7px 0 0; font-size: 12.5px; line-height: 1.5; color: #8ea3bd; }
 .extra-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 13px; }

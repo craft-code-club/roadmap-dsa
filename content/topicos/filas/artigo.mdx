@@ -1,0 +1,442 @@
+<Callout>
+A fila é a estrutura que decide **em que ordem o trabalho sai**. Ela está no caixa do supermercado, no broker de mensagens, na thread pool do seu servidor e dentro do BFS. Aprender fila é fácil; o que separa quem sabe de quem decorou é entender por que a implementação óbvia, com array, é lenta, e como o **buffer circular** conserta isso com uma conta de resto.
+</Callout>
+
+## Por que a fila existe
+
+Fila é o que acontece quando **chega mais gente do que dá para atender**. Se o supermercado tivesse um caixa aberto por cliente, ninguém esperaria, e os caixas ficariam a maior parte do tempo parados. Se a estrada tivesse uma faixa por carro, não haveria trânsito, e teríamos um asfalto ocioso do tamanho de uma cidade. A fila é o preço que se paga para manter o recurso caro ocupado.
+
+Existe um segundo motivo, ainda mais importante em software: **absorver pico**. A carga não chega distribuída, ela chega em rajada. A fila segura a rajada durante alguns segundos para o consumidor dar vazão depois, no ritmo dele. É por isso que ela aparece em tanto lugar:
+
+- Um servidor web com 10 threads que recebe 30 requisições ao mesmo tempo. As 20 sobrando **não são descartadas**: elas entram numa fila, a conexão fica aberta esperando, e é exatamente daí que vem aquele tempo de resposta gigantesco e, se demorar demais, o timeout.
+- Um broker de mensagens (RabbitMQ, Kafka, SQS), que é uma fila com durabilidade por cima.
+- Rate limiting com leaky bucket ou token bucket, o buffer de teclado, a fila de impressão, a fila de tarefas de um worker.
+- E, dentro dos algoritmos, o **BFS**: percorrer um grafo ou uma árvore nível a nível é literalmente processar uma fila de nós descobertos.
+
+<Colunas>
+<Cartao titulo="Fila: FIFO">
+A **fila do caixa**. O primeiro que chegou é o primeiro a ser atendido: *first in, first out*. Entra por uma ponta, sai pela outra.
+</Cartao>
+<Cartao titulo="Pilha: LIFO">
+O **carrinho de compras**. O primeiro item que você colocou é o último a sair, porque quem está em cima é o que a mão alcança: *last in, first out*.
+</Cartao>
+</Colunas>
+
+Essa dupla vale mais que qualquer definição formal: na hora da compra você está, ao mesmo tempo, **dentro de uma fila e segurando uma pilha**. Quando o que importa é a ordem de chegada, é fila; quando o que importa é o mais recente, é [pilha](/topicos/pilhas).
+
+## O contrato: enfileirar, desenfileirar, espiar
+
+Fila é um **tipo abstrato de dados** (ADT), não uma estrutura de dados. A diferença importa mais do que parece:
+
+- Uma **estrutura de dados** diz como as coisas estão organizadas na memória. Array é isso: posições contíguas, endereço calculado por conta.
+- Um **tipo abstrato de dados** diz só quais operações existem e o que elas prometem. Fila é isso. Ela não é a base de nada, ela **se apoia** em uma base: array, array circular, lista encadeada, duas pilhas.
+
+O contrato é curto, e é o mesmo em qualquer linguagem:
+
+| Operação | O que faz | Custo esperado |
+| --- | --- | --- |
+| `enfileirar(v)` | põe `v` no fim da fila | O(1) |
+| `desenfileirar()` | tira e devolve o primeiro | O(1) |
+| `espiar()` | lê o primeiro sem tirar | O(1) |
+| `vazia()` / `tamanho()` | estado da fila | O(1) |
+
+**Espiar e desenfileirar não são a mesma coisa.** Espiar é dar uma olhada em quem está na frente; desenfileirar é chamar a pessoa e tirá-la da fila. Você pode espiar mil vezes seguidas e nada muda.
+
+Em Python, o pronto para usar é o `deque`:
+
+```python
+from collections import deque
+
+fila = deque()
+fila.append("A")       # enfileirar
+fila.append("B")
+primeiro = fila[0]     # espiar, sem tirar
+saiu = fila.popleft()  # desenfileirar -> "A"
+```
+
+E o contrato tem uma forma canônica de uso, o laço que você vai escrever mil vezes: enquanto houver gente na fila, tire um, processe, e enfileire o que esse um descobriu.
+
+```python
+fila = deque([inicio])
+while fila:                       # a fila esvaziar é o critério de parada
+    atual = fila.popleft()
+    for vizinho in descobertos(atual):
+        fila.append(vizinho)      # o novo entra no fim, e só será visto depois
+```
+
+Esse é o esqueleto do BFS, e é a fila que garante a ordem por nível: como quem chega vai para o fim, nada que está a dois passos é processado antes de algo que está a um. Quando o problema pergunta **em que nível** (o menor número de passos, a altura da árvore, quantas rodadas até apodrecer a última laranja), entra um detalhe que vale ouro:
+
+```python
+nivel = 0
+while fila:
+    for _ in range(len(fila)):    # congela o tamanho ANTES de mexer na fila
+        atual = fila.popleft()
+        for vizinho in descobertos(atual):
+            fila.append(vizinho)
+    nivel += 1                    # a camada inteira saiu, o nível fechou
+```
+
+O `len(fila)` é lido **uma vez**, antes do laço de dentro, e é exatamente o tamanho da camada atual. Em Python o `range(len(fila))` já congela esse número sozinho; em Java ou JavaScript, escrever `for (int i = 0; i < fila.size(); i++)` relê o tamanho a cada volta, os filhos recém-enfileirados entram na conta do mesmo laço e a árvore inteira vira um nível só. É o bug mais comum do BFS por níveis, e ele nasce de um mal-entendido sobre a fila, não sobre o grafo.
+
+O resto deste artigo é sobre o que existe **embaixo** desse `deque`, porque é isso que cai em entrevista e é isso que faz a diferença quando a fila tem milhões de itens.
+
+## A fila ingênua sobre array, e o pedágio do desenfileirar
+
+A primeira implementação que todo mundo escreve é a mais literal possível: um array, um contador de tamanho, o primeiro da fila sempre na posição 0.
+
+```python
+class FilaIngenua:
+    def __init__(self, cap):
+        self.dados = [None] * cap
+        self.tamanho = 0
+
+    def enfileirar(self, valor):
+        if self.tamanho == len(self.dados):
+            raise IndexError("fila cheia")
+        self.dados[self.tamanho] = valor   # o fim é o próprio tamanho
+        self.tamanho += 1
+
+    def desenfileirar(self):
+        if self.tamanho == 0:
+            raise IndexError("fila vazia")
+        valor = self.dados[0]
+        for i in range(1, self.tamanho):   # o pedágio
+            self.dados[i - 1] = self.dados[i]
+        self.tamanho -= 1
+        return valor
+```
+
+Enfileirar está ótimo: uma escrita e um incremento, O(1). O problema é o `desenfileirar`. Como o primeiro da fila **tem** que estar na posição 0, ao tirar alguém todos os outros precisam andar uma casa para a esquerda. Com 4 pessoas na fila, são 3 movimentações; com um milhão, quase um milhão. O custo de atender uma pessoa cresce junto com o tamanho da fila, e isso é **O(n)** em uma operação que devia ser instantânea.
+
+O detalhe cruel é que essa é exatamente a imagem mental que a gente tem de fila: a pessoa da frente é atendida e **todo mundo dá um passinho para a frente**. No mundo físico é assim mesmo. No array, é caro.
+
+O visualizador abaixo já abre na **fila ingênua**, com o preset "Dá a volta". Aperte ▶ Rodar e acompanhe o contador **movimentações de elementos**: ele fecha o roteiro em **7**, sendo 3 no primeiro desenfileirar (a fila tinha 4) e 4 no segundo (a fila tinha 5). Repare também no resíduo: depois do shift, a última posição continua com uma cópia do valor antigo, e ela só some quando alguém escrever por cima.
+
+<QueueVisualizer />
+
+## O buffer circular: o índice que dá a volta
+
+A virada de chave é uma frase só: **em vez de mover as pessoas, mova o ponteiro**.
+
+Se o primeiro da fila não precisa estar na posição 0, então guardar um índice `inicio` resolve o desenfileirar: leia `dados[inicio]`, avance `inicio` em um, pronto. Nada se mexe. Só que agora aparece um buraco: as posições que ficaram para trás estão livres, mas o `fim` já passou por elas e continua andando para a direita. Uma hora ele chega ao final do array com o começo vazio.
+
+A solução é fazer os dois índices **darem a volta**, e a ferramenta para isso é o resto da divisão. Com um array de 4 posições:
+
+```text
+0 % 4 = 0    1 % 4 = 1    2 % 4 = 2    3 % 4 = 3    4 % 4 = 0
+```
+
+O array tem índices de 0 a 3, então a posição 4 não existe. E `4 % 4` devolve exatamente 0, o começo. É essa a mágica inteira do buffer circular: **`(indice + 1) % capacidade` nunca sai do array**.
+
+```python
+class FilaCircular:
+    def __init__(self, cap):
+        self.dados = [None] * cap
+        self.inicio = self.fim = self.tamanho = 0
+
+    def enfileirar(self, valor):
+        if self.tamanho == len(self.dados):
+            raise IndexError("fila cheia")
+        self.dados[self.fim] = valor
+        self.fim = (self.fim + 1) % len(self.dados)
+        self.tamanho += 1
+
+    def desenfileirar(self):
+        if self.tamanho == 0:
+            raise IndexError("fila vazia")
+        valor = self.dados[self.inicio]
+        self.inicio = (self.inicio + 1) % len(self.dados)
+        self.tamanho -= 1
+        return valor
+```
+
+Volte no visualizador, troque para **buffer circular** e rode o **mesmo roteiro**. Duas coisas para observar:
+
+1. O contador de movimentações fecha em **0**. Sete contra zero, no mesmo roteiro de 8 operações: é isso que separa O(n) de O(1).
+2. No anel, olhe o `E` cair na última posição, a 4: o `fim` sai dali e reaparece no zero, porque `(4 + 1) % 5 = 0`. É por isso que o `F`, logo em seguida, cai **em cima** da vaga que o `A` deixou quando foi desenfileirado. No desenho linear isso parece um pulo; no anel, é só o próximo passo.
+
+O anel e a fita mostram o mesmo array. A memória continua reta e contígua: circular é o **jeito de andar** nela, não a forma dela.
+
+<Callout>
+Repare nas células tracejadas: são posições ociosas (nunca escritas) ou **resíduo** (valor já consumido que continua gravado). O array não encolhe nem se limpa sozinho. Numa implementação de verdade, costuma-se escrever `self.dados[self.inicio] = None` ao desenfileirar, não por causa da fila, mas para soltar a referência e deixar o coletor de lixo liberar o objeto.
+</Callout>
+
+## Cheia ou vazia? O detalhe que trava a implementação
+
+Aqui mora a pegadinha clássica do buffer circular, e o visualizador tem um card só para ela. Troque para **buffer circular** e acompanhe o **início == fim?** com o preset "Dá a volta": no passo 1 ele diz *sim, e vazia*, com os dois ponteiros em 0; alguns passos depois, quando o `F` entra, ele volta a dizer *sim*, agora *e cheia*, com os dois ponteiros na posição 1. **Mesma configuração de ponteiros, estados opostos.**
+
+Ou seja: o teste `inicio == fim`, sozinho, não decide nada, porque ele é verdade nos dois extremos e falso em todo o meio. Existem duas saídas, e as duas são usadas em produção:
+
+<Colunas>
+<Cartao titulo="Guardar o tamanho">
+Uma variável `tamanho`. Cheia é `tamanho == capacidade`, vazia é `tamanho == 0`. Custa alguns bytes e **uma** comparação por operação. É a mais simples de ler e a mais barata de executar.
+</Cartao>
+<Cartao titulo="Sacrificar uma posição">
+Sem `tamanho`: cheia é `(fim + 1) % capacidade == inicio`. Não gasta memória extra, mas **uma posição do array nunca é usada** e a conta vira três operações: somar, tirar o resto e comparar.
+</Cartao>
+</Colunas>
+
+Não existe resposta certa, existe escolha. Numa entrevista, dizer que você conhece as duas e explicar o trade-off vale mais do que a implementação em si.
+
+**A variação que descarta o mais antigo.** Se a fila encheu, você tem três saídas: recusar quem chegou (o guard rail do código acima), crescer o array, ou **sobrescrever o mais velho**, andando o `inicio` junto com o `fim`. Essa terceira é o *ring buffer* de verdade, e é o que você quer para as últimas N métricas, para o buffer de log, para a janela de eventos recentes: quando o histórico antigo perdeu a validade, jogar fora é o comportamento correto, não um bug. O Python já entrega isso pronto:
+
+```python
+from collections import deque
+
+ultimos = deque(maxlen=3)
+for x in [1, 2, 3, 4]:
+    ultimos.append(x)
+# deque([2, 3, 4], maxlen=3): o 1 saiu sozinho pela outra ponta
+```
+
+No visualizador, o preset **"Enche e recusa"** mostra o guard rail em ação, e o **"Esvazia demais"** mostra o outro lado: desenfileirar de uma fila vazia. Sem essa checagem, você devolveria lixo de uma posição que nunca foi escrita.
+
+## Fila com lista encadeada: o preço do ponteiro
+
+A outra base clássica é a [lista encadeada](/topicos/listas-ligadas). Cada elemento vira um nó com o valor e o endereço do próximo; a fila guarda um ponteiro para o `inicio` e outro para o `fim`.
+
+```python
+class No:
+    def __init__(self, valor):
+        self.valor = valor
+        self.proximo = None
+
+class FilaEncadeada:
+    def __init__(self):
+        self.inicio = self.fim = None
+        self.tamanho = 0
+
+    def enfileirar(self, valor):
+        no = No(valor)
+        if self.fim:               # já tem gente: costura no fim
+            self.fim.proximo = no
+        self.fim = no
+        if not self.inicio:        # era a primeira: ela é o início também
+            self.inicio = no
+        self.tamanho += 1
+
+    def desenfileirar(self):
+        if not self.inicio:
+            raise IndexError("fila vazia")
+        valor = self.inicio.valor
+        self.inicio = self.inicio.proximo   # o início vira o vizinho
+        self.tamanho -= 1
+        if not self.inicio:
+            self.fim = None
+        return valor
+```
+
+Duas observações que economizam tempo:
+
+**Lista simplesmente encadeada basta.** Ninguém precisa voltar para o nó anterior: a fila só anda para frente, e o nó que sai é descartado. Gastar um ponteiro `anterior` em cada nó seria pagar por uma volta que nunca vai acontecer.
+
+**O ponteiro não é de graça.** Um array de 5 inteiros de 4 bytes ocupa 20 bytes contíguos, e ponto. Na lista, cada nó carrega o valor **mais** o endereço do próximo: 4 bytes de ponteiro num modelo de 32 bits, 8 bytes num de 64. Guardar a mesma informação custa entre o dobro e o triplo de memória, sem contar o cabeçalho de objeto que cada linguagem coloca por cima.
+
+E tem o efeito que não aparece no Big O:
+
+| Base | A favor | Contra |
+| --- | --- | --- |
+| Array circular | memória contígua, cai inteira na cache do processador | capacidade fixa, resize quando enche |
+| Lista encadeada | cresce até a memória acabar, não fragmenta | ponteiro por nó, cache miss a cada salto |
+
+Quando os dados estão lado a lado na memória, o processador puxa um bloco inteiro para a cache de uma vez e as próximas leituras saem quase de graça. Na lista encadeada, cada nó pode estar em um canto diferente da memória, e cada salto é uma aposta na cache. Por outro lado, é justamente por ocupar qualquer buraco livre que a lista **combate a fragmentação**: ela nunca precisa de um bloco contíguo grande.
+
+Quando escolher a lista? Quando a fila não pode ter teto. Pense num serviço que não quer perder mensagem nenhuma: enquanto houver memória (ou disco, como faz o Kafka), ele quer continuar aceitando. Aí não existe `esta_cheia`, e a capacidade é um problema do sistema operacional, não da estrutura.
+
+## Fila com duas pilhas
+
+Este é o quebra-cabeça favorito das entrevistas, e vale como exercício de casa: **construir uma fila usando só pilhas**. Parece impossível, porque pilha é LIFO e fila é FIFO, exatamente o contrário.
+
+A sacada é geométrica: se você despejar uma pilha dentro de outra, a ordem **inverte**. E LIFO invertido é FIFO.
+
+```python
+class FilaComDuasPilhas:
+    def __init__(self):
+        self.entrada = []   # todo mundo chega aqui
+        self.saida = []     # todo mundo sai daqui
+
+    def enfileirar(self, valor):
+        self.entrada.append(valor)
+
+    def desenfileirar(self):
+        if not self.entrada and not self.saida:
+            raise IndexError("fila vazia")
+        if not self.saida:                          # só vira quando esvazia
+            while self.entrada:
+                self.saida.append(self.entrada.pop())
+        return self.saida.pop()
+```
+
+A linha que faz tudo funcionar é o `if not self.saida`. Virar a pilha **toda vez** seria O(n) por operação e não valeria nada. Virando só quando a saída esvazia, cada elemento é empurrado e retirado uma vez em cada pilha: entra na entrada, sai da entrada, entra na saída, sai da saída. **No máximo quatro operações de pilha por elemento**, não importa o roteiro.
+
+**O que o LeetCode 232 pede a mais.** A assinatura de lá tem quatro métodos: `push`, `pop`, `peek` e `empty`. Os dois que faltam saem das mesmas duas pilhas, e o `peek` carrega a mesma pegadinha do `pop`: ele também precisa virar antes de olhar, senão espia o elemento errado.
+
+```python
+    def espiar(self):
+        if not self.saida:                # mesma virada, mesma condição
+            while self.entrada:
+                self.saida.append(self.entrada.pop())
+        return self.saida[-1]             # o topo da saída é a frente da fila
+
+    def vazia(self):
+        return not self.entrada and not self.saida
+```
+
+Repare que `vazia` tem que olhar as **duas** pilhas. Com `A` e `B` na entrada e a saída vazia, a fila tem dois elementos: um `empty` que só olhasse para a saída responderia "sim" e derrubaria a submissão.
+
+<QueueDuasPilhas />
+
+Rode o preset "Enche e esvazia" até o fim e olhe os números: 16 operações de pilha para 4 elementos, ou seja **4,0 operações por elemento**. Agora acompanhe a nota de cada desenfileirar: o primeiro custa **9 operações** (4 tirando da entrada, 4 colocando na saída e o pop que devolve), e os três seguintes custam **uma cada**, porque a saída já está pronta. É isso que "O(1) amortizado" quer dizer: um passo caro de vez em quando, diluído em vários passos baratos. Troque para o preset "Intercalado" e veja o outro ramo do `if`, aquele em que não há virada nenhuma.
+
+## Deque: a fila de duas pontas
+
+*Deque* (de *double-ended queue*, pronuncia-se "dec") é a fila que aceita entrada e saída **nas duas pontas**. Em vez de duas operações, quatro:
+
+| Operação | Onde mexe | Fila comum faz? |
+| --- | --- | --- |
+| `append(v)` / `pop()` | ponta direita | só o `append` |
+| `appendleft(v)` / `popleft()` | ponta esquerda | só o `popleft` |
+
+Com isso, um deque é fila e pilha ao mesmo tempo: use uma ponta só e você tem uma pilha; use uma ponta para entrar e a outra para sair e você tem uma fila. Ele aparece no desfazer/refazer de um editor, no buffer que guarda os últimos N eventos, na verificação de palíndromo (compara as duas pontas e vai fechando, como em [Two Pointers](/topicos/two-pointers)), no 0-1 BFS e, principalmente, no problema da próxima seção.
+
+```python
+from collections import deque
+
+d = deque([2, 3])
+d.appendleft(1)   # deque([1, 2, 3])
+d.append(4)       # deque([1, 2, 3, 4])
+d.popleft()       # 1
+d.pop()           # 4
+```
+
+**Como o `appendleft` funciona por baixo.** Num deque sobre array circular, entrar pela esquerda é andar o `inicio` **para trás**, e para trás o `%` tem uma pegadinha que o `+ 1` não tinha: nas linguagens da família C (Java, C#, C, JavaScript) o resto sai com o sinal do dividendo, então `(0 - 1) % 4` dá `-1`, e `dados[-1]` estoura. O Python devolve `3`, que é a resposta certa, mas a forma portátil custa uma soma e é a que você quer escrever sempre:
+
+```python
+self.inicio = (self.inicio - 1 + self.cap) % self.cap   # entrou pela esquerda
+self.dados[self.inicio] = valor
+```
+
+Essa linha é metade do Design Circular Deque (641). A outra metade é lembrar que, com o `fim` apontando para a próxima vaga livre, o último elemento **não** é `dados[fim]`, e sim `dados[(fim - 1 + cap) % cap]`. É o mesmo ajuste, e é o que faz o `Rear()` do LeetCode 622 devolver a resposta certa em vez de lixo.
+
+<Callout tipo="aviso">
+Não use `list` como fila em Python. A documentação é explícita: `pop(0)` e `insert(0, v)` custam **O(n)**, porque a lista precisa mexer todo mundo de lugar. É a fila ingênua deste artigo, com o shift left e tudo, escondida atrás de uma linha inocente. O `collections.deque` faz as duas pontas em O(1), o `ArrayDeque` do Java se descreve como uma implementação sobre array redimensionável com tempo constante amortizado na maioria das operações, e o `Queue<T>` do .NET é literalmente o desenho desta página: um array circular com `head`, `tail` e `size`. Abrir o código da biblioteca que você usa todo dia é uma das coisas mais úteis que estudar estrutura de dados libera.
+</Callout>
+
+## O deque monotônico e o máximo da janela
+
+Agora o problema que faz o deque valer a viagem, o LeetCode 239: dado um array e uma janela de tamanho `k` que desliza da esquerda para a direita, devolva o **máximo de cada janela**.
+
+Com `nums = [1, 3, -1, -3, 5, 3, 6, 7]` e `k = 3`, a resposta é `[3, 3, 5, 5, 6, 7]`.
+
+A solução ingênua é percorrer os `k` elementos de cada uma das `n - k + 1` janelas: **O(n·k)**. Com n de 100 mil e k de mil, são quase cem milhões de comparações para uma tarefa que parece simples.
+
+O truque cabe em uma frase: **quem é menor e chegou antes nunca mais vai ser o máximo**. Quando o 5 entra na janela, o 3, o -1 e o -3 que estavam lá atrás estão condenados: enquanto o 5 estiver na janela ele ganha de todos eles, e quando o 5 sair eles já terão saído antes, porque entraram antes. Então dá para jogá-los fora **na hora**, sem arrependimento.
+
+O que sobra é um deque em ordem **decrescente**, guardando **índices** (não valores, e já já você vai ver por quê):
+
+```python
+from collections import deque
+
+def maximos_da_janela(nums, k):
+    dq = deque()   # ÍNDICES, valores em ordem decrescente
+    saida = []
+    for i, v in enumerate(nums):
+        while dq and nums[dq[-1]] <= v:
+            dq.pop()            # menor e mais antigo: descarta pelo fundo
+        dq.append(i)
+        if dq[0] <= i - k:
+            dq.popleft()        # o da frente venceu a validade
+        if i >= k - 1:
+            saida.append(nums[dq[0]])   # a frente é sempre o máximo
+    return saida
+```
+
+São as **duas pontas trabalhando ao mesmo tempo**, e é por isso que uma fila comum não resolve: pelo fundo saem os menores que acabaram de ser derrotados; pela frente sai quem escorregou para fora da janela. E o deque guarda índices justamente porque a segunda condição é sobre **posição**, não sobre valor: sem o índice, não dá para saber se o máximo ainda está na janela.
+
+<QueueDequeMonotonico />
+
+Rode o preset "LeetCode 239" inteiro. No fim, os contadores mostram **10 comparações** do deque contra **12** da força bruta, nas mesmas 6 janelas. A diferença ainda é pequena porque o array é pequeno; então faça o teste que importa: **mude o k de 3 para 5**, sem mexer no array. A força bruta sobe para 16 comparações e o contador do deque **não sai de 10**, porque ele simplesmente não depende de k. Cada índice entra e sai do deque no máximo uma vez: **O(n)**, com k ou sem k. Na escala do enunciado do LeetCode, com n de 100 mil e k de mil, isso é a diferença entre quase cem milhões de comparações e menos de duzentas mil.
+
+Quatro cenários que valem a pena rodar:
+
+- **"O máximo vence a validade"**: o 8 ganha a primeira janela e, na segunda, escorrega para fora sem nunca ter sido derrotado. É o passo do `popleft`, e é justamente o que mais some quando alguém escreve esse algoritmo de cabeça.
+- **"Decrescente (deque cheio)"**: nada é descartado pelo fundo, o deque fica com `k` índices (o pior caso de memória, e o motivo de o espaço ser O(k)) e a frente vence a validade a cada passo.
+- **"Crescente (deque de um)"**: cada valor novo derruba todo mundo, e o deque nunca passa de 1.
+- **"Tudo igual"**: o deque também nunca passa de 1, e o responsável é o `<=` da comparação, que descarta o valor **igual** que chegou antes. Trocar por `<` continua devolvendo a resposta certa, mas guarda todas as cópias e faz o deque crescer até `k` à toa: entre dois valores empatados, o mais novo sobrevive mais tempo na janela, então o mais velho não serve para nada.
+
+E os extremos, que são metade das submissões erradas:
+
+- **`k = 1`**: cada janela tem um elemento, e a resposta é o próprio array. O algoritmo continua correto (cada índice entra e sai no mesmo passo), mas olhe o painel: o contador da força bruta vai a **zero**, porque com um elemento por janela não existe comparação a fazer. Otimização só paga onde havia o que otimizar.
+- **`k = n`**: existe uma janela só, a saída tem um valor só, e o `if dq[0] <= i - k` nunca dispara, porque ninguém chega a vencer a validade.
+- **`k` maior que `n` ou array vazio**: o enunciado do LeetCode garante `1 <= k <= nums.length`, mas fora dele isso é a primeira linha da sua função. Sem o guarda, `dq[0]` estoura no deque vazio (o visualizador limita o `k` ao tamanho do array e avisa quando faz isso).
+
+**Trocar o máximo pelo mínimo é trocar um sinal.** Inverta a comparação para `while dq and nums[dq[-1]] >= v` e o deque passa a ficar **crescente**, com o **mínimo** da janela na frente. É a mesma estrutura, e é ela que abre a porta do Shortest Subarray with Sum at Least K (862), o problema mais difícil desta página. A receita, em três passos:
+
+1. monte o [prefix sum](/topicos/prefix-sum) `P`, com `P[0] = 0` e `P[i+1] = P[i] + nums[i]`. A soma de um trecho vira uma subtração: `P[j] - P[i]`.
+2. percorra `P` com um deque de índices crescente em valor. Enquanto `P[i] - P[dq[0]] >= k`, você achou um trecho válido: atualize a resposta com `i - dq.popleft()`, porque aquele começo já deu o melhor comprimento que tinha para dar.
+3. antes de guardar `i` no fundo, descarte todo `P[dq[-1]] >= P[i]`: um começo com prefixo maior **e** mais antigo nunca vai produzir um trecho mais curto que o `i`.
+
+O que torna o 862 difícil é ele aceitar **números negativos**, e é exatamente por isso que a [Sliding Window](/topicos/sliding-window) clássica não dá conta: com negativos, aumentar a janela pode diminuir a soma, então a janela não sabe quando parar de encolher. O deque monotônico sobre o prefix sum sabe.
+
+Isso fecha o ciclo com a [Sliding Window](/topicos/sliding-window): lá a janela guardava uma soma ou uma contagem, coisas que dá para atualizar somando e subtraindo nas bordas. Máximo não é assim: quando o máximo sai pela esquerda, não existe conta que recupere o segundo maior. O deque monotônico é a estrutura que resolve exatamente esse buraco.
+
+## Complexidade e o que dizer numa entrevista
+
+Todas as implementações entregam o mesmo contrato, com custos diferentes:
+
+| Implementação | enfileirar | desenfileirar | Observação |
+| --- | --- | --- | --- |
+| Array ingênuo | O(1) | **O(n)** | o shift left mata |
+| Array circular | O(1) | O(1) | O(n) no resize, amortizado O(1) |
+| Lista encadeada | O(1) | O(1) | memória extra por nó |
+| Duas pilhas | O(1) | O(1) amortizado | a virada custa O(n) de vez em quando |
+
+Tamanho e "está vazia" são O(1) em todas. Espiar também, com uma exceção que vale citar em entrevista: na fila de duas pilhas, espiar com a saída vazia dispara a mesma virada do desenfileirar, então lá ele é O(1) **amortizado**, não O(1) puro. Memória é O(n) em todas, com constantes diferentes: o array circular guarda só os valores, a lista encadeada paga um ponteiro por nó, e as duas pilhas guardam cada elemento em uma das duas listas por vez.
+
+**Sobre o amortizado.** Quando o array circular enche e você opta por crescer em vez de recusar, a estratégia padrão é **dobrar**: 4, 8, 16, 32. A cópia é O(n), mas acontece cada vez mais raramente, e a soma de todas as cópias para inserir n elementos fica abaixo de 2n, ou seja, menos de duas cópias por elemento na média. Por isso se diz O(1) amortizado. Repare que ninguém encolhe o array de volta: quem já precisou de espaço uma vez provavelmente vai precisar de novo, e desalocar para realocar em seguida sai mais caro.
+
+**Um detalhe do resize circular.** Copiar um array circular para um maior não é copiar bloco por bloco, porque o primeiro elemento raramente está na posição 0. É preciso um **pivô** no `inicio` e copiar dando a volta, item a item, para a fila renascer ordenada no array novo (com `inicio` em 0 e `fim` no tamanho). Assintoticamente é o mesmo O(n) do array comum, mas na prática é uma cópia mais cara, elemento a elemento, em vez de um bloco contíguo de memória. Em compensação, o circular reaproveita as vagas do começo e por isso costuma precisar de resize **bem menos vezes**.
+
+**O conselho pragmático:** em entrevista, diga "O(1)" e complete: "a não ser quando o array precisa crescer, aí aquela operação é O(n), mas amortizado continua O(1)". Mostrar que você conhece a exceção vale mais do que a resposta curta.
+
+## Armadilhas que pegam todo mundo
+
+**`list.pop(0)` em Python.** É a armadilha número um, porque o código fica bonito e o desempenho, péssimo. Use `collections.deque`. O mesmo vale para `list.insert(0, v)`.
+
+**Misturar as convenções do `fim`.** Existem duas escolas: `fim` aponta para a **próxima posição livre** (a do código deste artigo) ou para o **último elemento inserido**. As duas funcionam, mas as contas de cheio, vazio e resize mudam. Escolha uma, escreva no comentário, e não misture no meio da implementação.
+
+**Achar que `inicio == fim` decide alguma coisa.** Sozinho, esse teste não distingue cheia de vazia. Ou você guarda o `tamanho`, ou sacrifica uma posição.
+
+**Esquecer o `% capacidade` em um dos dois ponteiros.** O bug clássico: o `fim` dá a volta e o `inicio` não, e a fila passa a devolver lixo depois da primeira volta. Se você escreveu a conta em um lugar só, ela está faltando no outro.
+
+**Andar para trás sem somar a capacidade.** Nas linguagens da família C, `(0 - 1) % 4` é `-1`, não `3`, porque o resto herda o sinal do dividendo, e o acesso estoura. Em Python a conta já sai certa, mas quem esquece o `%` de vez cai numa armadilha pior: `dados[-1]` não estoura, devolve o último elemento e o bug fica silencioso. Para trás, sempre `(i - 1 + cap) % cap`.
+
+**Indexar o meio de um `deque`.** As pontas são O(1), o meio não. O `collections.deque` do CPython é uma lista duplamente encadeada de blocos de 64 itens, e a própria documentação avisa: acesso indexado é O(1) nas pontas e cai para O(n) no miolo. Se o seu código faz `d[i]` dentro de um laço, você trocou o `pop(0)` por uma armadilha do mesmo tamanho.
+
+**Guardar valores em vez de índices no deque monotônico.** Sem o índice não dá para saber quando o máximo saiu da janela, e o algoritmo passa a devolver máximos de janelas que já acabaram.
+
+**Fila sem teto é vazamento de memória.** Se o produtor é mais rápido que o consumidor e a fila cresce sem limite, o processo morre por falta de memória (só que uma hora depois, e longe da causa). Fila de verdade tem limite e uma política para quando encher: recusar, descartar o mais antigo ou aplicar backpressure em quem produz.
+
+<Callout tipo="aviso">
+**Fila de prioridade não é fila.** Apesar do nome, ela não entrega por ordem de chegada, e sim por prioridade, e a implementação eficiente é um heap, não um buffer circular. É outro tipo abstrato, com outra estrutura embaixo, e vive no tópico de [Binary Heap](/topicos/binary-heap).
+</Callout>
+
+## Como praticar
+
+Antes de abrir o LeetCode, use os visualizadores para **prever antes de rodar**. Diga a resposta em voz alta e só depois clique:
+
+- No buffer circular, capacidade 4 e o roteiro `A B C D` seguido de um desenfileirar e mais um enfileirar: em que posição o `E` vai cair?
+- Fila com um elemento só: quantas movimentações o desenfileirar ingênuo faz? (Resposta: zero, é o único caso em que os dois empatam.)
+- No deque monotônico, o que acontece com `k = 1`? E com `k` igual ao tamanho do array? E se todos os valores forem iguais?
+- Fila vazia: o que cada uma das quatro implementações faz num desenfileirar?
+
+Depois, na ordem:
+
+1. **Implement Queue using Stacks (232)** para fixar o amortizado que você acabou de ver na tela. Os quatro métodos estão na seção das duas pilhas, inclusive o `peek` que precisa virar e o `empty` que olha as duas listas.
+2. **Number of Students Unable to Eat Lunch (1700)**, uma fila e uma pilha interagindo, no espírito do problema de distribuir um item por vez. Cuidado com o critério de parada: quando ninguém mais quer o item do topo, acabou, e o jeito de detectar isso é contar quantas voltas seguidas a fila deu sem ninguém aceitar. Depois de resolver com a fila, resolva de novo contando quantos querem cada tipo: some as preferências uma vez e a simulação inteira vira O(n), sem fila nenhuma. Saber que a estrutura não era obrigatória é parte do aprendizado.
+3. **Design Circular Queue (622)** é este artigo virando código, com `inicio`, `fim` e o `% capacidade`. O único ponto fora do texto é a interface: lá os métodos devolvem `true`/`false` em vez de levantar exceção, e o `Rear()` é `dados[(fim - 1 + cap) % cap]`.
+4. **Design Circular Deque (641)** é o mesmo, agora com inserção e remoção nas duas pontas, ou seja, com o `(i - 1 + cap) % cap` em campo.
+5. **Sliding Window Maximum (239)** é o deque monotônico do último visualizador. Teste sua solução com `k = 1`, com `k = n` e com todos os valores iguais antes de submeter.
+6. **Shortest Subarray with Sum at Least K (862)** junta deque monotônico com [Prefix Sum](/topicos/prefix-sum). É difícil de verdade, e é o teste de que o padrão ficou: a receita em três passos está no fim da seção do deque monotônico, e o resto é você.
+
+Daqui, dois caminhos naturais. Um é voltar para [Pilhas](/topicos/pilhas) e comparar as duas estruturas irmãs lado a lado, já que uma constrói a outra. O outro é seguir para os [Percursos em Árvore](/topicos/tree-traversals) e para o [BFS em grafos](/topicos/dfs-bfs), onde a fila deixa de ser o assunto e passa a ser a ferramenta: é ela que garante que os nós saiam na ordem dos níveis.

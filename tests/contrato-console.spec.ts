@@ -71,7 +71,7 @@ async function rodarNoConsole(page: Page, codigo: string): Promise<unknown> {
 
 async function abrir(page: Page, slug: string) {
   await page.setViewportSize({ width: 1512, height: 900 });
-  await page.goto(`/topico/${slug}/`);
+  await page.goto(`/topicos/${slug}/`);
   // As fontes chegam com `display: swap`: medir antes mede a de fallback.
   await page.evaluate(() => document.fonts.ready);
 }

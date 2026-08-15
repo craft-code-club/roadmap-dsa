@@ -68,7 +68,7 @@ test("o canonical de cada rota é absoluto e aponta para ela mesma", async ({ pa
 });
 
 test("cada página tem exatamente um h1", async ({ page }) => {
-  for (const rota of [...ROTAS, { path: "/topico/big-o/", nome: "big-o" }]) {
+  for (const rota of [...ROTAS, { path: "/topicos/big-o/", nome: "big-o" }]) {
     await page.goto(rota.path);
     await expect(page.getByRole("heading", { level: 1 }), rota.nome).toHaveCount(1);
   }
@@ -79,14 +79,14 @@ test("cada página tem exatamente um h1", async ({ page }) => {
 // resolvidos. Se alguém voltar a impor OG no layout, isto continua passando —
 // por isso o teste checa que o valor é o DA PÁGINA, não um genérico do site.
 test("tópico sem OG próprio herda o título e a descrição dele mesmo", async ({ page }) => {
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
   expect(await meta(page, 'meta[property="og:title"]')).toContain("Big O");
   const desc = await meta(page, 'meta[name="description"]');
   expect(await meta(page, 'meta[property="og:description"]')).toBe(desc);
 });
 
 test("o que é global segue global em toda rota", async ({ page }) => {
-  for (const rota of [...ROTAS, { path: "/topico/big-o/", nome: "big-o" }, { path: "/apoie/", nome: "apoie" }]) {
+  for (const rota of [...ROTAS, { path: "/topicos/big-o/", nome: "big-o" }, { path: "/apoie/", nome: "apoie" }]) {
     await page.goto(rota.path);
     expect(await meta(page, 'meta[property="og:locale"]'), rota.nome).toBe("pt_BR");
     expect(await meta(page, 'meta[property="og:type"]'), rota.nome).toBe("website");

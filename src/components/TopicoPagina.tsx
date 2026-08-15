@@ -1,7 +1,9 @@
 import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
-import type { Topic } from "@content/fundamentos";
-import { getArticle } from "@content/topics";
+import type { Topic } from "@content/topicos";
+import { linkDentroDoRoadmap, type Roadmap } from "@content/roadmaps";
+import { getArtigo } from "@content/topicos/artigos";
+import { getPratica } from "@content/topicos/pratica";
 import { datasDoTopico } from "@/lib/datas-do-git";
 import { dataLonga, diaIso } from "@/lib/format";
 import type { Migalha } from "@/lib/jsonld";
@@ -11,11 +13,12 @@ import { levelClass } from "@/lib/ui";
 import { ProblemList } from "@/components/ProblemList";
 import { TopicComplete } from "@/components/TopicComplete";
 import { VideoFacade } from "@/components/VideoFacade";
+import { ancoraQueReescreve } from "../../mdx-components";
 
 // O artigo de um tópico, e tudo que a página dele mostra em volta.
 //
 // Existe como componente porque o MESMO tópico é servido por duas rotas: a
-// canônica, `/topico/<slug>/`, e a de dentro de um roadmap,
+// canônica, `/topicos/<slug>/`, e a de dentro de um roadmap,
 // `/roadmaps/<roadmap>/<slug>/`. As duas mostram o mesmo artigo, o mesmo vídeo,
 // os mesmos problemas e as mesmas referências — o que muda cabe em três props:
 // o rastro de navegação, o que fecha a página e a marcação.
@@ -36,6 +39,14 @@ export type TopicoPaginaProps = {
   solto?: boolean;
   /** Mostra o assunto do tópico como pastilha. Só onde o rastro não o nomeia. */
   comChipDeGrupo?: boolean;
+  /**
+   * O roadmap por onde o leitor chegou, quando chegou por um.
+   *
+   * Só serve para uma coisa, e ela é importante: as citações DENTRO do artigo
+   * passam a apontar para a cópia deste roadmap. Quem está num percurso não sai
+   * dele porque o texto mencionou outro tópico.
+   */
+  dentroDe?: Roadmap;
 };
 
 export function TopicoPagina({
@@ -45,9 +56,18 @@ export function TopicoPagina({
   jsonLd,
   solto,
   comChipDeGrupo,
+  dentroDe,
 }: TopicoPaginaProps) {
-  const article = getArticle(t.slug);
+  const article = getArtigo(t.slug);
+  // Os problemas e as referências moram fora do `Topic` para não entrarem no
+  // JavaScript do cliente; aqui, que é servidor, eles são um `import` a mais.
+  const { problems, references } = getPratica(t.slug);
   const Body = article?.Body;
+  // Os links do artigo, reescritos para o percurso do leitor. Sem roadmap, o
+  // `undefined` deixa o `a` padrão do MDX em pé.
+  const componentesDoArtigo = dentroDe
+    ? { a: ancoraQueReescreve((href: string) => linkDentroDoRoadmap(dentroDe, href)) }
+    : undefined;
   const caminho = migalhas.slice(0, -1);
 
   // Datas do Git, ou nada. Ver `src/lib/datas-do-git.ts`: em clone raso o
@@ -72,8 +92,8 @@ export function TopicoPagina({
     ...(article?.summary ?? []),
     ...(t.youtube ? ["Vídeo da aula"] : []),
     ...(t.extraVideos && t.extraVideos.length ? ["Mais vídeos"] : []),
-    ...(t.problems && t.problems.length ? ["Problemas para praticar"] : []),
-    ...(t.references && t.references.length ? ["Referências"] : []),
+    ...(problems && problems.length ? ["Problemas para praticar"] : []),
+    ...(references && references.length ? ["Referências"] : []),
   ];
 
   return (
@@ -123,7 +143,7 @@ export function TopicoPagina({
         </div>
 
         {Body ? (
-          <Body />
+          <Body components={componentesDoArtigo} />
         ) : (
           <>
             {!t.noViz && <span className="soon-badge">🚧 Visualização em construção</span>}
@@ -204,24 +224,24 @@ export function TopicoPagina({
           </>
         )}
 
-        {t.problems && t.problems.length > 0 && (
+        {problems && problems.length > 0 && (
           <>
             <h2 id={slugify("Problemas para praticar")} className="prose-h2">Problemas para praticar</h2>
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
               Na ordem em que recomendamos resolver. Marque os que você já fez, fica salvo aqui.
             </p>
-            <ProblemList problems={t.problems} />
+            <ProblemList problems={problems} />
           </>
         )}
 
-        {t.references && t.references.length > 0 && (
+        {references && references.length > 0 && (
           <>
             <h2 id={slugify("Referências")} className="prose-h2">Referências</h2>
             <p className="prose-p" style={{ color: "var(--ccc-muted)" }}>
               Artigos e materiais externos para se aprofundar.
             </p>
             <div className="ref-links">
-              {t.references.map((r) => (
+              {references.map((r) => (
                 <a key={r.url} className="ref-link" href={r.url} target="_blank" rel="noopener noreferrer">
                   <span className="ref-link-title">{r.title}</span>
                   {r.source && <span className="ref-link-src">{r.source}</span>}

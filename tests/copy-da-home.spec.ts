@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ALL_TOPICS, TOTAL_TOPICS, isEmptyTopic } from "../content/fundamentos";
+import { TOPICOS, TOTAL_TOPICS, isEmptyTopic } from "../content/topicos";
 
 // A copy da home prometia "47 tópicos com visualização passo a passo, código
 // Python e problemas do LeetCode", e 11 dos 47 não têm NENHUM dos três. É o
@@ -9,14 +9,14 @@ import { ALL_TOPICS, TOTAL_TOPICS, isEmptyTopic } from "../content/fundamentos";
 // para o Google, então a página afirmava, para quem busca, o contrário do que
 // ela própria declara para o buscador.
 //
-// Os dois testes de número LEEM A FONTE (`content/fundamentos.ts`) em vez de fixar
+// Os dois testes de número LEEM A FONTE (`content/topicos/index.ts`) em vez de fixar
 // 36 e 47: no dia em que um tópico ganhar material eles continuam verdes, e o
 // que eles protegem não é o valor, é a ESCOLHA entre os dois números. Por isso
 // vem junto a asserção do outro lado: a frase que fala do tamanho da trilha
 // ("tópicos nos Fundamentos", o título) tem que continuar com o total. Trocar a
 // constante em toda ocorrência conserta a mentira e cria outra.
 
-const PRONTOS = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
+const PRONTOS = TOPICOS.filter((t) => !isEmptyTopic(t));
 
 /** O número que a frase usa, lido do texto que a página publicou. */
 function numeroDa(texto: string | null, padrao: RegExp, onde: string): number {

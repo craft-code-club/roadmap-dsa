@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { ALL_TOPICS, TOTAL_TOPICS, TOTAL_TOPICS_PRONTOS, isEmptyTopic } from "../content/fundamentos";
+import { TOPICOS, TOTAL_TOPICS, TOTAL_TOPICS_PRONTOS, isEmptyTopic } from "../content/topicos";
 import { SITE_URL } from "../src/lib/links";
 
 // Faxina de plataforma: três coisas que nenhum teste anterior olhava, cada uma
@@ -15,7 +15,7 @@ import { SITE_URL } from "../src/lib/links";
 //   não o texto do arquivo. Ler o arquivo provaria que alguém digitou a linha,
 //   não que ela chega ao navegador.
 // - `TOTAL_TOPICS_PRONTOS` mora nos dados: a prova lê a fonte
-//   (`content/fundamentos.ts`) e amarra o número ao que o site já faz com o mesmo
+//   (`content/topicos/index.ts`) e amarra o número ao que o site já faz com o mesmo
 //   critério, que é tirar do índice do Google quem não tem material. Teste que
 //   lê a fonte não envelhece quando um tópico é publicado.
 
@@ -50,7 +50,7 @@ test("o `_headers` do build proíbe que o site seja embutido em frame de terceir
 });
 
 test("o embed do YouTube, que é iframe de SAÍDA, continua de pé e ocupando a caixa", async ({ page }) => {
-  const comVideo = ALL_TOPICS.find((t) => t.youtube)!;
+  const comVideo = TOPICOS.find((t) => t.youtube)!;
 
   // O embed virou FACHADA (`src/components/VideoFacade.tsx`): o `<iframe>` só
   // nasce depois do clique. Sem o clique, este teste mediria a miniatura e
@@ -62,7 +62,7 @@ test("o embed do YouTube, que é iframe de SAÍDA, continua de pé e ocupando a 
   await page.route(/https:\/\/(www\.youtube-nocookie\.com|i\.ytimg\.com)\//, (route) =>
     route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>ok</title>" })
   );
-  await page.goto(`/topico/${comVideo.slug}/`);
+  await page.goto(`/topicos/${comVideo.slug}/`);
   await page.getByRole("button", { name: `Assistir à aula: ${comVideo.name}` }).click();
 
   const frame = page.locator(".video-embed iframe");
@@ -122,15 +122,15 @@ test("todo iframe do site é de saída: nenhuma página do build embute o própr
   // laço acima, então quebrar uma quebra o teste.
   const controle = [
     `<iframe src="https://www.youtube-nocookie.com/embed/abc" loading="lazy"></iframe>`,
-    `<iframe src="${SITE_URL}/topico/arrays/"></iframe>`,
-    `<iframe src="/topico/arrays/"></iframe>`,
+    `<iframe src="${SITE_URL}/topicos/arrays/"></iframe>`,
+    `<iframe src="/topicos/arrays/"></iframe>`,
   ].join("\n");
   const achados = [...controle.matchAll(IFRAME_SRC)].map((m) => m[1]);
   expect(achados, "o regex da varredura parou de enxergar `<iframe src=...>`").toHaveLength(3);
   expect(
     achados.filter(ehDeEntrada),
     "a classificação parou de reconhecer iframe de ENTRADA: a varredura acima ficaria cega"
-  ).toEqual([`${SITE_URL}/topico/arrays/`, "/topico/arrays/"]);
+  ).toEqual([`${SITE_URL}/topicos/arrays/`, "/topicos/arrays/"]);
 });
 
 // ------------------------------------------------------------ color-scheme
@@ -152,7 +152,10 @@ test("o navegador sabe que o tema é escuro (`color-scheme` computado)", async (
 });
 
 test("a barra de rolagem escura vale para o menu lateral, que é o mais rolado", async ({ page }) => {
-  await page.goto("/topico/backtracking/");
+  // `/fundamentos/`, e não `/topicos/`: o menu que rola é o do roadmap. A
+  // página canônica do tópico tem a barra dos roadmaps que o citam, que é
+  // curta e não rola.
+  await page.goto("/fundamentos/backtracking/");
 
   // Quem rola é `.side-scroll`, não `.sidebar`: medido, a `.sidebar` tem
   // `overflow-y: visible` e scrollHeight igual ao clientHeight. Apontar para o
@@ -175,7 +178,7 @@ test("a barra de rolagem escura vale para o menu lateral, que é o mais rolado",
 // ------------------------------------------------- TOTAL_TOPICS_PRONTOS
 
 test("`TOTAL_TOPICS_PRONTOS` conta só quem tem material, pela mesma função do site", () => {
-  const prontos = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
+  const prontos = TOPICOS.filter((t) => !isEmptyTopic(t));
 
   expect(TOTAL_TOPICS_PRONTOS).toBe(prontos.length);
 
@@ -183,7 +186,7 @@ test("`TOTAL_TOPICS_PRONTOS` conta só quem tem material, pela mesma função do
   // No dia em que os dois números empatarem (todo tópico com material), esta
   // asserção reprova e alguém decide conscientemente se a distinção ainda vale.
   expect(TOTAL_TOPICS_PRONTOS).toBeLessThan(TOTAL_TOPICS);
-  expect(TOTAL_TOPICS).toBe(ALL_TOPICS.length);
+  expect(TOTAL_TOPICS).toBe(TOPICOS.length);
 });
 
 test("o corte de `TOTAL_TOPICS_PRONTOS` é o mesmo que tira a página do índice", async ({ request }) => {
@@ -193,8 +196,8 @@ test("o corte de `TOTAL_TOPICS_PRONTOS` é o mesmo que tira a página do índice
   const semMaterial: string[] = [];
   const comMaterial: string[] = [];
 
-  for (const t of ALL_TOPICS) {
-    const html = await (await request.get(`/topico/${t.slug}/`)).text();
+  for (const t of TOPICOS) {
+    const html = await (await request.get(`/topicos/${t.slug}/`)).text();
     const noindex = /<meta name="robots" content="noindex/.test(html);
     (noindex ? semMaterial : comMaterial).push(t.slug);
   }
@@ -203,7 +206,7 @@ test("o corte de `TOTAL_TOPICS_PRONTOS` é o mesmo que tira a página do índice
     TOTAL_TOPICS_PRONTOS
   );
   expect(semMaterial.sort()).toEqual(
-    ALL_TOPICS.filter((t) => isEmptyTopic(t))
+    TOPICOS.filter((t) => isEmptyTopic(t))
       .map((t) => t.slug)
       .sort()
   );

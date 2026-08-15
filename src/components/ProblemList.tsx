@@ -1,6 +1,6 @@
 "use client";
 
-import type { Problem } from "@content/fundamentos";
+import type { Problem } from "@content/topicos";
 import { useProgress } from "@/components/ProgressProvider";
 
 const LEVEL_CLASS: Record<string, string> = {

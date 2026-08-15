@@ -1,19 +1,22 @@
 # Redirecionamentos do Cloudflare Pages.
 #
 # Sintaxe: <origem> <destino> <código>. Uma regra por linha, a primeira que casa
-# vence, e o arquivo é copiado para a raiz do site pelo `output: "export"`
-# (tudo que está em `public/` vai para o `out/`).
+# vence, e o arquivo é copiado para a raiz do site pelo `output: "export"`.
+#
+# ⚠️ A rota de origem NÃO pode existir como arquivo no `out/`: o Pages serve o
+# asset estático e a regra nunca chega a ser avaliada. Por isso `/topico/[slug]`
+# e `/roadmap` deixaram de ser rotas do App Router em vez de virarem páginas que
+# redirecionam por JavaScript — redirect no cliente não transfere sinal de SEO
+# nenhum, e ainda pisca.
 
-# A trilha principal virou "Fundamentos" e mudou de endereço.
-#
-# /roadmap/ era a segunda URL mais visitada do site e a de maior prioridade no
-# sitemap depois da home. Um 301 é o que transfere o histórico dela para o novo
-# endereço em vez de jogá-lo fora: sem ele, todo link em post, mensagem de
-# Discord e resultado de busca apontaria para um 404, e o Google levaria meses
-# para reencontrar a página no lugar novo — como página nova, sem os sinais que
-# ela já tinha.
-#
-# As duas formas, com e sem barra: o site é `trailingSlash: true`, mas link de
-# terceiro não obedece a nossa configuração.
+# O item de um tópico seguiu a convenção REST do resto do site:
+# /topicos/ é a lista, /topicos/<slug>/ é um item. A rota antiga no singular era
+# a mais linkada do site (Google, Discord, posts do blog), e o 301 é o que passa
+# o histórico dela para o endereço novo. É também o sinal mais forte de
+# canonicalização que existe — mais forte que `rel=canonical`, que é só uma
+# dica.
+/topico/*  /topicos/:splat  301
+
+# A sequência principal virou "Fundamentos" e mudou de endereço.
 /roadmap/  /fundamentos/  301
 /roadmap   /fundamentos/  301

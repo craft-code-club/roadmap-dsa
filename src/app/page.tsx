@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  FEATURED,
-  getTopic,
-  TOTAL_LEETCODE_PROBLEMS,
-  TOTAL_PROBLEMS,
+  getTopico,
   TOTAL_TOPICS,
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
-} from "@content/fundamentos";
+} from "@content/topicos";
 import { EXTRA_CARDS } from "@content/roadmaps";
+import { TOTAL_LEETCODE_PROBLEMS, TOTAL_PROBLEMS } from "@content/topicos/pratica";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
@@ -35,6 +33,12 @@ export function generateMetadata(): Metadata {
   });
 }
 
+// "Comece por aqui": fundamentos primeiro, do mais básico ao primeiro padrão,
+// sem tópicos difíceis. É o ponto de partida de quem está começando, e por isso
+// é uma lista à mão: derivá-la da ordem dos Fundamentos daria os seis primeiros
+// da sequência, que não é a mesma coisa.
+const FEATURED = ["big-o", "arrays", "strings", "two-pointers", "listas-ligadas", "pilhas"];
+
 const FEATURES = [
   { icone: "▶", titulo: "O algoritmo rodando", texto: "Passo a passo, no seu ritmo, com o seu próprio array de entrada e o código Python acompanhando linha a linha." },
   { icone: "✎", titulo: "Texto direto ao ponto", texto: "Explicação em português de gente, sem tradução automática e sem enrolação acadêmica." },
@@ -48,7 +52,7 @@ export default function Home() {
     { n: `${TOTAL_PROBLEMS}`, rot: "problemas selecionados" },
     { n: "Gratuito", rot: "para sempre" },
   ];
-  const destaques = FEATURED.map((slug) => getTopic(slug)).filter(Boolean);
+  const destaques = FEATURED.map((slug) => getTopico(slug)).filter((t) => !!t);
 
   return (
     <>
@@ -61,7 +65,11 @@ export default function Home() {
           sincronizado, vídeo e uma lista de problemas do LeetCode e do GeeksforGeeks.
         </p>
         <div className="hero-actions">
-          <Link href="/topico/big-o" className="btn btn-primary">
+          {/* Começar é entrar NO percurso, não numa página solta: o botão abre o Big O
+              dentro dos Fundamentos, com o menu do roadmap do lado e o "Próximo" no fim.
+              A página canônica do tópico (`/topicos/big-o/`) é para quem chega pelo
+              índice geral, sem percurso escolhido. */}
+          <Link href="/fundamentos/big-o" className="btn btn-primary">
             Começar por Big O
           </Link>
           <Link href="/fundamentos" className="btn">Ver os Fundamentos</Link>
@@ -98,13 +106,13 @@ export default function Home() {
         </div>
         <div className="grid-3">
           {destaques.map((t) => (
-            <Link key={t!.slug} href={`/topico/${t!.slug}`} className="destaque-card">
+            <Link key={t.slug} href={`/topicos/${t.slug}`} className="destaque-card">
               <div className="destaque-top">
-                <span className="destaque-grupo">{t!.group}</span>
-                <span className={`level ${levelClass(t!.level)}`}>{t!.level}</span>
+                <span className="destaque-grupo">{t.group}</span>
+                <span className={`level ${levelClass(t.level)}`}>{t.level}</span>
               </div>
-              <div className="destaque-nome">{t!.name}</div>
-              <p>{t!.description}</p>
+              <div className="destaque-nome">{t.name}</div>
+              <p>{t.description}</p>
             </Link>
           ))}
         </div>

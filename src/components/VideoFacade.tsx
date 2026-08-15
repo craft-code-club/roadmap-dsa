@@ -11,7 +11,7 @@ import { ytEmbed, ytWatch } from "@/lib/links";
  * O `<iframe>` de antes já tinha `loading="lazy"` e mora abaixo do artigo
  * inteiro e dos visualizadores, então na carga ele custava quase nada. O custo
  * estava em quem **rola até o vídeo e não clica**. Medido com Playwright contra
- * `https://dsa.craftcodeclub.io/topico/arrays/`:
+ * `https://dsa.craftcodeclub.io/topicos/arrays/`:
  *
  *   | momento                | celular (iPhone 14)  | desktop 1512x900     |
  *   |------------------------|----------------------|----------------------|
@@ -236,7 +236,7 @@ export function VideoFacade({ youtube, title }: { youtube: string; title: string
         caminho que o `@next/third-parties` usa no snippet do GTM.
 
         A interpolação é a URL, montada do id do vídeo. O comentário anterior
-        dizia que o id "é `[A-Za-z0-9_-]{11}` vindo do `content/fundamentos.ts`", e
+        dizia que o id "é `[A-Za-z0-9_-]{11}` vindo do `content/topicos/index.ts`", e
         isso era SUPOSIÇÃO: o campo é `string` e o `yt()` do roadmap é função
         identidade — não valida nada. Dentro de `<noscript>` isso importa mais
         do que parece: é elemento de texto cru, então um id contendo

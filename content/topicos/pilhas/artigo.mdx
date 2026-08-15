@@ -1,0 +1,416 @@
+<Callout>
+A pilha é a estrutura que você usa desde o primeiro dia de programação sem nunca ter escrito uma. Toda função que você chama entra numa pilha. Todo `Ctrl + Z` desfaz o topo de uma pilha. Todo stack trace que você lê é uma pilha impressa de cima para baixo. Aprender a estrutura é fácil, ela tem três operações e todas são O(1). O que este tópico entrega é o outro lado: **reconhecer o problema que pede uma pilha antes de alguém dizer que é uma pilha**.
+</Callout>
+
+## Uma lista com uma porta só
+
+Uma pilha é uma coleção com uma regra única: **o último que entra é o primeiro que sai**. É o LIFO, de *last in, first out*. Não existe entrar no meio, não existe sair pelo fundo, não existe olhar o terceiro elemento. Só existe o topo.
+
+A melhor imagem disso vale mais que qualquer definição. Você está no supermercado:
+
+<Colunas>
+<Cartao titulo="A fila do caixa é FIFO">
+Quem chegou primeiro é atendido primeiro. Quem chega vai para trás e espera. É uma **fila**, e a regra dela é a ordem de chegada.
+</Cartao>
+<Cartao titulo="A sacola de compras é LIFO">
+Você empilha os produtos um sobre o outro. Na hora de tirar, sai primeiro o que você colocou por último, porque é ele que está por cima. É uma **pilha**.
+</Cartao>
+</Colunas>
+
+As duas estruturas guardam a mesma coisa e entregam em ordens opostas. Trocar uma pela outra troca a resposta do problema inteiro, e é por isso que a [fila](/topicos/filas) tem um tópico só dela.
+
+O que faz a pilha ser útil não é guardar dados, é **guardar contexto na ordem certa para desfazer**. Sempre que um problema tiver a forma "abri alguma coisa e preciso fechar na ordem inversa", a pilha já é metade da solução:
+
+- **Histórico do navegador**: cada página visitada empilha; o botão voltar desempilha.
+- **Undo e redo**: cada ação empilha; desfazer tira do topo. Com **duas** pilhas, o que sai de uma entra na outra, e você ganha o redo de graça.
+- **Chamadas de função**: cada função chamada empilha; cada `return` desempilha.
+- **Expressões**: cada abertura empilha; cada fechamento tem que casar com o topo.
+- **Inverter uma sequência**: empilhe tudo e desempilhe tudo.
+
+## push, pop e peek: tudo acontece no topo
+
+São três operações que fazem trabalho e uma que faz pergunta:
+
+| Operação | O que faz | Custo |
+| --- | --- | --- |
+| `push(x)` | põe `x` no topo | O(1) |
+| `pop()` | **tira** o topo e devolve | O(1) |
+| `peek()` | **olha** o topo sem tirar | O(1) |
+| `esta_vazia()` | o topo existe? | O(1) |
+
+A distinção que mais derruba gente na prática é entre `pop` e `peek`. O `pop` é destrutivo: depois dele o elemento não está mais lá. O `peek` é uma consulta: chame dez vezes seguidas e ele devolve o mesmo valor dez vezes. Se você precisa do valor do topo **e** vai precisar dele de novo depois, ou você usa `peek`, ou você guarda o resultado do `pop` numa variável.
+
+O motivo de todas serem O(1) é sempre o mesmo: **você nunca percorre nada**. A pilha sabe onde está o topo, e o topo é o único lugar em que ela mexe. Não existe busca, não existe deslocamento, não existe cascata. Se quiser ver isso acontecendo antes de continuar lendo, role até o visualizador de **parênteses balanceados**, na seção "Parênteses balanceados", e olhe a torre da direita: ela é a pilha desenhada como todo mundo desenha no quadro, com o topo na primeira linha, e cada passo do algoritmo é um `push` ou um `pop` nela.
+
+A quarta operação parece decoração e não é. Ela é a proteção das outras duas:
+
+```python
+def pop(self):
+    if self.esta_vazia():          # sem isto, IndexError
+        return None
+    ...
+```
+
+Sem esse `if`, `pop` numa pilha vazia estoura, e `peek` numa pilha vazia também. Numa implementação sobre array, o efeito é ainda mais sutil: o ponteiro do topo vai para `-2`, `-3`, e a próxima leitura devolve lixo **em vez de erro**. Em Python isso acontece de verdade, porque índice negativo é válido e conta do fim para o começo: com `items = [10, 20, 30]`, `items[-2]` devolve `20` sem reclamar de nada. Em Java, C# ou Go o mesmo descuido vira uma exceção de índice fora do intervalo, que pelo menos é barulhenta. O caso silencioso é o pior dos dois: passa no teste feliz e quebra em produção.
+
+<Callout tipo="aviso">
+Existe uma quinta operação, `esta_cheia()`, e ela só faz sentido quando o array por baixo tem tamanho **fixo**. Com array dinâmico ou lista ligada, a pilha só enche quando a memória acaba, e aí o erro não é seu.
+</Callout>
+
+## Pilha sobre array: um ponteiro que sobe e desce
+
+A implementação mais comum guarda os elementos num array e mantém **um inteiro** apontando para a última posição usada. Ele começa em `-1`, fora do array de propósito: é assim que "vazia" vira uma comparação e não um caso especial.
+
+```python
+class Pilha:
+    def __init__(self):
+        self.items = [None] * 4       # capacidade inicial
+        self.topo = -1                # nada dentro ainda
+
+    def esta_vazia(self):
+        return self.topo == -1
+
+    def push(self, item):
+        if self.topo + 1 == len(self.items):
+            self._dobrar()            # sem espaço: cresce
+        self.topo += 1
+        self.items[self.topo] = item
+
+    def pop(self):
+        if self.esta_vazia():
+            return None
+        item = self.items[self.topo]
+        self.items[self.topo] = None  # solta a referência
+        self.topo -= 1
+        return item
+
+    def peek(self):
+        return None if self.esta_vazia() else self.items[self.topo]
+
+    def _dobrar(self):
+        novo = [None] * (len(self.items) * 2)   # bloco novo, o dobro do tamanho
+        for i in range(len(self.items)):        # <- esta passada é O(n)
+            novo[i] = self.items[i]
+        self.items = novo
+```
+
+Três detalhes desse código valem mais que o código em si.
+
+**A capacidade inicial 4 não é aleatória.** É o número que aparece em implementações reais de array dinâmico, porque é pequeno o bastante para não desperdiçar e grande o bastante para evitar as primeiras cópias: a `List<T>` do .NET começa em 4 e vai para 8, 16, 32, e a `list` do CPython também salta para 4 no primeiro `append`. Nem todo mundo usa 4, a `ArrayList` do Java começa em 10, mas o formato é sempre o mesmo, um bloco pequeno que dobra.
+
+**O `_dobrar()` é a única operação cara da estrutura.** Quando o array enche, não dá para "esticar" o bloco: aloca-se um bloco novo com o dobro do tamanho e copia-se tudo, um elemento de cada vez. Essa passada é O(n). Como ela acontece cada vez mais raramente conforme a pilha cresce, o custo se dilui e o `push` fica **O(1) amortizado**. Amortizado quer dizer "na média das operações", não "sempre": um `push` específico pode custar caro.
+
+**O `self.items[self.topo] = None` é opcional para números e importante para objetos.** Se o array guarda inteiros primitivos, apagar a posição é trocar um número por outro, e não muda nada: mover o ponteiro já basta, e o próximo `push` sobrescreve o valor antigo. Mas se o array guarda **referências para objetos**, deixar a referência lá segura o objeto na memória e impede o coletor de lixo de liberá-lo. Você acha que desempilhou, mas o objeto continua vivo.
+
+<Callout>
+Repare no que **não** acontece no `pop`: a capacidade não diminui. Um array que cresceu para 1024 posições continua ocupando 1024 posições mesmo com a pilha vazia. A memória só volta quando você joga a pilha inteira fora. É o preço da memória contígua, e é o mesmo assunto do tópico de [Arrays](/topicos/arrays).
+</Callout>
+
+## Pilha sobre lista ligada: sem resize, com um ponteiro a mais
+
+A outra implementação troca o array por nós encadeados, o assunto do tópico de [Listas Encadeadas](/topicos/listas-ligadas). Cada nó guarda um valor e um ponteiro para o nó de baixo, e a pilha guarda só o `head`, que é o topo:
+
+```python
+class No:
+    def __init__(self, valor, proximo=None):
+        self.valor = valor
+        self.proximo = proximo
+
+class Pilha:
+    def __init__(self):
+        self.head = None              # pilha vazia
+
+    def push(self, item):
+        self.head = No(item, self.head)   # o novo aponta para o antigo
+
+    def pop(self):
+        if self.head is None:
+            return None
+        no = self.head
+        self.head = no.proximo        # o topo desce um degrau
+        return no.valor
+```
+
+O `push` inteiro é uma linha porque a operação é literalmente "crie um nó cujo próximo é o topo atual, e passe a chamar ele de topo". **Nunca existe resize, nunca existe cópia**, então não tem O(n) escondido em lugar nenhum. E o `pop` de verdade encolhe: o nó desempilhado fica sem ninguém apontando para ele e o coletor de lixo leva embora.
+
+A conta não fecha só de vantagens. Cada item deixou de ser um valor solto e virou um objeto com um campo a mais. Em uma máquina de 64 bits, são 8 bytes só do ponteiro `proximo`, mais o cabeçalho do objeto, para cada elemento. E os nós ficam espalhados pela memória, então some o prêmio de cache que o array tinha.
+
+Também some o acesso ao meio. No array, `items[3]` é uma conta; na lista ligada, chegar no quarto nó é andar por três ponteiros. A analogia é a do telefone sem fio: **você só enxerga quem está de mãos dadas com você**. O terceiro nó não faz ideia de que o primeiro existe.
+
+Só que, para uma pilha, isso não custa nada: o contrato dela é acessar só o topo. A limitação da lista ligada cai justamente onde a pilha não precisa de nada.
+
+<StackImplementacoes />
+
+Leia a tabela de cima para baixo e repare que as **quatro primeiras linhas são empate**: `push`, `pop`, `peek` e `esta_vazia` custam O(1) nas duas colunas, com a única ressalva do "amortizado" no `push` sobre array. A diferença só aparece nas três últimas linhas, e é sempre a mesma troca dita de três jeitos: o array gasta menos por item mas guarda capacidade ociosa e nunca encolhe; a lista ligada paga um ponteiro por item e devolve memória a cada `pop`.
+
+O resumo honesto é o do rodapé: as duas entregam `push`, `pop` e `peek` em O(1), que é o que a pilha promete. A escolha entre elas é sobre **memória**, não sobre velocidade das operações. E a última linha, "acesso ao meio", é a que mais engana: ela parece uma derrota da lista ligada, mas é irrelevante aqui, porque o contrato da pilha proíbe esse acesso nas duas implementações.
+
+<Callout tipo="aviso">
+Na vida real você quase nunca implementa isso na mão, e vale saber o que a linguagem oferece. Em Java, a classe `Stack` é legado: ela herda de `Vector`, é sincronizada e a própria documentação recomenda usar `Deque` no lugar, normalmente com `ArrayDeque`. Em Python, uma `list` já é uma pilha: `append` é o `push` e `pop()` sem argumento é o `pop`. O que não vale é usar `pop(0)` achando que é pilha, porque isso é remover do começo e custa O(n).
+</Callout>
+
+## Parênteses balanceados: o primeiro problema de verdade
+
+Este é o problema clássico da pilha, o **LeetCode 20**: dada uma string com `(`, `)`, `[`, `]`, `{` e `}`, diga se ela está balanceada. Três regras no enunciado:
+
+1. toda abertura fecha com o **mesmo tipo**;
+2. o fechamento vem na **ordem correta**;
+3. todo fechamento tem uma abertura correspondente.
+
+A tentação de quem nunca viu é contar: se o número de `(` for igual ao de `)`, está válido. Contador não resolve, e o contraexemplo cabe em quatro caracteres: `)(` tem um de cada e é inválido, porque a ordem está trocada. Um contador esquece a ordem, e ordem é o problema inteiro.
+
+A regra 2 é o que entrega a estrutura. "Ordem correta" quer dizer que, quando eu encontro um fechamento, **ele tem que casar com a abertura mais recente que ainda não fechou**. Mais recente que ainda está aberta é exatamente a definição de topo de pilha.
+
+<StackVisualizer />
+
+Comece pelo preset **Aninhado**, que roda a expressão `{[()]}`. Repare na torre da direita subindo até 3 e depois descendo até zero, e no painel de baixo: 3 push, 3 pop, altura máxima 3.
+
+Agora clique em **Lado a lado**, que roda `()[]{}`. Mesma quantidade de caracteres, mesmos 3 push e 3 pop, e a altura máxima despenca para **1**, porque cada par fecha antes do próximo abrir. Essa diferença é a resposta para "quanta memória a pilha usa": não é o tamanho da entrada, é o **aninhamento máximo** dela.
+
+Os outros três presets são os casos que quebram, e vale prever a resposta antes de clicar:
+
+- **Cruzado** (`([)]`): para no passo 4 de 4. O `)` pede `(` no topo, mas o topo é `[`. Tipos trocados, e nem adianta continuar lendo.
+- **Sobra aberto** (`([]`): o `[]` fecha certinho, a expressão acaba e a pilha não esvazia. Inválida por falta de fechamento.
+- **Fecha sem abrir** (`)(`): morre no primeiro caractere, com a pilha vazia. Um fechamento sem ninguém para casar.
+
+Esses três casos são o esqueleto da solução, porque são exatamente as três formas de dar errado:
+
+```python
+def valida(s):
+    pilha = []
+    pares = {")": "(", "]": "[", "}": "{"}     # fechamento -> abertura
+    for c in s:
+        if c in pares:                        # é fechamento
+            if not pilha or pilha[-1] != pares[c]:
+                return False                  # vazia, ou tipo trocado
+            pilha.pop()
+        else:                                 # é abertura
+            pilha.append(c)
+    return not pilha                          # sobrou aberto?
+```
+
+O dicionário `pares` tem o fechamento como **chave** e a abertura como valor, e essa escolha merece um parágrafo. O raciocínio: quando você lê uma abertura, não há nada a verificar, você só empilha. É no fechamento que existe uma pergunta, e a pergunta é "qual abertura eu esperava aqui?". Mapear fechamento para abertura responde isso em O(1). O caminho contrário é uma chave fraca, porque não há decisão a tomar na abertura.
+
+Existem duas variações que aparecem muito e valem conhecer:
+
+- **Sem dicionário nenhum**: um `if` para cada um dos três fechamentos, comparando o `pop` com a abertura esperada. Mais verboso, mesma lógica, e evita a estrutura extra.
+- **Empilhar o fechamento esperado**: ao ver `(`, empilhe `)`. Assim, quando um fechamento aparece, o `pop` tem que ser **igual** a ele, sem tradução nenhuma no meio. É elegante e costuma render um código mais curto.
+
+Duas bordas a mais valem o teste manual no visualizador: apague tudo do campo da expressão e veja o que acontece com a **string vazia**, que é válida por definição porque o laço não roda nenhuma vez; e digite um caractere só, `(`, para ver a pilha ficar com um item pendurado até o fim. O botão **Sortear válida** gera expressões balanceadas ao acaso, útil para conferir que a altura máxima acompanha o aninhamento e não o tamanho.
+
+<Callout tipo="aviso">
+As duas linhas que mais somem em entrevista são a proteção `not pilha` antes do `pilha[-1]`, que evita o `IndexError` em `)`, e o `return not pilha` do final, que é o único jeito de reprovar `([`. Sem a última linha, o algoritmo devolve válido para qualquer expressão que só abra. Teste os dois casos antes de submeter.
+</Callout>
+
+Complexidade: O(n) de tempo, porque cada caractere é lido uma vez e faz no máximo um `push` e um `pop`. O espaço é O(n) no pior caso, que é a expressão totalmente aninhada, do tipo `((((()))))`, em que a pilha chega à metade do tamanho da entrada antes de começar a descer. O caso mais extremo de todos é a entrada que só abre, `((((((`: ela empilha os n caracteres e nunca desempilha nenhum, e ainda assim é lida uma vez só. Para `()()()`, o espaço real é O(1), e é exatamente isso que o contador de **altura máxima** do visualizador está mostrando: 1 no preset **Lado a lado**, 3 no **Aninhado**, com o mesmo número de caracteres nos dois.
+
+## A pilha que você já usava sem saber: a call stack
+
+Toda linguagem mantém uma pilha para executar o seu programa. Quando `a()` chama `b()`, o frame de `a` **não sai**: ele fica parado na pilha, com as variáveis locais e o ponto exato onde parou, esperando `b` terminar. Só quando `b` retorna é que `a` volta a andar.
+
+É por isso que o stack trace tem a forma que tem. A linha de cima é onde a exceção estourou, e cada linha abaixo é quem chamou quem, até o ponto de entrada do programa. Controller chamou service, service chamou o repositório, o repositório estourou. O caminho inteiro está ali.
+
+**Ler o stack trace substitui um monte de código defensivo.** É comum ver `try/catch` espalhado por todo canto só para acrescentar mensagens do tipo "cheguei aqui", quando o próprio rastro já diz exatamente por onde a execução passou. E não são só funções: atribuições, operações matemáticas e até o `print` acontecem sobre essa mesma pilha.
+
+Quando uma função chama a si mesma, a call stack fica visível. O exercício aqui é calcular uma potência de **três jeitos** e ver que os passos são sempre os mesmos: um laço simples, uma recursão, e uma pilha explícita escrita na mão.
+
+```python
+def potencia_laco(x, n):      # 1. sem pilha nenhuma, O(1) de espaço
+    r = 1
+    for _ in range(n):
+        r *= x
+    return r
+
+def potencia(x, n):           # 2. recursão: a pilha existe, você só não a escreveu
+    if n == 1:                # caso base
+        return x
+    return x * potencia(x, n - 1)
+```
+
+Vale dizer na cara: **potência não precisa de pilha**, o laço de cima resolve em O(1) de espaço e é a versão que você escreveria em produção. O exemplo está aqui porque é pequeno o bastante para caber na tela inteira e mostrar, lado a lado, o que a recursão faz por baixo. É didática, não é recomendação.
+
+<StackCallStackVisualizer />
+
+Rode primeiro no modo **Recursão (call stack)** com o padrão 2³, até o último passo. Acompanhe a ida: cada chamada empilha um frame e ele fica **parado**, porque ainda não sabe a resposta, ele depende da chamada de baixo. Quando `n` chega a 1, o caso base devolve 2 e a pilha começa a se desfazer de cima para baixo, multiplicando: 2, depois 4, depois 8. O campo `return` no painel de variáveis mostra exatamente esses três valores, nessa ordem.
+
+Agora clique em **Pilha explícita**, sem mexer em nada mais, e rode de novo até o fim. O mesmo 2³, resolvido com uma pilha que você escreveu na mão: empilhe a base `n` vezes, depois desempilhe multiplicando. Compare os dois painéis de estatísticas no último passo. **Os dois modos fazem 3 empilhamentos e chegam à altura máxima 3.** A recursão não é mágica, ela é uma pilha que você não escreveu.
+
+<Callout tipo="aviso">
+Repare no caso base `if n == 1`. Ele funciona para todo `n ≥ 1` e **quebra em `n = 0`**: a recursão passa direto pelo 1, vai para 0, -1, -2, e só para quando a call stack estoura. É a falha número um em recursão, o caso base que não cobre a menor entrada possível. Aqui o certo seria `if n == 0: return 1`, que já engloba o outro. Por isso o visualizador começa o expoente em 1: para o caso base que está no texto ser sempre alcançado.
+</Callout>
+
+Isso tem duas consequências práticas:
+
+**Recursão custa memória, e o custo é O(profundidade).** Cada frame ocupa espaço até a recursão desenrolar. Por isso, uma recursão de 100 mil níveis estoura antes de terminar. Em Python, o limite padrão é de **1000** chamadas aninhadas, e passar disso levanta `RecursionError`. Em Java e C#, o sintoma tem outro nome, `StackOverflowError`, e a mesma causa.
+
+**Toda recursão pode virar um laço com pilha explícita.** Trocar a call stack por uma pilha sua move a memória da stack para a heap e some com o limite de profundidade. É exatamente essa troca que aparece nos [percursos em árvore](/topicos/tree-traversals) e no [DFS em grafos](/topicos/dfs-bfs): a versão iterativa do DFS é a versão recursiva com um `stack = []` no lugar da chamada. Aumente o expoente no visualizador até 8 e olhe a altura máxima subir junto: é essa altura que estoura.
+
+Dois testes rápidos fecham o assunto no visualizador. Coloque o **expoente em 1**: a recursão cai direto no caso base, com um frame só e altura máxima 1, que é a menor entrada válida. Depois coloque **base 9 e expoente 8**: o resultado passa de 43 milhões (`43046721` no painel), mas a altura máxima continua sendo 8. **A memória da recursão acompanha a profundidade, não o tamanho do resultado**, e essa é a única coisa que a call stack cobra de você.
+
+## Inverter, desfazer e avaliar: três padrões diretos
+
+Com push, pop e peek na mão, três problemas clássicos viram quase nada de código.
+
+### Inverter uma sequência
+
+Empilhe tudo e desempilhe tudo. Como o último a entrar é o primeiro a sair, a ordem sai invertida sozinha:
+
+```python
+def inverter(nums):
+    pilha = []
+    for x in nums:            # 4, 3, 2, 1 entram nessa ordem
+        pilha.append(x)
+
+    saida = []
+    while pilha:              # o topo sai primeiro: 1, 2, 3, 4
+        saida.append(pilha.pop())
+    return saida
+```
+
+Vale medir o preço: o tempo é O(n), mas o **espaço vira O(n)**, porque a pilha auxiliar cresce junto com a entrada. Cada operação continua sendo O(1), e ainda assim a complexidade de espaço do algoritmo mudou de patamar. Reverter com dois ponteiros no próprio array custa O(1) de espaço e resolve o mesmo problema, então a versão com pilha vale como ferramenta de raciocínio, não como a melhor solução para inverter arrays.
+
+### Desfazer e refazer com duas pilhas
+
+Uma pilha só resolve o undo. Para ganhar o redo, use duas: toda ação executada entra na pilha de **desfazer**; quando o usuário desfaz, a ação sai dessa pilha e entra na de **refazer**; quando ele refaz, o caminho é o inverso. E quando ele executa uma ação nova, a pilha de refazer é esvaziada, que é exatamente o comportamento que todo editor de texto tem.
+
+### Avaliar uma expressão em notação polonesa reversa
+
+Na notação pós-fixada, o operador vem depois dos operandos: `["2", "1", "+", "3", "*"]` quer dizer `(2 + 1) * 3 = 9`. Não existem parênteses, e mesmo assim não existe ambiguidade, porque a ordem já está codificada na posição. O algoritmo inteiro cabe num laço:
+
+```python
+def avaliar_rpn(tokens):                      # LeetCode 150
+    pilha = []
+    for t in tokens:
+        if t in ("+", "-", "*", "/"):
+            b = pilha.pop()                   # o SEGUNDO operando sai primeiro
+            a = pilha.pop()
+            pilha.append(aplicar(t, a, b))
+        else:
+            pilha.append(int(t))
+    return pilha.pop()                        # sobra exatamente um: a resposta
+
+def aplicar(op, a, b):
+    if op == "+": return a + b
+    if op == "-": return a - b
+    if op == "*": return a * b
+    return int(a / b)                         # trunca em direção ao zero
+```
+
+O detalhe que erra quem escreve rápido está nas duas primeiras linhas do `if`: o primeiro `pop` devolve o operando da **direita**. Trocar a ordem não muda nada em `+` e `*`, e inverte o resultado de `-` e `/`. Rode `["4", "2", "-"]` de cabeça: a resposta certa é 2, e a ordem trocada devolve -2.
+
+O segundo detalhe é a última linha do `aplicar`, e ela reprova mais submissões do que a lógica da pilha inteira. O enunciado do LeetCode 150 manda **truncar em direção ao zero**, e o `//` do Python não faz isso: ele arredonda para baixo. Com `-7` e `2`, `-7 // 2` dá **-4**, enquanto o esperado é **-3**. Por isso `int(a / b)`, que corta a parte decimal e ignora o sinal. Em Java e C#, a divisão inteira já trunca em direção ao zero e o problema não existe. É o tipo de armadilha que só aparece quando o teste tem número negativo.
+
+## Pilha monotônica: o próximo maior elemento em O(n)
+
+Aqui a pilha deixa de ser estrutura auxiliar e vira **técnica**. É o padrão que mais cai em entrevista, e o mais bonito de ver rodando.
+
+O problema: para cada posição de um array, ache o **primeiro valor à direita que é maior que ela**. Se não existir, a resposta é -1. Para `[6, 8, 0, 1, 3]`, que é o preset **Do GeeksforGeeks** no visualizador logo abaixo, a resposta é `[8, -1, 1, 3, -1]`.
+
+A força bruta é óbvia e é O(n²): para cada `i`, varra tudo à direita até achar alguém maior.
+
+```python
+def forca_bruta(nums):
+    resp = [-1] * len(nums)
+    for i in range(len(nums)):
+        for j in range(i + 1, len(nums)):
+            if nums[j] > nums[i]:
+                resp[i] = nums[j]
+                break
+    return resp
+```
+
+A virada de chave é olhar o problema **de trás para frente**. Em vez de perguntar "quem resolve o `i`?", pergunte: **quando eu chego num valor novo, quem é que ele resolve?** Um valor grande que aparece resolve, de uma vez só, todo mundo menor que estava esperando. E quem estava esperando fica guardado em uma pilha que se mantém **decrescente**, do fundo para o topo.
+
+<Callout>
+**Como reconhecer o padrão no enunciado.** Quase todo problema de pilha monotônica se disfarça com uma dessas frases: "o **próximo** maior/menor elemento", "o **anterior** maior/menor", "**quantos dias até** ficar mais quente", "por **quanto tempo** este valor foi o maior", "o **maior retângulo**", "o **span** da ação". O gatilho comum é sempre o mesmo: **para cada posição, encontre o primeiro vizinho que satisfaz uma comparação**. Se a resposta de cada elemento depende de "quem é o próximo que...", e a resposta ingênua é um laço dentro do outro, tente a pilha antes de qualquer outra coisa.
+</Callout>
+
+<StackMonotonicaVisualizer />
+
+O padrão abre nas temperaturas do **LeetCode 739**, `[73, 74, 75, 71, 69, 72, 76, 73]`, e a resposta completa é `[74, 75, 76, 72, 72, 76, -1, -1]`. Rode passo a passo e pare em dois momentos:
+
+- **Índice 5, valor 72.** Ele chega e resolve **dois** de uma vez: primeiro o 69 do índice 4, depois o 71 do índice 3. São dois passos seguidos do visualizador, um por `pop`, mas nenhum deles avança o `i`: é a mesma visita ao 72 pagando duas dívidas. Depois o topo vira o 75, que não é menor que 72, o algoritmo para o `while` e o 75 continua esperando embaixo.
+- **Índice 6, valor 76.** Desempilha o 72 e depois o 75, e agora a pilha fica **vazia**: repare que não existe um passo de "paro o while" aqui, porque não sobrou topo para comparar. Quem entra depois, 76 e 73, é quem sobra no fim com -1, porque ninguém maior apareceu à direita deles.
+
+Repare também no que a pilha **não** faz. Quando o topo não é menor que o valor atual, o algoritmo para na hora, sem olhar o resto: como a pilha é decrescente, todo mundo abaixo do topo é ainda maior. Essa é a garantia que sustenta a complexidade.
+
+<Callout>
+O visualizador grava o **valor** do próximo maior, que é a versão clássica do problema. O LeetCode 739 pede a **distância em dias**, ou seja `i - j` em vez de `v`. O caminho da pilha é idêntico, muda só o que você escreve dentro do `resp`. Acompanhe o passo a passo aqui e depois troque essa única linha na sua solução.
+</Callout>
+
+```python
+def proximo_maior(nums):
+    resp = [-1] * len(nums)
+    pilha = []                                # guarda ÍNDICES em espera
+    for i, v in enumerate(nums):
+        while pilha and nums[pilha[-1]] < v:
+            resp[pilha.pop()] = v             # v é o próximo maior de quem sai
+        pilha.append(i)
+    return resp
+```
+
+**O laço aninhado engana.** Tem um `for` com um `while` dentro, e a leitura apressada diz O(n²). Só que cada índice entra na pilha **exatamente uma vez** e sai **no máximo uma vez**: são no máximo 2n operações de pilha no total, não n por iteração. Por isso é O(n) de tempo e O(n) de espaço.
+
+Os dois contadores do visualizador existem para você conferir isso na tela. Rode **cada um dos cinco presets até o último passo** e compare o campo **comparações até aqui** com o **força bruta faria**, que já vem calculado para o array inteiro:
+
+| Preset | n | Pilha | Força bruta |
+| --- | --- | --- | --- |
+| Temperaturas `73 74 75 71 69 72 76 73` | 8 | 10 | 11 |
+| Do GeeksforGeeks `6 8 0 1 3` | 5 | 6 | 6 |
+| Pior caso da força bruta `8 7 6 5 4 3 2 1` | 8 | 7 | 28 |
+| Crescente `1 2 3 4 5 6 7 8` | 8 | 7 | 7 |
+| Tudo igual `4 4 4 4` | 4 | 3 | 6 |
+
+O preset **Pior caso da força bruta** é o que fecha o argumento: com o array decrescente, nenhuma resposta existe, então a força bruta varre o array inteiro para cada posição e faz 28 comparações, que é `n(n-1)/2` com n = 8. A pilha faz 7, uma por elemento a partir do segundo, e empilha os 8 sem desempilhar nenhum. Aumente o array e a distância cresce junto: digite `12 11 10 9 8 7 6 5 4 3 2 1`, que é o limite de 12 itens do visualizador, e os contadores viram **11 contra 66**. A pilha cresceu de 7 para 11, a força bruta de 28 para 66.
+
+Repare que em três dos cinco presets a força bruta **empata ou quase empata**. Isso não é defeito da tabela, é a coisa mais importante que ela ensina: com n pequeno, e principalmente quando a resposta está quase sempre no vizinho imediato, a força bruta não perde nada. A pilha monotônica não é mais rápida em todo array, ela é a que **nunca** degenera. Big O é sobre a garantia, não sobre o caso simpático, e é por isso que o único preset em que a diferença explode é justamente o pior caso.
+
+O preset **Crescente** é o empate perfeito, porque a força bruta acha a resposta no primeiro vizinho e sai do laço na primeira comparação. Já **Tudo igual** é a borda que separa as duas versões do algoritmo: com `4 4 4 4`, a comparação é `<`, ou seja, estritamente maior, e valores iguais não resolvem ninguém. Todas as respostas ficam -1, e a pilha termina com os quatro índices dentro. Trocar `<` por `<=` mudaria a pergunta para "próximo maior **ou igual**" e essas quatro respostas viravam `4, 4, 4, -1`. É uma tecla só de diferença, então leia o enunciado com atenção antes de escolher.
+
+Antes de seguir, três exercícios de previsão. Responda **antes** de rodar, depois confira na tela:
+
+1. Digite `5 1 2 3 4`. Quantas vezes o 5 é comparado, e qual é a resposta dele?
+2. Digite um número só, `7`. Qual é a resposta, e quantos push e quantos pop acontecem?
+3. Apague tudo, deixando o campo vazio. O que o algoritmo tem para fazer?
+
+<Callout>
+**Respostas.** (1) O 5 é comparado **quatro vezes**, uma em cada índice de 1 a 4, porque ele fica no fundo da pilha e todo mundo que chega esbarra nele antes de desistir. A resposta dele é **-1**, já que ninguém à direita é maior. O total dá 7 comparações, e a força bruta também faz 7: um número grande logo no começo é o caso em que a pilha mais trabalha à toa. (2) Com um elemento só, a resposta é **-1**, com **1 push e 0 pop**, e zero comparações, porque a pilha nunca chega a ter um topo para comparar. (3) Com o array vazio não existe nem pergunta a fazer: o `for` não roda, a pilha continua vazia e `resp` sai vazia também. Os três casos são exatamente os que costumam faltar nos testes que você escreve.
+</Callout>
+
+O mesmo esqueleto resolve uma família inteira de problemas, mudando muito pouco:
+
+- **Próximo menor elemento**: inverta a comparação para `>`, e a pilha passa a ser crescente.
+- **Próximo maior à esquerda**: mesmo código, percorrendo o array **de trás para frente**. Vale para as quatro combinações: maior ou menor, à direita ou à esquerda, é sempre o mesmo esqueleto com o sinal e o sentido trocados.
+- **Daily Temperatures** (LeetCode 739): em vez de gravar `v`, grave `i - j`, a distância em dias. Por isso a pilha guarda índice e não valor.
+- **Next Greater Element II** (LeetCode 503), a versão **circular**: rode o laço `2n` vezes usando `nums[i % n]`, e só empilhe na primeira volta (`if i < n`). A segunda volta existe só para resolver quem ficou pendurado, e como cada índice ainda entra uma vez só, continua O(n).
+- **Largest Rectangle in Histogram** (LeetCode 84): a pilha guarda as barras crescentes e, quando uma barra menor chega, cada barra que sai calcula a área do retângulo que ela conseguia formar. É o mesmo padrão levado ao limite, e o truque de implementação é acrescentar uma barra de altura 0 no fim para forçar o esvaziamento da pilha.
+
+## As armadilhas que pegam todo mundo
+
+**Mexer na pilha sem perguntar se ela existe.** `pilha[-1]` e `pilha.pop()` numa lista vazia levantam `IndexError` em Python, e o equivalente nas outras linguagens. A condição `if pilha and ...` vem **antes**, sempre, e o curto-circuito do `and` faz o resto.
+
+**Esquecer de checar a pilha no fim.** Metade dos problemas de pilha tem uma segunda pergunta depois do laço: sobrou alguém? Em parênteses balanceados, é a diferença entre reprovar e aprovar `([`. Na pilha monotônica, é quem fica com -1.
+
+**Confundir `pop` com `peek`.** Se você deu `pop` e depois precisou do valor de novo, ele já foi. Guarde numa variável ou use `peek`.
+
+**Achar que a pilha sobre array devolve memória.** Ela não devolve. A capacidade fica onde chegou, e só volta quando o objeto inteiro é descartado. Em uma pilha que teve um pico de 1 milhão de itens e agora tem 3, o array continua com 1 milhão de posições.
+
+**Confiar em recursão profunda.** A call stack tem limite, e ele é bem menor do que a memória disponível. Python para em 1000 níveis por padrão. Se a profundidade depende da entrada, prefira a versão iterativa com pilha explícita.
+
+**Usar pilha onde o problema é fila.** Se a ordem que importa é a de chegada, LIFO devolve tudo ao contrário. E, em Python, `lista.pop(0)` para simular uma fila custa O(n) por remoção, porque desloca todo o resto: o certo é `collections.deque`, que é o assunto de [Filas e Deques](/topicos/filas).
+
+**Empilhar valores quando você precisa de índices.** Na pilha monotônica, guardar o valor funciona para "qual é o próximo maior", mas não para "a quantos passos ele está". O índice carrega as duas informações, o valor carrega uma. Na dúvida, empilhe o índice.
+
+## Como praticar
+
+A ordem abaixo é a dos problemas listados no fim desta página, e ela é proposital: os dois primeiros treinam a estrutura, o terceiro treina projetar com ela, o quarto treina a avaliação de expressão e o último treina a pilha monotônica.
+
+1. **Valid Parentheses (20)** é o problema desta página. Antes de submeter, teste `)`, `([` e a string vazia, que valem os três casos de borda de uma vez.
+2. **Baseball Game (682)** é a estrutura pura, sem truque nenhum: um token numérico é um `push`, o `C` é um `pop`, o `D` empilha o dobro do topo e o `+` empilha a soma dos **dois** últimos. O `+` é o exercício: você precisa ler dois valores sem destruir nenhum, então ou você usa índices (`p[-1] + p[-2]`), ou dá um `pop`, lê o novo topo e devolve o que tirou. Se você fizer dois `pop` e esquecer de repor, o placar sai errado e o teste que pega isso é justamente um com dois `+` seguidos. No fim, some a pilha inteira.
+3. **Min Stack (155)** é o salto: entregar o mínimo em O(1) sem varrer a pilha. A saída é a mesma ideia do undo e redo, **duas pilhas**, uma com os valores e outra com o mínimo até aquele ponto. O invariante é: no `push(x)`, empilhe em `mins` o menor entre `x` e o topo atual de `mins`, e no `pop`, desempilhe das duas juntas. Assim `mins[-1]` é sempre o mínimo do estado atual, sem busca nenhuma. A armadilha é **valor repetido**: se você só empilhar em `mins` quando `x < mins[-1]`, uma pilha com dois valores mínimos iguais perde o mínimo no primeiro `pop`. Ou use `<=`, ou empilhe sempre, que é mais simples e gasta a mesma O(n) de memória. Teste com `push(-2), push(0), push(-2), pop(), getMin()`, que tem que devolver -2.
+4. **Evaluate Reverse Polish Notation (150)** é a avaliação de expressão da seção anterior, código pronto e tudo. Os dois pontos que reprovam: a ordem dos `pop`, porque o primeiro é o operando da direita, e a divisão, que precisa truncar em direção ao zero (`int(a / b)` em Python, nunca `//`).
+5. **Daily Temperatures (739)** é a pilha monotônica com uma linha de diferença: grave a distância `i - j` em vez do valor. É o mesmo array do visualizador, então dá para conferir o caminho passo a passo antes de escrever qualquer código.
+
+Um roteiro que funciona para os cinco: escreva a força bruta primeiro, calcule o Big O dela e só então pergunte o que a pilha economiza. Foi assim que a solução dos parênteses apareceu nesta página, e é assim que o padrão fica na cabeça em vez de virar decoreba.
+
+Daqui, dois caminhos se abrem. Um é a estrutura irmã, a [fila](/topicos/filas), que troca LIFO por FIFO e resolve a outra metade dos problemas de ordem. O outro é a [recursão](/topicos/recursao), que é a call stack desta página vista de dentro, e a porta de entrada para árvores e grafos.

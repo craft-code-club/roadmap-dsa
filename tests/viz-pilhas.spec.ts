@@ -18,7 +18,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // é justamente o buraco aberto do `guarda-idioma.py` (contrato §0): um rename
 // cego o estragaria sem nenhum aviso. Por isso ele é lido junto com o valor.
 
-const URL = "/topico/pilhas/";
+const URL = "/topicos/pilhas/";
 
 const CONGELA =
   "*, *::before, *::after { transition: none !important; animation: none !important; }";

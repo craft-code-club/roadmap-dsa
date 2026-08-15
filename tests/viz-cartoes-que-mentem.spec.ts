@@ -17,8 +17,8 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // índice tem que estar dentro do heap e apontar o maior da tríade; onde `trocou
 // com` acende, a troca tem que ter acontecido de verdade.
 
-const HEAP = "/topico/heap-sort/";
-const GRAFOS = "/topico/grafos-intro/";
+const HEAP = "/topicos/heap-sort/";
+const GRAFOS = "/topicos/grafos-intro/";
 
 // A página do heap sort tem três visualizadores, e `figure.viz-fit` só é único
 // nela enquanto os outros dois não vestirem a casca (é o que o PR #56 faz).

@@ -15,9 +15,9 @@ const ROTAS = [
   "/",
   "/fundamentos/",
   "/introducao/",
-  "/topico/two-pointers/", // ready, com 3 visualizadores
-  "/topico/big-o/", // ready, o visualizador que usa o hook novo
-  "/topico/trie/", // soon e vazio (noindex)
+  "/topicos/two-pointers/", // ready, com 3 visualizadores
+  "/topicos/big-o/", // ready, o visualizador que usa o hook novo
+  "/topicos/trie/", // soon e vazio (noindex)
   "/apoie/",
 ];
 
@@ -32,7 +32,7 @@ for (const rota of ROTAS) {
 }
 
 test("console limpo ao mexer nos visualizadores de um tópico", async ({ page }) => {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/topicos/two-pointers/");
   const figura = page.locator("figure.viz").first();
   await expect(figura).toBeVisible();
 
@@ -62,7 +62,7 @@ test("console limpo ao mexer nos visualizadores de um tópico", async ({ page })
 });
 
 test("console limpo ao abrir e fechar o painel expandido", async ({ page }) => {
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
   const figura = page.locator("figure.viz").first();
   await expect(figura).toBeVisible();
 
@@ -79,7 +79,7 @@ test("console limpo ao abrir e fechar o painel expandido", async ({ page }) => {
 
 test("console limpo ao marcar progresso e abrir o menu do celular", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/topicos/two-pointers/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
   // O progresso escreve no `localStorage` via provider client.

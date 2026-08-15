@@ -160,7 +160,7 @@ export function BinarioTresFormas() {
                     mesmo número. É por isso que o que separa as convenções são
                     os três testes logo abaixo, e não a negação. */}
                 <p className="bb-formula-fim">
-                  Lido de volta: <strong>{l.readBack}</strong> — bits diferentes, mesmo número.
+                  Lido de volta: <strong>{l.readBack}</strong>: bits diferentes, mesmo número.
                 </p>
                 <ol className="bb-passos">
                   <li className={l.zeros === 1 ? "" : "ruim"}>

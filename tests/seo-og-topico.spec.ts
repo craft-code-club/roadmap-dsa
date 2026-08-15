@@ -1,12 +1,12 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { createHash } from "node:crypto";
-import { ALL_TOPICS } from "../content/fundamentos";
+import { TOPICOS } from "../content/topicos";
 
 // O card de compartilhamento de cada tópico.
 //
 // O defeito que este arquivo fecha: as 47 páginas de tópico não tinham
 // `opengraph-image.tsx` próprio e herdavam o da raiz. Medido antes da correção,
-// `/topico/dijkstra/`, `/topico/strings/` e `/apoie/` traziam exatamente
+// `/topicos/dijkstra/`, `/topicos/strings/` e `/apoie/` traziam exatamente
 // `https://dsa.craftcodeclub.io/opengraph-image?e42ae7e3eac68247` — o mesmo
 // arquivo, o mesmo hash. Compartilhar Dijkstra entregava um card que não dizia
 // "Dijkstra".
@@ -131,10 +131,10 @@ test("cada página de tópico aponta para o card dela, e não para o da raiz", a
   const apontam: Record<string, string> = {};
   const deviam: Record<string, string> = {};
 
-  for (const t of ALL_TOPICS) {
-    const meta = await metasDe(request, `/topico/${t.slug}/`);
+  for (const t of TOPICOS) {
+    const meta = await metasDe(request, `/topicos/${t.slug}/`);
     apontam[t.slug] = new URL(meta("og:image")).pathname;
-    deviam[t.slug] = `/topico/${t.slug}/opengraph-image`;
+    deviam[t.slug] = `/topicos/${t.slug}/opengraph-image`;
   }
 
   // Uma asserção só, com os 47 lado a lado: quando a rota some, o diff mostra os
@@ -144,7 +144,7 @@ test("cada página de tópico aponta para o card dela, e não para o da raiz", a
 
 test("o card do Twitter é o mesmo do Open Graph, tópico a tópico", async ({ request }) => {
   for (const { slug, perfil } of PERFIS) {
-    const meta = await metasDe(request, `/topico/${slug}/`);
+    const meta = await metasDe(request, `/topicos/${slug}/`);
     // O `twitter:image` não é declarado em lugar nenhum: o Next o deriva do
     // mesmo arquivo de imagem. Se ele divergir, o card do X/Twitter volta a ser
     // o da home sem nenhum outro sinal.
@@ -156,7 +156,7 @@ test("dois tópicos diferentes entregam imagens diferentes, nos bytes", async ({
   const impressoes = new Map<string, string>();
 
   for (const { slug, perfil } of PERFIS) {
-    const meta = await metasDe(request, `/topico/${slug}/`);
+    const meta = await metasDe(request, `/topicos/${slug}/`);
     const resposta = await request.get(rotaLocal(meta("og:image")));
 
     // A imagem tem que existir de verdade: URL certa apontando para 404 é o

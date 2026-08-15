@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ALL_TOPICS, isEmptyTopic } from "../content/fundamentos";
+import { isEmptyTopic, TOPICOS } from "../content/topicos";
 import {
   CONTEUDO_DA_ROTA,
   datasDistinguemCaminhos,
@@ -64,8 +64,8 @@ function doTipo(nos: No[], tipo: string): No | undefined {
   });
 }
 
-const INDEXAVEIS = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
-const rotaDo = (slug: string) => `/topico/${slug}/`;
+const INDEXAVEIS = TOPICOS.filter((t) => !isEmptyTopic(t));
+const rotaDo = (slug: string) => `/topicos/${slug}/`;
 
 /** O `lastmod` de cada URL do sitemap, por rota. Ausente = o campo não saiu. */
 function lastmodPorRota(): Map<string, string | undefined> {
@@ -113,7 +113,7 @@ test("o tópico sem material nenhum não declara autor de coisa alguma", () => {
   // A outra metade da condicional. Página `noindex` não emite JSON-LD de tópico,
   // então não pode declarar autoria — se declarasse, o site estaria assinando
   // uma página que ele mesmo pede para o Google ignorar.
-  const vazios = ALL_TOPICS.filter((t) => isEmptyTopic(t));
+  const vazios = TOPICOS.filter((t) => isEmptyTopic(t));
   expect(vazios.length, "o repositório precisa ter ao menos um tópico vazio").toBeGreaterThan(0);
   for (const t of vazios) {
     const nos = jsonLd(rotaDo(t.slug));

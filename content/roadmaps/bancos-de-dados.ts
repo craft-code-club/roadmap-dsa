@@ -20,37 +20,25 @@ export const roadmap: Roadmap = {
     {
       id: "bd-onde-esta-a-chave",
       name: "Onde a chave é procurada",
-      // Três CITAÇÕES seguidas, de três casas diferentes: a Tabela Hash é dos
-      // Fundamentos, a Skip List é avulsa e a B-Tree é de outro roadmap.
-      // Nenhuma muda de casa por estar aqui — o que este roadmap publica é a
-      // ordem e o porquê.
-      topics: ["hash-table", "b-tree", "skip-list"],
+      topics: [
+        { topic: "hash-table" },
+        { topic: "b-tree" },
+        { topic: "skip-list" },
+      ],
     },
     {
       id: "bd-aproximar",
       name: "Quando dá para responder por aproximação",
-      topics: ["bloom-filter"],
+      topics: [
+        { topic: "bloom-filter" },
+      ],
     },
     {
       id: "bd-escrever-antes",
       name: "Escrever primeiro, organizar depois",
       topics: [
-        {
-          slug: "lsm-tree",
-          name: "LSM-Tree",
-          group: "Estruturas de Dados em Bancos de Dados",
-          level: "Difícil",
-          status: "soon",
-          description: "Escrita sequencial em memória, compactação em níveis: o motor do RocksDB e do Cassandra.",
-        },
-        {
-          slug: "write-ahead-log",
-          name: "Write-Ahead Log",
-          group: "Estruturas de Dados em Bancos de Dados",
-          level: "Médio",
-          status: "soon",
-          description: "O append-only que torna a durabilidade barata e a recuperação possível.",
-        },
+        { topic: "lsm-tree" },
+        { topic: "write-ahead-log" },
       ],
     },
   ],

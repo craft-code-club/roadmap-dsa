@@ -10,7 +10,7 @@ import { test, expect, type Page } from "@playwright/test";
 // Todos leem RÓTULO, não só número: veredito certo debaixo do nome errado
 // ensina errado do mesmo jeito.
 
-const URL = "/topico/subarray-substring-subsequence-subset/";
+const URL = "/topicos/subarray-substring-subsequence-subset/";
 
 /** Abre o painel expandido com as fontes prontas e a animação congelada. */
 async function expandir(page: Page) {

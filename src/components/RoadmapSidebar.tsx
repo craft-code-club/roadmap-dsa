@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { roadmapGroups, roadmapTopics, type Roadmap } from "@content/roadmaps";
-import { isEmptyTopic } from "@content/fundamentos";
+import {
+  roadmapGroups,
+  roadmapTopics,
+  urlDoRoadmap,
+  urlDoTopicoNoRoadmap,
+  type Roadmap,
+} from "@content/roadmaps";
+import { isEmptyTopic } from "@content/topicos";
 import { mesmaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
@@ -22,7 +28,7 @@ import { SideApoio } from "@/components/SideApoio";
 //      Fundamentos e como chegar aos outros roadmaps.
 //
 // OS LINKS APONTAM PARA DENTRO DO ROADMAP, e isso é o contrário do que parece
-// natural. Um tópico tem página canônica em `/topico/<slug>/`, e é tentador
+// natural. Um tópico tem página canônica em `/topicos/<slug>/`, e é tentador
 // mandar a barra para lá. Mas quem está lendo o Bloom Filter DENTRO de "Bancos
 // de Dados" e clica no vizinho quer continuar em Bancos de Dados: mandá-lo para
 // a página canônica trocaria a barra embaixo do dedo dele e o expulsaria do
@@ -35,7 +41,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
 
   // O tópico ativo pode chegar por duas rotas: a página dentro do roadmap
   // (`/roadmaps/<r>/<slug>/`, o caso normal aqui) e a canônica
-  // (`/topico/<slug>/`, quando o roadmap é a casa do tópico). As duas precisam
+  // (`/topicos/<slug>/`, quando o roadmap é a casa do tópico). As duas precisam
   // acender a mesma linha.
   const partes = (pathname ?? "").split("/").filter(Boolean);
   const slugAtivo =
@@ -44,7 +50,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
   const lista = roadmapTopics(roadmap);
   const feitos = contarTopicos(lista.map((t) => t.slug));
   const pct = hydrated && lista.length ? Math.round((feitos / lista.length) * 100) : 0;
-  const naAbertura = mesmaRota(pathname, `/roadmaps/${roadmap.slug}/`);
+  const naAbertura = mesmaRota(pathname, urlDoRoadmap(roadmap));
 
   return (
     <>
@@ -61,7 +67,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
             leitor que clicou num tópico direto do card nunca chega àquela
             página. */}
         <Link
-          href={`/roadmaps/${roadmap.slug}`}
+          href={urlDoRoadmap(roadmap)}
           className={`side-roadmap-nome${naAbertura ? " on" : ""}`}
           aria-current={naAbertura ? "page" : undefined}
         >
@@ -77,7 +83,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
           <div className="side-group" key={g.id}>
             <div className="side-group-rotulo">{g.name}</div>
             <div className="side-items">
-              {g.itens.map(({ topic: t, emprestado }) => {
+              {g.topicos.map((t) => {
                 const feito = isTopico(t.slug);
                 const ativo = slugAtivo === t.slug;
                 const vazio = isEmptyTopic(t);
@@ -108,7 +114,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
                       ) : null}
                     </button>
                     <Link
-                      href={`/roadmaps/${roadmap.slug}/${t.slug}`}
+                      href={urlDoTopicoNoRoadmap(roadmap, t.slug)}
                       className={`side-item${ativo ? " on" : ""}${vazio ? " soon" : ""}`}
                       aria-current={ativo ? "page" : undefined}
                     >
@@ -118,11 +124,6 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
                           marcá-lo aqui conta nos Fundamentos também. O ponto é
                           discreto de propósito: informa quem procura, não
                           interrompe quem está lendo a lista. */}
-                      {emprestado && (
-                        <span className="badge-emprestado" title="também está em outro roadmap">
-                          ↗
-                        </span>
-                      )}
                       {t.isNew && <span className="badge-novo">NOVO</span>}
                       {vazio && <span className="badge-soon">em breve</span>}
                     </Link>

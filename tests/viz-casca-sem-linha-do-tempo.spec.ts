@@ -84,7 +84,7 @@ const SLACK = 8;
 async function abrir(page: Page, peca: Peca, w: number, h: number): Promise<Locator> {
   await page.setViewportSize({ width: w, height: h });
   expect(page.viewportSize(), "a janela pedida é a janela medida").toEqual({ width: w, height: h });
-  await page.goto(`/topico/${peca.slug}/`);
+  await page.goto(`/topicos/${peca.slug}/`);
   await page.evaluate(() => document.fonts.ready);
   const fig = page.locator("article figure.viz").filter({ hasText: peca.titulo });
   await expect(fig, "o seletor casa uma figura, e é a desta peça").toHaveCount(1);

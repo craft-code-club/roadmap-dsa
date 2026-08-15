@@ -30,7 +30,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 //   Nenhum estado desta peça faz a linha do cabeçalho QUEBRAR, que é o que
 //   custa 40px nas peças vizinhas desta mesma rodada.
 
-const URL = "/topico/busca-binaria/";
+const URL = "/topicos/busca-binaria/";
 
 const TITULO = "Visualizador · as duas formas de achar o meio, e por que só uma serve";
 

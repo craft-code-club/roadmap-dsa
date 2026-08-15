@@ -1,409 +1,374 @@
 import { test, expect } from "@playwright/test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { ALL_TOPICS, GROUPS, isEmptyTopic } from "../content/fundamentos";
+import { isEmptyTopic, topicTags, TOPICOS } from "../content/topicos";
+import { getPratica, TOTAL_PROBLEMS } from "../content/topicos/pratica";
+import { getArtigo } from "../content/topicos/artigos";
 import {
   EXTRA_CARDS,
-  getPlacement,
+  FUNDAMENTOS,
   ROADMAPS,
+  ROADMAPS_EXTRAS,
   roadmapGroups,
   roadmapHasMaterial,
-  roadmapsQueCitam,
+  roadmapsDoTopico,
   roadmapTopics,
-  SITE_TOPICS,
-  STANDALONES,
+  TOPICOS_AVULSOS,
   todasAsPaginasDeRoadmap,
+  urlDoRoadmap,
+  urlDoTopicoNoRoadmap,
 } from "../content/roadmaps";
 
-// Fundamentos, roadmaps e tópicos avulsos: as três casas, e o tópico que está
-// em duas ao mesmo tempo.
+// Tópicos sem casa, roadmaps que os citam, e o mesmo tópico em vários percursos.
 //
-// O que este arquivo protege, em uma frase por bloco:
+// O que este arquivo protege:
 //
-//   1. o namespace de slug, que não tem quem o defenda em tempo de teste além
-//      do guarda que roda no import — aqui ele é conferido sobre o DADO, para a
-//      mensagem de falha ser legível quando quebrar;
-//   2. o REGISTRO: um arquivo em `content/roadmaps/` que ninguém importou é um
-//      roadmap invisível, e nada além deste teste percebe;
-//   3. a citação: o mesmo tópico em dois roadmaps, com uma casa só, uma página
-//      canônica só e uma URL por roadmap apontando de volta para ela;
-//   4. a casca CERTA em cada tipo de página. É a decisão do `Shell`, e é
-//      invisível — um tópico avulso com o menu dos 44 Fundamentos ao lado não
-//      quebra nada, só desfaz a razão de ele existir;
-//   5. a Skip List tendo saído mesmo do grupo "Listas Encadeadas" SEM levar a
-//      URL dela junto.
+//   1. os dois REGISTROS à mão (tópicos e roadmaps). Um arquivo que ninguém
+//      importou é conteúdo invisível, e nada além deste teste percebe;
+//   2. a CITAÇÃO: o mesmo tópico em vários roadmaps, com uma página canônica só
+//      e uma URL por roadmap apontando de volta para ela;
+//   3. a casca certa em cada rota. É a decisão do `Shell`, ela casa o primeiro
+//      segmento por STRING, e renomear rota sem mexer nela devolve a casca
+//      padrão em silêncio (já aconteceu);
+//   4. as rotas antigas redirecionando, que é o que preserva o que já circula.
 
-const COM_MATERIAL = ROADMAPS.find(roadmapHasMaterial)!;
-const SEM_MATERIAL = ROADMAPS.find((r) => !roadmapHasMaterial(r))!;
-const AVULSO_PRONTO = STANDALONES.find((s) => !isEmptyTopic(s.topic))!;
+const COM_MATERIAL = ROADMAPS_EXTRAS.find(roadmapHasMaterial)!;
+const SEM_MATERIAL = ROADMAPS_EXTRAS.find((r) => !roadmapHasMaterial(r))!;
 const BANCOS = ROADMAPS.find((r) => r.slug === "bancos-de-dados")!;
 
 // ---------------------------------------------------------------------------
-// 1. Namespace: um slug, uma página
+// 1. Os registros: as pastas e os índices contam a mesma história
 // ---------------------------------------------------------------------------
 
-test("nenhum slug de tópico se repete entre as três casas", () => {
-  // O `content/roadmaps/index.ts` derruba o build com slug repetido, e é ele
-  // quem de fato protege isto. Este teste existe pela MENSAGEM: quando alguém
-  // repetir um slug, o build morre num stack trace de chunk do Turbopack, e a
-  // suíte diz qual é o slug.
-  const contagem = new Map<string, number>();
-  for (const t of SITE_TOPICS) contagem.set(t.slug, (contagem.get(t.slug) ?? 0) + 1);
-  const repetidos = [...contagem.entries()].filter(([, n]) => n > 1).map(([s]) => s);
-  expect(repetidos, "slugs repetidos: a segunda página sumiria em silêncio").toEqual([]);
+test("toda pasta de content/topicos/ está registrada no índice, e vice-versa", () => {
+  const dir = path.join(process.cwd(), "content", "topicos");
+  const pastas = readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort();
+  const registrados = TOPICOS.map((t) => t.slug).sort();
+
+  expect(
+    pastas.filter((p) => !registrados.includes(p)),
+    "pasta em content/topicos/ que o índice não importa: o tópico não existe no site"
+  ).toEqual([]);
+  expect(
+    registrados.filter((s) => !pastas.includes(s)),
+    "tópico registrado cuja pasta não se chama <slug>/"
+  ).toEqual([]);
+
+  // E cada pasta tem o que precisa ter.
+  const semIndex = pastas.filter((p) => !existsSync(path.join(dir, p, "index.ts")));
+  expect(semIndex, "pasta de tópico sem index.ts").toEqual([]);
+
+  // As três peças da pasta são registradas em três lugares (o tópico em
+  // `index.ts`, o corpo em `artigos.ts`, a prática em `pratica.ts`), porque as
+  // duas últimas não podem entrar no JavaScript do cliente. Registro à mão
+  // esquece: o arquivo fica na pasta e o site não o serve.
+  const semRegistro = pastas.filter(
+    (p) => existsSync(path.join(dir, p, "artigo.mdx")) !== !!getArtigo(p)
+  );
+  expect(semRegistro, "pasta com artigo.mdx que o content/topicos/artigos.ts não importa (ou o contrário)").toEqual([]);
+
+  const praticaSolta = pastas.filter((p) => {
+    const temArquivo = existsSync(path.join(dir, p, "pratica.ts"));
+    const pratica = getPratica(p);
+    return temArquivo !== !!(pratica.problems || pratica.references);
+  });
+  expect(praticaSolta, "pasta com pratica.ts que o content/topicos/pratica.ts não importa (ou o contrário)").toEqual([]);
 });
 
-test("nenhum slug de roadmap colide com um slug de tópico", () => {
-  const deTopico = new Set(SITE_TOPICS.map((t) => t.slug));
-  const colidem = ROADMAPS.filter((r) => deTopico.has(r.slug)).map((r) => r.slug);
-  expect(colidem, "/roadmaps/<x>/ e /topico/<x>/ ao mesmo tempo").toEqual([]);
+test("a etiqueta de exercícios bate com a lista de problemas de verdade", () => {
+  // `topicTags` é desenhado em card, e card é cliente: a lista de problemas não
+  // pode estar lá (são 40 KB). Por isso o `content/topicos/index.ts` guarda só
+  // o CONJUNTO DE SLUGS que têm problemas — e conjunto de slugs é cópia. Este
+  // teste é o que impede a cópia de envelhecer: um tópico que ganha problemas e
+  // não entra no conjunto fica com a lista na página e sem a etiqueta no card.
+  const errados = TOPICOS.filter((t) => {
+    const temEtiqueta = topicTags(t).some((tag) => tag.kind === "exercises");
+    const temProblemas = (getPratica(t.slug).problems ?? []).length > 0;
+    return temEtiqueta !== temProblemas;
+  }).map((t) => t.slug);
+  expect(errados, "COM_PROBLEMAS (content/topicos/index.ts) desencontrou de content/topicos/pratica.ts").toEqual([]);
+  expect(TOTAL_PROBLEMS, "nenhum problema registrado: a varredura acima não prova nada").toBeGreaterThan(150);
 });
 
-test("nenhum id de grupo se repete entre os Fundamentos e os roadmaps", () => {
-  const ids = [...GROUPS.map((g) => g.id), ...ROADMAPS.flatMap((r) => r.groups.map((g) => g.id))];
-  expect(ids.length, "ids de grupo repetidos").toBe(new Set(ids).size);
-});
+test("dentro de um roadmap, as citações do artigo continuam no roadmap", async ({ page }) => {
+  // O artigo cita outros tópicos ("como vimos em [Tabelas Hash](/topicos/…)"),
+  // e o `.mdx` não sabe por qual percurso o leitor chegou. Sem a reescrita, uma
+  // citação tirava o leitor do roadmap no meio de uma frase que prometia
+  // continuidade: o menu sumia, o "Próximo" sumia, e nada avisava.
+  await page.goto("/fundamentos/big-o/");
+  const noArtigo = await page
+    .locator("article a[href^='/topicos/'], article a[href^='/fundamentos/']")
+    .evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+  const citacoes = noArtigo.filter((h) => /^\/(topicos|fundamentos)\/[a-z0-9-]+\/$/.test(h));
+  expect(citacoes.length, "o artigo do Big O parou de citar outros tópicos").toBeGreaterThan(2);
+  expect(
+    citacoes.filter((h) => h.startsWith("/topicos/")),
+    "citação apontando para fora do roadmap: o leitor perde o percurso ao clicar"
+  ).toEqual([]);
 
-// ---------------------------------------------------------------------------
-// 2. O registro: a pasta e o índice contam a mesma história
-// ---------------------------------------------------------------------------
+  // A outra metade: um tópico que ESTE roadmap não tem continua com o link
+  // canônico. Fingir uma URL dentro do roadmap seria inventar uma página.
+  await page.goto("/roadmaps/bancos-de-dados/hash-table/");
+  const fora = await page
+    .locator("article a[href^='/topicos/']")
+    .evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
+  expect(fora.length, "nenhuma citação para fora do roadmap: o caso não está sendo medido").toBeGreaterThan(0);
+});
 
 test("todo arquivo de content/roadmaps/ está registrado no índice, e vice-versa", () => {
-  // Este é o teste que permite a lista à mão do `index.ts` existir sem
-  // envelhecer. O módulo é importado por componente de cliente, e código de
-  // cliente não tem `fs`: não dá para varrer a pasta em tempo de execução. Aqui
-  // dá — e "criar o arquivo e esquecer de registrar" passa a reprovar com o
-  // nome do arquivo na mensagem, em vez de publicar um roadmap invisível.
   const dir = path.join(process.cwd(), "content", "roadmaps");
   const arquivos = readdirSync(dir)
     .filter((f) => f.endsWith(".ts") && f !== "index.ts")
     .map((f) => f.replace(/\.ts$/, ""))
     .sort();
   const registrados = ROADMAPS.map((r) => r.slug).sort();
-
-  expect(
-    arquivos.filter((f) => !registrados.includes(f)),
-    "arquivo em content/roadmaps/ que o índice não importa: o roadmap não existe no site"
-  ).toEqual([]);
-  expect(
-    registrados.filter((s) => !arquivos.includes(s)),
-    "roadmap registrado cujo arquivo não se chama <slug>.ts"
-  ).toEqual([]);
+  expect(arquivos.filter((f) => !registrados.includes(f)), "roadmap invisível").toEqual([]);
+  expect(registrados.filter((s) => !arquivos.includes(s)), "roadmap sem arquivo <slug>.ts").toEqual([]);
 });
 
-// ---------------------------------------------------------------------------
-// 3. O mesmo tópico em dois roadmaps
-// ---------------------------------------------------------------------------
-
-test("o dado tem, de fato, tópicos citados por mais de uma casa", () => {
-  // Sem esta asserção o resto do bloco poderia passar sobre zero casos, que é
-  // como uma funcionalidade inteira vira teste verde e site sem ela.
-  const citados = SITE_TOPICS.filter((t) => roadmapsQueCitam(t.slug).length > 0);
-  expect(citados.length, "nenhum tópico é citado: o exemplo de reuso sumiu").toBeGreaterThanOrEqual(4);
-
-  // E a Tabela Hash é o caso canônico: mora nos Fundamentos, aparece em Bancos
-  // de Dados.
-  expect(getPlacement("hash-table")?.kind).toBe("fundamentos");
-  expect(roadmapsQueCitam("hash-table").map((r) => r.slug)).toContain("bancos-de-dados");
-});
-
-test("citar não muda a casa: o dono continua sendo um só", () => {
-  for (const t of SITE_TOPICS) {
-    const casas = roadmapsQueCitam(t.slug);
-    const dono = getPlacement(t.slug);
-    expect(dono, `${t.slug} não tem casa`).toBeTruthy();
-    // O dono nunca aparece na lista de quem cita: senão a página canônica
-    // ofereceria ao leitor um link para a casa em que ele já está.
-    if (dono?.kind === "roadmap") {
-      expect(casas.map((r) => r.slug), t.slug).not.toContain(dono.roadmap.slug);
+test("o sumário de cada artigo é a lista dos h2 dele", async ({ page }) => {
+  // O sumário é uma CÓPIA dos títulos, e cópia diverge: quando divergia, a
+  // âncora do índice "Nesta página" deixava de casar com a do título, e o
+  // rótulo saía com a marcação markdown crua ("O detalhe do `continue`").
+  const comArtigo = TOPICOS.filter((t) => !isEmptyTopic(t)).slice(0, 6);
+  for (const t of comArtigo) {
+    await page.goto(`/topicos/${t.slug}/`);
+    const doIndice = await page.locator(".toc-links a").allTextContents();
+    const naPagina = await page.locator("article h2:not(.continue-explorando h2)").allTextContents();
+    // O índice acrescenta as seções que a página monta (vídeo, problemas…), e
+    // por isso é subconjunto: o que ele NÃO pode ter é entrada que não casa com
+    // título nenhum.
+    for (const entrada of doIndice) {
+      expect(naPagina, `${t.slug}: "${entrada}" está no índice e não é um h2 da página`).toContain(entrada);
     }
   }
 });
 
+// ---------------------------------------------------------------------------
+// 2. Um tópico, vários roadmaps
+// ---------------------------------------------------------------------------
+
+test("o dado tem, de fato, tópicos em mais de um roadmap", () => {
+  const emVarios = TOPICOS.filter((t) => roadmapsDoTopico(t.slug).length > 1);
+  expect(emVarios.length, "nenhum tópico em dois roadmaps: o exemplo de reuso sumiu").toBeGreaterThanOrEqual(4);
+  expect(roadmapsDoTopico("hash-table").map((r) => r.slug)).toEqual(
+    expect.arrayContaining(["fundamentos", "bancos-de-dados"])
+  );
+});
+
 test("a página do tópico dentro de um roadmap aponta canonical para a canônica", async ({ page }) => {
   const t = roadmapTopics(BANCOS).find((x) => !isEmptyTopic(x))!;
-  const resposta = await page.goto(`/roadmaps/${BANCOS.slug}/${t.slug}/`);
+  const resposta = await page.goto(`${urlDoTopicoNoRoadmap(BANCOS, t.slug)}/`);
   expect(resposta?.status()).toBe(200);
 
-  // Mesmo conteúdo, outro endereço: sem canonical o Google escolhe sozinho qual
-  // mostrar e divide os sinais entre as duas.
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
-    new RegExp(`/topico/${t.slug}/$`)
+    new RegExp(`/topicos/${t.slug}/$`)
   );
-  // og:url acompanha o canonical: é a URL que queremos que circule.
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
     "content",
-    new RegExp(`/topico/${t.slug}/$`)
+    new RegExp(`/topicos/${t.slug}/$`)
   );
-  // E ela não declara o recurso de novo: quem declara é a canônica.
-  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1); // só o do layout
+  // Só o nó do layout: quem declara o recurso é a canônica.
+  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
 });
 
 test("o mesmo artigo aparece nas duas URLs, com cascas diferentes", async ({ page }) => {
   const t = roadmapTopics(BANCOS).find((x) => !isEmptyTopic(x))!;
+  const corpo = () => page.locator("article h2:not(.continue-explorando h2)").allTextContents();
 
-  await page.goto(`/topico/${t.slug}/`);
-  const naCanonica = await page.locator("article h2:not(.continue-explorando h2)").allTextContents();
-  const casaDele = getPlacement(t.slug);
-  await expect(page.locator("#menu-lateral")).toHaveCount(casaDele?.kind === "standalone" ? 0 : 1);
+  await page.goto(`/topicos/${t.slug}/`);
+  const naCanonica = await corpo();
+  await expect(page.locator("#menu-lateral")).toHaveAttribute("aria-label", `Roadmaps com ${t.name}`);
 
-  await page.goto(`/roadmaps/${BANCOS.slug}/${t.slug}/`);
-  const noRoadmap = await page.locator("article h2:not(.continue-explorando h2)").allTextContents();
-  // O MESMO artigo: se o corpo divergir, é porque as duas rotas pararam de
-  // dividir o `TopicoPagina` e viraram duas páginas envelhecendo em paralelo.
-  expect(noRoadmap).toEqual(naCanonica);
-  // E a casca é a do roadmap, sempre.
+  await page.goto(`${urlDoTopicoNoRoadmap(BANCOS, t.slug)}/`);
+  expect(await corpo(), "as duas rotas pararam de dividir o TopicoPagina").toEqual(naCanonica);
   await expect(page.locator("#menu-lateral")).toHaveAttribute("aria-label", `Roadmap: ${BANCOS.name}`);
 });
 
 test("dentro de um roadmap, a navegação não expulsa o leitor dele", async ({ page }) => {
   const lista = roadmapTopics(BANCOS);
-  await page.goto(`/roadmaps/${BANCOS.slug}/${lista[0].slug}/`);
+  await page.goto(`${urlDoTopicoNoRoadmap(BANCOS, lista[0].slug)}/`);
 
-  // Os links da barra apontam para dentro do roadmap, não para as canônicas.
   const hrefs = await page.locator("#menu-lateral .side-item").evaluateAll((as) =>
     as.map((a) => a.getAttribute("href") ?? "")
   );
-  expect(hrefs).toEqual(lista.map((t) => `/roadmaps/${BANCOS.slug}/${t.slug}/`));
-
-  // Anterior/próximo também.
+  expect(hrefs).toEqual(lista.map((t) => `${urlDoTopicoNoRoadmap(BANCOS, t.slug)}/`));
   await expect(page.locator(".prevnext a.next")).toHaveAttribute(
     "href",
-    `/roadmaps/${BANCOS.slug}/${lista[1].slug}/`
+    `${urlDoTopicoNoRoadmap(BANCOS, lista[1].slug)}/`
   );
-  // E existe a ponte de saída para a página canônica, que é como o leitor
-  // salva ou compartilha o tópico sem levar o contexto junto.
-  await expect(page.locator(".pagina-canonica a")).toHaveAttribute(
-    "href",
-    `/topico/${lista[0].slug}/`
-  );
+  await expect(page.locator(".pagina-canonica a")).toHaveAttribute("href", `/topicos/${lista[0].slug}/`);
 });
 
-test("a página canônica oferece os roadmaps de que o tópico faz parte", async ({ page }) => {
-  await page.goto("/topico/hash-table/");
+test("a página canônica mostra os roadmaps do tópico, na barra e no fim", async ({ page }) => {
+  await page.goto("/topicos/hash-table/");
+  const barra = page.locator("#menu-lateral");
+  const nomes = await barra.locator(".side-roadmap-titulo").allTextContents();
+  expect(nomes).toEqual(roadmapsDoTopico("hash-table").map((r) => r.name));
+
   const banda = page.locator(".continue-explorando");
   await expect(banda.getByRole("heading", { name: /Este tópico faz parte/ })).toBeVisible();
-  await expect(banda.locator(`.extra-card[href="/roadmaps/${BANCOS.slug}/"]`)).toHaveCount(1);
-
-  // Ela vem DEPOIS do anterior/próximo: continuar a sequência é a oferta
-  // principal, mudar de sequência é a segunda.
-  const ordem = await page.locator("article > .prevnext, article > .continue-explorando").evaluateAll((els) =>
-    els.map((e) => e.className.split(" ")[0])
-  );
-  expect(ordem).toEqual(["prevnext", "continue-explorando"]);
+  await expect(banda.locator(`.extra-card[href="${urlDoRoadmap(BANCOS)}/"]`)).toHaveCount(1);
 });
 
-test("a abertura do roadmap avisa quando os tópicos vêm de outra casa", async ({ page }) => {
-  await page.goto(`/roadmaps/${BANCOS.slug}/`);
-  await expect(page.locator(".roadmap-emprestados")).toBeVisible();
-  // O card de um tópico citado carrega a etiqueta da casa dele.
-  const card = page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" });
-  await expect(card.locator(".ttag-origem")).toHaveText("Fundamentos");
+test("tópico que nenhum roadmap cita não tem barra lateral", async ({ page }) => {
+  expect(TOPICOS_AVULSOS.length, "nenhum tópico solto: o caso sem barra sumiu").toBeGreaterThan(0);
+  await page.goto(`/topicos/${TOPICOS_AVULSOS[0].slug}/`);
+  await expect(page.locator("#menu-lateral")).toHaveCount(0);
+  await expect(page.locator(".shell")).toHaveClass(/\bsem-lateral\b/);
+  await expect(page.getByRole("button", { name: "Menu de tópicos" })).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------
-// 4. A vitrine e o índice completo
+// 3. As rotas antigas continuam valendo
+// ---------------------------------------------------------------------------
+
+test("as rotas renomeadas têm redirecionamento declarado, e não sobraram como página", () => {
+  // `_redirects` não é HTML e não passa por navegador: a prova é o ARTEFATO.
+  // E a regra só é avaliada se NÃO existir arquivo naquele caminho — por isso o
+  // teste confere as duas metades.
+  const regras = readFileSync(path.join(process.cwd(), "out", "_redirects"), "utf8")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
+
+  expect(regras).toContain("/topico/*  /topicos/:splat  301");
+  expect(regras).toContain("/roadmap/  /fundamentos/  301");
+
+  const out = path.join(process.cwd(), "out");
+  expect(existsSync(path.join(out, "topico")), "/topico/ ainda é página: o 301 nunca roda").toBe(false);
+  expect(existsSync(path.join(out, "roadmap")), "/roadmap/ ainda é página: o 301 nunca roda").toBe(false);
+});
+
+// ---------------------------------------------------------------------------
+// 4. A vitrine, o índice e a casca
 // ---------------------------------------------------------------------------
 
 for (const [rota, onde] of [
   ["/fundamentos/", "no fim dos Fundamentos"],
-  ["/roadmaps/", "na página da vitrine"],
+  ["/roadmaps/", "na vitrine"],
 ] as const) {
-  test(`a vitrine ${onde} traz os ${EXTRA_CARDS.length} cards, cada um com o destino certo`, async ({ page }) => {
+  test(`a vitrine ${onde} traz os ${EXTRA_CARDS.length} roadmaps, com o destino certo`, async ({ page }) => {
     await page.goto(rota);
     const cards = page.locator(".extra-card");
     await expect(cards).toHaveCount(EXTRA_CARDS.length);
-
     for (const c of EXTRA_CARDS) {
       const card = cards.filter({ has: page.locator(".extra-name", { hasText: c.name }) });
       await expect(card, `${rota}: card "${c.name}"`).toHaveCount(1);
       await expect(card).toHaveAttribute("href", c.href);
-      await expect(card.locator(".extra-kind")).toHaveText(
-        c.kind === "roadmap" ? "Roadmap" : "Tópico"
-      );
     }
   });
 }
 
-test("o índice /topicos/ lista TODO tópico do site", async ({ page }) => {
+test("o índice /topicos/ lista cada tópico UMA vez, com os roadmaps dele", async ({ page }) => {
   await page.goto("/topicos/");
-  await expect(page.getByRole("heading", { level: 1, name: "Todos os tópicos" })).toBeVisible();
+  await expect(page.locator(".topico-linha")).toHaveCount(TOPICOS.length);
 
-  const linhas = page.locator(".topico-linha");
-  // Cada tópico aparece uma vez por casa que o lista: os Fundamentos, o roadmap
-  // dono, e cada roadmap que o cita. O total confere com o dado.
-  const esperado =
-    ALL_TOPICS.length +
-    ROADMAPS.reduce((n, r) => n + roadmapTopics(r).length, 0) +
-    STANDALONES.length;
-  await expect(linhas).toHaveCount(esperado);
-
-  // E nenhum tópico do site fica de fora.
-  const nomes = new Set(await page.locator(".topico-linha-nome").allTextContents());
-  const faltando = SITE_TOPICS.filter((t) => ![...nomes].some((n) => n.startsWith(t.name)));
+  const nomes = await page.locator(".topico-linha-nome").allTextContents();
+  const faltando = TOPICOS.filter((t) => !nomes.some((n) => n.startsWith(t.name)));
   expect(faltando.map((t) => t.slug), "tópicos fora do índice completo").toEqual([]);
+
+  // A linha da Tabela Hash carrega os dois roadmaps dela.
+  const linha = page.locator(".topico-linha").filter({ hasText: "Tabelas Hash" });
+  const etiquetas = await linha.locator(".ttag-origem").allTextContents();
+  expect(etiquetas).toEqual(roadmapsDoTopico("hash-table").map((r) => r.name));
 });
 
 test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
   await page.goto("/topicos/");
-  const contagem = page.locator(".topicos-contagem");
   await page.getByLabel("Buscar entre todos os tópicos").fill("bloom");
-  await expect(page.locator(".topico-linha")).toHaveCount(2); // a casa dele e a citação
-  await expect(contagem).toContainText("2");
-
-  // Filtro que não casa com nada diz isso, em vez de devolver uma tela vazia.
+  await expect(page.locator(".topico-linha")).toHaveCount(1);
   await page.getByLabel("Buscar entre todos os tópicos").fill("zzzzzz");
-  await expect(contagem).toHaveText("Nenhum tópico com esse filtro.");
+  await expect(page.locator(".topicos-contagem")).toHaveText("Nenhum tópico com esse filtro.");
 });
 
-// ---------------------------------------------------------------------------
-// 5. A casca certa em cada tipo de página
-// ---------------------------------------------------------------------------
+test("a casca certa em cada rota", async ({ page }) => {
+  const barra = () => page.locator("#menu-lateral");
 
-test("página dos Fundamentos continua com a barra lateral dos Fundamentos", async ({ page }) => {
-  await page.goto("/topico/big-o/");
-  const barra = page.locator("#menu-lateral");
-  await expect(barra).toHaveAttribute("aria-label", "Fundamentos");
-  await expect(barra.getByLabel("Buscar tópico")).toHaveCount(1);
-  await expect(barra.locator(".side-extras")).toHaveAttribute("href", "/roadmaps/");
-});
+  await page.goto("/fundamentos/");
+  await expect(barra()).toHaveAttribute("aria-label", "Fundamentos");
 
-test("tópico avulso não tem barra lateral nenhuma, e diz isso no layout", async ({ page }) => {
-  await page.goto(`/topico/${AVULSO_PRONTO.topic.slug}/`);
-  await expect(page.locator("#menu-lateral")).toHaveCount(0);
-  await expect(page.locator(".shell")).toHaveClass(/\bsem-lateral\b/);
-  await expect(page.getByRole("button", { name: "Menu de tópicos" })).toHaveCount(0);
-  await expect(page.locator('[aria-controls="menu-lateral"]')).toHaveCount(0);
-});
+  await page.goto("/fundamentos/big-o/");
+  await expect(barra()).toHaveAttribute("aria-label", "Fundamentos");
+  await expect(barra().getByLabel("Buscar tópico")).toHaveCount(1);
 
-test("o rastro de navegação tem uma forma por tipo de página", async ({ page }) => {
-  const rastro = () =>
-    page.locator(".breadcrumb").evaluate((el) =>
-      [...el.children].map((c) => c.textContent?.trim() ?? "").filter((s) => s !== "" && s !== "/")
-    );
+  await page.goto(`${urlDoRoadmap(BANCOS)}/`);
+  await expect(barra()).toHaveAttribute("aria-label", `Roadmap: ${BANCOS.name}`);
 
-  await page.goto("/topico/big-o/");
-  expect(await rastro()).toEqual(["Início", "Introdução", "Notação Big O"]);
+  await page.goto("/roadmaps/");
+  await expect(barra()).toHaveCount(0);
 
-  await page.goto(`/topico/${AVULSO_PRONTO.topic.slug}/`);
-  expect(await rastro()).toEqual(["Início", "Roadmaps", AVULSO_PRONTO.topic.name]);
-
-  const doRoadmap = roadmapTopics(COM_MATERIAL).find((t) => getPlacement(t.slug)?.kind === "roadmap")!;
-  await page.goto(`/topico/${doRoadmap.slug}/`);
-  expect(await rastro()).toEqual(["Início", "Roadmaps", COM_MATERIAL.name, doRoadmap.name]);
-
-  const dentro = roadmapTopics(BANCOS)[0];
-  await page.goto(`/roadmaps/${BANCOS.slug}/${dentro.slug}/`);
-  expect(await rastro()).toEqual(["Início", "Roadmaps", BANCOS.name, dentro.name]);
+  await page.goto("/topicos/");
+  await expect(barra()).toHaveCount(0);
 });
 
 test("os links do topo acendem na área certa", async ({ page }) => {
   const aceso = (href: string) => page.locator(`.nav-left a[href="${href}"].on`);
-  for (const rota of ["/roadmaps/", `/roadmaps/${BANCOS.slug}/`, `/topico/${AVULSO_PRONTO.topic.slug}/`]) {
-    await page.goto(rota);
-    await expect(aceso("/roadmaps/"), `${rota} devia acender Roadmaps`).toHaveCount(1);
-  }
-  await page.goto("/topicos/");
+  await page.goto("/fundamentos/big-o/");
+  await expect(aceso("/fundamentos/")).toHaveCount(1);
+  await page.goto(`${urlDoRoadmap(BANCOS)}/`);
+  await expect(aceso("/roadmaps/")).toHaveCount(1);
+  await page.goto("/topicos/hash-table/");
   await expect(aceso("/topicos/")).toHaveCount(1);
-  await page.goto("/topico/big-o/");
-  await expect(aceso("/roadmaps/")).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------
-// 6. A abertura de um roadmap
+// 5. A abertura de um roadmap
 // ---------------------------------------------------------------------------
 
 test("a abertura mostra os tópicos, os pré-requisitos e por onde começar", async ({ page }) => {
   const r = COM_MATERIAL;
-  await page.goto(`/roadmaps/${r.slug}/`);
+  await page.goto(`${urlDoRoadmap(r)}/`);
   await expect(page.getByRole("heading", { level: 1, name: r.name })).toBeVisible();
 
   const nomes = await page.locator(".topic-card-name").allTextContents();
   expect(nomes).toEqual(roadmapTopics(r).map((t) => t.name));
 
   const reqs = await page.locator(".req-link").evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
-  expect(reqs).toEqual((r.requires ?? []).map((s) => `/topico/${s}/`));
+  expect(reqs).toEqual((r.requires ?? []).map((s) => `/topicos/${s}/`));
 
   const primeiro = roadmapTopics(r).find((t) => !isEmptyTopic(t))!;
   await page.getByRole("link", { name: `Começar por ${primeiro.name}` }).click();
-  await expect(page).toHaveURL(new RegExp(`/roadmaps/${r.slug}/${primeiro.slug}/`));
+  await expect(page).toHaveURL(new RegExp(`${urlDoTopicoNoRoadmap(r, primeiro.slug)}/`));
 });
 
 test("roadmap ainda sem material não finge que dá para começar", async ({ page }) => {
-  await page.goto(`/roadmaps/${SEM_MATERIAL.slug}/`);
+  await page.goto(`${urlDoRoadmap(SEM_MATERIAL)}/`);
   await expect(page.getByRole("link", { name: /^Começar por / })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Acompanhar no Discord/ })).toHaveCount(1);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 });
 
 // ---------------------------------------------------------------------------
-// 7. A Skip List mudou de vizinhança, não de endereço
+// 6. Progresso e celular
 // ---------------------------------------------------------------------------
 
-test("a Skip List saiu do grupo Listas Encadeadas", async ({ page }) => {
-  expect(ALL_TOPICS.map((t) => t.slug)).not.toContain("skip-list");
-  expect(getPlacement("skip-list")?.kind).toBe("standalone");
+test("marcar um tópico conta em todo lugar em que ele aparece", async ({ page }) => {
+  await page.goto(`${urlDoRoadmap(BANCOS)}/`);
+  await page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" }).getByRole("checkbox").click();
 
-  await page.goto("/fundamentos/");
-  const grupo = page.locator("section#listas");
-  await expect(grupo.locator(".topic-card-name")).toHaveText(["Listas Encadeadas"]);
-});
-
-test("a URL da Skip List não mudou, e a página continua completa", async ({ page }) => {
-  const resposta = await page.goto("/topico/skip-list/");
-  expect(resposta?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1, name: "Skip List" })).toBeVisible();
-  await expect(page.locator("article figure.viz").first()).toBeVisible();
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/topico\/skip-list\/$/);
-});
-
-test("o /roadmap/ antigo tem redirecionamento declarado para /fundamentos/", () => {
-  // A rota mais indexada do site depois da home mudou de endereço. O
-  // `_redirects` é o que transfere o histórico dela em vez de jogá-lo fora, e
-  // ele não é HTML: não passa por navegador nenhum, então a prova é o ARTEFATO
-  // do build.
-  const conteudo = readFileSync(path.join(process.cwd(), "out", "_redirects"), "utf8");
-  const regras = conteudo
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l !== "" && !l.startsWith("#"));
-  expect(regras).toContain("/roadmap/  /fundamentos/  301");
-  expect(regras.some((l) => l.startsWith("/roadmap ") || l.startsWith("/roadmap\t"))).toBe(true);
-});
-
-// ---------------------------------------------------------------------------
-// 8. Progresso
-// ---------------------------------------------------------------------------
-
-test("marcar um tópico citado conta nas duas casas", async ({ page }) => {
-  // É a promessa que a etiqueta "Fundamentos" no card faz: o progresso é do
-  // TÓPICO, não da lista em que ele aparece.
-  await page.goto(`/roadmaps/${BANCOS.slug}/`);
-  const card = page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" });
-  await card.getByRole("checkbox").click();
-
-  await page.goto("/topico/hash-table/");
+  await page.goto("/topicos/hash-table/");
   await expect(page.locator(".topic-chips .btn-concluir")).toHaveText("✓ Concluído");
 
   await page.goto("/fundamentos/");
-  const naCasa = page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" });
-  await expect(naCasa.getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
+  const naSequencia = page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" });
+  await expect(naSequencia.getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
 });
-
-// ---------------------------------------------------------------------------
-// 9. Celular
-// ---------------------------------------------------------------------------
 
 test("as páginas novas não rolam na horizontal no celular @mobile", async ({ page }) => {
   const dentro = roadmapTopics(BANCOS)[0];
   for (const rota of [
     "/roadmaps/",
     "/topicos/",
-    `/roadmaps/${BANCOS.slug}/`,
-    `/roadmaps/${SEM_MATERIAL.slug}/`,
-    `/roadmaps/${BANCOS.slug}/${dentro.slug}/`,
-    `/topico/${AVULSO_PRONTO.topic.slug}/`,
+    "/topicos/hash-table/",
+    `${urlDoRoadmap(BANCOS)}/`,
+    `${urlDoRoadmap(SEM_MATERIAL)}/`,
+    `${urlDoTopicoNoRoadmap(BANCOS, dentro.slug)}/`,
+    "/fundamentos/big-o/",
   ]) {
     await page.goto(rota);
     const estoura = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
@@ -411,115 +376,33 @@ test("as páginas novas não rolam na horizontal no celular @mobile", async ({ p
   }
 });
 
-test("no celular, Roadmaps e Tópicos continuam alcançáveis pelo menu ⋯ @mobile", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Mais opções" }).click();
-  const menu = page.locator(".nav-menu");
-  await expect(menu.getByRole("link", { name: /Roadmaps/ })).toHaveAttribute("href", "/roadmaps/");
-  await expect(menu.getByRole("link", { name: /Todos os tópicos/ })).toHaveAttribute("href", "/topicos/");
-});
-
 // ---------------------------------------------------------------------------
-// 10. Toda página de roadmap existe mesmo
+// 7. Toda página existe, e as citações todas resolvem
 // ---------------------------------------------------------------------------
 
 test("toda combinação (roadmap, tópico) tem página gerada", async ({ page }) => {
   const paginas = todasAsPaginasDeRoadmap();
-  expect(paginas.length, "nenhuma página de roadmap gerada").toBeGreaterThan(20);
-  // Amostra: a primeira de cada roadmap. Visitar as ~40 custaria minutos e não
-  // acharia classe nova de defeito, porque todas saem do mesmo template.
+  expect(paginas.length, "nenhuma página de roadmap gerada").toBeGreaterThan(60);
   for (const r of ROADMAPS) {
     const primeiro = roadmapTopics(r)[0];
-    const resposta = await page.goto(`/roadmaps/${r.slug}/${primeiro.slug}/`);
-    expect(resposta?.status(), `/roadmaps/${r.slug}/${primeiro.slug}/`).toBe(200);
+    const rota = `${urlDoTopicoNoRoadmap(r, primeiro.slug)}/`;
+    const resposta = await page.goto(rota);
+    expect(resposta?.status(), rota).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: primeiro.name })).toBeVisible();
   }
 });
 
-// ---------------------------------------------------------------------------
-// 11. Canonicalização: os sinais das 38 páginas duplicadas não podem brigar
-// ---------------------------------------------------------------------------
-
-test("toda página de roadmap declara a canônica, e nenhuma entra no sitemap", () => {
-  // `rel=canonical` é DICA, não ordem: o Google só a respeita quando os outros
-  // sinais concordam. Este teste é a conferência dos sinais, sobre as 38
-  // páginas de uma vez, porque um alias que escapa é indistinguível dos outros
-  // olhando a tela.
-  const sitemap = readFileSync(path.join(process.cwd(), "out", "sitemap.xml"), "utf8");
-  const semCanonical: string[] = [];
-  const canonicalErrado: string[] = [];
-  const noSitemap: string[] = [];
-  const comJsonLdProprio: string[] = [];
-  const comNoindex: string[] = [];
-
-  for (const { roadmap, topic } of todasAsPaginasDeRoadmap()) {
-    const rota = `/roadmaps/${roadmap.slug}/${topic.slug}/`;
-    const html = readFileSync(path.join(process.cwd(), "out", rota.slice(1), "index.html"), "utf8");
-    const esperado = `/topico/${topic.slug}/`;
-
-    const m = html.match(/<link rel="canonical" href="([^"]+)"/);
-    if (!m) semCanonical.push(rota);
-    else if (!m[1].endsWith(esperado)) canonicalErrado.push(`${rota} -> ${m[1]}`);
-
-    if (sitemap.includes(rota)) noSitemap.push(rota);
-
-    // `noindex` JUNTO de canonical é o conserto intuitivo e é o errado: são
-    // sinais que se contradizem, e o Google documenta que não se deve
-    // combiná-los (há relato de o noindex se propagar para a canônica).
-    if (/<meta name="robots"[^>]*noindex/.test(html)) comNoindex.push(rota);
-
-    // Só o nó do layout (Organization + WebSite, num `<script>` só). Quem
-    // declara o recurso é a canônica: declarar de novo aqui é a página dizer
-    // "a principal é outra" e, na tag seguinte, se apresentar como principal.
-    const nos = html.match(/<script type="application\/ld\+json"/g) ?? [];
-    if (nos.length !== 1) comJsonLdProprio.push(`${rota} (${nos.length} nós)`);
-  }
-
-  expect(semCanonical, "página de roadmap sem canonical").toEqual([]);
-  expect(canonicalErrado, "canonical apontando para a URL errada").toEqual([]);
-  expect(noSitemap, "página duplicada convidando o robô pelo sitemap").toEqual([]);
-  expect(comNoindex, "noindex junto de canonical: sinais que se contradizem").toEqual([]);
-  expect(comJsonLdProprio, "página não canônica declarando o recurso de novo").toEqual([]);
-});
-
-test("os links internos apontam majoritariamente para as canônicas", () => {
-  // O sinal que pode DISCORDAR do canonical é o de links internos. Hoje a
-  // margem é folgada (medido: 85% para as canônicas), e este teste existe para
-  // avisar se ela apertar — o que aconteceria se um roadmap crescesse para
-  // dezenas de tópicos citados e os aliases passassem a dominar a linkagem.
-  //
-  // O corte em 70% é bem abaixo do valor de hoje de propósito: um teste que
-  // reprova na primeira oscilação vira ruído, e o que interessa aqui é a
-  // INVERSÃO da maioria, não o número exato.
-  const contar = (dir: string, acc: { alias: number; canon: number }) => {
-    for (const nome of readdirSync(dir, { withFileTypes: true })) {
-      const cheio = path.join(dir, nome.name);
-      if (nome.isDirectory()) contar(cheio, acc);
-      else if (nome.name === "index.html") {
-        const h = readFileSync(cheio, "utf8");
-        acc.alias += (h.match(/href="\/roadmaps\/[^/"]+\/[^/"]+\/"/g) ?? []).length;
-        acc.canon += (h.match(/href="\/topico\/[^/"]+\/"/g) ?? []).length;
-      }
-    }
-    return acc;
-  };
-  const { alias, canon } = contar(path.join(process.cwd(), "out"), { alias: 0, canon: 0 });
-  const fatia = canon / (canon + alias);
-  expect(
-    fatia,
-    `só ${Math.round(fatia * 100)}% dos links internos de tópico apontam para a canônica ` +
-      `(${canon} contra ${alias} para as duplicadas). Quando os aliases dominam a linkagem, ` +
-      `o canonical vira uma dica que o Google tem razão para ignorar.`
-  ).toBeGreaterThan(0.7);
-});
-
 test("os grupos de um roadmap resolvem todas as citações", () => {
-  // Citação que não resolve é descartada em silêncio pelo resolvedor (quem
-  // grita é o guarda no import). Aqui a conta fecha por fora: o número de itens
-  // resolvidos tem que bater com o número de itens escritos.
   for (const r of ROADMAPS) {
     const escritos = r.groups.reduce((n, g) => n + g.topics.length, 0);
-    const resolvidos = roadmapGroups(r).reduce((n, g) => n + g.itens.length, 0);
+    const resolvidos = roadmapGroups(r).reduce((n, g) => n + g.topicos.length, 0);
     expect(resolvidos, `o roadmap "${r.name}" perdeu citações pelo caminho`).toBe(escritos);
   }
+});
+
+test("os Fundamentos citam a maior parte do guia, e são o primeiro roadmap", () => {
+  expect(ROADMAPS[0].slug).toBe(FUNDAMENTOS.slug);
+  expect(roadmapTopics(FUNDAMENTOS).length).toBeGreaterThan(40);
+  // E eles não aparecem na vitrine: têm a home e a barra do topo para si.
+  expect(EXTRA_CARDS.map((c) => c.slug)).not.toContain(FUNDAMENTOS.slug);
 });

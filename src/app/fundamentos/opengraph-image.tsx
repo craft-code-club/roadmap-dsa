@@ -1,4 +1,4 @@
-import { TOTAL_TOPICS } from "@content/fundamentos";
+import { TOTAL_TOPICS } from "@content/topicos";
 import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
 
 export const alt = `Roadmap de Algoritmos e Estruturas de Dados: ${TOTAL_TOPICS} tópicos na ordem certa de estudo, do Big O aos grafos`;

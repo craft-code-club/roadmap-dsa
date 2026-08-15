@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { topicTags, type Topic } from "@content/fundamentos";
+import { topicTags, type Topic } from "@content/topicos";
 import { levelClass } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 

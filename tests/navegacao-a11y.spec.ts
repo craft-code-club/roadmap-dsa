@@ -1,5 +1,17 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ALL_TOPICS, GROUPS } from "../content/fundamentos";
+import { isEmptyTopic, TOPICOS } from "../content/topicos";
+import { FUNDAMENTOS, roadmapGroups, roadmapTopics } from "../content/roadmaps";
+
+/**
+ * Quantos tópicos o menu lateral lista.
+ *
+ * O menu é a casca de um ROADMAP, e um roadmap cita um subconjunto dos tópicos
+ * do site: são 44 nos Fundamentos e 80 no site. Por isso toda rota de tópico
+ * deste arquivo é `/fundamentos/<slug>/` e não `/topicos/<slug>/` — a página
+ * canônica do tópico tem outra casca (a barra dos roadmaps que o citam), e
+ * medir o menu lá seria medir uma coisa que não está na tela.
+ */
+const NO_MENU = roadmapTopics(FUNDAMENTOS).length;
 
 // Acessibilidade da casca de navegação: link de pular, anel de foco, nome dos
 // campos e dos landmarks, e a marca de progresso fora do link.
@@ -34,9 +46,9 @@ const focoNoConteudo = (page: Page) =>
 test("um Tab e um Enter levam o foco para dentro do conteúdo", async ({ page }) => {
   // Antes do link de pular, o teclado atravessava a barra do topo e o menu
   // lateral inteiros: 44 paradas até o primeiro elemento do `<main>` em
-  // /topico/dijkstra/, 40 em /topico/arrays/ e 29 na home, em TODA página
+  // /fundamentos/dijkstra/, 40 em /fundamentos/arrays/ e 29 na home, em TODA página
   // aberta. E 44 é piso, porque o menu não renderiza grupo fechado.
-  for (const rota of ["/topico/dijkstra/", "/topico/arrays/", "/", "/fundamentos/"]) {
+  for (const rota of ["/fundamentos/dijkstra/", "/fundamentos/arrays/", "/", "/fundamentos/"]) {
     await page.goto(rota);
 
     // Fora da tela para quem usa mouse: o link é uma saída de teclado, não um
@@ -63,7 +75,7 @@ test("um Tab e um Enter levam o foco para dentro do conteúdo", async ({ page })
 });
 
 test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ page }) => {
-  await page.goto("/topico/arrays/");
+  await page.goto("/fundamentos/arrays/");
 
   // Chegando pelo teclado, como o aluno que não usa mouse chega.
   await tabularAte(page, ".side-search");
@@ -92,27 +104,27 @@ test("o anel de foco sobrevive nos campos de busca e de visualizador", async ({ 
 });
 
 test("a busca acha pelo que o aluno digita, e avisa quando não acha", async ({ page }) => {
-  await page.goto("/topico/arrays/");
+  await page.goto("/fundamentos/arrays/");
   const campo = page.getByLabel("Buscar tópico");
 
   // Nenhuma destas três palavras aparece em `name` nenhum: sem casar descrição,
   // a busca devolvia vazio e o aluno concluía que o guia não tem o assunto.
   await campo.fill("janela");
-  await expect(page.locator('.side-item[href="/topico/sliding-window/"]')).toBeVisible();
+  await expect(page.locator('.side-item[href="/fundamentos/sliding-window/"]')).toBeVisible();
 
   await campo.fill("ponteiro");
-  await expect(page.locator('.side-item[href="/topico/listas-ligadas/"]')).toBeVisible();
+  await expect(page.locator('.side-item[href="/fundamentos/listas-ligadas/"]')).toBeVisible();
 
   await campo.fill("memoização");
-  await expect(page.locator('.side-item[href="/topico/programacao-dinamica/"]')).toBeVisible();
+  await expect(page.locator('.side-item[href="/fundamentos/programacao-dinamica/"]')).toBeVisible();
 
   // Sem acento acha com acento: quem digita rápido não põe til.
   await campo.fill("recursao");
-  await expect(page.locator('.side-item[href="/topico/recursao/"]')).toBeVisible();
+  await expect(page.locator('.side-item[href="/fundamentos/recursao/"]')).toBeVisible();
 
   // Nome do grupo traz a lista dele inteira.
   await campo.fill("manipulacao");
-  await expect(page.locator('.side-item[href="/topico/operacoes-bitwise/"]')).toBeVisible();
+  await expect(page.locator('.side-item[href="/fundamentos/operacoes-bitwise/"]')).toBeVisible();
 
   // Sem resultado, a mensagem — e não a coluna vazia, que não diz se o guia não
   // tem o assunto ou se o menu quebrou.
@@ -121,23 +133,23 @@ test("a busca acha pelo que o aluno digita, e avisa quando não acha", async ({ 
   await expect(page.locator(".side-vazio")).toContainText("xilofone");
   await expect(page.locator(".side-scroll .side-item")).toHaveCount(0);
 
-  // E o menu volta inteiro quando o campo esvazia: os 47 tópicos de volta ao
+  // E o menu volta inteiro quando o campo esvazia: os tópicos todos de volta ao
   // DOM, com o grupo da página aberto. (O primeiro `.side-item` da lista é o do
   // grupo de cima, que está fechado — daí a asserção ser sobre o item da rota.)
   await campo.fill("");
   await expect(page.locator(".side-vazio")).toHaveCount(0);
-  await expect(page.locator('.sidebar a[href^="/topico/"]')).toHaveCount(ALL_TOPICS.length);
-  await expect(page.locator('.side-item[href="/topico/arrays/"]')).toBeVisible();
+  await expect(page.locator('.sidebar a[href^="/fundamentos/"]')).toHaveCount(NO_MENU);
+  await expect(page.locator('.side-item[href="/fundamentos/arrays/"]')).toBeVisible();
 });
 
 test("a marca de progresso não mora dentro do link, e o progresso sobrevive à recarga", async ({
   page,
 }) => {
   // Widget focável dentro de `<a>` é estado inválido pela ARIA (`nested-interactive`
-  // do axe). Medido no build anterior: 7 em /topico/arrays/ e 48 em /fundamentos/.
+  // do axe). Medido no build anterior: 7 em /fundamentos/arrays/ e 48 em /fundamentos/.
   const aninhados = 'a button, a input, a [role="checkbox"], a [tabindex="0"]';
 
-  for (const rota of ["/topico/arrays/", "/fundamentos/"]) {
+  for (const rota of ["/fundamentos/arrays/", "/fundamentos/"]) {
     await page.goto(rota);
     await expect(page.locator(aninhados), `${rota} tem widget focável dentro de link`).toHaveCount(0);
   }
@@ -161,7 +173,7 @@ test("a marca de progresso não mora dentro do link, e o progresso sobrevive à 
 
   // O mesmo tópico, marcado no /roadmap, aparece marcado no menu lateral: é o
   // mesmo dado, e o card e o roadmap continuam falando a mesma língua.
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/fundamentos/two-pointers/");
   const noMenu = page
     .locator(".sidebar")
     .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
@@ -173,7 +185,7 @@ test("a marca de progresso não mora dentro do link, e o progresso sobrevive à 
   await noMenu.focus();
   await page.keyboard.press(" ");
   await expect(noMenu).toHaveAttribute("aria-checked", "false");
-  await expect(page).toHaveURL(/topico\/two-pointers/);
+  await expect(page).toHaveURL(/fundamentos\/two-pointers/);
   await page.reload();
   await expect(
     page.locator(".sidebar").getByRole("checkbox", { name: "Marcar Two Pointers como concluído" })
@@ -200,7 +212,7 @@ test("a marca de progresso vem antes do link nas três listas", async ({ page })
   await page.goto("/fundamentos/");
   expect(await ordemEm(".topic-card-wrap"), "card do /roadmap").toEqual(["BUTTON", "A"]);
 
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/fundamentos/two-pointers/");
   // No roadmap, o par é `button` + `a` dentro do item; o primeiro focável tem que
   // ser o checkbox.
   const naTrilha = await page.evaluate(() => {
@@ -235,7 +247,7 @@ test("todo landmark de navegação tem nome próprio", async ({ page }) => {
 
 test("o botão do menu diz se o menu está aberto", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/topico/arrays/");
+  await page.goto("/fundamentos/arrays/");
 
   const botao = page.getByRole("button", { name: "Menu de tópicos" });
   await expect(botao).toHaveAttribute("aria-expanded", "false");
@@ -251,25 +263,25 @@ test("o botão do menu diz se o menu está aberto", async ({ page }) => {
   await expect(page.locator("#menu-lateral")).toBeHidden();
 });
 
-test("o menu leva os 47 tópicos em toda página, com o grupo fechado ou aberto", async ({ page }) => {
+test("o menu leva todos os tópicos do roadmap em toda página dele, com o grupo fechado ou aberto", async ({ page }) => {
   // Antes, o menu era `{g.aberto && ...}`: os itens do grupo fechado não
   // existiam no DOM. Medido no build, nas 47 páginas de tópico: MÍNIMO 1 link
   // (programacao-dinamica, backtracking, big-o, greedy, matematica, hash-table),
   // mediana 5, máximo 9, e 24 páginas com 5 ou menos. O menu é a única lista de
   // tópicos que a página carrega.
-  const total = ALL_TOPICS.length;
+  const total = NO_MENU;
 
-  for (const rota of ["/topico/matematica/", "/topico/big-o/", "/", "/fundamentos/"]) {
+  for (const rota of ["/fundamentos/matematica/", "/fundamentos/big-o/", "/", "/fundamentos/"]) {
     await page.goto(rota);
-    await expect(page.locator('.sidebar a[href^="/topico/"]'), rota).toHaveCount(total);
+    await expect(page.locator('.sidebar a[href^="/fundamentos/"]'), rota).toHaveCount(total);
   }
 
   // E continua sendo uma lista COM grupos fechados: o visual não mudou.
-  await page.goto("/topico/big-o/");
+  await page.goto("/fundamentos/big-o/");
   const ocultos = page.locator(".side-items[hidden]");
   expect(await ocultos.count()).toBeGreaterThan(0);
-  await expect(page.locator('.sidebar a[href="/topico/dijkstra/"]')).toBeHidden();
-  await expect(page.locator('.sidebar a[href="/topico/big-o/"]')).toBeVisible();
+  await expect(page.locator('.sidebar a[href="/fundamentos/dijkstra/"]')).toBeHidden();
+  await expect(page.locator('.sidebar a[href="/fundamentos/big-o/"]')).toBeVisible();
 });
 
 test("o item do grupo fechado não é pintado nem alcançado pelo teclado", async ({ page }) => {
@@ -283,7 +295,7 @@ test("o item do grupo fechado não é pintado nem alcançado pelo teclado", asyn
     [390, 844],
   ]) {
     await page.setViewportSize({ width: w, height: h });
-    await page.goto("/topico/big-o/");
+    await page.goto("/fundamentos/big-o/");
     if (w < 1000) await page.locator(".header-menu-toggle").click();
     await expect(page.locator(".sidebar")).toBeVisible();
 
@@ -308,7 +320,7 @@ test("o item do grupo fechado não é pintado nem alcançado pelo teclado", asyn
   // A prova de comportamento: tabulando desde o começo, o foco nunca cai dentro
   // de um grupo fechado, e sair do menu inteiro continua custando o que custava.
   await page.setViewportSize({ width: 1512, height: 900 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/fundamentos/big-o/");
   const visitados: string[] = [];
   for (let i = 0; i < 45; i++) {
     await page.keyboard.press("Tab");
@@ -328,7 +340,7 @@ test("cada grupo do roadmap tem âncora própria, e ela para abaixo do cabeçalh
   page,
 }) => {
   await page.goto("/fundamentos/");
-  for (const g of GROUPS) {
+  for (const g of roadmapGroups(FUNDAMENTOS)) {
     await expect(page.locator(`section.rgroup[id="${g.id}"]`), `sem âncora para ${g.name}`).toHaveCount(1);
   }
 

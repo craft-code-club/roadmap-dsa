@@ -47,16 +47,11 @@ const TRAVESSAO = "—"; // U+2014. Hífen e meia-risca (–) não são o alvo.
  * reprova, que é o ponto: a exceção cobre a linha que já estava lá, não a rota.
  */
 const CONHECIDOS: Record<string, { quantos: number; nota: string }> = {
-  "/topico/negative-binary/": {
-    quantos: 3,
-    nota:
-      "`content/visualizers/BinarioTresFormas.tsx:163` — \"Lido de volta: <strong>{l.readBack}</strong> " +
-      "— bits diferentes, mesmo número.\" É UMA linha de copy de visualizador, contada 3 vezes " +
-      "porque a página monta o componente para as três formas (sign-magnitude, complemento de um " +
-      "e de dois). Conserto: trocar o travessão por dois pontos naquela linha. Fica de fora deste " +
-      "PR porque mexer em texto de tela de visualizador tem procedimento próprio " +
-      "(content/visualizers/README.md §0, guarda-idioma)",
-  },
+  // Vazio, e este é o estado a manter. A primeira versão deste guarda declarou
+  // uma dívida (`BinarioTresFormas.tsx`, "Lido de volta: <b>X</b> — bits
+  // diferentes"), e ela durou o tempo de perceber que o conserto era trocar um
+  // caractere por dois pontos. Ficou o formato, para o dia em que a ocorrência
+  // não for tão barata de consertar.
 };
 
 /** Todas as páginas HTML do build. */

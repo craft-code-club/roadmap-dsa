@@ -20,23 +20,23 @@ export const roadmap: Roadmap = {
       id: "bal-rotacao",
       name: "Balanceamento por rotação",
       topics: [
-        { slug: "avl", name: "Árvore AVL", group: "Árvores Balanceadas", level: "Difícil", status: "soon", description: "O fator de balanceamento e as quatro rotações que o restauram." },
-        { slug: "rubro-negra", name: "Árvore Rubro-Negra", group: "Árvores Balanceadas", level: "Difícil", status: "soon", description: "Cinco invariantes de cor, e por que ela venceu a AVL nas bibliotecas padrão." },
-        { slug: "splay-tree", name: "Splay Tree", group: "Árvores Balanceadas", level: "Difícil", status: "soon", description: "Sem invariante nenhuma: quem você acessa sobe para a raiz." },
+        { topic: "avl" },
+        { topic: "rubro-negra" },
+        { topic: "splay-tree" },
       ],
     },
     {
       id: "bal-aleatoria",
       name: "Balanceamento sem invariante",
       topics: [
-        { slug: "treap", name: "Treap", group: "Árvores Balanceadas", level: "Difícil", status: "soon", description: "Uma BST na chave e um heap numa prioridade sorteada, ao mesmo tempo." },
+        { topic: "treap" },
       ],
     },
     {
       id: "bal-grau",
       name: "Árvores de muitos filhos",
       topics: [
-        { slug: "b-tree", name: "B-Tree e B+Tree", group: "Árvores Balanceadas", level: "Difícil", status: "soon", description: "A árvore desenhada para o disco: nó do tamanho da página, altura três." },
+        { topic: "b-tree" },
       ],
     },
   ],

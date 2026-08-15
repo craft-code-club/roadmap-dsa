@@ -26,7 +26,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // então não há painel para arrumar neles.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/binary-heap/";
+const URL = "/topicos/binary-heap/";
 
 // Janela de notebook de 16", o caso que motivou a casca. Nela a peça pede
 // 1200px com o código à mostra contra 816 de orçamento.

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  TOTAL_PROBLEMS,
   TOTAL_TOPICS,
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
-} from "@content/fundamentos";
-import { TOTAL_EXTRA_TOPICS } from "@content/roadmaps";
+} from "@content/topicos";
+import { TOTAL_TOPICS_FORA_DOS_FUNDAMENTOS } from "@content/roadmaps";
+import { TOTAL_PROBLEMS } from "@content/topicos/pratica";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 
@@ -23,7 +23,7 @@ import { pageMetadata } from "@/lib/seo";
 // escrito em lugar nenhum daqui, e uma página "sobre" com fato inventado é pior
 // do que uma página curta. O que falta está marcado em bloco, mais abaixo.
 //
-// Os números vêm do `content/fundamentos.ts`, como na home: tópico novo entra aqui
+// Os números vêm do `content/topicos/index.ts`, como na home: tópico novo entra aqui
 // sozinho, no mesmo PR que o cria.
 
 export function generateMetadata(): Metadata {
@@ -75,7 +75,7 @@ export default function SobrePage() {
           LeetCode e do GeeksforGeeks, na ordem em que recomendamos resolver.
         </li>
         <li className="prose-li">
-          <strong className="prose-strong">{TOTAL_EXTRA_TOPICS} tópicos fora dos Fundamentos</strong>, em{" "}
+          <strong className="prose-strong">{TOTAL_TOPICS_FORA_DOS_FUNDAMENTOS} tópicos fora dos Fundamentos</strong>, em{" "}
           <Link className="prose-a" href="/roadmaps/">trilhas e tópicos avulsos</Link>: estruturas que
           são um assunto à parte, e famílias inteiras que não caberiam num tópico só.
         </li>

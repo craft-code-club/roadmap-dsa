@@ -1,0 +1,125 @@
+<Callout>
+Um byte tem oito bits e nenhum lugar para pôr um sinal de menos. A solução que o mundo inteiro adotou, o **complemento de dois**, parece uma receita arbitrária ("inverta todos os bits e some 1") e é o contrário disso: é a única convenção que faz `x + (-x)` dar zero dentro de uma quantidade fixa de bits, e é por isso que o processador consegue subtrair sem ter um circuito de subtração.
+</Callout>
+
+## O bit que deixa de valer magnitude
+
+Em [Números Binários](/topicos/binary-numbers), os oito bits de um byte valiam todos magnitude: `11111111` era `128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255`.
+
+Para representar negativos é preciso guardar mais uma informação, o **sinal**, e não existe nono bit. A saída é sacrificar um dos oito, e o escolhido é sempre o mais significativo, o da esquerda. A convenção segue a do papel:
+
+- bit de sinal **desligado** quer dizer positivo (assim como escrever `5` sem sinal nenhum);
+- bit de sinal **ligado** quer dizer negativo (assim como escrever `-5`).
+
+O preço é imediato: sobram sete bits de magnitude, e o alcance cai de `0 a 255` para algo em torno de `-128 a 127`. Não muda quantos números cabem (são 256 padrões de bits nos dois casos), muda **quais**.
+
+O que ainda não foi decidido é o mais interessante: **o que fazer com os outros sete bits** quando o sinal está ligado. Existem três respostas conhecidas, e comparar as três é a melhor forma de entender por que a vencedora venceu.
+
+## Tentativa 1: sinal e magnitude
+
+A ideia mais direta que qualquer pessoa teria: escreva o número positivo normalmente e ligue o bit da esquerda para dizer que ele é negativo.
+
+```
+ 26  =  00011010
+-26  =  10011010     <- só o bit da esquerda mudou
+```
+
+Funciona para ler, é fácil de explicar, e tem dois defeitos graves.
+
+O primeiro é o **zero duplo**. Se `00000000` é zero, então `10000000` é "zero negativo". São dois padrões de bits para o mesmo número, o que obriga toda comparação de igualdade a tratar um caso especial, e desperdiça um dos 256 padrões disponíveis. Com essa convenção, oito bits escrevem só **255 números distintos**.
+
+O segundo é a **aritmética**. Somar `00011010` (26) com `10011010` (-26) dá `10110100`, que não é zero nem por acidente. O processador teria que olhar os bits de sinal, decidir se aquilo é uma soma ou uma subtração, comparar magnitudes para saber o sinal do resultado, e só então operar. Muito circuito para uma conta que deveria ser uma só.
+
+## Tentativa 2: complemento de um
+
+A segunda tentativa é mais esperta: para negar, **inverta todos os bits**. É a operação `NOT` bit a bit, escrita `~` na maioria das linguagens.
+
+```
+ 26  =  00011010
+-26  =  11100101     <- todos os bits invertidos
+```
+
+O bit da esquerda continua indicando o sinal (ele inverte junto), e a aritmética melhora bastante. Mas o defeito principal continua: `00000000` invertido é `11111111`, então de novo existem **dois zeros**, e de novo sobram só 255 números distintos.
+
+E a soma ainda não fecha: `00011010 + 11100101 = 11111111`, que é o outro zero. Dá para consertar com uma regra extra (somar o vai-um de volta no fim, o chamado *end-around carry*), e "regra extra" em hardware significa mais circuito e mais atraso.
+
+## Complemento de dois: inverter e somar 1
+
+A terceira convenção é a segunda com um passo a mais: inverta todos os bits **e some 1**.
+
+```
+ 26  =  00011010
+       ~00011010  =  11100101     1. inverte
+       11100101 + 1 = 11100110    2. soma 1
+-26  =  11100110
+```
+
+<BinarioComplemento />
+
+Esse `+1` desloca todo o lado negativo uma casa, e com isso os dois zeros se fundem num só. Vale seguir o preset do zero no visualizador acima, porque é ali que a mágica acontece: inverter `00000000` dá `11111111`, somar 1 dá `100000000`, o nono bit não cabe em oito e é descartado, e o que sobra é `00000000`. **O oposto de zero é o próprio zero, e existe uma representação só.**
+
+A prova de que a convenção está certa é a mesma da matemática: somar um número com o oposto dele tem que dar zero.
+
+```
+  00011010    (26)
++ 11100110    (-26)
+-----------
+ 100000000    -> o nono bit estoura os 8 bits e cai fora
+   00000000    -> zero
+```
+
+<BinarioTresFormas />
+
+E aqui está a razão de tudo. Como `x + (-x) = 0` vale sempre e sem correção nenhuma, **subtrair vira somar**: `a - b` é `a + (-b)`, e o processador usa exatamente o mesmo somador. Não existe circuito de subtração num processador moderno; existe um somador e um inversor.
+
+<Callout>
+As três convenções existiram de verdade em máquinas comerciais. O complemento de um foi usado em computadores da CDC e da Univac, e o sinal e magnitude sobrevive até hoje num lugar que você usa todo dia: o padrão IEEE 754, dos números de ponto flutuante, guarda o sinal num bit separado. Ou seja, o `-0.0` existe em ponto flutuante, é diferente de `0.0` na representação, e compara como igual por regra explícita da norma.
+</Callout>
+
+## O truque de leitura: o peso da esquerda é negativo
+
+Converter de volta invertendo e somando 1 funciona e é trabalhoso. Existe uma forma muito melhor de **ler** um complemento de dois, e ela não é uma regra nova: é a mesma soma de potências de sempre, com **um sinal trocado**.
+
+No complemento de dois, o bit mais significativo vale `-128` em vez de `+128`. Todo o resto continua idêntico:
+
+```
+11100110  =  -128 + 64 + 32 + 0 + 0 + 4 + 2 + 0  =  -26
+```
+
+Isso dispensa qualquer conversão. Também explica de imediato duas coisas que costumam parecer arbitrárias:
+
+- **Por que `11111111` é -1.** É `-128 + 64 + 32 + 16 + 8 + 4 + 2 + 1`, e a soma dos positivos dá 127. `-128 + 127 = -1`.
+- **Por que acender bits à direita, com o sinal ligado, aumenta o número.** Partindo de `10000000` (-128), cada bit ligado soma: `10000001` é -127, `10000010` é -126, e assim por diante até `11111111`, que é -1.
+
+## A faixa assimétrica, e o padrão que não sabe o próprio sinal
+
+<BinarioFaixa />
+
+Duas consequências desta seção valem mais do que qualquer definição.
+
+A primeira é que **a faixa com sinal nunca é simétrica**: com 8 bits ela vai de `-128` a `127`, e não de `-128` a `128`. São 256 padrões, o zero ocupa um deles, sobram 255 para distribuir, e o lado negativo fica com um a mais porque não precisa gastar padrão com o zero.
+
+Isso tem efeito prático e surpreendente: **o oposto do menor negativo não existe**. Em Java, `-Integer.MIN_VALUE` devolve `Integer.MIN_VALUE`, ainda negativo. Em C, `abs(-2147483648)` devolve um número negativo. Não é bug da biblioteca: é que o positivo correspondente não cabe no tipo, e a operação dá a volta.
+
+A segunda é que **o padrão de bits não sabe o próprio sinal**. `11111111` é 255 ou -1 conforme o tipo com que ele é lido, e não existe nada guardado na memória que decida entre os dois. Quem decide é a **declaração da variável**. Ler um valor com o tipo errado não dá erro, dá outro número, e esse é um dos bugs mais silenciosos que existem ao ler um formato binário ou uma resposta de rede.
+
+| Bits | Sem sinal | Com sinal |
+| --- | --- | --- |
+| 8 | 0 a 255 | -128 a 127 |
+| 16 | 0 a 65.535 | -32.768 a 32.767 |
+| 32 | 0 a 4.294.967.295 | -2.147.483.648 a 2.147.483.647 |
+| 64 | 0 a 18.446.744.073.709.551.615 | -9.223.372.036.854.775.808 a 9.223.372.036.854.775.807 |
+
+## Estouro: o erro que não avisa
+
+Some 1 a `01111111` (127). O vai-um sobe até o bit de sinal, e o resultado é `10000000`, que vale **-128**.
+
+O número não ficou grande demais e travou; ele **deu a volta**. Nenhuma exceção é lançada, nenhum aviso aparece no log, nenhuma flag chega ao seu código por padrão. Para a máquina, `10000000` é apenas o padrão de bits seguinte ao `01111111`, e a soma está aritmeticamente correta módulo 256.
+
+É exatamente esse silêncio que torna o estouro de inteiro com sinal um dos erros mais caros do ofício. Três consequências que valem guardar:
+
+- **Contadores que só crescem são candidatos.** Um `int` de 32 bits com sinal para em 2.147.483.647, e um contador de eventos numa empresa grande chega lá.
+- **A conta do meio da busca binária é o caso clássico.** `(lo + hi) / 2` estoura quando os dois índices são grandes, e o meio vira negativo. É o mesmo bug descrito em [Busca Binária](/topicos/busca-binaria), e a correção (`lo + (hi - lo) / 2`) existe exatamente por isto.
+- **Linguagens diferentes reagem diferente.** Em C, o estouro de inteiro **com sinal** é comportamento indefinido, o que autoriza o compilador a assumir que ele nunca acontece e otimizar em cima disso. Em Java o resultado dá a volta e é definido. Em Python inteiro não tem tamanho fixo e o problema não existe, mas volta assim que você grava aquele número num formato binário ou numa coluna de banco.
+
+Daqui, [Operações Bitwise](/topicos/operacoes-bitwise) mostra o que dá para fazer manipulando esses bits diretamente, e [Números Binários](/topicos/binary-numbers) fica como a base para reler se a notação posicional ainda não estiver automática. Vale também revisitar [Big O](/topicos/big-o) com esta lente: quando um artigo diz que uma operação é O(1), ele está assumindo que os números cabem numa palavra da máquina, e essa suposição tem exatamente o tamanho descrito na tabela acima.

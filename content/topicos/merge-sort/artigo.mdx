@@ -1,0 +1,162 @@
+<Callout>
+O merge sort tem uma propriedade que nenhum dos algoritmos rápidos concorrentes oferece: **ele não tem dia ruim**. Não existe entrada capaz de degradá-lo, o resultado é sempre estável, e ele é o único dos grandes que ordena bem coisas que não cabem na memória. O preço é um array auxiliar, e este artigo é sobre quando esse preço vale a pena.
+</Callout>
+
+## Ordenar na volta, não na descida
+
+A ideia cabe em três linhas: divida o array ao meio, ordene cada metade, e junte as duas metades ordenadas. A parte que engana está na terceira linha, e vale insistir nela antes de qualquer código.
+
+**Dividir não ordena nada.** Cortar um array em dois é aritmética de índice: nenhuma comparação acontece, nenhum elemento sai do lugar. Toda a ordenação do merge sort mora na **intercalação**, que é a operação de juntar dois trechos já ordenados num só. A recursão existe apenas para garantir que, quando a intercalação for chamada, os dois lados estejam prontos.
+
+Isso deixa a estrutura clara. O merge sort é um percurso em que o trabalho acontece **depois** de resolver os dois filhos, o que é exatamente a forma de um percurso em pós-ordem (vale comparar com [Percursos em Árvore](/topicos/tree-traversals)).
+
+```python
+def merge_sort(a, lo, hi):
+    if lo >= hi: return      # 1 elemento já está ordenado
+    mid = lo + (hi - lo) // 2
+    merge_sort(a, lo, mid)       # resolve a esquerda
+    merge_sort(a, mid + 1, hi)   # resolve a direita
+    merge(a, lo, mid, hi)        # e só então ordena
+```
+
+O caso base é a parte mais bonita e a mais fácil de subestimar: **um array de um elemento já está ordenado**, porque a ordem entre um elemento e ele mesmo não é uma pergunta. Não existe caso base mais barato do que "não faça nada", e é dele que o algoritmo inteiro depende.
+
+O `mid = lo + (hi - lo) // 2` merece a mesma atenção que em [Busca Binária](/topicos/busca-binaria): escrever `(lo + hi) // 2` funciona em Python e estoura o inteiro em linguagens de tipo fixo. É o mesmo bug, no mesmo lugar, pelo mesmo motivo.
+
+Acompanhe a recursão inteira abaixo. Repare que o painel de intercalação **só aparece na volta**: enquanto a recursão desce, não há nada para ver, porque nada está acontecendo.
+
+<MergeSortVisualizer />
+
+Uma consequência de dividir sempre pelo meio: as duas metades nunca diferem em mais de um elemento, em nenhum nível. É por isso que a árvore da recursão tem altura `⌈log₂ n⌉` para qualquer entrada, e não só para tamanhos redondos.
+
+## A intercalação é o algoritmo inteiro
+
+Dois trechos ordenados, um ponteiro no começo de cada um, e uma regra: **sai o menor dos dois topos**. Quem cede o valor anda uma casa; o outro fica onde está.
+
+```python
+def merge(a, lo, mid, hi):
+    esq, dir = a[lo:mid + 1], a[mid + 1:hi + 1]
+    i = j = 0
+    for k in range(lo, hi + 1):
+        if j >= len(dir) or (i < len(esq) and esq[i] <= dir[j]):
+            a[k] = esq[i]; i += 1
+        else:
+            a[k] = dir[j]; j += 1
+```
+
+É a mesma mecânica de [Two Pointers](/topicos/two-pointers), com uma diferença: os dois ponteiros vivem em **arrays diferentes** e andam em ritmos independentes, em vez de convergirem dentro de um mesmo array.
+
+O detalhe que resolve metade das dúvidas é o que acontece quando **um lado acaba antes do outro**. Nada precisa ser feito: o que sobrou do outro lado já está ordenado (ele veio ordenado da recursão) e é maior ou igual a tudo que já saiu (senão teria saído antes). Então o resto entra em bloco, **sem nenhuma comparação**. Isso não é um caso especial malandro, é uma consequência direta da invariante, e é de onde vem boa parte da economia do merge sort em entradas parcialmente ordenadas.
+
+<Callout>
+Repare no que o algoritmo **não** faz: ele nunca compara dois elementos do mesmo lado. Cada lado já está ordenado, então comparar dentro dele seria trabalho jogado fora. É por isso que uma intercalação de `m` elementos custa no máximo `m - 1` comparações, e não `m log m`.
+</Callout>
+
+## De onde sai o n log n
+
+A conta do merge sort é um produto de duas grandezas que dá para ver na tela ao mesmo tempo.
+
+<MergeSortNiveis />
+
+A **altura** é quantas vezes dá para partir um array de `n` elementos ao meio até sobrar um: exatamente `log₂ n`. A **largura** é o trabalho de um nível inteiro: cada elemento participa de exatamente uma intercalação por nível, então o custo de um nível é `n`, sempre. Multiplicando, `n log n`.
+
+O que torna essa conta especial é que **nenhum dos dois fatores olha para os dados**. A altura vem do tamanho, a largura vem do tamanho, e por isso o merge sort é `Θ(n log n)` no melhor, no médio e no pior caso. Ele não tem atalho para entrada quase ordenada e não tem armadilha para entrada hostil.
+
+Dá para conferir isso no visualizador principal, com oito elementos: o array já ordenado custa 12 comparações, o invertido custa as mesmas 12, e o pior caso possível (achado testando as 40.320 permutações) custa 17. **Cinco comparações separam a melhor da pior entrada.** No insertion sort, o mesmo intervalo vai de 7 a 28.
+
+O número de movimentos é ainda mais rígido: com 8 elementos são sempre 24 cópias, em qualquer ordem de entrada, porque as 3 rodadas de intercalação movem os 8 elementos uma vez cada.
+
+## O preço do merge sort é memória
+
+Nada disso é de graça. A intercalação precisa de um lugar para escrever o resultado enquanto ainda lê os dois lados, e esse lugar é um **array auxiliar**.
+
+| Recurso | Custo | Por quê |
+| --- | --- | --- |
+| Buffer de intercalação | O(n) | a maior intercalação junta o array inteiro |
+| Pilha de recursão | O(log n) | uma chamada por nível, e são log n níveis |
+| Total de memória extra | **O(n)** | o termo dominante é o buffer |
+
+Esse O(n) é o que separa o merge sort do [heap sort](/topicos/heap-sort) e do [quick sort](/topicos/quick-sort), que ordenam dentro do próprio array. Numa lista de 100 milhões de inteiros, o buffer é literalmente outra lista de 100 milhões de inteiros.
+
+Existem versões "in-place" do merge sort, e elas são um bom exemplo de otimização que não compensa: o algoritmo passa a fazer rotações de blocos e o tempo real piora bastante, embora a complexidade continue O(n log n). Na prática, as bibliotecas fazem o contrário: quando a memória é apertada, elas trocam de algoritmo em vez de tentar espremer este.
+
+<Callout tipo="aviso">
+Um detalhe de implementação que costuma passar batido: alocar o buffer **uma vez só**, fora da recursão, em vez de fatiar o array a cada chamada. O código deste artigo usa fatias porque elas deixam a lógica legível, mas cada `a[lo:mid + 1]` é uma alocação nova, e são O(n) delas ao longo da execução. Uma implementação séria reaproveita um único buffer do tamanho do array.
+</Callout>
+
+## Estável por causa de um sinal
+
+O merge sort é estável, e a estabilidade dele não é uma consequência mágica de dividir e conquistar: é uma **decisão**, tomada numa comparação, escrita num caractere.
+
+<MergeEmpate />
+
+Quando os dois topos empatam, alguém precisa sair primeiro. Com `esq[i] <= dir[j]` a condição é verdadeira e sai o da esquerda, que é o lado que vinha antes no array original: a ordem de chegada é preservada. Com `esq[i] < dir[j]` a condição é falsa e sai o da direita, e **todo empate se inverte**.
+
+O que assusta é que a versão instável continua ordenando certo. A sequência de chaves sai idêntica, e nenhum teste que verifique só a ordem consegue notar a diferença. É o tipo de bug que atravessa a revisão inteira e aparece meses depois, quando alguém percebe que a lista de chamados com a mesma prioridade não respeita mais a ordem de chegada.
+
+A comparação com os vizinhos é instrutiva. No [heap sort](/topicos/heap-sort) e no [quick sort](/topicos/quick-sort) a instabilidade vem do **movimento**: os dois arrancam um elemento de uma ponta e o jogam longe, e não existe operador que conserte isso. No merge sort a estabilidade sai de graça, porque a intercalação só olha o topo dos dois lados e cada lado é um trecho contíguo do array original.
+
+## Lista ligada: onde o merge sort não paga o preço
+
+Aqui está o melhor argumento a favor do merge sort, e ele quase nunca aparece nas comparações de tabela. **Numa lista ligada, o merge sort deixa de precisar de memória extra.**
+
+O motivo é que intercalar duas listas ligadas não copia nada: basta religar ponteiros. E dividir também não copia: basta cortar um `next`. As duas operações que custavam O(n) de memória em array passam a custar O(1).
+
+```python
+def merge_sort(head):
+    if head is None or head.next is None:
+        return head                      # 0 ou 1 nó: já está ordenado
+    meio = achar_meio(head)
+    resto, meio.next = meio.next, None   # corta a lista em duas
+    return intercalar(merge_sort(head), merge_sort(resto))
+
+def achar_meio(head):
+    lento, rapido = head, head.next      # o rápido começa adiantado
+    while rapido and rapido.next:
+        lento, rapido = lento.next, rapido.next.next
+    return lento                         # último nó da primeira metade
+
+def intercalar(a, b):
+    guia = No(0)                         # nó sentinela, evita casos especiais
+    cauda = guia
+    while a and b:
+        if a.val <= b.val:
+            cauda.next, a = a, a.next
+        else:
+            cauda.next, b = b, b.next
+        cauda = cauda.next
+    cauda.next = a or b                  # o resto já está ordenado
+    return guia.next
+```
+
+Duas técnicas de [Listas Encadeadas](/topicos/listas-ligadas) aparecem inteiras aqui. A primeira é o **ponteiro rápido e lento**: como não existe `len` numa lista ligada, achar o meio pela força bruta exigiria duas passadas (uma para contar, outra para posicionar). Com o rápido andando dois nós por vez, quando ele chega ao fim o lento está no meio, em **uma passada só**. A segunda é o **nó sentinela** no `intercalar`, que evita ter que tratar "a lista de saída ainda está vazia" como caso especial em toda iteração.
+
+Repare no `rapido = head.next` em vez de `rapido = head`. Essa meia posição de adiantamento faz o lento parar no **último nó da primeira metade**, que é exatamente o nó cujo `next` precisa ser cortado. Com o rápido começando junto, o lento pararia uma casa adiante e a lista de dois nós entraria em recursão infinita.
+
+Isso responde a uma pergunta prática: qual algoritmo usar para ordenar uma lista ligada? O quick sort perde porque depende de acesso por índice para particionar; o heap sort perde porque a aritmética de índices do heap não existe sem array. Sobra o merge sort, e ele fica **melhor** ali do que em array.
+
+## Onde ele é a escolha certa
+
+Fora da lista ligada, três situações fazem o merge sort ser a resposta.
+
+<Colunas>
+<Cartao titulo="Não cabe na memória">
+Ordenação externa: leia um bloco que caiba na RAM, ordene, grave em disco, repita. No fim, intercale os blocos lendo um pouco de cada. A intercalação é sequencial e não precisa de acesso aleatório, o que combina com disco e com fita.
+</Cartao>
+<Cartao titulo="Vários processadores">
+As duas metades são independentes: nenhuma escreve onde a outra lê. Dá para entregar cada uma a uma thread ou a outra máquina, e juntar no fim.
+</Cartao>
+<Cartao titulo="Empates importam">
+Quando o dado tem mais coisa além da chave e a ordem original carrega informação, a estabilidade deixa de ser detalhe.
+</Cartao>
+</Colunas>
+
+<Callout tipo="aviso">
+O paralelismo tem um limiar que é fácil de errar. Dividir até um elemento por thread é o pior dos mundos: criar e coordenar uma thread custa muito mais do que ordenar dez números. A regra é parar de dividir em processos quando o trecho fica pequeno e resolver o resto num processo só. O mesmo raciocínio aparece na versão sequencial: abaixo de algumas dezenas de elementos, compensa trocar a recursão por um [insertion sort](/topicos/ordenacao-basica).
+</Callout>
+
+E é exatamente isso que as bibliotecas fazem. O `list.sort()` do Python e o `Arrays.sort` do Java para objetos usam **Timsort**, que é um merge sort com duas ideias a mais: ele procura trechos já ordenados na entrada (as "runs" naturais) em vez de dividir cegamente, e usa insertion sort binário para completar as runs curtas. Numa entrada já ordenada, o Timsort termina em O(n), porque encontra uma run só.
+
+O detalhe mais revelador está no Java: `Arrays.sort` usa Timsort para **objetos** e quicksort de pivô duplo para **primitivos**. A escolha é deliberada. Dois inteiros iguais são indistinguíveis, então estabilidade não significa nada para eles e o quicksort ganha por velocidade; dois objetos iguais pela chave de comparação podem ser bem diferentes, e aí a garantia vale o array auxiliar.
+
+Daqui, [quick sort](/topicos/quick-sort) mostra a outra forma de dividir e conquistar, que faz o trabalho na descida em vez da volta, e [heap sort](/topicos/heap-sort) mostra como conseguir a mesma garantia de O(n log n) sem gastar memória. Se a recursão ainda incomodar, vale voltar em [Recursão](/topicos/recursao): o merge sort é o exemplo mais limpo de "resolva os filhos, depois combine" que existe.

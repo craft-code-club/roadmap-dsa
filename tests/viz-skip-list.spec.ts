@@ -17,7 +17,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // nada, e comportamento certo debaixo do rótulo errado ensina errado do mesmo
 // jeito.
 
-const URL = "/topico/skip-list/";
+const URL = "/topicos/skip-list/";
 
 const CONGELA =
   "*, *::before, *::after { transition: none !important; animation: none !important; }";

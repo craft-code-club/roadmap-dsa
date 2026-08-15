@@ -102,7 +102,7 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
 ## Fundamentos, roadmap ou tópico avulso: onde o tópico mora
 
 Nem tudo que vale a pena aprender cabe na fila dos Fundamentos. Existem **três casas**, e todas
-publicam a página canônica do tópico em `/topico/<slug>/` — a URL de um tópico não depende de
+publicam a página canônica do tópico em `/topicos/<slug>/` — a URL de um tópico não depende de
 onde ele mora.
 
 | Casa | Onde se registra | O que o aluno vê |
@@ -128,7 +128,7 @@ topics: [
 O **dono** é quem decide a casca da página canônica e quem reivindica o slug no namespace. Quem
 **cita** não muda nada da casa alheia: ganha o tópico na própria lista, na própria ordem, e uma
 URL própria (`/roadmaps/<roadmap>/<topico>/`) que aponta `canonical` de volta para
-`/topico/<slug>/` e fica fora do sitemap.
+`/topicos/<slug>/` e fica fora do sitemap.
 
 Na tela: o card do tópico citado leva a etiqueta da casa dele, a abertura do roadmap avisa quantos
 vieram de fora, e a página canônica ganha a banda **"Este tópico faz parte de"** no fim.
@@ -141,8 +141,8 @@ diferentes.
 /fundamentos/                a sequência principal
 /roadmaps/                   a vitrine dos roadmaps e dos avulsos
 /roadmaps/<r>/               a abertura de um roadmap
-/roadmaps/<r>/<topico>/      um tópico servido DENTRO dele (canonical → /topico/)
-/topico/<slug>/              a página canônica de um tópico
+/roadmaps/<r>/<topico>/      um tópico servido DENTRO dele (canonical → /topicos/)
+/topicos/<slug>/              a página canônica de um tópico
 /topicos/                    o índice completo, com busca e filtros
 ```
 

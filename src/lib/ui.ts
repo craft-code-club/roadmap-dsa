@@ -1,4 +1,4 @@
-import type { Level } from "@content/fundamentos";
+import type { Level } from "@content/topicos";
 
 /**
  * Compara rotas ignorando a barra final (`trailingSlash: true` no next.config).

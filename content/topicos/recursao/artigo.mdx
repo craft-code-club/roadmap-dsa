@@ -1,0 +1,481 @@
+<Callout>
+Recursão é o ponto do roadmap em que o código deixa de ser uma lista de instruções e vira um **contrato**: eu resolvo o caso trivial e confio que a mesma função resolve o resto. Daqui para frente quase tudo depende disso, percorrer árvores, andar em grafos, dividir para conquistar, backtracking, programação dinâmica. Quem trava aqui trava em tudo o que vem depois.
+</Callout>
+
+## O que é recursão, e por que ela aparece em tudo depois daqui
+
+Recursão não é um algoritmo nem uma estrutura de dados. É uma **técnica**, da mesma família de [Two Pointers](/topicos/two-pointers), [Sliding Window](/topicos/sliding-window) e [Prefix Sum](/topicos/prefix-sum): um jeito de organizar a solução. A definição cabe numa linha, **uma função que chama a si mesma**, e é exatamente por ser tão curta que ela engana. O conceito entra em cinco segundos; a fluência em ler uma execução recursiva na cabeça leva bem mais.
+
+A ideia não nasceu na computação. Ela aparece o tempo todo em coisas que a gente já conhece:
+
+<Colunas>
+<Cartao titulo="Zoom no mapa">
+Você aproxima e vê a mesma coisa: um quadrante com ruas dentro. Aproxima de novo e é de novo um quadrante com ruas dentro, só que menor. Cada passo joga fora as bordas e devolve o mesmo problema em escala menor.
+</Cartao>
+<Cartao titulo="Matrioscas">
+As bonecas russas saem de dentro delas mesmas até chegar naquela que não abre. Essa última é o **caso base**: a única que você responde sem precisar abrir mais nada.
+</Cartao>
+</Colunas>
+
+Dois espelhos apontados um para o outro fazem a mesma coisa e nunca param, que é o retrato exato de uma recursão sem caso base. Uma árvore genealógica é recursiva na estrutura: cada pessoa tem pais, que têm pais. Uma pasta no disco contém arquivos e pastas, e cada pasta contém arquivos e pastas. É por isso que ler um JSON aninhado, listar um diretório e caminhar por uma árvore binária são todos o mesmo código com nomes diferentes.
+
+E tem a piada obrigatória: procure "recursão" no Google e ele pergunta *você quis dizer: recursão?*. A piada só funciona porque todo mundo entende a forma antes de entender a mecânica.
+
+O que vem depois no roadmap é praticamente uma lista de aplicações: [percursos em árvore](/topicos/tree-traversals), [DFS em grafos](/topicos/dfs-bfs), [merge sort](/topicos/merge-sort), [quick sort](/topicos/quick-sort), [busca binária](/topicos/busca-binaria), [backtracking](/topicos/backtracking) e [programação dinâmica](/topicos/programacao-dinamica). Nenhum deles fica confortável enquanto a pilha de chamadas for uma caixa preta.
+
+## Caso base e caso recursivo: as três regras
+
+Uma função recursiva correta obedece a três regras. Faltando qualquer uma, ela não funciona ou não termina.
+
+**1. Existe um caso base.** Uma entrada que a função responde de bate pronto, sem chamar mais ninguém. É a condição de parada.
+
+**2. O estado caminha para o caso base.** A cada chamada, o argumento muda **na direção** do caso base. Ter um caso base escrito no código não basta se ele nunca é alcançado.
+
+**3. A função chama a si mesma** com esse problema menor.
+
+O caso base é a parte que dá mais trabalho de identificar, e a definição útil é essa: **o caso base é aquilo que você sabe responder sem recorrer à recursão**. Se você fosse resolver na mão, seria o ponto em que você para de pensar e simplesmente responde. Quem trabalha com aplicação de negócio já escreve isso todo dia sem chamar de caso base: é o *guard rail* no topo da função, a validação que sai cedo antes de tentar qualquer coisa.
+
+O caso recursivo é o oposto: um pedaço do problema que você **não** sabe responder, mas que tem a mesma forma do problema original, só que menor.
+
+```python
+def fatorial(n):
+    if n <= 1:          # caso base: 0! = 1 e 1! = 1
+        return 1
+    return n * fatorial(n - 1)   # caso recursivo: o mesmo problema, menor
+```
+
+Lendo em voz alta: não sei quanto é `fatorial(4)`, mas sei que é `4 × fatorial(3)`. Também não sei `fatorial(3)`, mas é `3 × fatorial(2)`. Continua descendo até `fatorial(1)`, que eu sei: é 1. **Aí começa a volta**, e é na volta que as multiplicações que ficaram penduradas finalmente acontecem.
+
+<Callout tipo="aviso">
+Cuidado ao "enxugar" o caso base. No fatorial, `if n <= 1: return 1` está certo, porque `0!` e `1!` valem os dois 1. Já no Fibonacci a resposta muda: `fib(0)` é 0 e `fib(1)` é 1. Ali o certo é `if n <= 1: return n`, que devolve o próprio argumento. Trocar um pelo outro passa em quase todos os testes e quebra no zero.
+</Callout>
+
+Vale registrar de onde vem a forma. Uma prova por **indução matemática** tem exatamente as mesmas duas peças: um caso base (`1! = 1`) e um passo indutivo (se vale para `k`, então vale para `k + 1`). A recursão não nasceu da indução, mas herdou o esqueleto dela, e reconhecer isso ajuda a confiar no código antes de rodar: se o caso base está certo e o passo está certo, o resto está certo.
+
+### O template, e o salto de fé que faz ele funcionar
+
+Toda função recursiva, sem exceção, cabe neste molde:
+
+```python
+def resolver(entrada):
+    if e_caso_base(entrada):            # 1. o que eu respondo sem ajuda
+        return resposta_direta(entrada)
+    menor = reduzir(entrada)            # 2. o estado ANDA para o caso base
+    return combinar(resolver(menor))    # 3. chamo a mim mesma e junto
+```
+
+O pulo do gato está na linha 4. Ao escrevê-la, **assuma que `resolver(menor)` já devolve a resposta certa** e siga em frente. Não tente descer os níveis na cabeça: é justamente essa tentativa que faz a recursão parecer difícil. Você é responsável por dois pedaços, o caso base e **um** passo. O resto é consequência.
+
+Na prática isso vira uma frase que você fala em voz alta antes de digitar: *"se alguém me der o fatorial de 4, eu sei terminar: multiplico por 5"*. Se a frase existe, o código sai. Se você não consegue enunciá-la, o problema é a decomposição, não a sintaxe.
+
+### Quantos casos base a função precisa
+
+Nem sempre um. A quantidade vem de quantas "menores entradas" a redução consegue alcançar:
+
+- `fatorial` desce de 1 em 1, então quem chega no fundo é sempre o mesmo valor: `n <= 1` cobre tudo.
+- `fib` desce de 1 **e** de 2, então o fundo tem duas portas, `fib(1)` e `fib(0)`. As duas precisam de resposta, e `if n <= 1: return n` é o jeito de escrever as duas em uma linha.
+- Uma função sobre lista precisa do vazio. Se ela olha `nums[i]` e `nums[i + 1]` junto, precisa também do "sobrou só um".
+- Uma função sobre árvore quase sempre tem um caso base único e sem graça: `if no is None`. Ele é o que faz a folha funcionar sem nenhum tratamento especial, e é por isso que percurso em árvore fica tão curto.
+
+<Callout tipo="aviso">
+**Prefira desigualdade a igualdade no caso base.** `if n == 1` e `if n <= 1` parecem a mesma coisa no fatorial e não são. Com `if n == 1`, chamar `fatorial(0)` desce para -1, -2, -3 e só para no `RecursionError`: o estado passou direto pela porta e nunca mais volta. Com `if n <= 1`, a mesma chamada responde na hora. Igualdade é uma agulha, desigualdade é uma rede, e recursão erra o alvo com uma facilidade impressionante. Sempre que o estado anda em passos, use a rede.
+</Callout>
+
+## A pilha de chamadas: onde a recursão acontece de verdade
+
+Aqui está a parte que quase todo mundo pula. Uma chamada de função não é magia: ela cria um **frame** na *call stack*, um registro com os argumentos e as variáveis locais **daquela** chamada. Em recursão, isso quer dizer que cada nível tem o seu próprio `n`, e um nível não enxerga nem estraga o `n` do outro. Se você chama a função 10 vezes, existem 10 cópias vivas de `n` ao mesmo tempo na pilha.
+
+E a pilha é literalmente a estrutura [Pilha (Stack)](/topicos/pilhas): último a entrar, primeiro a sair. É por isso que a recursão desce toda antes de começar a subir.
+
+<RecursionVisualizer />
+
+Comece pelo preset **fatorial(5): o clássico** e clique em ▶ Rodar. Três coisas para observar, nesta ordem:
+
+1. **Na descida, nada é calculado.** Cada frame que entra guarda uma pendência, o rótulo `5 × ?`, `4 × ?`, `3 × ?`. A multiplicação não pode acontecer porque a resposta de baixo ainda não existe. É essa pendência que impede o frame de sair da pilha.
+2. **O caso base é o primeiro valor concreto.** Quando `fatorial(1)` devolve 1, é a primeira resposta real da execução inteira. Todas as outras nascem dela.
+3. **Na subida, tudo se resolve de uma vez.** Cada frame recebe o número de baixo, faz a conta que estava pendurada e some. O painel mostra `fatorial(5) = 120` com **5 chamadas** e pico de **5 frames**.
+
+Agora troque para o preset **fatorial(1): caso base de cara** e repare que a pilha nunca passa de um frame: quando o problema já é o caso base, não existe descida nenhuma. Depois experimente `n = 0` no campo: a resposta continua sendo 1, e é por isso que `n <= 1` cobre os dois.
+
+Esse pico de frames é a resposta para uma pergunta que costuma cair em entrevista: **a pilha conta na complexidade de espaço**. Uma versão iterativa do fatorial usa uma variável só, O(1). A recursiva usa n frames, O(n). Se o entrevistador disser que para ele a pilha não conta, tudo bem, mas o padrão é contar.
+
+## Stack overflow: por que a pilha tem teto
+
+A pilha não é infinita, e isso é de propósito. Se ela crescesse enquanto houvesse memória, um programa com recursão descontrolada roubaria memória dos outros processos e do sistema operacional. A linguagem corta antes: em CPython o limite padrão é **1000 níveis**, e passar disso levanta `RecursionError: maximum recursion depth exceeded`.
+
+Rode um Tribonacci recursivo só para ver quebrar: o estouro vem por volta da chamada 996, porque o interpretador já usa alguns frames antes do seu código começar.
+
+O visualizador acima tem um campo **limite da pilha** justamente para isso. Escolha o preset **fatorial(10) com limite 6**: o código está correto, o caso base existe, e mesmo assim estoura. A causa não é bug de lógica, é profundidade demais.
+
+Agora o caso mais traiçoeiro. Troque para o preset **caso base fora de alcance**:
+
+```python
+def contagem(n):
+    if n == 0:      # o caso base existe...
+        return
+    print(n)
+    return contagem(n + 1)   # ...mas o estado anda para longe dele
+```
+
+Existe caso base. A função chama a si mesma. Falta a regra 2: começando em 1 e somando 1 a cada chamada, `n` nunca chega a zero. **Esquecer o caso base é o erro de novato; escrever um caso base que o estado nunca alcança é o erro que passa na revisão de código.** Toda vez que escrever uma função recursiva, faça a pergunta em voz alta: o argumento está mesmo se aproximando da parada?
+
+Quando o estouro é legítimo (a entrada é grande de verdade, tipo uma lista encadeada com 100 mil nós), existem três saídas, nesta ordem de preferência:
+
+- **Reescrever em iteração.** Sempre é possível, e a pilha some do problema.
+- **Reduzir a profundidade.** Trocar recursão linear por dividir ao meio derruba a pilha de O(n) para O(log n).
+- **Aumentar o limite** com `sys.setrecursionlimit`. É o último recurso: você está movendo a parede, não resolvendo o problema, e a pilha real do sistema operacional continua finita.
+
+## A árvore do Fibonacci e o retrabalho exponencial
+
+Até aqui cada chamada gerou no máximo uma chamada, e o rastro da execução foi uma coluna. Com Fibonacci a história muda, porque cada nível dispara **duas** chamadas:
+
+```python
+def fib(n):
+    if n <= 1:
+        return n
+    return fib(n - 1) + fib(n - 2)
+```
+
+O código é lindo, tem exatamente a mesma forma da definição matemática, e é uma armadilha. `fib(5)` precisa de `fib(4)` e `fib(3)`. `fib(4)` precisa de `fib(3)` e `fib(2)`. Repare que `fib(3)` já apareceu duas vezes, em ramos diferentes, e a função não tem a menor ideia disso: ela vai recalcular a subárvore inteira do zero.
+
+<RecursionArvoreVisualizer />
+
+Comece pelo preset **fib(4): a primeira subárvore refeita** e avance passo a passo. São 9 chamadas para um resultado que vale 3, e você vê o `fib(2)` amarelo aparecendo pela segunda vez, agora tendo que expandir os dois filhos de novo. Depois vá para **fib(6): 25 chamadas** e rode até o fim: a árvore fica quase toda amarela, porque quase tudo ali é recálculo. Por último, **fib(8): o retrabalho fica óbvio**, com 67 chamadas e 58 delas repetidas.
+
+Agora a conta que costuma ficar em aberto. Uma pergunta natural é se O(2ⁿ) é literalmente o número de chamadas: com `n = 13`, seriam 2¹³ = 8.192 chamadas? A resposta curta é não, e dá para ser exato. Contando as chamadas de `fib(n)` ingênuo:
+
+```
+T(0) = T(1) = 1
+T(n) = 1 + T(n-1) + T(n-2)
+```
+
+Essa recorrência fecha em **T(n) = 2 · fib(n+1) - 1**. Confira nos números do visualizador: `fib(4)` dá 2 × 5 - 1 = 9, `fib(6)` dá 2 × 13 - 1 = 25, `fib(8)` dá 2 × 34 - 1 = 67. Para `n = 13` são 753 chamadas, não 8.192. Para `n = 20`, **21.891** chamadas, contra 2²⁰ = 1.048.576.
+
+O(2ⁿ) continua correto, porque Big O é um **limite superior**, e o propósito dele é ordem de grandeza, não contagem exata (a própria definição manda descartar constantes e ficar só com o termo dominante). A base real do crescimento aqui é φ ≈ 1,618, a razão áurea, não 2. O que não muda é o veredito: **cada +1 no `n` multiplica o trabalho por φ**, então somar 10 ao `n` multiplica por cerca de 123. De `fib(20)` para `fib(30)` é exatamente isso: 21.891 chamadas viram 2.692.537.
+
+Um detalhe que costuma ser lido errado: essa árvore tem milhares de nós, mas **a pilha nunca fica com milhares de frames**. A execução desce por um ramo, volta, desce por outro. O espaço é a **profundidade máxima**, O(n), não o número de nós. Tempo exponencial, espaço linear.
+
+O visualizador mostra os dois números lado a lado de propósito. Em `fib(8)` são **67 chamadas** e **pico da pilha 8**: o tempo explodiu, a memória não saiu do lugar. Vá aumentando o `n` de 4 até 8 e confira: o pico da pilha acompanha o `n` (4, 5, 6, 7, 8) enquanto as chamadas vão 9, 15, 25, 41, 67, multiplicando por φ a cada passo.
+
+## Memoização: de 21.891 chamadas para 39
+
+Se o problema é recalcular o que já foi calculado, a cura é óbvia: anote a resposta na primeira vez e consulte a anotação nas próximas.
+
+```python
+memo = {}
+
+def fib(n):
+    if n <= 1:
+        return n
+    if n in memo:          # já calculei isso antes?
+        return memo[n]
+    memo[n] = fib(n - 1) + fib(n - 2)
+    return memo[n]
+```
+
+São três linhas a mais e a árvore desaba. Volte ao visualizador, escolha o preset **fib(6) com cache: 11 chamadas** e rode: os nós roxos são acertos no cache. Cada um deles devolve o valor na hora e **poda a subárvore inteira** que estaria abaixo. Alterne o botão de memoização entre ligada e desligada com o mesmo `n` e compare o contador de chamadas nos dois lados.
+
+A tabela dentro do visualizador tem a comparação exata, e a primeira linha dela acompanha o `n` que você escolheu:
+
+| n | Sem cache | Com cache | Quantas vezes menos |
+| --- | --- | --- | --- |
+| 6 | 25 | 11 | 2× |
+| 10 | 177 | 19 | 9× |
+| 20 | 21.891 | 39 | 561× |
+| 30 | 2.692.537 | 59 | 45.636× |
+
+Com cache, cada valor entre 2 e n é calculado uma vez só; todo o resto vira consulta ao cache ou caso base. A conta fecha em exatamente **2n - 1** chamadas, e para `n = 20` isso dá 39. O tempo saiu de O(φⁿ) para **O(n)**.
+
+O preço é memória: o dicionário guarda n entradas, então o espaço vira O(n) (mais os O(n) da pilha). Essa versão, recursão + cache, é o **top-down**. Existe a irmã dela, o **bottom-up**, que começa pelos casos base e sobe montando a tabela com um laço, sem recursão nenhuma:
+
+```python
+def fib(n):
+    anterior, atual = 0, 1
+    for _ in range(n):
+        anterior, atual = atual, anterior + atual
+    return anterior
+```
+
+Aqui o espaço cai para **O(1)**, e a sacada é específica do problema: o Fibonacci só precisa dos **dois** valores anteriores, então dá para jogar a tabela fora e guardar duas variáveis. No Tribonacci seriam três.
+
+<Callout tipo="aviso">
+Não generalize o "bottom-up vira O(1)". Isso funciona porque o Fibonacci olha uma janela fixa para trás. Em programação dinâmica com duas dimensões você precisa da matriz inteira, e o espaço continua O(n × m) por mais bottom-up que seja. A técnica reduz o espaço quando o problema deixa.
+</Callout>
+
+Isso tudo é a porta de entrada da [Programação Dinâmica](/topicos/programacao-dinamica), e o nome bonito esconde uma ideia simples: **DP é recursão que para de repetir trabalho**.
+
+## Como ler a complexidade de uma função recursiva
+
+Duas perguntas, sempre as mesmas:
+
+- **Tempo:** quantas chamadas acontecem, vezes o trabalho **dentro** de cada chamada.
+- **Espaço:** qual é a profundidade máxima da pilha, mais qualquer estrutura extra que você criar.
+
+| Forma da recursão | Tempo | Espaço na pilha | Exemplo |
+| --- | --- | --- | --- |
+| Linear, uma chamada por nível | O(n) | O(n) | fatorial, potência |
+| Em árvore, duas por nível | O(2ⁿ) | O(n) | Fibonacci ingênuo |
+| Corta a entrada ao meio | O(log n) | O(log n) | busca binária |
+| Divide ao meio e junta | O(n log n) | O(n) | merge sort |
+
+Repare na terceira linha. A busca binária é recursiva e mesmo assim é logarítmica, porque **a complexidade não vem da recursão, vem do formato do problema**: a cada chamada ela descarta metade do array. Recursão não deixa nada mais lento nem mais rápido por si só, ela só empilha.
+
+### Monte a recorrência antes de chutar a resposta
+
+Uma função recursiva descreve o próprio custo, e escrever isso em uma linha resolve quase todos os casos. A receita: **T(n) = a soma do custo das chamadas que eu disparo + o trabalho que eu faço fora delas**. Leia o corpo da função e transcreva literalmente.
+
+| Função | Recorrência | Fecha em |
+| --- | --- | --- |
+| `fatorial(n)` | T(n) = T(n-1) + O(1) | O(n) |
+| `fib(n)` ingênuo | T(n) = T(n-1) + T(n-2) + O(1) | O(φⁿ), dentro de O(2ⁿ) |
+| busca binária | T(n) = T(n/2) + O(1) | O(log n) |
+| merge sort | T(n) = 2·T(n/2) + O(n) | O(n log n) |
+| Torre de Hanói | T(n) = 2·T(n-1) + O(1) | O(2ⁿ), exatamente 2ⁿ - 1 |
+| `zoom(matriz, v)` | T(v) = T(v-1) + O(n²) | O(v · n²) |
+
+A última linha é a que mais ensina: quem manda na recursão é `v`, mas o custo de cada nível é O(n²) porque a função varre a matriz de lado n inteira antes de descer. **Duas variáveis, duas contas, e nenhuma delas cancela a outra.**
+
+Duas leituras dão conta da esmagadora maioria:
+
+- **Se o argumento é subtraído** (`n - 1`, `n - 2`), a profundidade é n. Com uma chamada por nível dá O(n); com `a` chamadas por nível, a árvore tem ordem de aⁿ e você caiu no exponencial.
+- **Se o argumento é dividido** (`n / 2`), a profundidade é log₂(n). Se cada nível custa O(1), o total é O(log n). Se cada nível ainda varre a entrada toda, o total é O(n log n), que é o merge sort.
+
+A Torre de Hanói é a mais bonita de conferir: mover n discos é mover n-1 para o pino do meio, mover o disco grande, e mover os n-1 de volta. T(n) = 2·T(n-1) + 1, que fecha em **exatamente 2ⁿ - 1 movimentos**. Com 3 discos são 7, com 20 são 1.048.575, e com os 64 discos da lenda são 18.446.744.073.709.551.615. Exponencial não é força de expressão.
+
+### O pulo de linear para logarítmico
+
+As duas funções abaixo são o motivo de a busca binária e o `Pow(x, n)` estarem na lista de problemas. As duas são recursivas, e as duas fogem do O(n) pelo mesmo truque: **jogar metade fora a cada chamada**.
+
+```python
+def busca(nums, alvo, lo, hi):     # índices, nunca fatias
+    if lo > hi:                    # caso base: o intervalo secou, não achei
+        return -1
+    meio = (lo + hi) // 2
+    if nums[meio] == alvo:
+        return meio                # caso base: achei
+    if nums[meio] < alvo:
+        return busca(nums, alvo, meio + 1, hi)
+    return busca(nums, alvo, lo, meio - 1)
+```
+
+Repare que existem **dois** casos base aqui, e é comum esquecer o primeiro: sem `lo > hi`, um alvo que não existe faz o intervalo virar negativo e a função nunca para. Com 1 milhão de posições, a pilha chega a 20 frames, não a 1 milhão.
+
+```python
+def potencia(x, n):
+    if n < 0:
+        return 1 / potencia(x, -n)   # expoente negativo: inverte no fim
+    if n == 0:
+        return 1
+    metade = potencia(x, n // 2)     # UMA chamada, guardada numa variável
+    if n % 2 == 0:
+        return metade * metade
+    return metade * metade * x
+```
+
+`x⁶⁴` sai em **8 chamadas** em vez de 64, e `x¹⁰⁰⁰` em 11. E aqui mora o erro que derruba a submissão: trocar as duas últimas linhas por `return potencia(x, n // 2) * potencia(x, n // 2)`. O resultado é o mesmo, o código parece mais limpo, e a recorrência vira T(n) = 2·T(n/2) + O(1), que é **O(n)**. Você acabou de escrever a versão lenta com cara de versão rápida. Guardar a chamada numa variável não é estilo, é a otimização inteira.
+
+E aqui a armadilha que mais engana. É tentador olhar "chama a si mesma uma vez só, logo é O(n)". Errado:
+
+```python
+def zoom(matriz, vezes):
+    if vezes == 0 or len(matriz) <= 2:
+        return matriz
+    menor = []
+    for i in range(1, len(matriz) - 1):      # o trabalho está AQUI
+        linha = []
+        for j in range(1, len(matriz[i]) - 1):
+            linha.append(matriz[i][j])
+        menor.append(linha)
+    return zoom(menor, vezes - 1)
+```
+
+Uma chamada recursiva por nível, sim, mas cada nível varre a matriz inteira com dois laços aninhados. O custo por chamada é O(n²), e é ele que manda. **Conte as chamadas, mas depois olhe o que acontece dentro de uma.**
+
+O mesmo vale para um clássico silencioso em Python: `resolver(nums[1:])` parece inocente e copia a lista a cada chamada. Uma recursão que seria O(n) vira O(n²) sem uma linha suspeita à vista. Passe índices, não fatias.
+
+## Os tipos de recursão
+
+Recursão tem nomes, e eles confundem porque parecem uma lista única quando na verdade são **três perguntas independentes** sobre a mesma função.
+
+<RecursionTipos />
+
+A confusão clássica é achar que "cauda" e "linear" são alternativas. Não são: `fatorial(n, acc)` é **direta** (chama a si mesma), **linear** (uma chamada por nível) e **de cauda** (a chamada é a última operação) ao mesmo tempo. Uma classificação responde *quem chama*, outra *quantas vezes*, outra *quando*.
+
+O eixo que rende mais é o último. Compare os dois fatoriais:
+
+```python
+def fatorial(n):                    # cabeça: a conta sobra para a volta
+    if n <= 1:
+        return 1
+    return n * fatorial(n - 1)
+
+def fatorial_cauda(n, acc=1):       # cauda: a conta desce pronta
+    if n <= 1:
+        return acc
+    return fatorial_cauda(n - 1, acc * n)
+```
+
+Não é a posição da palavra `fatorial` na linha que muda a classificação, é **se sobra alguma operação depois da chamada voltar**. No primeiro caso sobra a multiplicação por `n`, e por isso o frame precisa continuar vivo. No segundo não sobra nada.
+
+Volte ao visualizador da pilha e escolha o preset **fatorial(5) em cauda**. Compare com o clássico: os frames somem no mesmo ritmo, o número de chamadas é o mesmo, o pico de frames é o mesmo. **Em Python a recursão de cauda não economiza um byte.** Ela só carrega o rótulo "nada pendente", e é esse rótulo que uma linguagem com *tail call optimization* aproveita para reaproveitar o frame em vez de empilhar um novo, transformando a recursão em iteração no compilador. Linguagens funcionais tratam isso como básico; Python, Java e C# não fazem.
+
+Esse é o assunto do tópico seguinte, e ele tem página própria: [Recursão em Programação Funcional](/topicos/recursao-funcional).
+
+### Recursão estrutural: lista, árvore e JSON são o mesmo código
+
+Existe um quarto corte que a tabela acima não cobre e que é o mais importante daqui para frente. Nos exemplos até agora a recursão andava sobre um **número** (`n - 1`, `n // 2`). Na vida real ela quase sempre anda sobre uma **estrutura que já é recursiva por dentro**, e aí o código deixa de ser esperto e passa a apenas acompanhar o formato do dado:
+
+```python
+# LISTA LIGADA: o problema menor é "o resto da lista"
+def soma(no):
+    if no is None:                 # o vazio é o caso base
+        return 0
+    return no.val + soma(no.prox)
+
+# ÁRVORE BINÁRIA: dois problemas menores, um por filho
+def altura(no):
+    if no is None:
+        return 0
+    return 1 + max(altura(no.esq), altura(no.dir))
+
+# JSON ANINHADO: quantos filhos o nó tiver
+def contar_folhas(v):
+    if isinstance(v, dict):
+        return sum(contar_folhas(x) for x in v.values())
+    if isinstance(v, list):
+        return sum(contar_folhas(x) for x in v)
+    return 1                       # não é container: é folha
+```
+
+Os três têm o mesmo esqueleto e mudam em duas coisas só: **qual é o vazio** e **como juntar as respostas dos filhos**. Trocar `max` por `+` em `altura` já transforma a função em "quantidade de nós", sem mexer em mais nada. É por isso que caminhar numa árvore, listar um diretório e imprimir um JSON são o mesmo programa com nomes diferentes: quem é recursivo é o dado, o código só obedece.
+
+<Callout tipo="aviso">
+O que **não** funciona é trocar `max` por `min` esperando a profundidade mínima. Num nó com um filho só, `min(0, h)` devolve 0 e a conta para num nó que não é folha. Essa é uma das pegadinhas mais conhecidas do LeetCode (o *Minimum Depth of Binary Tree*), e a lição é geral: **quando a resposta depende de chegar na folha, o caso base tem que ser a folha, não o `None`**. Trocar o operador é fácil; trocar o caso base junto é o que quase todo mundo esquece.
+</Callout>
+
+Repare também que `contar_folhas` chama a si mesma, mas na versão real de um pretty printer de JSON costuma haver duas funções, uma para objeto e outra para valor, que se chamam em círculo. Isso é a **recursão indireta** do primeiro eixo da tabela acima, e ela é muito mais comum em código de produção do que o nome sugere.
+
+Quando a recursão estrutural não devolve nada e só produz efeito (imprimir, salvar, contar num acumulador externo), o caso base vira um `return` seco: "cheguei no vazio, não faça nada". É a forma que aparece em [DFS](/topicos/dfs-bfs) e em [percursos de árvore](/topicos/tree-traversals), os próximos tópicos que dependem inteiramente desta página.
+
+## Recursão ou iteração: como escolher
+
+Todo problema resolvido com recursão pode ser reescrito com laço, e vice-versa. A escolha é de engenharia, não de gosto.
+
+| Eixo | Recursão | Iteração |
+| --- | --- | --- |
+| Forma | caso base + caso recursivo | condição + corpo do laço |
+| Estado | um escopo novo por chamada | a mesma variável reescrita |
+| Memória | O(profundidade) na pilha | O(1) além da entrada |
+| Erro típico | `RecursionError` | laço infinito que trava |
+| Debug | frames empilhados, difícil de seguir | linear, fácil de seguir |
+
+Na prática, a regra que funciona:
+
+**Use recursão quando o problema é recursivo.** Árvore, grafo, JSON aninhado, diretório, dividir para conquistar. Nesses casos o código recursivo tem a forma do dado, e a versão iterativa exige que você gerencie uma pilha na mão, que é escrever à mão exatamente o que a linguagem já faz de graça.
+
+**Use iteração quando é varredura.** Somar um array, procurar um elemento, montar uma string. O laço é mais rápido (não tem custo de empilhar e desempilhar frame), não estoura, e é mais fácil de depurar.
+
+### Como se converte uma na outra
+
+Quando a recursão estoura e não dá para reescrever com um laço simples, a saída é sempre a mesma: **você carrega a pilha na mão**. Compare o percurso de uma árvore nas duas formas:
+
+```python
+def percorrer(no):            # recursivo: a pilha é a call stack
+    if no is None:
+        return
+    visitar(no)
+    percorrer(no.esq)
+    percorrer(no.dir)
+
+def percorrer(raiz):          # iterativo: a pilha é uma lista minha
+    pilha = [raiz]
+    while pilha:
+        no = pilha.pop()
+        if no is None:
+            continue
+        visitar(no)
+        pilha.append(no.dir)  # empilha o direito primeiro...
+        pilha.append(no.esq)  # ...porque o pop tira o último
+```
+
+As duas visitam os nós na mesma ordem e as duas gastam O(altura) de memória. A diferença é onde essa memória mora: no primeiro caso na pilha do processo, com teto de 1000 níveis em Python; no segundo, no heap, que aguenta milhões. É esse o argumento real a favor da versão iterativa, e não performance.
+
+Repare no `append` invertido. Ele é a fonte de metade dos bugs dessa conversão: a pilha é LIFO, então empilhar na ordem natural devolve os filhos ao contrário. Quem trabalha com [Pilha (Stack)](/topicos/pilhas) já reconhece o padrão.
+
+Um detalhe honesto sobre legibilidade: a recursão costuma ganhar quando a definição do problema **já é** recursiva. `fib(n) = fib(n-1) + fib(n-2)` vira uma linha de código idêntica à fórmula. A versão de duas variáveis é mais rápida e mais econômica, mas ninguém olha para ela e enxerga Fibonacci de primeira. Clareza e performance são eixos diferentes, e o [Big O](/topicos/big-o) só fala de um deles.
+
+## As armadilhas que pegam todo mundo
+
+**Caso base ausente ou inalcançável.** Já vimos as duas versões. A segunda é a que sobrevive à revisão de código.
+
+**Esquecer o `return`.** Em Python, `fatorial(n - 1)` sem `return` calcula tudo certinho e devolve `None`. O erro não é de recursão, é de distração, e é campeão de submissão errada no LeetCode.
+
+**Argumento mutável no valor padrão.** Esta é uma cilada de Python de verdade:
+
+```python
+def fib(n, memo={}):    # NÃO faça isso
+    ...
+```
+
+O dicionário é criado **uma vez**, quando a função é definida, e sobrevive entre chamadas diferentes do programa. Em Fibonacci puro isso até "funciona" por acidente, mas em qualquer problema em que o cache dependa de outra entrada, você vai receber resposta de outro caso de teste. Crie o dicionário fora, ou use `memo=None` e inicialize dentro, ou `@functools.cache`.
+
+**Fatiar a entrada a cada chamada.** `nums[1:]`, `s[1:]`, `matriz[1:]`. Cada fatia é uma cópia O(n), e a complexidade sobe um grau inteiro sem aviso. Passe índices.
+
+**Chamar a mesma recursão duas vezes na mesma linha.** `potencia(x, n // 2) * potencia(x, n // 2)` devolve o valor certo e joga fora a otimização inteira: de O(log n) para O(n). O primo dele é o copiar e colar que deixa `max(altura(no.esq), altura(no.esq))`, e esse nem lento é, é resposta errada. Guarde a chamada numa variável e reveja os argumentos repetidos antes de submeter.
+
+**Compartilhar um acumulador mutável entre ramos.** Passar a mesma lista para os dois filhos e esquecer de desfazer o que você acrescentou é o bug número um de [backtracking](/topicos/backtracking), e ele já aparece aqui. Ou você passa uma cópia para cada ramo (mais caro, mais seguro), ou acrescenta antes de descer e **remove depois de voltar**. Não existe terceira opção.
+
+**Achar que a pilha é de graça.** Ela conta no espaço, e ela tem teto. Uma solução O(n) de tempo e O(n) de pilha pode ser reprovada por profundidade em uma entrada grande, enquanto a iterativa passa.
+
+**Recalcular o mesmo subproblema.** Sempre que a mesma entrada aparecer em dois ramos diferentes da árvore de chamadas, existe memoização esperando para ser aplicada. O sintoma é o tempo explodir com `n` pequeno.
+
+**Confiar no debugger para entender.** Ele mostra o topo da pilha, não a árvore. Para entender uma recursão, desenhe a árvore de chamadas no papel com um `n` pequeno, do jeito que o visualizador acima desenha. É mais rápido do que parece.
+
+## Como praticar
+
+O músculo específico a treinar aqui é a **simulação mental**: olhar para quatro linhas e conseguir ver a descida, o caso base e a subida acontecendo. É um exercício desconfortável no começo, porque o código é curto e mesmo assim exige atenção. Ele se paga inteiro quando chegarem árvores, backtracking e DP, quando desenhar a recursão certa passa a ser metade da solução.
+
+Roteiro que funciona, na ordem:
+
+1. **Escreva o caso base primeiro**, antes de qualquer outra coisa. Pergunte: qual é a menor entrada que eu respondo sem pensar?
+2. **Escreva o caso recursivo assumindo que a função já funciona.** Não tente simular os níveis de baixo na cabeça. Confie no contrato.
+3. **Verifique a regra 2**: o argumento está mesmo indo para o caso base?
+4. **Rode com a menor entrada possível** antes de rodar com a de verdade. A lista fixa: entrada vazia, um elemento, dois elementos, `n = 0`, `n = 1` e, se ele puder chegar, um valor negativo. É onde mora quase todo caso de teste que falha.
+5. **Conte as chamadas** com um contador antes de decidir se precisa de cache.
+
+Use os visualizadores para **prever antes de rodar**. Responda de cabeça e só depois clique:
+
+- Quantos frames `fatorial(0)` cria? E `fatorial(1)`?
+- Com limite da pilha em 3 e `n` igual a 5, em qual chamada estoura?
+- Na árvore, com `n = 5` e o cache desligado, quantas chamadas no total? E ligando o cache?
+- No modo cauda, o pico de frames é menor que no clássico? Por quê?
+
+### Os cinco problemas, e o que cada um treina
+
+A lista abaixo está na ordem de resolver, e cada um existe por um motivo diferente.
+
+**Fibonacci Number (509).** É esta página inteira em um exercício. Escreva o ingênuo, submeta e olhe o tempo; depois acrescente o cache e submeta de novo. O caso base é `n <= 1: return n`, com `n` e não `1`, porque `fib(0)` vale 0.
+
+**Climbing Stairs (70).** O mesmo Fibonacci disfarçado, e reconhecer isso vale mais que resolver. Para chegar ao degrau n você veio do n-1 (um passo) ou do n-2 (dois passos), logo `formas(n) = formas(n-1) + formas(n-2)`. O que muda é o caso base: `formas(1) = 1` e `formas(2) = 2`, porque aqui não existe "zero jeitos". Sem memoização, o `n = 45` do enunciado estoura o limite de tempo, e é bom ver isso acontecer uma vez.
+
+**Reverse Linked List (206).** Recursão de cabeça pura, o problema que mais dá nó na primeira leitura. O contrato salva: `inverter(no.prox)` devolve a cabeça do resto **já invertido**, e sobra para você consertar exatamente uma ligação.
+
+```python
+def inverter(no):
+    if no is None or no.prox is None:   # 0 ou 1 nó: já está invertido
+        return no
+    nova_cabeca = inverter(no.prox)     # inverte TODO o resto primeiro
+    no.prox.prox = no                   # quem estava na minha frente aponta para mim
+    no.prox = None                      # e eu solto quem eu apontava
+    return nova_cabeca                  # a cabeça nova é sempre o último nó
+```
+
+Duas coisas para não errar: `nova_cabeca` atravessa a subida inteira sem mudar (é o mesmo nó em todos os níveis, o antigo último), e esquecer `no.prox = None` deixa um ciclo entre os dois últimos nós, que trava a lista na hora de percorrer. Custa O(n) de tempo e O(n) de pilha, contra O(1) de espaço da versão iterativa. Escreva as duas.
+
+**Maximum Depth of Binary Tree (104).** A recursão estrutural na forma mais limpa que existe: três linhas, caso base no `None`, e o `max` dos dois filhos mais um. É o gabarito mental que você vai reusar em [percursos em árvore](/topicos/tree-traversals). Se sair sem pensar, o próximo tópico do roadmap fica fácil.
+
+**Pow(x, n) (50).** Fecha o ciclo com o pulo de O(n) para O(log n). Os três detalhes que fazem falhar: expoente zero, expoente negativo, e a chamada duplicada na mesma linha. Guarde a metade numa variável.
+
+Uma dica de ritmo que funciona: em problema Fácil, se em 10 minutos você não achou a sacada, vá para as dicas e o editorial. Ficar uma hora travado não treina nada; ler a solução, fechar e reescrever do zero no dia seguinte treina muito.
+
+Quando estes estiverem confortáveis, os próximos passos naturais são [Recursão em Programação Funcional](/topicos/recursao-funcional), para entender a otimização de cauda de verdade, e [Percursos em Árvore](/topicos/tree-traversals), onde a recursão deixa de ser exercício e vira ferramenta de trabalho.

@@ -13,7 +13,7 @@ import { SITE_NAME, TITLE_TEMPLATE } from "@/lib/seo";
 // card da home no LinkedIn e no Facebook.
 //
 // O `template` continua sendo o fallback das rotas que não definem OG próprio
-// (os /topico/*): o Next preenche `og:title`/`og:description` a partir do
+// (os /topicos/*): o Next preenche `og:title`/`og:description` a partir do
 // `title`/`description` resolvidos da página quando o layout não os impõe.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

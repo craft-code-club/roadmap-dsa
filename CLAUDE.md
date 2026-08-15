@@ -63,14 +63,14 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
 - **Vocabulário, e ele importa:** *Fundamentos* é a sequência principal; *roadmap* é um percurso
   extra; *tópico* é uma página. "Trilha" e "curso" não existem mais no produto nem no código
   (só sobrou "Trilha de navegação", que é o nome do breadcrumb).
-- **A página canônica de um tópico é sempre `/topico/<slug>/`**, venha ele de onde vier. Quem
+- **A página canônica de um tópico é sempre `/topicos/<slug>/`**, venha ele de onde vier. Quem
   precisa de todos os tópicos do site (`generateStaticParams`, sitemap, guarda de datas) usa
   `SITE_TOPICS`; quem fala dos Fundamentos (progresso, barra lateral, números da home) usa
   `ALL_TOPICS`. Trocar um pelo outro não dá erro — dá número errado na home ou 404 num tópico.
 - **UM TÓPICO PODE ESTAR EM MAIS DE UM ROADMAP.** O grupo de um roadmap aceita um `Topic` escrito
   ali (ele é o DONO) ou uma `string` com o slug (ele só CITA). O dono decide a casca da página
   canônica e reivindica o slug; quem cita ganha o tópico na lista e uma URL própria
-  (`/roadmaps/<r>/<topico>/`) com `canonical` de volta para `/topico/<slug>/` e fora do sitemap.
+  (`/roadmaps/<r>/<topico>/`) com `canonical` de volta para `/topicos/<slug>/` e fora do sitemap.
   Exemplo vivo: `content/roadmaps/bancos-de-dados.ts`, 4 dos 6 tópicos citados de 3 casas.
   O **namespace é global e o build cobra**: slug de tópico, id de grupo, slug de roadmap, citação
   que resolve e tópico não repetido são conferidos no import de `content/roadmaps/index.ts`.
@@ -150,7 +150,7 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
 - **A mesma régua vale um nível acima:** a abertura de um roadmap sem NENHUM tópico com material
   também é `noindex` e fica fora do sitemap (`roadmapHasMaterial`). Ela continua no site (mapear
   o território vale para quem estuda), mas não pede lugar no índice.
-- **`/roadmaps/<r>/<topico>/` serve o mesmo texto de `/topico/<slug>/`**, então ela aponta
+- **`/roadmaps/<r>/<topico>/` serve o mesmo texto de `/topicos/<slug>/`**, então ela aponta
   `canonical` (e `og:url`) para a canônica, fica FORA do sitemap e não emite JSON-LD nenhum: quem
   declara o recurso é a canônica, e declarar de novo numa página que acabou de dizer "a principal
   é outra" é a mesma contradição do `noindex` com `LearningResource`.

@@ -41,7 +41,7 @@ const KB = 1024;
  *
  * A régua é o piso da casca do site mais ~20%: 207,4 KB é o que a home custa, e
  * ela não tem visualizador nenhum. Medido depois do corte por rota: a pior das
- * 53 rotas é `/topico/listas-ligadas/`, com 235,7 KB (folga de 6,1%), a mediana
+ * 53 rotas é `/topicos/listas-ligadas/`, com 235,7 KB (folga de 6,1%), a mediana
  * das rotas de tópico fica perto de 224 KB, e as 11 páginas "em breve" custam
  * 213,3 KB. Antes do corte eram 382,5 KB em todas as 47 rotas de tópico.
  *
@@ -257,7 +257,7 @@ function ancorasDosArtigos() {
 test("todo link interno de artigo já sai com a barra final", () => {
   // `next.config.ts` tem `trailingSlash: true`. Link sem a barra toma 308 em
   // produção (medido: `curl -o /dev/null -w '%{http_code}'
-  // https://dsa.craftcodeclub.io/topico/arrays` -> 308) antes de carregar
+  // https://dsa.craftcodeclub.io/topicos/arrays` -> 308) antes de carregar
   // qualquer byte útil.
   const ancoras = ancorasDosArtigos();
   expect(ancoras.length, "nenhuma âncora de prosa no build").toBeGreaterThan(200);
@@ -301,13 +301,13 @@ test("todo link externo de artigo abre em nova aba com rel seguro", () => {
 });
 
 test("classificarLink separa interno, externo e o que fica como <a> cru", () => {
-  // Os artigos de hoje só têm dois casos (251 links `/topico/...` e 12 `https://`),
+  // Os artigos de hoje só têm dois casos (251 links `/topicos/...` e 12 `https://`),
   // mas a condição precisa estar certa para os que ainda vão aparecer: âncora da
   // própria página, `mailto:`, arquivo estático com extensão, caminho relativo.
   const casos: [string | undefined, ReturnType<typeof classificarLink>][] = [
-    ["/topico/arrays", { tipo: "interno", href: "/topico/arrays/" }],
-    ["/topico/arrays/", { tipo: "interno", href: "/topico/arrays/" }],
-    ["/topico/arrays#quando-usar", { tipo: "interno", href: "/topico/arrays/#quando-usar" }],
+    ["/topicos/arrays", { tipo: "interno", href: "/topicos/arrays/" }],
+    ["/topicos/arrays/", { tipo: "interno", href: "/topicos/arrays/" }],
+    ["/topicos/arrays#quando-usar", { tipo: "interno", href: "/topicos/arrays/#quando-usar" }],
     ["/roadmap?g=1#x", { tipo: "interno", href: "/roadmap/?g=1#x" }],
     ["/", { tipo: "interno", href: "/" }],
     ["#nesta-pagina", { tipo: "cru", href: "#nesta-pagina" }],
@@ -334,19 +334,19 @@ test("classificarLink separa interno, externo e o que fica como <a> cru", () => 
 // ---------------------------------------------------------------------------
 
 test("clicar num link do artigo não recarrega o documento", async ({ page }) => {
-  await page.goto("/topico/a-star/");
+  await page.goto("/topicos/a-star/");
   // A marca morre em qualquer navegação de documento. Se ela sobreviver, a
   // troca de página foi do router, sem recarregar a aplicação inteira.
   await page.evaluate(() => {
     (window as unknown as { __semRecarga?: boolean }).__semRecarga = true;
   });
 
-  const link = page.locator("article a.prose-a[href^='/topico/']").first();
+  const link = page.locator("article a.prose-a[href^='/topicos/']").first();
   const destino = await link.getAttribute("href");
   // A barra final é do CAMINHO, não do href inteiro: `classificarLink` produz
-  // `/topico/arrays/#quando-usar`, que é correto e não termina em "/". Afirmar
+  // `/topicos/arrays/#quando-usar`, que é correto e não termina em "/". Afirmar
   // sobre o href cru contradiria o contrato da própria função no dia em que um
-  // artigo linkar tópico com âncora (hoje: 0 dos 251 links `/topico/`).
+  // artigo linkar tópico com âncora (hoje: 0 dos 251 links `/topicos/`).
   const alvo = new URL(destino ?? "", "http://local");
   expect(alvo.pathname, "o link do artigo precisa apontar para a URL final, sem 308").toMatch(
     /\/$/
@@ -355,7 +355,7 @@ test("clicar num link do artigo não recarrega o documento", async ({ page }) =>
   await link.click();
   // Comparação de URL destrinchada, não regex montada com ela: `new
   // RegExp(destino)` trataria `.`, `?` e `(` como metacaractere. E compara as
-  // TRÊS partes, não só o `pathname`: com `/topico/x/#ancora` o caminho sozinho
+  // TRÊS partes, não só o `pathname`: com `/topicos/x/#ancora` o caminho sozinho
   // casaria mesmo se a âncora se perdesse na navegação.
   await expect(page).toHaveURL(
     (u) => u.pathname === alvo.pathname && u.search === alvo.search && u.hash === alvo.hash
@@ -374,7 +374,7 @@ test("clicar num link do artigo não recarrega o documento", async ({ page }) =>
 // ver o passo mudar, senão ele só provou que a casca está lá. Três perfis, pelo
 // mesmo motivo de sempre — o que quebra num artigo denso não é o que quebra
 // numa página de um visualizador só.
-for (const rota of ["/topico/arrays/", "/topico/dijkstra/", "/topico/hash-table/"]) {
+for (const rota of ["/topicos/arrays/", "/topicos/dijkstra/", "/topicos/hash-table/"]) {
   test(`${rota} continua interativo, e o passo anda nos dois sentidos`, async ({ page }) => {
     await page.goto(rota);
     const viz = page.locator("figure.viz").first();

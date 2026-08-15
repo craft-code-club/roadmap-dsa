@@ -13,7 +13,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // abaixo de uma janela de 900 (medido em 1512x900).
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/listas-ligadas/";
+const URL = "/topicos/listas-ligadas/";
 
 // Janela de notebook de 16", que é o caso que motivou a casca.
 const BAIXA = { width: 1512, height: 900 };

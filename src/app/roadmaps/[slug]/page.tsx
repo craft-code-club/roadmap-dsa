@@ -4,13 +4,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   getRoadmap,
-  origemDoTopico,
+  getTopico,
   roadmapGroups,
   roadmapHasMaterial,
   roadmapTopics,
-  ROADMAPS,
+  ROADMAPS_EXTRAS,
+  urlDoRoadmap,
+  urlDoTopicoNoRoadmap,
 } from "@content/roadmaps";
-import { getTopic, isEmptyTopic } from "@content/fundamentos";
+import { isEmptyTopic } from "@content/topicos";
 import { GrupoCards } from "@/components/GrupoCards";
 import { breadcrumbJsonLd, JsonLd, roadmapJsonLd, type Migalha } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
@@ -28,7 +30,7 @@ import { levelClass } from "@/lib/ui";
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return ROADMAPS.map((r) => ({ slug: r.slug }));
+  return ROADMAPS_EXTRAS.map((r) => ({ slug: r.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -59,13 +61,12 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
   const topicos = roadmapTopics(r);
   const prontos = topicos.filter((t) => !isEmptyTopic(t));
   const primeiro = prontos[0];
-  const requisitos = (r.requires ?? []).map((s) => getTopic(s)).filter((t) => !!t);
-  const emprestados = roadmapGroups(r).flatMap((g) => g.itens.filter((i) => i.emprestado));
+  const requisitos = (r.requires ?? []).map((s) => getTopico(s)).filter((t) => !!t);
 
   const migalhas: Migalha[] = [
     { name: "Início", href: "/" },
     { name: "Roadmaps", href: "/roadmaps/" },
-    { name: r.name, href: `/roadmaps/${r.slug}/` },
+    { name: r.name, href: `${urlDoRoadmap(r)}/` },
   ];
   const caminho = migalhas.slice(0, -1);
 
@@ -114,7 +115,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
           <span className="roadmap-requisitos-rot">Antes daqui</span>
           <div className="roadmap-requisitos-links">
             {requisitos.map((t) => (
-              <Link key={t.slug} href={`/topico/${t.slug}`} className="req-link">
+              <Link key={t.slug} href={`/topicos/${t.slug}`} className="req-link">
                 {t.name}
               </Link>
             ))}
@@ -122,21 +123,20 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
         </div>
       )}
 
-      {/* Um roadmap pode ser feito, no todo ou em parte, de tópicos que moram em
-          outro lugar. Dizer isso na abertura evita a leitura errada mais
-          provável: a de que este roadmap está "vazio" porque poucos tópicos
-          nasceram aqui. O que ele publica, nesse caso, é a CURADORIA. */}
-      {emprestados.length > 0 && (
-        <p className="roadmap-emprestados">
-          <strong>{emprestados.length}</strong> {emprestados.length === 1 ? "destes tópicos vem" : "destes tópicos vêm"}{" "}
-          de outras partes do guia, e {emprestados.length === 1 ? "é listado" : "são listados"} aqui na ordem
-          que este roadmap recomenda. Marcar um deles conta na casa dele também.
-        </p>
-      )}
+      {/* Todo tópico de um roadmap é uma CITAÇÃO: ele existe por conta própria
+          e pode estar em outros percursos. Dizer isso na abertura evita a
+          leitura errada mais provável, a de que este roadmap está "vazio"
+          porque poucos tópicos nasceram aqui. Nenhum nasceu aqui: o que a
+          página publica é a CURADORIA. */}
+      <p className="roadmap-emprestados">
+        Estes tópicos existem por conta própria e aparecem em outros percursos do guia. O que este
+        roadmap traz é a <strong>ordem</strong>: qual vem antes de qual, e por quê. Marcar um deles
+        conta em toda parte.
+      </p>
 
       <div className="hero-actions" style={{ marginBottom: 34 }}>
         {primeiro ? (
-          <Link href={`/roadmaps/${r.slug}/${primeiro.slug}`} className="btn btn-primary">
+          <Link href={urlDoTopicoNoRoadmap(r, primeiro.slug)} className="btn btn-primary">
             Começar por {primeiro.name}
           </Link>
         ) : (
@@ -158,10 +158,9 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
         groups={roadmapGroups(r).map((g) => ({
           id: g.id,
           name: g.name,
-          itens: g.itens.map(({ topic, emprestado }) => ({
+          itens: g.topicos.map((topic) => ({
             topic,
-            href: `/roadmaps/${r.slug}/${topic.slug}`,
-            origem: emprestado ? origemDoTopico(topic.slug) : undefined,
+            href: urlDoTopicoNoRoadmap(r, topic.slug),
           })),
         }))}
       />

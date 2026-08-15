@@ -1,0 +1,128 @@
+<Callout>
+[Dijkstra](/topicos/dijkstra) é cego: ele não sabe onde fica o destino, então explora em círculo, gastando o mesmo esforço para o lado certo e para o lado errado. Se você tem alguma pista sobre onde o alvo está, e num mapa você sempre tem, dá para usar essa pista sem perder a garantia de achar o caminho ótimo. É isso que o A* faz, com uma soma de duas parcelas.
+</Callout>
+
+## O problema do Dijkstra num mapa
+
+Imagine que você precisa ir do canto esquerdo ao canto direito de um mapa. O Dijkstra vai expandir todas as células a distância 1, depois todas a distância 2, e assim por diante. Um círculo crescendo a partir da origem.
+
+Metade desse círculo cresce **para o lado oposto ao destino**. O Dijkstra gasta o mesmo esforço explorando para trás, porque a única coisa que ele conhece é o custo já pago.
+
+Rode o preset **campo aberto** do visualizador abaixo em modo Dijkstra e depois em A*: 97 células expandidas contra 12, para o mesmo caminho e o mesmo custo.
+
+## As duas parcelas
+
+O A* muda uma coisa só: a prioridade da fila. Em vez de ordenar por `g`, ele ordena por `f`:
+
+```text
+f(n) = g(n) + h(n)
+
+g(n)  o custo REAL da origem até n, que você já pagou
+h(n)  uma ESTIMATIVA do custo de n até o alvo, que você ainda vai pagar
+```
+
+`f(n)` é então o palpite do custo total do caminho que passa por `n`. Expandir sempre o menor `f` significa expandir sempre o caminho que **parece** mais promissor no total, e não só o mais barato até aqui.
+
+<AStarVisualizer />
+
+Compare os três modos no mesmo mapa, olhando o painel da direita:
+
+- **Dijkstra (f = g)**: ignora o alvo, expande em círculo, acha o ótimo.
+- **A\* (f = g + h)**: expande na direção do alvo, acha o **mesmo** ótimo com muito menos trabalho.
+- **Guloso (f = h)**: ignora o que já pagou. É o mais rápido dos três e, no preset **labirinto**, devolve um caminho de custo 23 quando o ótimo é 21.
+
+Esse último ponto é o que justifica a soma. Sem o `g`, o algoritmo esquece o passado e se deixa levar por qualquer coisa que pareça perto do alvo. Sem o `h`, ele esquece o futuro e vira Dijkstra. A soma é o que equilibra.
+
+## Admissível: a condição que garante o ótimo
+
+Nem toda estimativa serve. Para o A* continuar achando o caminho ótimo, `h` precisa ser **admissível**:
+
+```text
+h(n) <= custo real de n até o alvo, para todo n
+```
+
+Ou seja: **a estimativa nunca pode superestimar**. Ela pode ser otimista à vontade, nunca pessimista.
+
+A razão é direta. O A* para quando tira o alvo da fila. Se `h` superestimasse, o caminho ótimo poderia ficar com um `f` inflado, ir para o fim da fila, e um caminho pior sair antes. Com `h` admissível isso não acontece: o `f` do caminho ótimo nunca passa do custo verdadeiro, então ele nunca é ultrapassado.
+
+<Callout>
+Dois casos extremos que ajudam a fixar. Com **h = 0** a estimativa é trivialmente admissível e o A* vira exatamente Dijkstra: correto, e sem nenhuma ajuda. Com **h = custo real** você teria o oráculo perfeito, e o A* iria direto ao alvo sem expandir nada fora do caminho. Todas as heurísticas úteis vivem entre esses dois extremos, e quanto mais perto do real, menos células o A* expande.
+</Callout>
+
+Existe uma condição um pouco mais forte, a **consistência** (ou monotonicidade): `h(n) <= custo(n, m) + h(m)` para toda aresta n → m. É a desigualdade triangular. Se `h` é consistente, você nunca precisa reabrir um nó já fechado, o que simplifica a implementação. Na prática, quase toda heurística geométrica natural já é consistente.
+
+## Escolhendo o h
+
+Em grade, as escolhas são conhecidas e a regra é usar a **mesma métrica do movimento permitido**:
+
+| Movimento permitido | Heurística admissível |
+| --- | --- |
+| 4 direções (cima, baixo, esquerda, direita) | **Manhattan**: `|dx| + |dy|` |
+| 8 direções, diagonal custa igual | **Chebyshev**: `max(|dx|, |dy|)` |
+| Movimento livre em qualquer ângulo | **Euclidiana**: `sqrt(dx² + dy²)` |
+
+<Callout tipo="aviso">
+Usar Manhattan num mapa que permite diagonal **quebra a admissibilidade**: a diagonal chega em 1 passo onde o Manhattan estima 2, então a estimativa superestima e o A* pode devolver um caminho pior. É o bug mais comum de A* em jogo, e o sintoma é sutil: o caminho sai um pouquinho errado, de vez em quando.
+</Callout>
+
+Fora de grade, a heurística vem do domínio. Em roteamento de estradas, a **distância em linha reta** entre dois pontos é admissível, porque nenhuma estrada é mais curta que a reta. Em quebra-cabeças como o 8-puzzle, uma heurística clássica é o número de peças fora do lugar, e uma melhor é a soma das distâncias Manhattan de cada peça até a posição correta.
+
+## O código, e o que muda em relação ao Dijkstra
+
+```python
+import heapq
+
+def a_estrela(inicio, alvo, vizinhos, custo, h):
+    g = {inicio: 0}
+    fila = [(h(inicio), inicio)]
+    fechados = set()
+
+    while fila:
+        _, u = heapq.heappop(fila)
+        if u == alvo:
+            return g[alvo]
+        if u in fechados:
+            continue
+        fechados.add(u)
+
+        for v in vizinhos(u):
+            novo = g[u] + custo(u, v)
+            if novo < g.get(v, float("inf")):
+                g[v] = novo
+                heapq.heappush(fila, (novo + h(v), v))   # <- a única diferença
+    return None
+```
+
+Compare com o Dijkstra do tópico anterior. A diferença é uma parcela numa linha: `novo + h(v)` no lugar de `novo`. Todo o resto (fila de prioridade, relaxamento, fechados, `continue` da cópia velha) é idêntico.
+
+Repare também que `g` continua sendo o custo **real**. A heurística entra só na prioridade, nunca no custo acumulado, e confundir os dois é outro erro clássico: se você somar o `h` no `g`, o custo vira ficção e a resposta sai errada.
+
+## A honestidade sobre o ganho
+
+O A* não é magicamente melhor. Ele troca uma coisa por outra, e vale saber o que:
+
+- **Ganha muito** quando a heurística é boa e o espaço é aberto. O preset "campo aberto" mostra 8 vezes menos expansões.
+- **Ganha pouco** quando o mapa é um labirinto cheio de becos. Na comparação do visualizador, no labirinto o A* expande praticamente o mesmo que o Dijkstra: a heurística aponta na direção do alvo e a parede diz que não dá.
+- **Não ganha nada** se `h = 0`, quando ele é literalmente o Dijkstra.
+- **Custa memória**, e esse é o problema real do A* em espaços grandes: a fila e o mapa de `g` guardam tudo que foi tocado. Existem variantes justamente para isso (IDA*, que usa profundidade iterativa e quase nenhuma memória, e SMA*, que descarta os piores nós quando a memória acaba).
+
+<Callout>
+Uma variante que vale conhecer: **Weighted A\***, que usa `f = g + w·h` com `w > 1`. Ele deixa de ser admissível e passa a devolver caminhos até `w` vezes mais caros que o ótimo, em troca de expandir muito menos. É a escolha certa quando "bom e rápido" vale mais que "ótimo e lento", que é o caso de quase todo jogo em tempo real.
+</Callout>
+
+## Onde aparece
+
+- **Jogos**: é o algoritmo padrão de pathfinding, e a razão de a unidade do RTS contornar o obstáculo em vez de bater nele.
+- **Robótica**: navegação em mapa de ocupação, normalmente com variantes que lidam com mapa que muda (D* e D* Lite recalculam só o que foi afetado).
+- **Rotas**: roteadores de mapa usam A* com distância em linha reta, junto de pré-processamento pesado para dar conta da escala de um país.
+- **Planejamento e busca em IA**: qualquer problema em que estados são vértices, ações são arestas, e você consegue estimar quanto falta.
+
+## Como praticar
+
+O LeetCode tem poucos problemas que **exigem** A*, porque as entradas costumam ser pequenas o suficiente para o Dijkstra passar. Isso não é ruim: o melhor exercício aqui é pegar um problema de Dijkstra que você já resolveu e **acrescentar a heurística**, medindo quantos nós cada versão expande.
+
+**Shortest Path in Binary Matrix** é o candidato perfeito: grade, movimento em 8 direções, então a heurística correta é a de Chebyshev. Resolva com BFS, depois com A*, e conte as expansões nos dois.
+
+**Sliding Puzzle** é o clássico de A* fora de grade. Cada configuração do tabuleiro é um vértice, cada movimento é uma aresta, e a heurística de soma das distâncias Manhattan corta o espaço de busca de forma dramática. Resolver com BFS puro funciona no caso 2x3 do enunciado, e entender por que ele não escalaria para o 15-puzzle é o aprendizado.
+
+E vale um exercício mental que economiza tempo em entrevista: sempre que você escrever Dijkstra, pergunte-se **"eu sei alguma coisa sobre onde fica o destino?"**. Se souber, e a estimativa nunca superestimar, você tem um A* de graça e uma resposta muito melhor para dar.

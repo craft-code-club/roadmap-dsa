@@ -26,45 +26,25 @@ export const roadmap: Roadmap = {
     {
       id: "cm-uma-origem",
       name: "De uma origem para todos",
-      // Três CITAÇÕES seguidas, todas dos Fundamentos. A ordem aqui é a da
-      // decisão: o padrão, o que fazer quando há peso negativo, e o que fazer
-      // quando existe uma estimativa de distância confiável.
-      topics: ["dijkstra", "bellman-ford", "a-star"],
+      topics: [
+        { topic: "dijkstra" },
+        { topic: "bellman-ford" },
+        { topic: "a-star" },
+      ],
     },
     {
       id: "cm-todos-os-pares",
       name: "De todos para todos",
       topics: [
-        {
-          slug: "floyd-warshall-logistica",
-          name: "Floyd-Warshall na prática",
-          group: "Caminhos Mínimos e Logística",
-          level: "Difícil",
-          status: "soon",
-          description: "Quando vale pagar O(V³) uma vez para responder qualquer par em O(1).",
-        },
+        { topic: "floyd-warshall-logistica" },
       ],
     },
     {
       id: "cm-do-mapa-ao-grafo",
       name: "Do mapa ao grafo",
       topics: [
-        {
-          slug: "modelagem-de-rotas",
-          name: "Modelagem de Rotas",
-          group: "Caminhos Mínimos e Logística",
-          level: "Difícil",
-          status: "soon",
-          description: "Rua de mão única, janela de entrega e troca de veículo, tudo virando aresta e peso.",
-        },
-        {
-          slug: "contraction-hierarchies",
-          name: "Contraction Hierarchies",
-          group: "Caminhos Mínimos e Logística",
-          level: "Difícil",
-          status: "soon",
-          description: "O pré-processamento que faz um GPS responder rota continental em milissegundos.",
-        },
+        { topic: "modelagem-de-rotas" },
+        { topic: "contraction-hierarchies" },
       ],
     },
   ],

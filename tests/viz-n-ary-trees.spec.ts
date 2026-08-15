@@ -16,7 +16,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // código recolhível e painel de variáveis.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/n-ary-trees/";
+const URL = "/topicos/n-ary-trees/";
 
 // Janela de notebook de 16", a régua do contrato. Nela a peça passa do
 // orçamento (816px) em todas as nove combinações de árvore e ordem: 1070px na

@@ -39,7 +39,7 @@ export type PageSeo = {
    *
    * Existe por causa de `/roadmaps/<roadmap>/<topico>/`: o mesmo tópico servido
    * dentro de um roadmap, com a barra lateral daquele roadmap. É a mesma leitura
-   * que `/topico/<slug>/` entrega, e conteúdo igual em duas URLs sem canonical é
+   * que `/topicos/<slug>/` entrega, e conteúdo igual em duas URLs sem canonical é
    * o Google escolhendo sozinho qual mostrar — às vezes a errada, e sempre
    * dividindo os sinais entre as duas.
    *

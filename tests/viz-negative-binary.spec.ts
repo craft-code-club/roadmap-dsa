@@ -12,7 +12,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // `figure.viz-fit` casava 1 e passou a casar 3, e um seletor que casa com o
 // irmão errado devolve um número plausível e nunca reclama.
 
-const URL = "/topico/negative-binary/";
+const URL = "/topicos/negative-binary/";
 // Mesma folga de subpixel do hook (`SLACK` em src/lib/visualizer.tsx).
 const SLACK = 8;
 

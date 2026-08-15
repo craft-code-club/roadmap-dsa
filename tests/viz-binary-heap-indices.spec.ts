@@ -18,7 +18,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // tem PR aberto em cima (#51) e cobre o `BinaryHeapVisualizer`, que é a outra
 // figura da mesma página.
 
-const URL = "/topico/binary-heap/";
+const URL = "/topicos/binary-heap/";
 
 /** A figura do visualizador de índices, que NÃO é a do passo a passo. */
 async function abrir(page: Page): Promise<Locator> {

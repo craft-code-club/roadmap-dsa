@@ -19,10 +19,6 @@ import { useProgress } from "@/components/ProgressProvider";
 // para quem quiser saber quanto tempo aquilo vai tomar.
 
 function metaDoCard(c: ExtraCard, feitos: number, hydrated: boolean): string {
-  if (c.kind === "standalone") {
-    if (c.ready === 0) return "em breve";
-    return hydrated && feitos > 0 ? "concluído" : "página única";
-  }
   if (c.ready === 0) return `${c.topics} tópicos · em breve`;
   if (hydrated && feitos > 0) return `${feitos} de ${c.topics} concluídos`;
   return `${c.ready} de ${c.topics} publicados`;
@@ -42,9 +38,7 @@ function CardExtra({ card }: { card: ExtraCard }) {
         {/* Decoração pura: quem lê com leitor de tela recebe o nome do card
             logo abaixo, e um glifo anunciado como "◈" só atrapalha. */}
         <span className="extra-glyph" aria-hidden="true">{card.glyph}</span>
-        <span className={`extra-kind extra-kind-${card.kind}`}>
-          {card.kind === "roadmap" ? "Roadmap" : "Tópico"}
-        </span>
+        <span className="extra-kind extra-kind-roadmap">Roadmap</span>
       </div>
       <div className="extra-name">{card.name}</div>
       <p>{card.tagline}</p>
@@ -60,7 +54,7 @@ export function ExtrasGrid({ cards = EXTRA_CARDS }: { cards?: ExtraCard[] }) {
   return (
     <div className="grid-3 extras-grid">
       {cards.map((c) => (
-        <CardExtra key={`${c.kind}-${c.slug}`} card={c} />
+        <CardExtra key={c.slug} card={c} />
       ))}
     </div>
   );

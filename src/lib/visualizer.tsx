@@ -539,8 +539,8 @@ export function useVisualizer(options: VisualizerOptions): Visualizer {
   // abertura, que é o que estava aqui e não funcionava: aquele nó era o
   // `⤢ Expandir` de dentro da `<figure>` que o `createPortal` DESMONTA, então o
   // `focus()` da limpeza rodava num nó destacado — no-op silencioso — e o foco
-  // caía no `<body>`. Medido em `/topico/big-o/` (a peça de referência do
-  // contrato), `/topico/merge-sort/` e `/topico/intervals/`, pelas duas saídas:
+  // caía no `<body>`. Medido em `/topicos/big-o/` (a peça de referência do
+  // contrato), `/topicos/merge-sort/` e `/topicos/intervals/`, pelas duas saídas:
   // `document.activeElement.tagName` era `BODY` nas seis leituras.
   //
   // Guardar a referência não resolve porque o botão é RECRIADO no fechamento; é

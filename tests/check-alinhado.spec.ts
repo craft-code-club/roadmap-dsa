@@ -240,7 +240,7 @@ const TOLERANCIA = 0.35;
 
 /** Os três lugares onde o quadradinho aparece, já no estado marcado. */
 async function marcados(page: Page) {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/fundamentos/two-pointers/");
 
   const lateral = page
     .locator(".sidebar")
@@ -316,7 +316,7 @@ test("o ✓ fica centralizado no celular (390x844)", async ({ page }) => {
   await expect(card).toHaveAttribute("aria-checked", "true");
   const noCard = await medir(page, card);
 
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/fundamentos/two-pointers/");
   const problema = page.locator(".problem-check").first();
   if ((await problema.getAttribute("aria-checked")) === "false") await problema.click();
   await expect(problema).toHaveAttribute("aria-checked", "true");
@@ -432,7 +432,7 @@ test("o desenho do ✓ não entra no nome acessível", async ({ page }) => {
     );
     expect(soltos, `${onde}: todo <svg> do quadradinho tem que ser aria-hidden`).toEqual([]);
   };
-  await conferirAriaHidden("/topico/two-pointers");
+  await conferirAriaHidden("/fundamentos/two-pointers");
 
   await page.goto("/fundamentos/");
   const card = page
@@ -517,11 +517,11 @@ async function varrer(page: Page, grupos: Grupo[], pagina: string) {
 }
 
 test("nenhum <button> do chassi nem da casca do visualizador é submit por omissão", async ({ page }) => {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/fundamentos/two-pointers/");
   // A casca do visualizador só existe depois que o componente hidrata; sem
   // esperar, a varredura passaria por não achar nada (e o piso acusaria).
   await expect(page.locator(".viz-expand").first()).toBeVisible();
-  await varrer(page, CHASSI_TOPICO, "/topico/two-pointers");
+  await varrer(page, CHASSI_TOPICO, "/fundamentos/two-pointers");
 
   await page.goto("/fundamentos/");
   await expect(page.locator(".tcard-check").first()).toBeVisible();

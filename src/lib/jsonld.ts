@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { ALL_TOPICS, type Topic } from "@content/fundamentos";
+import { TOPICOS, type Topic } from "@content/topicos";
 import { LINKS, SITE_URL } from "@/lib/links";
 import { SITE_NAME } from "@/lib/seo";
 
@@ -100,7 +100,7 @@ export function webSiteJsonLd() {
  * com `hasRoadmapInstance`/`offers`, que este produto não tem para declarar.
  */
 export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: Date }) {
-  const url = abs(`/topico/${t.slug}/`);
+  const url = abs(`/topicos/${t.slug}/`);
   const timeRequired = duracaoIso(t.readingTime);
   return {
     "@context": "https://schema.org",
@@ -165,20 +165,28 @@ export function breadcrumbJsonLd(migalhas: Migalha[]) {
   };
 }
 
-/** O roadmap inteiro, na ordem em que a página renderiza os cards. */
-export function fundamentosJsonLd() {
+/**
+ * Os Fundamentos inteiros, na ordem em que a página renderiza os cards.
+ *
+ * A lista é a dos tópicos que ESTE roadmap cita, e não `TOPICOS`. Quando os
+ * tópicos deixaram de ter casa, `TOPICOS` passou a ser o site inteiro (80) e os
+ * Fundamentos, um recorte dele (44): declarar 80 numa página que desenha 44 é a
+ * marcação contando outra história que a tela, que é a regra do Google que este
+ * arquivo segue em todo lugar.
+ */
+export function fundamentosJsonLd(topicos: Topic[]) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
     "@id": `${SITE_URL}/fundamentos/#roadmap`,
     name: "Roadmap de Algoritmos e Estruturas de Dados",
-    numberOfItems: ALL_TOPICS.length,
+    numberOfItems: topicos.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
-    itemListElement: ALL_TOPICS.map((t, i) => ({
+    itemListElement: topicos.map((t, i) => ({
       "@type": "ListItem",
       position: i + 1,
       name: t.name,
-      url: abs(`/topico/${t.slug}/`),
+      url: abs(`/topicos/${t.slug}/`),
     })),
   };
 }
@@ -222,7 +230,7 @@ export function roadmapJsonLd(trilha: { slug: string; name: string; topics: Topi
       "@type": "ListItem",
       position: i + 1,
       name: t.name,
-      url: abs(`/topico/${t.slug}/`),
+      url: abs(`/topicos/${t.slug}/`),
     })),
   };
 }

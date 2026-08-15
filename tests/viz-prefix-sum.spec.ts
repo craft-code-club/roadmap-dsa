@@ -13,7 +13,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // jeito — por isso os cartões do trade-off são lidos com nome e valor juntos,
 // no mesmo cartão.
 
-const URL = "/topico/prefix-sum/";
+const URL = "/topicos/prefix-sum/";
 
 const CONGELA =
   "*, *::before, *::after { transition: none !important; animation: none !important; }";

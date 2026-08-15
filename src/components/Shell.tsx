@@ -3,11 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { getRoadmap, getPlacement, type Roadmap } from "@content/roadmaps";
+import {
+  FUNDAMENTOS,
+  getRoadmap,
+  getTopico,
+  roadmapsDoTopico,
+  type Roadmap,
+} from "@content/roadmaps";
 import { LINKS } from "@/lib/links";
 import { mesmaRota } from "@/lib/ui";
 import { RoadmapSidebar } from "@/components/RoadmapSidebar";
 import { FundamentosSidebar } from "@/components/FundamentosSidebar";
+import { TopicoSidebar } from "@/components/TopicoSidebar";
 
 // A moldura do site: topo, gaveta lateral, conteúdo, rodapé.
 //
@@ -30,39 +37,50 @@ import { FundamentosSidebar } from "@/components/FundamentosSidebar";
 // mora no layout raiz: ele não recebe nada da página. O preço é o
 // `usePathname`, que já era usado aqui para o destaque de "você está aqui".
 
-type Layout = { modo: "fundamentos" } | { modo: "roadmap"; roadmap: Roadmap } | { modo: "solto" };
+type Layout =
+  | { modo: "fundamentos" }
+  | { modo: "roadmap"; roadmap: Roadmap }
+  | { modo: "topico"; slug: string; nome: string }
+  | { modo: "solto" };
 
 /**
  * A rota → a casca.
  *
- * O caso `undefined` do `getPlacement` (slug que não é tópico de lugar nenhum)
- * cai em "roadmap" de propósito: é o que acontece hoje, e uma rota desconhecida
- * com o roadmap ao lado é melhor do que uma rota desconhecida sem navegação
- * nenhuma.
+ * Quatro respostas, e cada uma responde a uma pergunta diferente do leitor:
+ *
+ *   fundamentos  "onde estou na sequência principal?" — o padrão do site.
+ *   roadmap      "onde estou NESTE percurso?" — em `/roadmaps/<r>/…` e em
+ *                `/fundamentos/<topico>/`, que é a mesma coisa com base curta.
+ *   topico       "isto faz parte de quê?" — em `/topicos/<slug>/`, onde o
+ *                leitor chegou sem percurso nenhum e a barra lista os roadmaps.
+ *   solto        nenhuma barra: a vitrine `/roadmaps/` e o índice `/topicos/`
+ *                SÃO listas, e uma segunda lista ao lado é ruído.
+ *
+ * ⚠️ A comparação é pelo PRIMEIRO SEGMENTO da rota, por string. Renomear uma
+ * rota e esquecer o `if` daqui não quebra build nem tipo: devolve a casca padrão
+ * em silêncio, e o roadmap inteiro passa a abrir com a barra dos Fundamentos.
+ * Já aconteceu; quem pegou foi o `tests/roadmaps.spec.ts`.
  */
 function layoutDaRota(pathname: string | null): Layout {
   const partes = (pathname ?? "/").split("/").filter(Boolean);
 
   if (partes[0] === "roadmaps") {
-    // `/roadmaps/` é a vitrine: ela É a navegação, e uma barra ao lado seria a
-    // segunda lista de links da mesma tela.
     if (!partes[1]) return { modo: "solto" };
-    // Vale para `/roadmaps/<r>/` e para `/roadmaps/<r>/<topico>/`: o tópico
-    // servido dentro de um roadmap abre com a barra DAQUELE roadmap, que é a
-    // razão inteira de aquela rota existir.
     const roadmap = getRoadmap(partes[1]);
     return roadmap ? { modo: "roadmap", roadmap } : { modo: "solto" };
   }
 
-  // O índice completo é uma lista de 80 tópicos com busca própria: uma segunda
-  // lista ao lado dela é ruído.
-  if (partes[0] === "topicos") return { modo: "solto" };
+  // `/fundamentos/` e `/fundamentos/<topico>/`: os dois com a barra deles.
+  if (partes[0] === "fundamentos") return { modo: "roadmap", roadmap: FUNDAMENTOS };
 
-  if (partes[0] === "topico" && partes[1]) {
-    const onde = getPlacement(partes[1]);
-    if (onde?.kind === "roadmap") return { modo: "roadmap", roadmap: onde.roadmap };
-    if (onde?.kind === "standalone") return { modo: "solto" };
-    return { modo: "fundamentos" };
+  if (partes[0] === "topicos") {
+    if (!partes[1]) return { modo: "solto" };
+    const t = getTopico(partes[1]);
+    if (!t) return { modo: "solto" };
+    // Tópico que nenhum roadmap cita não tem o que listar na barra.
+    return roadmapsDoTopico(t.slug).length > 0
+      ? { modo: "topico", slug: t.slug, nome: t.name }
+      : { modo: "solto" };
   }
 
   return { modo: "fundamentos" };
@@ -90,16 +108,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const navOn = (href: string) => mesmaRota(pathname, href);
   // "Roadmaps" fica aceso em toda a área: a vitrine, a abertura de um roadmap,
   // os tópicos servidos dentro dele e os tópicos avulsos. Sem isto, o leitor
-  // dentro de `/topico/bloom-filter/` não teria pista nenhuma de onde está.
+  // dentro de `/topicos/bloom-filter/` não teria pista nenhuma de onde está.
+  // "Roadmaps" acende na vitrine e em qualquer roadmap que não seja os
+  // Fundamentos, que têm item próprio na barra.
   const naAreaDeRoadmaps =
-    layout.modo === "roadmap" ||
     (pathname?.startsWith("/roadmaps") ?? false) ||
-    (layout.modo === "solto" && (pathname?.startsWith("/topico/") ?? false));
+    (layout.modo === "roadmap" && layout.roadmap.slug !== FUNDAMENTOS.slug);
+  // "Tópicos" acende no índice e em toda página canônica de tópico.
+  const naAreaDeTopicos = pathname?.startsWith("/topicos") ?? false;
 
   return (
     <div className={`shell${comLateral ? "" : " sem-lateral"}`}>
       {/* WCAG 2.4.1: antes desta linha eram 44 paradas de tabulação até o
-          primeiro parágrafo em /topico/dijkstra/, em toda página aberta. Ele é o
+          primeiro parágrafo em /topicos/dijkstra/, em toda página aberta. Ele é o
           primeiro filho do shell de propósito, e some da tela sem sair da ordem
           de foco (por isso não é `display: none`). */}
       <a className="skip-link" href="#conteudo">
@@ -136,9 +157,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               rótulo o leitor de tela anuncia "navegação" três vezes. */}
           <nav className="topnav nav-left" aria-label="Principal">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
-            <Link href="/fundamentos" className={`nav-hide-sm${navOn("/fundamentos") ? " on" : ""}`}>Fundamentos</Link>
+            <Link href="/fundamentos" className={`nav-hide-sm${pathname?.startsWith("/fundamentos") ? " on" : ""}`}>Fundamentos</Link>
             <Link href="/roadmaps" className={`nav-hide-sm${naAreaDeRoadmaps ? " on" : ""}`}>Roadmaps</Link>
-            <Link href="/topicos" className={`nav-hide-sm${navOn("/topicos") ? " on" : ""}`}>Tópicos</Link>
+            <Link href="/topicos" className={`nav-hide-sm${naAreaDeTopicos ? " on" : ""}`}>Tópicos</Link>
           </nav>
         </div>
 
@@ -213,9 +234,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <nav
           id="menu-lateral"
           className={`sidebar${mobileNav ? " open" : ""}`}
-          aria-label={layout.modo === "roadmap" ? `Roadmap: ${layout.roadmap.name}` : "Fundamentos"}
+          aria-label={
+            layout.modo === "roadmap"
+              ? layout.roadmap.slug === FUNDAMENTOS.slug
+                ? "Fundamentos"
+                : `Roadmap: ${layout.roadmap.name}`
+              : layout.modo === "topico"
+                ? `Roadmaps com ${layout.nome}`
+                : "Fundamentos"
+          }
         >
-          {layout.modo === "roadmap" ? (
+          {layout.modo === "topico" ? (
+            <TopicoSidebar slug={layout.slug} nome={layout.nome} />
+          ) : layout.modo === "roadmap" && layout.roadmap.slug !== FUNDAMENTOS.slug ? (
             <RoadmapSidebar roadmap={layout.roadmap} mobileNav={mobileNav} />
           ) : (
             <FundamentosSidebar mobileNav={mobileNav} />

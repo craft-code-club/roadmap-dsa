@@ -211,6 +211,20 @@ export function classificarLink(href?: string): { tipo: TipoDeLink; href: string
   return { tipo: "interno", href: (caminho.endsWith("/") ? caminho : `${caminho}/`) + sufixo };
 }
 
+/**
+ * Um `a` de MDX que passa todo `href` por uma reescrita antes de renderizar.
+ *
+ * Serve para a página de tópico dentro de um roadmap: as citações entre artigos
+ * apontam para a página canônica do tópico, e ali elas precisam apontar para a
+ * cópia do roadmap, para o leitor não sair do percurso sem pedir. Quem decide o
+ * destino é `linkDentroDoRoadmap`; aqui só entregamos o gancho.
+ */
+export function ancoraQueReescreve(reescrever: (href: string) => string) {
+  return function AncoraReescrita({ href, ...props }: ComponentPropsWithoutRef<"a">) {
+    return <Ancora href={href ? reescrever(href) : href} {...props} />;
+  };
+}
+
 function Ancora({ href, className, children, ...props }: ComponentPropsWithoutRef<"a">) {
   const link = classificarLink(href);
   const classe = cx("prose-a", className);

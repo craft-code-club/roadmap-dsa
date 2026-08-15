@@ -20,22 +20,22 @@ export const roadmap: Roadmap = {
       id: "faixas-arvore",
       name: "Árvores de intervalo",
       topics: [
-        { slug: "segment-tree", name: "Segment Tree", group: "Consultas em Intervalos", level: "Difícil", status: "soon", description: "Cada nó guarda a resposta de uma faixa; a consulta cobre a sua com O(log n) nós." },
-        { slug: "lazy-propagation", name: "Lazy Propagation", group: "Consultas em Intervalos", level: "Difícil", status: "soon", description: "Atualizar uma faixa inteira sem descer até as folhas: a marca que espera." },
+        { topic: "segment-tree" },
+        { topic: "lazy-propagation" },
       ],
     },
     {
       id: "faixas-bits",
       name: "Índices por bits",
       topics: [
-        { slug: "fenwick-tree", name: "Fenwick Tree (BIT)", group: "Consultas em Intervalos", level: "Difícil", status: "soon", description: "A mesma resposta da segment tree em metade do código, com i & -i." },
+        { topic: "fenwick-tree" },
       ],
     },
     {
       id: "faixas-estatico",
       name: "Pré-processar o que não muda",
       topics: [
-        { slug: "sparse-table", name: "Sparse Table", group: "Consultas em Intervalos", level: "Difícil", status: "soon", description: "Mínimo de qualquer faixa em O(1), desde que o array nunca mude." },
+        { topic: "sparse-table" },
       ],
     },
   ],
