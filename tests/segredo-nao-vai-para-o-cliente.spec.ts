@@ -192,7 +192,15 @@ const CONHECIDOS: Record<string, number> = {
 // a varredura
 // ---------------------------------------------------------------------------
 
-type Achado = { arquivo: string; regra: string; porque: string; trecho: string };
+type Achado = {
+  arquivo: string;
+  regra: string;
+  porque: string;
+  /** Onde no arquivo, em bytes. Endereço, nunca conteúdo. */
+  posicao: number;
+  /** Quantos caracteres o padrão casou. Tamanho, nunca conteúdo. */
+  tamanho: number;
+};
 
 /** Todo arquivo do `out/`, caminho relativo, incluindo os sem extensão. */
 function arquivosDoBuild(): string[] {
@@ -218,11 +226,22 @@ function varrer(arquivo: string, texto: string): Achado[] {
     // arquivos em silêncio, que é a pior falha possível num guarda.
     regra.re.lastIndex = 0;
     for (const m of texto.matchAll(regra.re)) {
+      // ⚠️ O TEXTO CASADO NÃO ENTRA NO ACHADO, e isto não é economia de bytes.
+      // A primeira versão guardava um `trecho` com 40 caracteres de contexto de
+      // cada lado do casamento, incluindo o casamento. Ou seja: no dia em que um
+      // JWT vazasse para um chunk, a mensagem de falha copiaria o JWT inteiro
+      // para o log do GitHub Actions, e o guarda contra vazamento seria o
+      // segundo vazamento. Um log de CI é lido por mais gente que o artefato.
+      //
+      // O que sai é ENDEREÇO: arquivo, regra, posição e tamanho. É o bastante
+      // para achar a ocorrência (`npm run build && PORT=3301 npm test`, ou um
+      // `dd`/`cut` na posição), e não publica nada.
       achados.push({
         arquivo,
         regra: regra.nome,
         porque: regra.porque,
-        trecho: texto.slice(Math.max(0, m.index - 40), m.index + m[0].length + 40).replace(/\s+/g, " "),
+        posicao: m.index,
+        tamanho: m[0].length,
       });
     }
   }
@@ -258,10 +277,16 @@ function ehBinario(buf: Buffer): boolean {
   return buf.subarray(0, 8192).includes(0);
 }
 
+/** Endereço e diagnóstico. Nunca o conteúdo casado (ver `varrer`). */
 function relatorio(achados: Achado[]): string {
   return achados
     .slice(0, 12)
-    .map((a) => `  [${a.regra}] ${a.arquivo}\n      ...${a.trecho}...\n      ${a.porque}`)
+    .map(
+      (a) =>
+        `  [${a.regra}] out/${a.arquivo}\n` +
+        `      byte ${a.posicao}, ${a.tamanho} caracteres (conteúdo omitido de propósito)\n` +
+        `      ${a.porque}`
+    )
     .join("\n");
 }
 
@@ -417,4 +442,40 @@ test("a varredura acusa um segredo plantado", () => {
   // E o contrário: o que o build legítimo tem não pode acusar. O link público da
   // campanha é o caso real, e é o que separa este guarda de um `grep apoia.se`.
   expect(varrer("out/apoie/index.html", `<a href="${LINKS.apoiar}">Quero apoiar</a>`)).toEqual([]);
+});
+
+test("o relatório de falha não republica o segredo que encontrou", () => {
+  // Achado na review do PR #96, e é o defeito mais irônico possível num guarda
+  // deste tipo: a primeira versão guardava 40 caracteres de contexto de cada
+  // lado do casamento, o casamento INCLUÍDO. No dia em que um JWT vazasse para
+  // um chunk, a mensagem de falha copiaria o JWT inteiro para o log do GitHub
+  // Actions, que é lido por mais gente que o artefato. O guarda contra o
+  // vazamento seria o segundo vazamento.
+  const segredos = [
+    "CHAVE_DE_TESTE_NAO_DEVE_VAZAR",
+    "SEGREDO_DE_TESTE_NAO_DEVE_VAZAR",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+    "Y3JhZnRjb2RlY2x1YjpzZWdyZWRv",
+    "apoiador.de.mentira@exemplo.com",
+  ];
+  const plantado = [
+    `fetch("https://api.apoia.se/backers",{headers:{"x-api-key":"${segredos[0]}",Authorization:"Bearer ${segredos[1]}"}})`,
+    `const jwt="${segredos[2]}"`,
+    `const b="Basic ${segredos[3]}"`,
+    `<span>${segredos[4]}</span>`,
+  ].join("\n");
+
+  const achados = varrer("out/_next/static/chunks/falso.js", plantado);
+  expect(achados.length, "o cenário não plantou nada").toBeGreaterThan(0);
+
+  const texto = relatorio(achados);
+  for (const segredo of segredos) {
+    expect(texto, `o relatório republicou o segredo casado: ${segredo.slice(0, 12)}...`).not.toContain(
+      segredo
+    );
+  }
+
+  // E continua servindo para achar a ocorrência: arquivo, regra e endereço.
+  expect(texto).toContain("out/_next/static/chunks/falso.js");
+  expect(texto).toContain("byte ");
 });
