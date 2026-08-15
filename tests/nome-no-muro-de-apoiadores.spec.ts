@@ -502,3 +502,31 @@ test("a resposta que CHEGOU manda, e a que não chegou cai no plano B", async ()
   const semResposta = await comApiFalsa(() => new Response("", { status: 500 }));
   expect(semResposta.length, "HTTP 500 devia cair no plano B").toBeGreaterThan(0);
 });
+
+test("todo nome do plano B rende uma sigla de avatar de verdade", async () => {
+  // Este teste prende a FORMA da lista fixa, e não os nomes dela, e as duas
+  // regras que levam a isso estão escritas neste repositório: nenhum dado de
+  // pessoa real entra em teste (o cabeçalho da seção do contrato, acima), e
+  // `navegacao.spec.ts` não prende nome no muro de propósito, porque isso
+  // reprovaria no dia em que a API começasse a responder, que é o dia em que
+  // tudo está finalmente certo.
+  //
+  // UMA asserção, e é a única que sobrou de propósito. A primeira versão deste
+  // teste também exigia nome não vazio, nome de card não vazio e caixa já
+  // normal, e as três NÃO CONSEGUEM FALHAR: a lista chega aqui depois do
+  // `normalizeSupporters`, que já descarta nome vazio e já arruma Caps Lock.
+  // Medi isso sujando a lista de propósito e vendo quais asserções reagiam.
+  // Asserção que não pode reprovar não protege nada, só faz o teste parecer
+  // maior do que é.
+  //
+  // A que sobra tem dente: um nome só de partículas ("de la") atravessa o
+  // `normalizeSupporters` inteiro, vira um card no muro e chega ao avatar como
+  // "?". É o único jeito de a lista digitada à mão desenhar errado sem que nada
+  // reclame.
+  const muro = await comApiFalsa(() => new Response("", { status: 500 }));
+  expect(muro.length, "sem API, o plano B não pode chegar vazio").toBeGreaterThan(0);
+
+  for (const { name } of muro) {
+    expect(initials(shortenName(name)), `"${name}" não vira sigla de avatar`).not.toBe("?");
+  }
+});

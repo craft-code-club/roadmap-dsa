@@ -179,8 +179,8 @@ function capitalizeWord(word: string): string {
  * também vem da API da APOIA.se, e lá o nome é digitado pela pessoa que apoia,
  * num formulário sem validação de caixa: no dia em que a listagem for ligada,
  * um "FULANO DA SILVA" cadastrado com Caps Lock chega direto ao HTML público.
- * Escrever certo na lista conserta três nomes uma vez; a função conserta todos,
- * inclusive os que ainda não existem.
+ * Escrever certo na lista conserta os nomes de hoje, uma vez; a função conserta
+ * todos, inclusive os que ainda não existem.
  */
 export function normalizeNameCase(name: string): string {
   if (!isShouting(name)) return name;
@@ -574,7 +574,7 @@ export async function fetchSupporters(): Promise<Supporter[]> {
       // Este `return` já devolveu a lista fixa aqui, e era a contradição do
       // arquivo: o filtro logo acima é fail-closed justamente para não publicar
       // quem pediu para não aparecer, e então, quando ele escondia todo mundo, o
-      // plano B publicava três nomes escritos à mão. No pior caso ele publicaria
+      // plano B publicava os nomes escritos à mão. No pior caso ele publicaria
       // exatamente a pessoa que acabou de marcar o apoio como privado, porque
       // ela está nos dois lugares.
       //
