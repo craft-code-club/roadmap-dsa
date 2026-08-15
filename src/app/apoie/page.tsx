@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
-import { fetchSupporters, initials, PARTNERS } from "./apoiadores";
+import { fetchSupporters, initials, PARTNERS, shortenName } from "./apoiadores";
 
 // Era `export const metadata` estático e, por isso, sem canonical nem `og:url` —
 // a quarta das 48 rotas que não diziam qual era a própria URL. Título e descrição
@@ -106,11 +106,28 @@ export default async function ApoiePage() {
               </ul>
             </div>
 
+            {/* O nome encurta AQUI, na apresentação, e não na lista.
+                `supporters` guarda o nome completo, que é a identidade que a
+                API deu e a chave que já separou duas pessoas homônimas de
+                primeiro e último nome ("Maria Aparecida Silva" e "Maria
+                Beatriz Silva" mostram as duas "Maria Silva", e são duas). Se o
+                corte acontecesse antes, uma delas sumiria do muro e da
+                contagem do painel, que sai desta mesma lista. */}
             <div className="apoiadores-grid">
-              {supporters.map((a) => (
-                <div key={a.name} className="apoiador-card">
+              {supporters.map((a, i) => (
+                // Chave pelo índice, e as duas alternativas estão descartadas por
+                // medição, não por gosto. Pelo nome ENCURTADO, dois homônimos de
+                // primeiro e último nome colidiriam. Pelo nome COMPLETO, ele iria
+                // parar no payload RSC: `key` é serializado, e medi que
+                // "Cristiano Cunha" aparece 2x no `__next.apoie.__PAGE__.txt`
+                // (uma delas é a chave). Publicar o nome inteiro num arquivo
+                // servido, logo depois de decidir mostrar só o primeiro e o
+                // último, é o contrário do que esta tela combinou.
+                // Índice serve porque a lista é montada uma vez, no servidor, e
+                // não reordena nem muda depois: não há reconciliação para fazer.
+                <div key={i} className="apoiador-card">
                   <span className="apoiador-avatar" aria-hidden="true">{initials(a.name)}</span>
-                  <span className="apoiador-nome">{a.name}</span>
+                  <span className="apoiador-nome">{shortenName(a.name)}</span>
                 </div>
               ))}
               <a

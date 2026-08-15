@@ -211,7 +211,17 @@ Site estático (`out/`) publicado no **Cloudflare Pages** via **Wrangler**. O de
 deploy, e todo PR precisa da aprovação de um mantenedor antes do merge. Deploy local:
 `npx wrangler pages deploy out --project-name <nome>`. Não há `wrangler.toml`: o nome do projeto
 vem de `--project-name` (no CI, do secret). Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
-`CLOUDFLARE_PROJECT_NAME` (e, para apoiadores, `APOIASE_TOKEN` / `APOIASE_CAMPAIGN_ID`).
+`CLOUDFLARE_PROJECT_NAME` (e, para apoiadores, `APOIASE_KEY` / `APOIASE_SECRET` /
+`APOIASE_CAMPAIGN`).
+
+**Credencial da APOIA.se: três nomes, e nenhum é intercambiável.** `APOIASE_KEY` vai no header
+`x-api-key`, `APOIASE_SECRET` no `Authorization: Bearer` (é um JWT) e `APOIASE_CAMPAIGN` é o id da
+campanha. Sem os dois primeiros, o muro de `/apoie` sai da lista de plano B de
+`src/app/apoie/apoiadores.ts` **e o build avisa no log** — o `return` calado dessa mesma linha é o
+que fez a página publicada mostrar 3 apoiadores com 5 apoios na campanha, por meses, sem nada
+denunciar. A varredura que prova que credencial nenhuma chega ao `out/` é
+`tests/segredo-nao-vai-para-o-cliente.spec.ts`; ela lê os 1.242 arquivos do build, HTML, chunks e
+payload RSC, e entra com 0 ocorrência em 16 regras.
 
 ## Analytics
 

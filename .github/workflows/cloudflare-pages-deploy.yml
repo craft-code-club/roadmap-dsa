@@ -55,10 +55,19 @@ jobs:
       - name: Build with Next.js
         run: npm run build
         env:
-          # Apoiadores vêm da APOIA.se no build. Sem os secrets, a lista fica
-          # vazia e a página mostra o convite "seja o primeiro".
-          APOIASE_TOKEN: ${{ secrets.APOIASE_TOKEN }}
-          APOIASE_CAMPAIGN_ID: ${{ secrets.APOIASE_CAMPAIGN_ID }}
+          # Apoiadores vêm da APOIA.se no build. A chave vai no header
+          # `x-api-key` e o segredo no `Authorization: Bearer` (doc v0.1 da
+          # APOIA.se); ver `src/app/apoie/apoiadores.ts`.
+          #
+          # Estes três nomes substituem `APOIASE_TOKEN`/`APOIASE_CAMPAIGN_ID`,
+          # que o workflow injetava e que NUNCA existiram como secret: o build
+          # caía calado na lista de plano B, e era por isso que a página
+          # publicada mostrava 3 apoiadores com 5 apoios na campanha. Sem os
+          # secrets o comportamento continua o mesmo, com uma diferença que é o
+          # ponto: agora o log do build diz que caiu.
+          APOIASE_KEY: ${{ secrets.APOIASE_KEY }}
+          APOIASE_SECRET: ${{ secrets.APOIASE_SECRET }}
+          APOIASE_CAMPAIGN: ${{ secrets.APOIASE_CAMPAIGN }}
           # Google Analytics só no build da `main`. Este mesmo job roda em PR,
           # e o deploy de preview do Cloudflare é um site público de verdade:
           # sem este recorte, cada PR mandaria pageview para a propriedade de
@@ -156,6 +165,26 @@ jobs:
       # exercitar um build diferente do que o `deploy` publica.
       - name: Run tests
         run: npm test
+        env:
+          # A credencial entra AQUI, num job que não constrói nada, por um motivo
+          # só: `tests/segredo-nao-vai-para-o-cliente.spec.ts` tem duas metades, e
+          # a segunda procura o VALOR literal do segredo dentro do `out/`. Sem as
+          # variáveis ela se declara `skip`, e a metade mais conclusiva da
+          # varredura nunca rodaria em lugar nenhum — só na máquina de quem tem
+          # `.env.local`, que é justamente quem não precisa dela.
+          #
+          # Com elas, o artefato que ACABOU de ser construído com a credencial de
+          # verdade é conferido contra a credencial de verdade, no caminho entre o
+          # build e o deploy. É a diferença entre "nenhuma forma conhecida de
+          # segredo aparece" e "este segredo não aparece".
+          #
+          # O teste nunca imprime o valor (a mensagem de falha cita o NOME da
+          # variável e o arquivo), e o Actions ainda mascara secret no log por
+          # cima disso. Este job não roda em pull_request, então PR de fork
+          # continua sem ver nada.
+          APOIASE_KEY: ${{ secrets.APOIASE_KEY }}
+          APOIASE_SECRET: ${{ secrets.APOIASE_SECRET }}
+          APOIASE_CAMPAIGN: ${{ secrets.APOIASE_CAMPAIGN }}
 
       - name: Upload report on failure
         if: failure()
