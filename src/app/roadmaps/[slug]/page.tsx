@@ -9,6 +9,7 @@ import {
   roadmapGroups,
   roadmapHasMaterial,
   roadmapTopics,
+  CARDS_AVULSOS,
   ROADMAPS,
   ROADMAPS_EXTRAS,
   SLUG_DOS_FUNDAMENTOS,
@@ -21,8 +22,8 @@ import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { GrupoCards } from "@/components/GrupoCards";
 import { breadcrumbJsonLd, JsonLd, roadmapJsonLd, type Migalha } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
-import { pageMetadata } from "@/lib/seo";
-import { comNumero } from "@/lib/format";
+import { pageMetadata, resumoParaBusca } from "@/lib/seo";
+import { comNumero, plural } from "@/lib/format";
 import { levelClass } from "@/lib/ui";
 
 // A abertura de um roadmap: o que ele é, o que vem antes, e os tópicos em ordem.
@@ -54,7 +55,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: principal
       ? "Fundamentos de Algoritmos e Estruturas de Dados: a sequência completa"
       : `${r.name}: roadmap visual e gratuito em português`,
-    description: r.description,
+    description: resumoParaBusca(r.description),
     ogTitle: r.name,
     ogDescription: r.tagline,
     path: `/roadmaps/${r.slug}/`,
@@ -78,6 +79,13 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
   // paralelo com esta.
   const principal = r.slug === SLUG_DOS_FUNDAMENTOS;
   const outros = ROADMAPS_EXTRAS.filter((x) => x.slug !== r.slug);
+  // A banda do fim promete, no texto, os roadmaps E os tópicos que se bastam
+  // numa página. Mostrar só os primeiros deixava a segunda metade da frase sem
+  // nada embaixo dela.
+  const cardsDoFim = [
+    ...outros.map((x) => EXTRA_CARDS.find((c) => c.slug === x.slug)!),
+    ...CARDS_AVULSOS,
+  ];
 
   const migalhas: Migalha[] = [
     { name: "Início", href: "/" },
@@ -199,11 +207,11 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
         razão ela não entra no `ItemList` acima; a vitrine tem o dela, em
         `/roadmaps/`.
       */}
-      {outros.length > 0 && (
+      {cardsDoFim.length > 0 && (
         <section className="rgroup extras-no-roadmap" id="depois-daqui">
           <div className="rgroup-head">
             <h2>{principal ? "Além dos Fundamentos" : "Outros roadmaps"}</h2>
-            <span className="rgroup-count">{outros.length}</span>
+            <span className="rgroup-count">{cardsDoFim.length}</span>
             <div className="rgroup-rule" />
           </div>
           <p className="extras-intro">
@@ -211,7 +219,8 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
               <>
                 Acabou a ordem sugerida. O que vem agora não está na fila porque não precisa estar:{" "}
                 <strong>{comNumero(outros.length, "roadmap", "roadmaps")}</strong> com objetivo
-                próprio, montados sobre estes mesmos tópicos, e{" "}
+                próprio, {plural(outros.length, "montado", "montados")} sobre estes mesmos
+                tópicos, e{" "}
                 <strong>
                   {comNumero(TOPICOS_AVULSOS.length, "tópico que se basta", "tópicos que se bastam")}
                 </strong>{" "}
@@ -225,7 +234,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
             )}
             <Link href="/roadmaps">Ver a vitrine completa →</Link>
           </p>
-          <ExtrasGrid cards={outros.map((x) => EXTRA_CARDS.find((c) => c.slug === x.slug)!)} />
+          <ExtrasGrid cards={cardsDoFim} />
         </section>
       )}
 

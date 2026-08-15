@@ -208,6 +208,7 @@ export function todasAsPaginasDeRoadmap(): { roadmap: Roadmap; topic: Topic }[] 
 function cardDoRoadmap(r: Roadmap): ExtraCard {
   const lista = roadmapTopics(r);
   return {
+    tipo: "roadmap",
     slug: r.slug,
     href: `${urlDoRoadmap(r)}/`,
     name: r.name,
@@ -237,6 +238,32 @@ export const EXTRA_CARDS: ExtraCard[] = ROADMAPS_EXTRAS.map(cardDoRoadmap).sort(
 );
 
 export const TOTAL_EXTRA_CARDS = EXTRA_CARDS.length;
+
+/**
+ * Os tópicos avulsos, no mesmo card da vitrine.
+ *
+ * Eles são a metade fácil de perder do catálogo: sem roadmap que os anuncie,
+ * o único lugar em que apareciam era o índice de 50, no meio de todos os
+ * outros. Um tópico que se basta numa página é uma OFERTA do guia, e oferta
+ * mora na vitrine.
+ *
+ * `topicSlugs` tem um item só, e é isso que faz o progresso do card funcionar
+ * sem nenhum caso especial: marcar o tópico pinta o card, aqui e em qualquer
+ * outro lugar.
+ */
+export const CARDS_AVULSOS: ExtraCard[] = TOPICOS_AVULSOS.map((t) => ({
+  tipo: "topico",
+  slug: t.slug,
+  href: `/topicos/${t.slug}/`,
+  name: t.name,
+  tagline: t.tagline ?? t.description,
+  level: t.level,
+  glyph: t.glyph ?? "◦",
+  topics: 1,
+  ready: isEmptyTopic(t) ? 0 : 1,
+  topicSlugs: [t.slug],
+  nota: isEmptyTopic(t) ? "em breve" : t.readingTime ? `${t.readingTime} de leitura` : "página única",
+}));
 
 /**
  * O card de QUALQUER roadmap, os Fundamentos incluídos, indexado por slug.

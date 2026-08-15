@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { topicTags, type Topic } from "@content/topicos";
-import { levelClass } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
+import { TopicoCard, type CardDeTopico } from "@/components/TopicoCard";
 
 /**
  * Grupos de tópicos em cards, com progresso.
@@ -20,29 +19,15 @@ import { useProgress } from "@/components/ProgressProvider";
  * Por isso ele recebe uma forma JÁ NORMALIZADA, e não `Group[]`: quem chama
  * resolve as citações e decide os destinos, e este componente só desenha. É a
  * alternativa a receber `Group | RoadmapGroup` e ramificar aqui dentro.
+ *
+ * O CARD em si mora no `TopicoCard`, porque o índice completo desenha a mesma
+ * peça SEM grupo nenhum em volta. Aqui ficou o que é do grupo: o título, a
+ * contagem de progresso e a grade.
  */
-export type CardItem = {
-  topic: Topic;
-  href: string;
-  /**
-   * Em que roadmaps este tópico aparece, pelo nome.
-   *
-   * Três estados, e os três importam:
-   *   `undefined`  não mostre esta dimensão. É o caso da abertura de um
-   *                roadmap: o leitor já sabe em qual está, e repetir o nome em
-   *                cada card seria a mesma etiqueta trinta vezes.
-   *   `["A", "B"]` o tópico aparece nesses percursos.
-   *   `[]`         SEI que ele não aparece em nenhum, e isso é informação: o
-   *                card ganha a etiqueta "avulso". Sem o array vazio esse caso
-   *                seria indistinguível de "não perguntei".
-   */
-  origens?: string[];
-};
-
 export type CardGroup = {
   id: string;
   name: string;
-  itens: CardItem[];
+  itens: CardDeTopico[];
   /** Página de abertura do grupo (hoje só a Introdução tem). */
   intro?: { name: string; href: string; description: string };
 };
@@ -72,71 +57,9 @@ export function GrupoCards({ groups }: { groups: CardGroup[] }) {
                   <p>{g.intro.description}</p>
                 </Link>
               )}
-              {g.itens.map(({ topic: t, href, origens }) => {
-                const feito = isTopico(t.slug);
-                return (
-                  // A marca de concluído é IRMÃ do link, como no `ProblemList`:
-                  // widget focável dentro de `<a>` é estado inválido pela ARIA.
-                  // Ela sai do fluxo (o CSS a posiciona) para o card inteiro
-                  // continuar sendo um alvo de clique só.
-                  <div className="topic-card-wrap" key={t.slug}>
-                    {/* A marca vem ANTES do link no DOM, como na barra lateral
-                        e no `ProblemList`. Ela é a primeira coisa do card em
-                        todas as outras listas, e aqui era a última: o teclado
-                        chegava ao card, entrava no tópico, e só encontrava o
-                        "marcar como concluído" na volta. `position: absolute`
-                        mantém o ✓ no mesmo canto — medido, 18px do topo e 17px
-                        da direita antes e depois. */}
-                    <button
-                      type="button"
-                      className={`side-check tcard-check${feito ? " done" : ""}`}
-                      role="checkbox"
-                      aria-checked={feito}
-                      aria-label={`Marcar ${t.name} como concluído`}
-                      onClick={() => toggleTopico(t.slug)}
-                    >
-                      {/* O mesmo traço do `FundamentosSidebar` e do
-                          `ProblemList`; o porquê medido de ser desenho, e não o
-                          caractere `✓`, está no `globals.css`. `aria-hidden`
-                          porque é decoração: o estado é `aria-checked`, o nome
-                          é o `aria-label`. */}
-                      {feito ? (
-                        <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
-                          <path
-                            d="M2.4 6.4 5.1 8.6 9.6 3.4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      ) : null}
-                    </button>
-                    <Link href={href} className={`topic-card${feito ? " done" : ""}`}>
-                      <div className="topic-card-top">
-                        <span className="topic-card-name">{t.name}</span>
-                      </div>
-                      <p>{t.description}</p>
-                      <div className="tcard-tags">
-                        <span className={`level ${levelClass(t.level)}`}>{t.level}</span>
-                        {topicTags(t).map((tag) => (
-                          <span key={tag.kind} className={`ttag ttag-${tag.kind}`}>{tag.label}</span>
-                        ))}
-                        {/* Em que percursos ele aparece. Só o índice completo
-                            pede isso: nas outras telas o leitor vê um roadmap
-                            por vez e a etiqueta seria a mesma em toda a grade. */}
-                        {origens?.map((nome) => (
-                          <span key={nome} className="ttag ttag-origem">{nome}</span>
-                        ))}
-                        {origens?.length === 0 && (
-                          <span className="ttag ttag-avulso">avulso</span>
-                        )}
-                      </div>
-                    </Link>
-                  </div>
-                );
-              })}
+              {g.itens.map((item) => (
+                <TopicoCard key={item.topic.slug} {...item} />
+              ))}
             </div>
           </section>
         );

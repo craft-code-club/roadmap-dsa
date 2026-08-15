@@ -82,8 +82,32 @@ export type PageSeo = {
    * usada. Hoje só o /apoie usa `"raiz"`, e é o caso legítimo: ele fala do
    * projeto inteiro, não de um conteúdo próprio.
    */
-  ogImage?: "segmento" | "raiz";
+  ogImage?: "segmento" | "raiz" | `/${string}`;
 };
+
+/**
+ * O começo de um texto longo, cortado em FRASE INTEIRA, para caber no snippet.
+ *
+ * O Google mostra por volta de 155 caracteres e corta o resto com reticências.
+ * A abertura de um roadmap tinha 533: o parágrafo que a página desenha é bom
+ * como parágrafo e péssimo como snippet, e a alternativa (escrever um segundo
+ * texto à mão para cada roadmap) é mais uma cópia para envelhecer sozinha.
+ *
+ * Corta em fim de FRASE (ponto, interrogação ou exclamação), e nunca no meio
+ * de uma palavra: meia frase no
+ * resultado de busca é pior que uma frase curta. Se a primeira frase já passar
+ * do limite, o texto volta inteiro — melhor o Google cortar do que este código
+ * entregar uma oração sem verbo.
+ */
+export function resumoParaBusca(texto: string, limite = 155): string {
+  if (texto.length <= limite) return texto;
+  let corte = "";
+  for (const frase of texto.split(/(?<=[.!?])\s+/)) {
+    if (corte && (corte + " " + frase).length > limite) break;
+    corte = corte ? `${corte} ${frase}` : frase;
+  }
+  return corte.length <= limite ? corte : texto;
+}
 
 export function pageMetadata({
   title,
@@ -117,12 +141,18 @@ export function pageMetadata({
       title: ogTitle ?? tituloResolvido,
       description: ogDescription ?? description,
       url: canonicalDe ?? path,
-      ...(ogImage === "raiz"
+      // Três casos: o arquivo do próprio segmento (o padrão, e por isso não há
+      // nada a escrever aqui), o card da raiz, ou um card EMPRESTADO de outra
+      // rota. O terceiro existe para as cópias de tópico dentro de um roadmap:
+      // elas não têm `opengraph-image.tsx` (seria a 55ª cópia do mesmo card) e
+      // caíam no da raiz, que fala do site e não do que está na tela. O card
+      // certo para elas é o do tópico, que é o conteúdo que elas servem.
+      ...(ogImage !== "segmento"
         ? {
             images: [
               {
-                url: "/opengraph-image",
-                alt: OG_ALT_RAIZ,
+                url: ogImage === "raiz" ? "/opengraph-image" : ogImage,
+                alt: ogImage === "raiz" ? OG_ALT_RAIZ : undefined,
                 type: OG_CONTENT_TYPE,
                 ...OG_SIZE,
               },

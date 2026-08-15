@@ -34,7 +34,7 @@ function exigirLatin1(campos: Record<string, string>, slug: string): void {
   }
 }
 
-export default async function TrilhaOpengraphImage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function RoadmapOpengraphImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const c = getRoadmap(slug);
   if (!c) throw new Error(`opengraph-image: roadmap inexistente: ${slug}`);
@@ -43,7 +43,7 @@ export default async function TrilhaOpengraphImage({ params }: { params: Promise
 
   const n = roadmapTopics(c).length;
   return ogImage({
-    highlight: "Trilha",
+    highlight: "Roadmap",
     title: c.name,
     subtitle: `${c.tagline} ${n} tópicos, visual e em português.`,
     // O nome do roadmap é longo ("Casamento de Padrões em Strings" tem 31): com o

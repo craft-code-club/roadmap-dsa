@@ -4,6 +4,7 @@ import path from "node:path";
 import { isEmptyTopic, temArtigo, topicTags, TOPICOS } from "../content/topicos";
 import { getPratica, TOTAL_PROBLEMS } from "../content/topicos/pratica";
 import {
+  CARDS_AVULSOS,
   EXTRA_CARDS,
   getTopico,
   FUNDAMENTOS,
@@ -340,21 +341,39 @@ test("as rotas renomeadas têm redirecionamento declarado, e não sobraram como 
 // 4. A vitrine, o índice e a casca
 // ---------------------------------------------------------------------------
 
-for (const [rota, onde] of [
-  ["/roadmaps/fundamentos/", "no fim dos Fundamentos"],
-  ["/roadmaps/", "na vitrine"],
+// As duas telas oferecem o MESMO catálogo do que existe fora do percurso atual:
+// os outros roadmaps mais os tópicos que se bastam numa página. A `/roadmaps/`
+// separa os dois em seções; o fim de um roadmap junta os dois numa banda só,
+// porque ali a pergunta é uma: "e agora?".
+for (const [rota, onde, esperados] of [
+  ["/roadmaps/fundamentos/", "no fim dos Fundamentos", [...EXTRA_CARDS, ...CARDS_AVULSOS]],
+  ["/roadmaps/", "na vitrine", [...EXTRA_CARDS, ...CARDS_AVULSOS]],
 ] as const) {
-  test(`a vitrine ${onde} traz os ${EXTRA_CARDS.length} roadmaps, com o destino certo`, async ({ page }) => {
+  test(`a vitrine ${onde} traz os cards certos, com o destino certo`, async ({ page }) => {
     await page.goto(rota);
     const cards = page.locator(".extra-card");
-    await expect(cards).toHaveCount(EXTRA_CARDS.length);
-    for (const c of EXTRA_CARDS) {
+    await expect(cards).toHaveCount(esperados.length);
+    for (const c of esperados) {
       const card = cards.filter({ has: page.locator(".extra-name", { hasText: c.name }) });
       await expect(card, `${rota}: card "${c.name}"`).toHaveCount(1);
       await expect(card).toHaveAttribute("href", c.href);
     }
   });
 }
+
+test("o tópico que roadmap nenhum cita aparece na vitrine, dito como tópico", async ({ page }) => {
+  // Ele é a metade fácil de perder do catálogo: sem percurso que o anuncie, o
+  // único lugar em que aparecia era o índice de 50, no meio de todos os outros.
+  expect(CARDS_AVULSOS.length, "nenhum tópico avulso: o caso não está sendo medido").toBeGreaterThan(0);
+  await page.goto("/roadmaps/");
+  const secao = page.locator("#topicos-extras");
+  await expect(secao.getByRole("heading", { name: "Tópicos extras" })).toBeVisible();
+  await expect(secao.locator(".extra-card")).toHaveCount(CARDS_AVULSOS.length);
+  // A etiqueta é o que separa os dois formatos DEPOIS de o leitor ver o que tem
+  // em cada um: card de roadmap diz "Roadmap", card de tópico diz "Tópico".
+  await expect(secao.locator(".extra-kind").first()).toHaveText("Tópico");
+  await expect(page.locator("#vitrine .extra-kind").first()).toHaveText("Roadmap");
+});
 
 test("o índice /topicos/ lista cada tópico UMA vez, com os roadmaps dele", async ({ page }) => {
   await page.goto("/topicos/");
@@ -385,6 +404,47 @@ test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
   await expect(achados.locator(".topic-card-name", { hasText: "Skip List" })).toHaveCount(1);
   await page.getByLabel("Buscar entre todos os tópicos").fill("zzzzzz");
   await expect(page.locator(".topicos-contagem")).toHaveText("Nenhum tópico com esse filtro.");
+});
+
+test("as etiquetas do índice filtram em E, e nunca levam a zero", async ({ page }) => {
+  const etiqueta = (nome: string) => page.locator(".topicos-filtro", { hasText: new RegExp(`^${nome}$`) });
+  const quantos = () => page.locator(".topic-card-wrap").count();
+
+  await page.goto("/topicos/");
+  const tudo = await quantos();
+  expect(tudo).toBe(TOPICOS.length);
+
+  await etiqueta("Grafos").click();
+  const soGrafos = await quantos();
+  expect(soGrafos, "a etiqueta de assunto não filtrou").toBeLessThan(tudo);
+
+  // A segunda etiqueta ESTREITA. É a regra inteira do filtro, e é a que o
+  // leitor consegue prever sem ler nada.
+  await etiqueta("Visualização").click();
+  const grafosComViz = await quantos();
+  expect(grafosComViz, "a segunda etiqueta não estreitou").toBeLessThan(soGrafos);
+  expect(grafosComViz).toBeGreaterThan(0);
+
+  // E o preço da regra "E" está pago: um segundo assunto zeraria a grade, então
+  // ele não é clicável. Sem isto o leitor monta uma pergunta sem resposta em
+  // dois cliques e conclui que o guia não tem o assunto.
+  await expect(etiqueta("Árvores"), "dá para chegar a zero clicando").toBeDisabled();
+
+  await page.locator(".topicos-limpar").click();
+  expect(await quantos(), "o botão de limpar não devolveu a grade").toBe(tudo);
+});
+
+test("cada card do índice diz o assunto, e o avulso diz que é avulso", async ({ page }) => {
+  await page.goto("/topicos/");
+  // O assunto era o título de uma seção; sem seções, ele tem de estar no card,
+  // senão a informação simplesmente sumiu da página.
+  await expect(page.locator(".ttag-assunto")).toHaveCount(TOPICOS.length);
+  await expect(page.locator(".ttag-avulso")).toHaveCount(TOPICOS_AVULSOS.length);
+  const avulso = page
+    .locator(".topic-card-wrap")
+    .filter({ has: page.locator(".topic-card-name", { hasText: TOPICOS_AVULSOS[0].name }) });
+  await expect(avulso.locator(".ttag-origem")).toHaveCount(0);
+  await expect(avulso.locator(".ttag-avulso")).toHaveText("avulso");
 });
 
 test("a casca certa em cada rota", async ({ page }) => {

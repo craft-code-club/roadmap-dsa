@@ -12,13 +12,17 @@ import { useProgress } from "@/components/ProgressProvider";
 // cópia da grade é como a home e o roadmap acabariam contando duas histórias
 // diferentes sobre o mesmo catálogo, cada uma envelhecendo por conta própria.
 //
-// Trilha e tópico avulso dividem o mesmo card de propósito. O aluno que chega
-// aqui está perguntando "o que mais tem?", e não "quais são os roadmaps?": pedir
-// que ele entenda a diferença entre os dois formatos ANTES de ver o que tem em
-// cada um é a ordem errada. A etiqueta no canto responde a diferença depois,
-// para quem quiser saber quanto tempo aquilo vai tomar.
+// Roadmap e tópico avulso dividem o mesmo card de propósito. Quem chega aqui
+// está perguntando "o que mais tem?", e não "quais são os roadmaps?": pedir que
+// ele entenda a diferença entre os dois formatos ANTES de ver o que tem em cada
+// um é a ordem errada. A etiqueta no canto responde a diferença depois, para
+// quem quiser saber quanto tempo aquilo vai tomar.
 
 function metaDoCard(c: ExtraCard, feitos: number, hydrated: boolean): string {
+  // Um card de TÓPICO representa um tópico só, e "1 de 1 publicado" não é
+  // frase. Ali o rodapé vem pronto do dado (`nota`), e o que ele diz é o que
+  // o leitor ganha: o tempo de leitura, ou que ainda não dá para abrir.
+  if (c.tipo === "topico") return hydrated && feitos > 0 ? "concluído" : (c.nota ?? "");
   if (c.ready === 0) return `${c.topics} tópicos · em breve`;
   if (hydrated && feitos > 0) return `${feitos} de ${c.topics} concluídos`;
   return `${c.ready} de ${c.topics} publicados`;
@@ -38,7 +42,9 @@ function CardExtra({ card }: { card: ExtraCard }) {
         {/* Decoração pura: quem lê com leitor de tela recebe o nome do card
             logo abaixo, e um glifo anunciado como "◈" só atrapalha. */}
         <span className="extra-glyph" aria-hidden="true">{card.glyph}</span>
-        <span className="extra-kind extra-kind-roadmap">Roadmap</span>
+        <span className={`extra-kind extra-kind-${card.tipo}`}>
+          {card.tipo === "roadmap" ? "Roadmap" : "Tópico"}
+        </span>
       </div>
       <div className="extra-name">{card.name}</div>
       <p>{card.tagline}</p>

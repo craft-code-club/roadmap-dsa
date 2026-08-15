@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isEmptyTopic, TOPICOS, TOTAL_TOPICS_PRONTOS } from "@content/topicos";
-import { FUNDAMENTOS, roadmapsDoTopico, ROADMAPS } from "@content/roadmaps";
+import { roadmapsDoTopico } from "@content/roadmaps";
 import { comNumero } from "@/lib/format";
-import { TodosOsTopicos, type SecaoDeTopicos } from "@/components/TodosOsTopicos";
+import { TodosOsTopicos, type LinhaDeTopico } from "@/components/TodosOsTopicos";
 import { extrasJsonLd, JsonLd } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
@@ -27,31 +27,22 @@ export function generateMetadata(): Metadata {
     ogTitle: "Todos os tópicos do Roadmap DSA",
     ogDescription: `${TOPICOS.length} tópicos de algoritmos e estruturas de dados, num índice só. Grátis, em português.`,
     path: "/topicos/",
+    // Sem card próprio: o da raiz fala do guia inteiro, que é exatamente o que
+    // esta página é. Ela era a única rota de topo chegando como retângulo
+    // cinza, e é a mais colável de todas ("olha esse guia").
+    ogImage: "raiz",
   });
 }
 
 export const dynamic = "force-static";
 
 export default function TopicosPage() {
-  // Uma seção por assunto (`group`), que é a única classificação que o tópico
-  // carrega por conta própria agora que ele não tem casa. A ordem das seções é
-  // a de primeira aparição nos Fundamentos, e depois o resto: assim o índice
-  // abre pela ordem de aprendizado sem depender dela.
-  const ordem: string[] = [];
-  for (const g of FUNDAMENTOS.groups)
-    for (const c of g.topics) {
-      const t = TOPICOS.find((x) => x.slug === c.topic);
-      if (t && !ordem.includes(t.group)) ordem.push(t.group);
-    }
-  for (const t of TOPICOS) if (!ordem.includes(t.group)) ordem.push(t.group);
-
-  const secoes: SecaoDeTopicos[] = ordem.map((assunto) => ({
-    id: `t-${assunto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
-    nome: assunto,
-    linhas: TOPICOS.filter((t) => t.group === assunto).map((t) => ({
-      topic: t,
-      roadmaps: roadmapsDoTopico(t.slug).map((r) => r.name),
-    })),
+  // A ordem é a do registro, que é a de aprendizado: a página não tem seções
+  // (o assunto virou etiqueta no card), mas quem rola de cima a baixo sem
+  // filtrar nada continua vendo o guia na sequência em que ele foi pensado.
+  const linhas: LinhaDeTopico[] = TOPICOS.map((t) => ({
+    topic: t,
+    roadmaps: roadmapsDoTopico(t.slug).map((r) => r.name),
   }));
 
   const semRoadmap = TOPICOS.filter((t) => roadmapsDoTopico(t.slug).length === 0).length;
@@ -67,12 +58,13 @@ export default function TopicosPage() {
       <p className="roadmap-intro">
         Os <strong>{TOPICOS.length} tópicos</strong> do guia numa página só, {TOTAL_TOPICS_PRONTOS} deles
         já publicados. Um tópico existe por conta própria e pode aparecer em vários{" "}
-        <Link href="/roadmaps">roadmaps</Link>: a etiqueta ao lado de cada um diz em quais.
-        {semRoadmap > 0 && ` ${comNumero(semRoadmap, "não está", "não estão")} em nenhum.`} Aqui não há ordem: há
-        tudo, para você procurar.
+        <Link href="/roadmaps">roadmaps</Link>: as etiquetas de cada card dizem o assunto, o
+        nível, o que ele já tem pronto e em que percursos aparece.
+        {semRoadmap > 0 && ` ${comNumero(semRoadmap, "não está", "não estão")} em nenhum.`} Clique
+        nas etiquetas lá em cima para ir estreitando: cada uma que entra tira tópicos da lista.
       </p>
 
-      <TodosOsTopicos secoes={secoes} />
+      <TodosOsTopicos topicos={linhas} />
 
       <div className="discord-strip">
         <span className="dot" />

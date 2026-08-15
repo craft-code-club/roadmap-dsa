@@ -42,6 +42,10 @@ export async function generateMetadata({
     description: t.description,
     path: `/roadmaps/${r.slug}/${t.slug}/`,
     canonicalDe: `/topicos/${t.slug}/`,
+    // O card do TÓPICO, e não o da raiz. Esta rota é a que o leitor tem na
+    // barra quando copia o link no meio da leitura, e sem isto o link chegava
+    // no grupo com o card genérico do site.
+    ogImage: `/topicos/${t.slug}/opengraph-image`,
     titleStyle: "template",
   });
 }

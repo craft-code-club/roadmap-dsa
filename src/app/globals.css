@@ -524,20 +524,39 @@ html { scroll-behavior: smooth; }
 /* ------ o índice completo (/topicos/) ------ */
 .topicos-controles { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 14px; }
 .topicos-busca { max-width: 380px; margin-top: 0; }
+/* A barra de etiquetas do índice completo.
+   Uma linha por família, com o rótulo à esquerda: sem ele, trinta botões
+   seguidos não dizem que "Grafos" e "Difícil" filtram coisas diferentes. */
+.topicos-etiquetas { display: flex; flex-direction: column; gap: 7px; margin: 0 0 18px; }
+.tfam { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.tfam-rot {
+  flex: none; width: 74px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--ccc-muted);
+}
+.topicos-limpar {
+  padding: 6px 12px; border: 1px solid var(--ccc-line); border-radius: 99px;
+  background: none; color: var(--ccc-muted); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.topicos-limpar:hover { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
 .topicos-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
 .topicos-filtro {
   padding: 7px 13px; border: 1px solid var(--ccc-line); border-radius: 99px;
   background: transparent; color: #a9bcd4; font: inherit; font-size: 12.5px; cursor: pointer;
 }
-.topicos-filtro:hover { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
+.topicos-filtro:hover:not(:disabled) { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
+/* Desligada, e não escondida: a etiqueta que some faz o leitor concluir que o
+   assunto não existe no guia. Ela existe, só não combina com o que já entrou. */
+.topicos-filtro:disabled { opacity: 0.34; cursor: not-allowed; }
 .topicos-filtro.on { border-color: var(--ccc-accent); background: var(--ccc-accent-soft); color: #dbeafe; font-weight: 600; }
 .topicos-contagem { margin: 0 0 26px; font-size: 12.5px; color: var(--ccc-muted); font-family: var(--mono); }
-.topicos-sub { margin: -8px 0 14px; font-size: 13.5px; color: #8ea3bd; }
 /* A etiqueta do tópico que não está em roadmap nenhum.
    Neutra de propósito: não é aviso nem falta, é uma escolha (a Skip List saiu
    da sequência porque o assunto dela é outro). Ela só aparece no índice
    completo, que é a única tela que fala de todos os percursos ao mesmo tempo. */
 .ttag-avulso { border-color: rgba(148, 163, 184, 0.3); color: #94a3b8; }
+/* O assunto do tópico, que era o título de uma seção e virou etiqueta. Ela é a
+   primeira do card e a mais forte das etiquetas: é por ela que se procura. */
+.ttag-assunto { color: #cbd5e1; border-color: rgba(203, 213, 225, 0.32); background: rgba(203, 213, 225, 0.07); font-weight: 600; }
 
 /* A banda do pé do tópico avulso. */
 .continue-explorando { margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--ccc-line); }

@@ -135,6 +135,13 @@ export const SLUG_DOS_FUNDAMENTOS = "fundamentos";
  * dois lugares, com duas regras de ordenação envelhecendo em paralelo.
  */
 export type ExtraCard = {
+  /**
+   * O que este card É. A vitrine mostra os dois lado a lado de propósito:
+   * quem chega em `/roadmaps/` pergunta "o que mais tem?", e não "quais são os
+   * roadmaps?". A etiqueta no canto responde a diferença depois, para quem
+   * quiser saber quanto tempo aquilo vai tomar.
+   */
+  tipo: "roadmap" | "topico";
   slug: string;
   href: string;
   name: string;
@@ -147,6 +154,14 @@ export type ExtraCard = {
   ready: number;
   /** Os slugs que o card representa, para ele contar o progresso do leitor. */
   topicSlugs: string[];
+  /**
+   * O rodapé, quando "N de M publicados" não diz nada.
+   *
+   * Um card de TÓPICO representa um tópico só: contar quantos dos seus um
+   * tópico já publicou é uma frase sem sentido. Ali o rodapé fala do que o
+   * leitor vai encontrar (o tempo de leitura, ou "em breve").
+   */
+  nota?: string;
 };
 
 /**
