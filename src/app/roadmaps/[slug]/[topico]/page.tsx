@@ -4,7 +4,7 @@ import {
   getRoadmap,
   getTopico,
   roadmapTopics,
-  ROADMAPS_EXTRAS,
+  ROADMAPS,
 } from "@content/roadmaps";
 import { TopicoNoRoadmap } from "@/components/TopicoNoRoadmap";
 import { pageMetadata } from "@/lib/seo";
@@ -21,7 +21,7 @@ import { pageMetadata } from "@/lib/seo";
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return ROADMAPS_EXTRAS.flatMap((r) =>
+  return ROADMAPS.flatMap((r) =>
     roadmapTopics(r).map((t) => ({ slug: r.slug, topico: t.slug }))
   );
 }

@@ -152,10 +152,10 @@ test("o navegador sabe que o tema é escuro (`color-scheme` computado)", async (
 });
 
 test("a barra de rolagem escura vale para o menu lateral, que é o mais rolado", async ({ page }) => {
-  // `/fundamentos/`, e não `/topicos/`: o menu que rola é o do roadmap. A
+  // `/roadmaps/fundamentos/`, e não `/topicos/`: o menu que rola é o do roadmap. A
   // página canônica do tópico tem a barra dos roadmaps que o citam, que é
   // curta e não rola.
-  await page.goto("/fundamentos/backtracking/");
+  await page.goto("/roadmaps/fundamentos/backtracking/");
 
   // Quem rola é `.side-scroll`, não `.sidebar`: medido, a `.sidebar` tem
   // `overflow-y: visible` e scrollHeight igual ao clientHeight. Apontar para o

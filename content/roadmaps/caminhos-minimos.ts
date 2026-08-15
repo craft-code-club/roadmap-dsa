@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // Caminho mínimo de uma origem só (SSSP), visto como problema de logística em
 // vez de como capítulo de teoria dos grafos.

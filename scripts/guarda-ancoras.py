@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Guarda das âncoras na gravação: o artigo tem que ser autocontido.
 
-    python3 scripts/guarda-ancoras.py                  # content/topics/*.mdx
+    python3 scripts/guarda-ancoras.py                  # content/topicos/*/artigo.mdx
     python3 scripts/guarda-ancoras.py <arquivo|dir>…   # só o que você mandar
     python3 scripts/guarda-ancoras.py --lentes         # imprime as lentes e as exceções
 
@@ -14,7 +14,7 @@ A regra, do `CLAUDE.md` do repositório de controle e da memória
 > do artigo. Quem assiste ganha reforço; quem só lê recebe o valor inteiro.
 
 O link e o embed da gravação **não** são violação: eles são o reforço que a
-regra promete, e nem moram aqui (o vídeo é metadado, em `content/roadmap.ts`).
+regra promete, e nem moram aqui (o vídeo é metadado, em `content/topicos/<slug>/index.ts`).
 O que este guarda procura é a PROSA que exige ter assistido.
 
 POR QUE TRÊS LENTES, E NÃO UM GREP
@@ -56,7 +56,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 RAIZ = Path(__file__).resolve().parent.parent
-PADRAO = RAIZ / "content" / "topics"
+PADRAO = RAIZ / "content" / "topicos"
 
 
 class Lente(NamedTuple):
@@ -210,7 +210,11 @@ def alvos(argumentos: list[str]) -> list[Path]:
     achados: list[Path] = []
     for c in caminhos:
         if c.is_dir():
-            achados += sorted(c.glob("*.mdx"))
+            # `rglob`, e não `glob`: cada tópico é uma pasta
+            # (`content/topicos/<slug>/artigo.mdx`), e a varredura de um nível
+            # só voltava vazia — que este guarda trata como ERRO, não como
+            # "passou", justamente para o dia em que o layout mudasse.
+            achados += sorted(c.rglob("*.mdx"))
         elif c.is_file():
             achados.append(c)
         else:

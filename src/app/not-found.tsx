@@ -8,7 +8,7 @@ export default function NotFound() {
       <p className="lead" style={{ margin: "0 auto 28px" }}>
         O tópico que você procura não existe (ainda). Volte para os Fundamentos, ou veja o índice completo.
       </p>
-      <Link href="/fundamentos" className="btn btn-primary">Ver o roadmap</Link>
+      <Link href="/roadmaps/fundamentos" className="btn btn-primary">Ver o roadmap</Link>
     </div>
   );
 }

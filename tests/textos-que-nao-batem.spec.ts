@@ -261,7 +261,7 @@ test.describe("negative-binary · a linha do 'lido de volta'", () => {
         await expect(
           card.locator(".bb-formula-fim"),
           `negar ${v}, cartão ${i}: a linha do lido de volta`
-        ).toHaveText(`Lido de volta: ${-v} — bits diferentes, mesmo número.`);
+        ).toHaveText(`Lido de volta: ${-v}: bits diferentes, mesmo número.`);
         fitas.push((await card.locator(".bn-fita .bn-bit-val").allInnerTexts()).join(""));
       }
 

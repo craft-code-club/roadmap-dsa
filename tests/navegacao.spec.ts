@@ -6,19 +6,17 @@ test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("aprofundamento em cada estrutura");
   await page.getByRole("link", { name: "Começar por Big O" }).click();
-  await expect(page).toHaveURL(/fundamentos\/big-o/);
+  await expect(page).toHaveURL(/roadmaps\/fundamentos\/big-o/);
   await expect(page.getByRole("heading", { level: 1, name: /Big O/ })).toBeVisible();
 });
 
 test("nav do topo abre os Fundamentos e um tópico", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Fundamentos", exact: true }).click();
-  await expect(page).toHaveURL(/\/fundamentos/);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Fundamentos de Algoritmos e Estruturas de Dados" })
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/roadmaps\/fundamentos/);
+  await expect(page.getByRole("heading", { level: 1, name: "Fundamentos" })).toBeVisible();
   await page.getByRole("link", { name: /Two Pointers/ }).first().click();
-  await expect(page).toHaveURL(/fundamentos\/two-pointers/);
+  await expect(page).toHaveURL(/roadmaps\/fundamentos\/two-pointers/);
 });
 
 test("página de tópico traz vídeo e problemas com links externos certos", async ({ page }) => {
@@ -681,7 +679,7 @@ const irParaOFimDaPagina = async (page: import("@playwright/test").Page) => {
 };
 
 test("clicar em Próximo volta ao topo de uma vez, não numa animação cancelável", async ({ page }) => {
-  await page.goto("/fundamentos/arrays/");
+  await page.goto("/roadmaps/fundamentos/arrays/");
   await irParaOFimDaPagina(page);
 
   const proximo = page.locator(".prevnext a.next");
@@ -733,7 +731,7 @@ test("com movimento reduzido, nada anima — e o destino é o mesmo", async ({ p
   // vai direto ao título e a troca de tópico abre no topo, sem animação para
   // ser cancelada no meio do caminho.
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/fundamentos/pilhas/");
+  await page.goto("/roadmaps/fundamentos/pilhas/");
   const ancoras = page.locator(".toc-links a");
   expect(await ancoras.count(), "o índice encolheu: escolha outra âncora").toBeGreaterThanOrEqual(3);
   const traj = await trajetoriaDaRolagem(page, () => ancoras.nth(2).click());
@@ -844,7 +842,7 @@ async function abrirComMenuPronto(
 }
 
 test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page }) => {
-  await abrirComMenuPronto(page, "/fundamentos/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   // Arrays e Strings porque é onde o leitor está; Introdução não entra de carona.
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 
@@ -852,14 +850,14 @@ test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page
   // porque a visita acima já virou histórico — e histórico o menu devolve de
   // propósito (é o outro teste); aqui o que se mede é a primeira visita.
   await page.evaluate(() => localStorage.clear());
-  await abrirComMenuPronto(page, "/fundamentos/backtracking/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/backtracking/");
   expect(await gruposAbertos(page)).toEqual(["Backtracking"]);
 });
 
 test("o menu lembra os grupos que o leitor abriu, e o da página abre junto", async ({ page }) => {
-  await abrirComMenuPronto(page, "/fundamentos/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   await page.locator(".side-group-btn", { hasText: "Grafos" }).click();
-  await expect(page.locator(".side-item[href='/fundamentos/dijkstra/']")).toBeVisible();
+  await expect(page.locator(".side-item[href='/roadmaps/fundamentos/dijkstra/']")).toBeVisible();
 
   // F5 na mesma página: a escolha volta, e o grupo da rota continua aberto.
   await abrirComMenuPronto(page, "recarregar");
@@ -888,14 +886,14 @@ const memoriaDoMenu = (page: import("@playwright/test").Page, ids: string[], hor
 
 test("dentro do dia, o menu devolve o que o leitor tinha aberto", async ({ page }) => {
   await memoriaDoMenu(page, ["grafos"], 23);
-  await abrirComMenuPronto(page, "/fundamentos/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 });
 
 test("passado um dia, o menu volta ao padrão da página", async ({ page }) => {
   // Quem some por três dias não lembra por que aqueles grupos estavam abertos.
   await memoriaDoMenu(page, ["grafos", "heaps"], 25);
-  await abrirComMenuPronto(page, "/fundamentos/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 
   // E em página sem grupo próprio sobra o grupo de abertura, não o menu vazio.
@@ -905,7 +903,7 @@ test("passado um dia, o menu volta ao padrão da página", async ({ page }) => {
 
 test("o prazo conta da última visita: voltar hoje renova a memória", async ({ page }) => {
   await memoriaDoMenu(page, ["grafos"], 20);
-  await abrirComMenuPronto(page, "/fundamentos/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 
   // O carimbo que ficou gravado é de agora, e não o de 20 horas atrás: amanhã
@@ -919,7 +917,7 @@ test("o prazo conta da última visita: voltar hoje renova a memória", async ({ 
 test("o grupo da página atual abre mesmo que estivesse fechado", async ({ page }) => {
   // Cenário do leitor que fechou tudo e depois abriu um tópico de outro grupo.
   await memoriaDoMenu(page, ["hashing"], 1);
-  await abrirComMenuPronto(page, "/fundamentos/dijkstra/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/dijkstra/");
   expect(await gruposAbertos(page)).toEqual(["Hashing", "Grafos"]);
   await expect(page.locator(".side-item.on")).toHaveText(/Dijkstra/);
 });
@@ -942,7 +940,7 @@ test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", a
   // Com os outros grupos fechados, um tópico do fim da lista ainda pode cair
   // abaixo da dobra do menu — e aí o leitor não vê onde está.
   await page.setViewportSize({ width: 1440, height: 700 });
-  await page.goto("/fundamentos/negative-binary/");
+  await page.goto("/roadmaps/fundamentos/negative-binary/");
 
   // Quem rola é um efeito, que roda depois da hidratação: ler uma vez logo após
   // o `goto` mediria o menu antes de ele existir como React. A espera é sobre a
@@ -966,9 +964,9 @@ test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", a
 });
 
 test("Fundamentos, Apoiar e Introdução mostram onde o leitor está", async ({ page }) => {
-  // Regressão: com `trailingSlash: true` a rota chega como "/fundamentos/", e a
+  // Regressão: com `trailingSlash: true` a rota chega como "/roadmaps/fundamentos/", e a
   // comparação crua com o href deixava a barra do topo sempre apagada.
-  await page.goto("/fundamentos/");
+  await page.goto("/roadmaps/fundamentos/");
   await expect(page.locator(".nav-left a.on")).toHaveText("Fundamentos");
   await page.goto("/apoie/");
   await expect(page.locator(".nav-right a.on")).toContainText("Apoiar");
@@ -984,7 +982,7 @@ test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({
   // percurso, e a correção "óbvia" seria tirar a tag do tópico.
   const marcados = roadmapTopics(FUNDAMENTOS).filter((t) => t.isNew);
   expect(marcados.length, "nenhum tópico marcado nos Fundamentos: o teste não prova nada").toBeGreaterThan(0);
-  await page.goto("/fundamentos/big-o/");
+  await page.goto("/roadmaps/fundamentos/big-o/");
 
   // abre todo grupo ainda fechado, para que os selos de todos os tópicos contem
   const grupos = page.locator(".side-group");
@@ -995,7 +993,7 @@ test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({
 
   await expect(page.locator(".side-item .badge-novo")).toHaveCount(marcados.length);
   for (const t of marcados) {
-    await expect(page.locator(`.side-item[href="/fundamentos/${t.slug}/"] .badge-novo`)).toBeVisible();
+    await expect(page.locator(`.side-item[href="/roadmaps/fundamentos/${t.slug}/"] .badge-novo`)).toBeVisible();
   }
 });
 
@@ -1003,7 +1001,7 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
   await page.goto("/introducao/");
   await expect(page.getByRole("heading", { level: 1, name: "Por onde começar" })).toBeVisible();
   await page.getByRole("link", { name: "Começar por Big O" }).click();
-  await expect(page).toHaveURL(/fundamentos\/big-o/);
+  await expect(page).toHaveURL(/roadmaps\/fundamentos\/big-o/);
 });
 
 // Cobertura de todos os tópicos "ready": em vez de um teste artesanal por
@@ -1885,7 +1883,7 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
   await page.addInitScript(() => localStorage.removeItem("ccc-dsa-menu"));
 
   const conferirGrupo = async (slug: string) => {
-    await page.goto(`/fundamentos/${slug}/`);
+    await page.goto(`/roadmaps/fundamentos/${slug}/`);
     const grupo = TOPICOS.find((t) => t.slug === slug)!.group;
     const doGrupo = TOPICOS.filter((t) => t.group === grupo);
     const vazios = doGrupo.filter((t) => isEmptyTopic(t));
@@ -1893,7 +1891,7 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
       vazios.length
     );
     for (const t of doGrupo) {
-      const item = page.locator(`.sidebar a[href="/fundamentos/${t.slug}/"]`);
+      const item = page.locator(`.sidebar a[href="/roadmaps/fundamentos/${t.slug}/"]`);
       if (isEmptyTopic(t)) await expect(item, `${t.slug} devia estar em breve`).toHaveClass(/\bsoon\b/);
       else await expect(item, `${t.slug} NÃO devia estar em breve`).not.toHaveClass(/\bsoon\b/);
     }
@@ -1902,7 +1900,7 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
   // Programação Dinâmica só tem vídeos extras (recortes de resolução), e isso
   // não é material do tópico: ela continua em breve.
   await conferirGrupo("programacao-dinamica");
-  await expect(page.locator('.sidebar a[href="/fundamentos/programacao-dinamica/"]')).toHaveClass(/\bsoon\b/);
+  await expect(page.locator('.sidebar a[href="/roadmaps/fundamentos/programacao-dinamica/"]')).toHaveClass(/\bsoon\b/);
 
   // Manipulação de Bits tem dois publicados e um vazio, no mesmo grupo
   await conferirGrupo("binary-numbers");

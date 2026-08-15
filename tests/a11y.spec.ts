@@ -55,7 +55,7 @@ type Conhecida = {
  * Duas coisas mudaram em relação à primeira medição (feita sobre e35c1b2):
  *
  *  - `landmark-unique` **saiu das cinco rotas**: o #50 pôs `aria-label` nos dois
- *    `<nav>` da barra, que era o defeito. Com isso `/` e `/fundamentos/` ficam com a
+ *    `<nav>` da barra, que era o defeito. Com isso `/` e `/roadmaps/fundamentos/` ficam com a
  *    lista **vazia** — e lista vazia não é lacuna, é a forma mais forte deste
  *    guarda: qualquer violação que apareça ali vira "regra nova" e reprova;
  *  - `color-contrast` em `/topicos/two-pointers/` fica em **16 nós**, e agora de
@@ -80,10 +80,10 @@ type Conhecida = {
  *    — os títulos do `out/apoie/index.html` são `h1` seguido só de `h2`.
  *
  * A amostra também cresceu de 5 para 9 rotas, com as classes de página que os
- * trilhas criaram: a vitrine `/roadmaps/`, a abertura de uma trilha (barra lateral
- * que não é a do roadmap), o tópico avulso `/topicos/trie/` (barra lateral
- * NENHUMA) e `/topicos/counting-sort/`, que assumiu a cobertura de "tópico em
- * breve" que era do `/topicos/trie/` antes de ele ganhar artigo.
+ * roadmaps criaram: a vitrine `/roadmaps/`, a abertura de um roadmap extra
+ * (barra lateral curta), o tópico avulso `/topicos/trie/` (barra lateral
+ * NENHUMA) e `/roadmaps/fundamentos/floyd-warshall/`, que é a amostra de
+ * "tópico em breve" com o menu do roadmap do lado.
  *
  * O passivo antigo dizia que os 34 nós eram `.code-lang` e `.viz-var-name`, com
  * "o pior medido 3.48:1" atribuído ao segundo. Os dois rótulos estavam errados:
@@ -93,7 +93,7 @@ type Conhecida = {
  */
 const PASSIVO: Record<string, Conhecida[]> = {
   "/": [],
-  "/fundamentos/": [],
+  "/roadmaps/fundamentos/": [],
   "/topicos/two-pointers/": [
     {
       regra: "color-contrast",
@@ -129,10 +129,16 @@ const PASSIVO: Record<string, Conhecida[]> = {
         "apaga a entrada nas duas rotas de uma vez",
     },
   ],
-  // O tópico "em breve", que era a cobertura do `/topicos/trie/` antes de ele
-  // virar tópico avulso com artigo: é a única amostra em que o selo "em breve"
-  // e o item apagado do menu aparecem.
-  "/topicos/counting-sort/": [
+  // O tópico "em breve" DENTRO de um roadmap: é a única amostra em que o selo
+  // "em breve" e o item apagado do menu aparecem os dois.
+  //
+  // A amostra era `/topicos/counting-sort/`, e mudar de rota não foi capricho:
+  // desde que o tópico deixou de ter casa, a página canônica não desenha o menu
+  // do roadmap (ela lista os roadmaps que citam o tópico), e os dois elementos
+  // que esta entrada cobre sumiram de lá junto com o menu. O guarda avisou
+  // ("passivo obsoleto"), e a resposta certa não era apagar a dívida: era medir
+  // a mesma dívida onde ela continua na tela.
+  "/roadmaps/fundamentos/floyd-warshall/": [
     {
       regra: "color-contrast",
       teto: 2,
@@ -141,8 +147,8 @@ const PASSIVO: Record<string, Conhecida[]> = {
         "src/app/globals.css, #6f83a0 sobre #13233e, 4.05:1) e o selo 'em breve' " +
         "(`.badge-soon`, #7f93ad sobre #22314a, 4.15:1), os dois contra os 4.5:1 " +
         "exigidos. Teto vale aqui: são dois elementos de chrome fixo, não de conteúdo. " +
-        "Esta entrada morava no `/topicos/trie/`, que era a amostra de tópico vazio " +
-        "até virar tópico avulso com artigo",
+        "Esta entrada já morou em `/topicos/trie/` e em `/topicos/counting-sort/`; " +
+        "ela segue a rota que ainda desenha o menu com um item 'em breve'",
     },
   ],
   // As duas telas novas. Listas vazias, que é a forma mais forte deste guarda:

@@ -10,7 +10,7 @@ import {
   type Roadmap,
 } from "@content/roadmaps";
 import { isEmptyTopic } from "@content/topicos";
-import { mesmaRota } from "@/lib/ui";
+import { mesmaRota, slugDoTopicoNaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
 
@@ -43,9 +43,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
   // (`/roadmaps/<r>/<slug>/`, o caso normal aqui) e a canônica
   // (`/topicos/<slug>/`, quando o roadmap é a casa do tópico). As duas precisam
   // acender a mesma linha.
-  const partes = (pathname ?? "").split("/").filter(Boolean);
-  const slugAtivo =
-    partes[0] === "roadmaps" && partes[2] ? partes[2] : partes[0] === "topico" ? partes[1] : null;
+  const slugAtivo = slugDoTopicoNaRota(pathname);
 
   const lista = roadmapTopics(roadmap);
   const feitos = contarTopicos(lista.map((t) => t.slug));
@@ -55,7 +53,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
   return (
     <>
       <div className="side-head">
-        <Link className="side-voltar" href="/fundamentos">
+        <Link className="side-voltar" href="/roadmaps/fundamentos">
           <span aria-hidden="true">‹</span> Fundamentos
         </Link>
         <div className="side-head-row">

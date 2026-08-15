@@ -67,7 +67,7 @@ const TETO_MAIOR_CHUNK = 265 * KB;
  * duas mostram um parágrafo e nenhum visualizador, então a diferença é
  * desperdício puro. Era 179.286 B (175,1 KB), o chunk inteiro dos 86
  * visualizadores; depois do corte é **5.997 B**, um chunk só, que é o da rota
- * `/topico/[slug]` e carrega os 86 invólucros do `VizLazy`.
+ * `/topicos/[slug]` e carrega os 86 invólucros do `VizLazy`.
  *
  * O teto de 8 KB é esse número com folga para o mapa crescer: ele ganha uma
  * linha por visualizador novo, o que dá alguns bytes gzipados cada.
@@ -75,7 +75,7 @@ const TETO_MAIOR_CHUNK = 265 * KB;
 const TETO_EXCEDENTE_SEM_VIZ = 8 * KB;
 
 /** Rota `soon` sem artigo e sem visualizador (ver `isEmptyTopic`). */
-const ROTA_SEM_VIZ = "topico/trie/index.html";
+const ROTA_SEM_VIZ = "topicos/trie/index.html";
 
 // ---------------------------------------------------------------------------
 // leitura do build
@@ -215,10 +215,10 @@ test("os visualizadores continuam renderizados no HTML estático", () => {
   // Perfis diferentes de propósito: cinco visualizadores num artigo denso, três
   // num artigo comum, um só numa página de grafo, e dois num artigo do meio.
   const esperado: Record<string, number> = {
-    "topico/intervals/index.html": 5,
-    "topico/arrays/index.html": 3,
-    "topico/hash-table/index.html": 2,
-    "topico/dijkstra/index.html": 1,
+    "topicos/intervals/index.html": 5,
+    "topicos/arrays/index.html": 3,
+    "topicos/hash-table/index.html": 2,
+    "topicos/dijkstra/index.html": 1,
   };
   for (const [rota, quantos] of Object.entries(esperado)) {
     const html = readFileSync(path.join(OUT, rota), "utf8");

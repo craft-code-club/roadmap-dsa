@@ -6,8 +6,8 @@ import { isEmptyTopic, TOPICOS } from "../content/topicos";
 import {
   roadmapHasMaterial,
   roadmapsDoTopico,
+  FUNDAMENTOS,
   ROADMAPS,
-  ROADMAPS_EXTRAS,
   roadmapTopics,
   urlDoRoadmap,
 } from "../content/roadmaps";
@@ -60,10 +60,10 @@ const ROTAS_FIXAS = Object.keys(CONTEUDO_DA_ROTA);
 // deste arquivo — que é literalmente o defeito descrito no cabeçalho, repetido
 // um nível acima.
 const ROTAS_TOPICO = TOPICOS.map((t) => `/topicos/${t.slug}/`);
-// `urlDoRoadmap`, e não `/roadmaps/<slug>/` montado à mão: os Fundamentos são
-// um roadmap no dado e moram em `/fundamentos/`. Montar a URL aqui inventava a
-// rota `/roadmaps/fundamentos/`, que não existe no `out/`.
-const ROTAS_CURSO = ROADMAPS_EXTRAS.map((c) => `${urlDoRoadmap(c)}/`);
+// `urlDoRoadmap`, e não a string montada à mão: é a mesma função que as páginas
+// e o sitemap usam, e é ela que garante que os três concordem sobre onde cada
+// roadmap mora.
+const ROTAS_CURSO = ROADMAPS.map((c) => `${urlDoRoadmap(c)}/`);
 const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO, ...ROTAS_CURSO];
 
 // Rotas que o site quer no índice do Google: as fixas, mais os tópicos que têm
@@ -75,7 +75,7 @@ const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO, ...ROTAS_CURSO];
 const ROTAS_INDEXAVEIS = [
   ...ROTAS_FIXAS,
   ...TOPICOS.filter((t) => !isEmptyTopic(t)).map((t) => `/topicos/${t.slug}/`),
-  ...ROADMAPS_EXTRAS.filter(roadmapHasMaterial).map((c) => `${urlDoRoadmap(c)}/`),
+  ...ROADMAPS.filter(roadmapHasMaterial).map((c) => `${urlDoRoadmap(c)}/`),
 ];
 
 function arquivoDaRota(rota: string): string {
@@ -462,7 +462,7 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // este ramo o `dataEsperada` recebia `undefined` e o teste morria num
     // TypeError — que é o pior jeito de descobrir uma rota nova, porque não
     // parece com o defeito que ele existe para pegar.
-    const trilha = ROADMAPS_EXTRAS.find((c) => rota === `${urlDoRoadmap(c)}/`);
+    const trilha = ROADMAPS.find((c) => rota === `${urlDoRoadmap(c)}/`);
 
     // [PROPRIEDADE] O carimbo é de um commit que EXISTE. Nenhuma regra honesta
     // inventa um instante: ela escolhe um commit. É o que mata o `new Date()`
@@ -658,16 +658,21 @@ test("a abertura de cada trilha indexável declara o rastro e a lista dela", () 
   }
 });
 
-test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
-  const lista = doTipo(jsonLd("/fundamentos/"), "ItemList");
-  expect(lista, "/fundamentos/ sem ItemList").toBeTruthy();
-  expect(lista!.numberOfItems).toBe(TOPICOS.length);
+test("os Fundamentos listam os tópicos que eles renderizam, na ordem em que renderizam", () => {
+  // Os tópicos DO ROADMAP, e não `TOPICOS`: desde que o tópico deixou de ter
+  // casa, `TOPICOS` é o site inteiro (80) e os Fundamentos são um recorte dele
+  // (44). Declarar 80 numa página que desenha 44 é a marcação contando outra
+  // história que a tela.
+  const doRoadmap = roadmapTopics(FUNDAMENTOS);
+  const lista = doTipo(jsonLd(`${urlDoRoadmap(FUNDAMENTOS)}/`), "ItemList");
+  expect(lista, "os Fundamentos sem ItemList").toBeTruthy();
+  expect(lista!.numberOfItems).toBe(doRoadmap.length);
   const itens = lista!.itemListElement as No[];
-  expect(itens.map((i) => i.name)).toEqual(TOPICOS.map((t) => t.name));
+  expect(itens.map((i) => i.name)).toEqual(doRoadmap.map((t) => t.name));
   expect(itens.map((i) => i.url)).toEqual(
-    TOPICOS.map((t) => urlAbsoluta(`/topicos/${t.slug}/`))
+    doRoadmap.map((t) => urlAbsoluta(`/topicos/${t.slug}/`))
   );
-  expect(itens.map((i) => i.position)).toEqual(TOPICOS.map((_, i) => i + 1));
+  expect(itens.map((i) => i.position)).toEqual(doRoadmap.map((_, i) => i + 1));
 });
 
 test("o JSON-LD do tópico não promete vídeo, que é o que falta para o VideoObject", () => {
@@ -692,7 +697,7 @@ test("o rastro do tópico é navegável e diz onde o aluno está", async ({ page
   // O degrau do meio é "Tópicos", e não o assunto do tópico: a página canônica
   // não fica DENTRO de roadmap nenhum, e o rastro dela diz de onde ela vem de
   // verdade — do índice completo. O rastro que passa pelo roadmap é o da outra
-  // rota (`/fundamentos/<t>/`), e quem o mede é `tests/roadmaps.spec.ts`.
+  // rota (`/roadmaps/fundamentos/<t>/`), e quem o mede é `tests/roadmaps.spec.ts`.
   await expect(roadmap.getByRole("link", { name: "Tópicos" })).toHaveAttribute("href", "/topicos/");
   await expect(roadmap.locator(".cur")).toHaveAttribute("aria-current", "page");
 

@@ -458,7 +458,9 @@ html { scroll-behavior: smooth; }
    moram em bloco próprio (cards, listas, botões), e o axe só cobra a
    distinção quando o link está dentro de um bloco de texto corrido. Estes dois
    parágrafos foram os primeiros com link no meio da frase. */
-.roadmap-intro a, .extras-intro a { text-decoration: underline; text-underline-offset: 2px; }
+/* Link dentro de parágrafo precisa de mais que cor para se distinguir do texto
+   em volta (axe `link-in-text-block`, e a razão é daltonismo, não estética). */
+.roadmap-intro a, .extras-intro a, .pagina-canonica a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* Os dois formatos, explicados antes da grade em /roadmaps/. */
 .formatos { margin-bottom: 36px; }

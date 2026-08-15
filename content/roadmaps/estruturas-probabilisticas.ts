@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // Aleatorizar a RESPOSTA para caber na memória. A Skip List, que aleatoriza a
 // ESTRUTURA, é vizinha de família e mora como tópico avulso.

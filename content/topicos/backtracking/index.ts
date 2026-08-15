@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Pratica, Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "backtracking",
@@ -36,3 +36,30 @@ export const sumario = [
     "Poda: a mesma resposta por uma fração do trabalho",
     "O custo, e para onde isso vai",
 ];
+
+// Os problemas para praticar e as referências.
+//
+// Export à parte, e não campos do `topico`, por peso: as duas listas são 3/4
+// do dado de um tópico (64 KB dos 85 KB somando os 80), e só a PÁGINA do
+// tópico as desenha. O `content/topicos/index.ts` importa `topico` e `sumario`
+// pelo nome e nunca este; quem o lê é `content/topicos/pratica.ts`, que só o
+// servidor importa. Assim a barra lateral, que é cliente, não carrega
+// problema nenhum.
+export const pratica: Pratica = {
+  problems: [
+    { id: "lc-78", name: "Subsets", number: "78", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/subsets/" },
+    { id: "lc-46", name: "Permutations", number: "46", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/permutations/" },
+    { id: "lc-79", name: "Word Search", number: "79", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/word-search/" },
+    { id: "lc-51", name: "N-Queens", number: "51", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/n-queens/" },
+    { id: "lc-37", name: "Sudoku Solver", number: "37", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/sudoku-solver/" },
+    { id: "gfg-backtracking", name: "Backtracking: guia completo", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/introduction-to-backtracking-2/" },
+  ],
+
+  references: [
+    { title: "Algoritmos de enumeração", source: "Paulo Feofiloff, IME-USP", url: "https://www.ime.usp.br/~pf/algoritmos/aulas/enum.html" },
+    { title: "Backtracking (MC-202)", source: "IC, UNICAMP", url: "https://www.ic.unicamp.br/~rafael/cursos/2s2018/mc202/slides/unidade09-backtracking.pdf" },
+    { title: "Backtracking, capítulo do livro Algorithms", source: "Jeff Erickson, University of Illinois", url: "https://jeffe.cs.illinois.edu/teaching/algorithms/book/02-backtracking.pdf" },
+    { title: "O problema das oito rainhas e a história dele", source: "Wikipedia", url: "https://en.wikipedia.org/wiki/Eight_queens_puzzle" },
+    { title: "Introduction to Backtracking", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-backtracking-2/" },
+  ],
+};

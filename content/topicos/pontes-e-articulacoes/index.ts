@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "pontes-e-articulacoes",

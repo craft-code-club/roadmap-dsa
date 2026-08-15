@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Pratica, Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "bst",
@@ -36,3 +36,29 @@ export const sumario = [
     "BST ou tabela hash?",
     "Como praticar",
 ];
+
+// Os problemas para praticar e as referências.
+//
+// Export à parte, e não campos do `topico`, por peso: as duas listas são 3/4
+// do dado de um tópico (64 KB dos 85 KB somando os 80), e só a PÁGINA do
+// tópico as desenha. O `content/topicos/index.ts` importa `topico` e `sumario`
+// pelo nome e nunca este; quem o lê é `content/topicos/pratica.ts`, que só o
+// servidor importa. Assim a barra lateral, que é cliente, não carrega
+// problema nenhum.
+export const pratica: Pratica = {
+  problems: [
+    { id: "lc-700", name: "Search in a Binary Search Tree", number: "700", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/search-in-a-binary-search-tree/" },
+    { id: "lc-701", name: "Insert into a Binary Search Tree", number: "701", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/insert-into-a-binary-search-tree/" },
+    { id: "lc-98", name: "Validate Binary Search Tree", number: "98", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/validate-binary-search-tree/" },
+    { id: "lc-230", name: "Kth Smallest Element in a BST", number: "230", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/kth-smallest-element-in-a-bst/" },
+    { id: "lc-108", name: "Convert Sorted Array to Binary Search Tree", number: "108", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/convert-sorted-array-to-binary-search-tree/" },
+    { id: "lc-450", name: "Delete Node in a BST", number: "450", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/delete-node-in-a-bst/" },
+  ],
+
+  references: [
+    { title: "Binary Search Tree: busca, inserção e remoção", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/binary-search-tree-data-structure/" },
+    { title: "Deletion in a BST: os três casos", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/deletion-in-binary-search-tree/" },
+    { title: "AVL Tree: o balanceamento por rotação", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-avl-tree/" },
+    { title: "Red-Black Tree: o balanceamento que o TreeMap usa", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-red-black-tree/" },
+  ],
+};

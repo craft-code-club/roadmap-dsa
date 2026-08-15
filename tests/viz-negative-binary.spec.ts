@@ -302,7 +302,7 @@ test("as três formas recalculam os cartões quando o número muda", async ({ pa
   // nenhuma. Ele saiu, e no lugar ficou o que a tela de fato mostra — as três
   // fitas de bits são diferentes e leem o mesmo número. A varredura dos quatro
   // presets nos três cartões está em `textos-que-nao-batem.spec.ts`.
-  await expect(lidoDe(0)).toHaveText("Lido de volta: -26 — bits diferentes, mesmo número.");
+  await expect(lidoDe(0)).toHaveText("Lido de volta: -26: bits diferentes, mesmo número.");
 
   // Troca o número: os três cartões têm que acompanhar. Com o memo preso à
   // entrada errada, eles continuariam mostrando a negação de 26.

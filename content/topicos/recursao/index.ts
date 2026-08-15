@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Pratica, Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "recursao",
@@ -38,3 +38,29 @@ export const sumario = [
     "As armadilhas que pegam todo mundo",
     "Como praticar",
 ];
+
+// Os problemas para praticar e as referências.
+//
+// Export à parte, e não campos do `topico`, por peso: as duas listas são 3/4
+// do dado de um tópico (64 KB dos 85 KB somando os 80), e só a PÁGINA do
+// tópico as desenha. O `content/topicos/index.ts` importa `topico` e `sumario`
+// pelo nome e nunca este; quem o lê é `content/topicos/pratica.ts`, que só o
+// servidor importa. Assim a barra lateral, que é cliente, não carrega
+// problema nenhum.
+export const pratica: Pratica = {
+  problems: [
+    { id: "lc-509", name: "Fibonacci Number", number: "509", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/fibonacci-number/" },
+    { id: "lc-70", name: "Climbing Stairs", number: "70", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/climbing-stairs/" },
+    { id: "lc-206", name: "Reverse Linked List", number: "206", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/reverse-linked-list/" },
+    { id: "lc-104", name: "Maximum Depth of Binary Tree", number: "104", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/maximum-depth-of-binary-tree/" },
+    { id: "lc-50", name: "Pow(x, n)", number: "50", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/powx-n/" },
+    { id: "gfg-recursao", name: "Recursion Practice Problems with Solutions", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/recursion-practice-problems-solutions/" },
+  ],
+
+  references: [
+    { title: "Introduction to Recursion", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-recursion-2/" },
+    { title: "Types of Recursions", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/types-of-recursions/" },
+    { title: "Program for nth Fibonacci Number: ingênuo, memoização e bottom-up", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/program-for-nth-fibonacci-number/" },
+    { title: "sys.setrecursionlimit: o limite de mil níveis documentado na fonte", source: "Python Docs", url: "https://docs.python.org/3/library/sys.html#sys.setrecursionlimit" },
+  ],
+};

@@ -12,7 +12,7 @@ import { isEmptyTopic, TOPICOS, type Topic } from "@content/topicos";
 // importa o módulo.
 //
 // É uma LISTA por rota, e não um arquivo só, porque `page.tsx` quase nunca é
-// onde o texto mora. A home e o `/fundamentos/` importam de `content/topicos/index.ts`:
+// onde o texto mora. A home importa de `content/topicos/index.ts`:
 // mexer num tópico muda as duas telas sem tocar em nenhum dos dois `page.tsx`,
 // e a data ficava parada no dia em que o layout mudou pela última vez. O
 // `/apoie/` tem a mesma forma com `apoiadores.ts`, que é onde a lista de nomes
@@ -24,7 +24,6 @@ import { isEmptyTopic, TOPICOS, type Topic } from "@content/topicos";
 export const ROTAS_FIXAS = [
   "/",
   "/introducao/",
-  "/fundamentos/",
   "/roadmaps/",
   "/topicos/",
   "/apoie/",
@@ -34,7 +33,6 @@ export const ROTAS_FIXAS = [
 export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly string[]> = {
   "/": ["src/app/page.tsx", "content/topicos/index.ts", "content/roadmaps/index.ts"],
   "/introducao/": ["src/app/introducao/page.tsx"],
-  "/fundamentos/": ["src/app/fundamentos/page.tsx", "content/topicos/index.ts"],
   // A vitrine lê o índice dos roadmaps (é de lá que saem os cards) e o dos
   // tópicos (o texto de abertura cita quantos tópicos os cards somam).
   "/roadmaps/": ["src/app/roadmaps/page.tsx", "content/roadmaps/index.ts", "content/topicos/index.ts"],

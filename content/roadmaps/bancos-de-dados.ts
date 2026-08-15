@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // O roadmap que é quase todo CITAÇÃO: quatro dos seis tópicos moram em outra
 // casa, e o que esta página publica é a ordem e o porquê.

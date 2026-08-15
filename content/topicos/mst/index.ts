@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Pratica, Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "mst",
@@ -37,3 +37,29 @@ export const sumario = [
     "Onde aparece",
     "Como praticar",
 ];
+
+// Os problemas para praticar e as referências.
+//
+// Export à parte, e não campos do `topico`, por peso: as duas listas são 3/4
+// do dado de um tópico (64 KB dos 85 KB somando os 80), e só a PÁGINA do
+// tópico as desenha. O `content/topicos/index.ts` importa `topico` e `sumario`
+// pelo nome e nunca este; quem o lê é `content/topicos/pratica.ts`, que só o
+// servidor importa. Assim a barra lateral, que é cliente, não carrega
+// problema nenhum.
+export const pratica: Pratica = {
+  problems: [
+    { id: "lc-1584", name: "Min Cost to Connect All Points", number: "1584", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/min-cost-to-connect-all-points/" },
+    { id: "lc-1135", name: "Connecting Cities With Minimum Cost", number: "1135", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/connecting-cities-with-minimum-cost/" },
+    { id: "lc-684", name: "Redundant Connection", number: "684", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/redundant-connection/" },
+    { id: "lc-1319", name: "Number of Operations to Make Network Connected", number: "1319", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/number-of-operations-to-make-network-connected/" },
+    { id: "lc-1489", name: "Find Critical and Pseudo-Critical Edges in MST", number: "1489", source: "LeetCode", level: "Difícil", url: "https://leetcode.com/problems/find-critical-and-pseudo-critical-edges-in-minimum-spanning-tree/" },
+    { id: "gfg-mst", name: "Minimum Spanning Tree", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/what-is-minimum-spanning-tree-mst/" },
+  ],
+
+  references: [
+    { title: "MST: Kruskal e Prim passo a passo", source: "Craft & Code Club", url: "https://craftcodeclub.io/posts/dsa-mst" },
+    { title: "Kruskal's Minimum Spanning Tree Algorithm", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/kruskals-minimum-spanning-tree-algorithm-greedy-algo-2/" },
+    { title: "Prim's Minimum Spanning Tree Algorithm", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/prims-minimum-spanning-tree-mst-greedy-algo-5/" },
+    { title: "Disjoint Set Union (union-find) com compressão de caminho", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-disjoint-set-data-structure-or-union-find-algorithm/" },
+  ],
+};

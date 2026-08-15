@@ -17,6 +17,11 @@
 # dica.
 /topico/*  /topicos/:splat  301
 
-# A sequência principal virou "Fundamentos" e mudou de endereço.
-/roadmap/  /fundamentos/  301
-/roadmap   /fundamentos/  301
+# Os Fundamentos deixaram de ter endereço próprio: eles são um roadmap como os
+# outros, e moram em /roadmaps/fundamentos/. As duas rotas que levavam até eles
+# continuam valendo por 301, que é o sinal mais forte que existe para uma rota
+# que mudou de nome (o `canonical` é dica; o 301 é ordem).
+/fundamentos/*  /roadmaps/fundamentos/:splat  301
+/fundamentos    /roadmaps/fundamentos/  301
+/roadmap/*      /roadmaps/fundamentos/:splat  301
+/roadmap        /roadmaps/fundamentos/  301

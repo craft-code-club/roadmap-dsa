@@ -49,42 +49,71 @@ O conteúdo mora em `content/`, na raiz do projeto (irmão de `src/`, que guarda
 só o código de estrutura). Os **nomes dos campos são em inglês**; os valores
 exibidos ficam em português.
 
-1. **Índice** — em `content/roadmap.ts`, adicione (ou edite) o tópico no grupo
-   certo. Só isso já coloca o tópico no menu e no roadmap. Campos úteis:
-   `youtube` (id do vídeo), `article` (link do artigo no blog), `extraVideos`
-   (mais vídeos), `references` (leituras), `problems` (LeetCode/GeeksforGeeks)
-   e `viz` (visualizador).
+Um tópico é uma **pasta com dois arquivos**, e ele **não pertence a lugar
+nenhum**: quem monta sequência são os roadmaps, que o **citam** pelo slug.
+
+1. **O dado** — crie `content/topicos/<slug>/index.ts`. Campos úteis: `youtube`
+   (id do vídeo), `article` (link do artigo no blog), `extraVideos` (mais
+   vídeos), `viz` (visualizador). Os problemas e as referências vão no
+   `pratica`, que é um export à parte no mesmo arquivo.
 
    ```ts
-   { slug: "kadane", name: "Kadane", group: "Arrays e Strings",
+   import type { Pratica, Topic } from "@/content/tipos";
+
+   export const topico: Topic = {
+     slug: "kadane", name: "Kadane", group: "Arrays e Strings",
      level: "Médio", status: "soon", youtube: "VIDEO_ID",
-     description: "Maior soma contígua, o clássico." }
+     description: "Maior soma contígua, o clássico.",
+   };
+
+   export const pratica: Pratica = {
+     problems: [{ id: "lc-53", name: "Maximum Subarray", number: "53",
+                  source: "LeetCode", level: "Médio", url: "https://leetcode.com/…" }],
+     references: [{ title: "Kadane's Algorithm", source: "GeeksforGeeks", url: "https://…" }],
+   };
    ```
+
+   O `group` é o **assunto** do tópico, não um endereço. Escreva-o igual ao dos
+   outros tópicos do mesmo assunto: duas grafias viram duas seções em
+   `/topicos/`, com o mesmo título e a mesma âncora.
 
    O selo **"NOVO"** do menu lateral é uma tag manual: `isNew: true`. Como não
    tem data, ele não sai sozinho — marque o tópico que você está publicando e
    **tire a marca dos anteriores** no mesmo PR.
 
-2. **Artigo** — para virar `status: "ready"`, crie `content/topics/<slug>.mdx`.
-   Dentro do MDX já dá para usar, sem importar: `<Callout>`, `<Colunas>`,
-   `<Cartao>` e os visualizadores (ver `mdx-components.tsx`).
+2. **Os registros** — o tópico só existe no site depois de registrado, porque a
+   lista é escrita à mão (o índice é importado por código de cliente, e cliente
+   não tem `fs`). São dois lugares: o import nomeado + a entrada em `MODULOS`,
+   em `content/topicos/index.ts`; e o import da `pratica`, em
+   `content/topicos/pratica.ts`. O teste `tests/roadmaps.spec.ts` compara a
+   pasta com os registros nos dois sentidos e reprova se faltar.
+
+3. **Artigo** — para virar `status: "ready"`, crie
+   `content/topicos/<slug>/artigo.mdx`. Dentro do MDX já dá para usar, sem
+   importar: `<Callout>`, `<Colunas>`, `<Cartao>` e os visualizadores (ver
+   `mdx-components.tsx`).
 
    **Sempre declare a linguagem na cerca do bloco de código** (` ```python `). O
    destaque de sintaxe é gerado no build (Shiki), não no navegador, e é a cerca
    que também põe o selo discreto de linguagem no canto do bloco. Cerca sem
    linguagem fica sem cor e sem selo: é o certo para diagrama em ASCII.
 
-3. **Ligue o artigo** — registre em `content/topics/index.ts` e mude o `status`
-   para `"ready"` em `content/roadmap.ts`. No registro vão o componente e o
-   `summary`, que alimenta o índice "Nesta página" e precisa repetir os títulos
-   `h2` do artigo **no texto exato**:
+4. **Ligue o artigo** — o import do `.mdx` em `content/topicos/artigos.ts`, o
+   `sumario` no `index.ts` do tópico e `status: "ready"`. O `sumario` alimenta o
+   índice "Nesta página" e precisa repetir os títulos `h2` do artigo **no texto
+   exato**:
 
    ```ts
-   "kadane": {
-     Body: Kadane,
-     summary: ["O problema", "A ideia, em uma frase", "Por que funciona"],
-   },
+   export const sumario = ["O problema", "A ideia, em uma frase", "Por que funciona"];
    ```
+
+5. **Cite num roadmap**, se o tópico fizer parte de algum percurso: em
+   `content/roadmaps/<slug>.ts`, no grupo certo, `{ topic: "kadane" }`. Pode
+   citar em quantos roadmaps quiser — a página é a mesma, o que muda é a ordem
+   em volta. Tópico que ninguém cita continua publicado, em `/topicos/<slug>/`,
+   e aparece no índice completo.
+
+Os **tipos** ficam em `src/content/tipos.ts`: na raiz, `content/` é só conteúdo.
 
 **Sem travessão:** na copy do site, use pontuação simples (vírgula, ponto, dois
 pontos), nunca o caractere `—`.

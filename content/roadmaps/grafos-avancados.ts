@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // O que vem depois do caminho mínimo.
 //

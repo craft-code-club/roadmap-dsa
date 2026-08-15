@@ -79,8 +79,8 @@ export default function IntroducaoPage() {
       </ol>
 
       <div className="hero-actions" style={{ marginTop: 28 }}>
-        <Link href="/fundamentos/big-o" className="btn btn-primary">Começar por Big O</Link>
-        <Link href="/fundamentos" className="btn">Ver os Fundamentos</Link>
+        <Link href="/roadmaps/fundamentos/big-o" className="btn btn-primary">Começar por Big O</Link>
+        <Link href="/roadmaps/fundamentos" className="btn">Ver os Fundamentos</Link>
       </div>
 
       <div className="cta-card discord" style={{ marginTop: 44 }}>

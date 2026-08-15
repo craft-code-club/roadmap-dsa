@@ -102,7 +102,7 @@ export default function SobrePage() {
         sai do armazenamento local.
       </p>
       <p className="prose-p">
-        <Link className="prose-a" href="/fundamentos/">
+        <Link className="prose-a" href="/roadmaps/fundamentos/">
           Ver os Fundamentos
         </Link>{" "}
         ou{" "}

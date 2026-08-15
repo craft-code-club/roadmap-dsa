@@ -8,6 +8,7 @@ import {
   getRoadmap,
   getTopico,
   roadmapsDoTopico,
+  urlDoRoadmap,
   type Roadmap,
 } from "@content/roadmaps";
 import { LINKS } from "@/lib/links";
@@ -15,6 +16,9 @@ import { mesmaRota } from "@/lib/ui";
 import { RoadmapSidebar } from "@/components/RoadmapSidebar";
 import { FundamentosSidebar } from "@/components/FundamentosSidebar";
 import { TopicoSidebar } from "@/components/TopicoSidebar";
+
+/** O endereço dos Fundamentos, derivado e não escrito: eles são um roadmap. */
+const URL_DOS_FUNDAMENTOS = urlDoRoadmap(FUNDAMENTOS);
 
 // A moldura do site: topo, gaveta lateral, conteúdo, rodapé.
 //
@@ -38,7 +42,6 @@ import { TopicoSidebar } from "@/components/TopicoSidebar";
 // `usePathname`, que já era usado aqui para o destaque de "você está aqui".
 
 type Layout =
-  | { modo: "fundamentos" }
   | { modo: "roadmap"; roadmap: Roadmap }
   | { modo: "topico"; slug: string; nome: string }
   | { modo: "solto" };
@@ -48,9 +51,8 @@ type Layout =
  *
  * Quatro respostas, e cada uma responde a uma pergunta diferente do leitor:
  *
- *   fundamentos  "onde estou na sequência principal?" — o padrão do site.
- *   roadmap      "onde estou NESTE percurso?" — em `/roadmaps/<r>/…` e em
- *                `/fundamentos/<topico>/`, que é a mesma coisa com base curta.
+ *   roadmap      "onde estou NESTE percurso?" — em `/roadmaps/<r>/…`, e os
+ *                Fundamentos são um `<r>` como qualquer outro.
  *   topico       "isto faz parte de quê?" — em `/topicos/<slug>/`, onde o
  *                leitor chegou sem percurso nenhum e a barra lista os roadmaps.
  *   solto        nenhuma barra: a vitrine `/roadmaps/` e o índice `/topicos/`
@@ -70,9 +72,6 @@ function layoutDaRota(pathname: string | null): Layout {
     return roadmap ? { modo: "roadmap", roadmap } : { modo: "solto" };
   }
 
-  // `/fundamentos/` e `/fundamentos/<topico>/`: os dois com a barra deles.
-  if (partes[0] === "fundamentos") return { modo: "roadmap", roadmap: FUNDAMENTOS };
-
   if (partes[0] === "topicos") {
     if (!partes[1]) return { modo: "solto" };
     const t = getTopico(partes[1]);
@@ -83,7 +82,10 @@ function layoutDaRota(pathname: string | null): Layout {
       : { modo: "solto" };
   }
 
-  return { modo: "fundamentos" };
+  // A home, a introdução, o apoie, o sobre: páginas que não pertencem a
+  // percurso nenhum. Elas abriam com a barra dos Fundamentos, o que dizia ao
+  // leitor que ele estava dentro da sequência quando não estava.
+  return { modo: "roadmap", roadmap: FUNDAMENTOS };
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -111,9 +113,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // dentro de `/topicos/bloom-filter/` não teria pista nenhuma de onde está.
   // "Roadmaps" acende na vitrine e em qualquer roadmap que não seja os
   // Fundamentos, que têm item próprio na barra.
-  const naAreaDeRoadmaps =
-    (pathname?.startsWith("/roadmaps") ?? false) ||
-    (layout.modo === "roadmap" && layout.roadmap.slug !== FUNDAMENTOS.slug);
+  // Os Fundamentos moram dentro de `/roadmaps/` como os outros, mas têm item
+  // próprio na barra: quem está neles não deve ver "Roadmaps" aceso, senão os
+  // dois itens acendem juntos e nenhum diz onde a pessoa está.
+  const nosFundamentos = pathname?.startsWith(URL_DOS_FUNDAMENTOS) ?? false;
+  const naAreaDeRoadmaps = (pathname?.startsWith("/roadmaps") ?? false) && !nosFundamentos;
   // "Tópicos" acende no índice e em toda página canônica de tópico.
   const naAreaDeTopicos = pathname?.startsWith("/topicos") ?? false;
 
@@ -157,7 +161,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               rótulo o leitor de tela anuncia "navegação" três vezes. */}
           <nav className="topnav nav-left" aria-label="Principal">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
-            <Link href="/fundamentos" className={`nav-hide-sm${pathname?.startsWith("/fundamentos") ? " on" : ""}`}>Fundamentos</Link>
+            <Link href={URL_DOS_FUNDAMENTOS} className={`nav-hide-sm${nosFundamentos ? " on" : ""}`}>Fundamentos</Link>
             <Link href="/roadmaps" className={`nav-hide-sm${naAreaDeRoadmaps ? " on" : ""}`}>Roadmaps</Link>
             <Link href="/topicos" className={`nav-hide-sm${naAreaDeTopicos ? " on" : ""}`}>Tópicos</Link>
           </nav>
@@ -187,7 +191,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <Link className="menu-item only-mobile" href="/" onClick={() => setMenu(false)}>
                     <span className="mi-ico">⌂</span> Início
                   </Link>
-                  <Link className="menu-item only-mobile" href="/fundamentos" onClick={() => setMenu(false)}>
+                  <Link className="menu-item only-mobile" href={URL_DOS_FUNDAMENTOS} onClick={() => setMenu(false)}>
                     <span className="mi-ico">▤</span> Fundamentos
                   </Link>
                   <Link className="menu-item only-mobile" href="/roadmaps" onClick={() => setMenu(false)}>

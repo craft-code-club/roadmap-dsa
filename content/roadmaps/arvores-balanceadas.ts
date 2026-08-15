@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // O que a BST promete e não cumpre quando a entrada chega ordenada.
 //

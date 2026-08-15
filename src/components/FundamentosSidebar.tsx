@@ -11,7 +11,7 @@ import {
   TOTAL_EXTRA_CARDS,
   urlDoTopicoNoRoadmap,
 } from "@content/roadmaps";
-import { mesmaRota } from "@/lib/ui";
+import { mesmaRota, slugDoTopicoNaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
 
@@ -78,12 +78,10 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
   const pathname = usePathname();
   const { hydrated, isTopico, toggleTopico, contarTopicos } = useProgress();
 
-  // O tópico ativo chega por duas rotas: dentro dos Fundamentos
-  // (`/fundamentos/<slug>/`, o caso normal aqui) e a canônica
+  // O tópico ativo chega por duas rotas: dentro do roadmap
+  // (`/roadmaps/fundamentos/<slug>/`, o caso normal aqui) e a canônica
   // (`/topicos/<slug>/`). As duas acendem a mesma linha.
-  const partes = (pathname ?? "").split("/").filter(Boolean);
-  const slugAtivo =
-    partes[0] === "fundamentos" && partes[1] ? partes[1] : partes[0] === "topico" ? partes[1] : null;
+  const slugAtivo = slugDoTopicoNaRota(pathname);
 
   // Onde o leitor está: o grupo do tópico aberto ou o grupo da página de
   // introdução dele. É o único grupo que o menu abre por conta própria.

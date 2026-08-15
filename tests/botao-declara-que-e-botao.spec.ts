@@ -52,7 +52,7 @@ import { roadmapsDoTopico } from "../content/roadmaps";
 // da build anterior, que ainda tem o atributo.
 
 /** Rotas fixas do site, fora as de tópico. */
-const ROTAS_FIXAS = ["/", "/fundamentos/", "/introducao/", "/sobre/", "/apoie/"];
+const ROTAS_FIXAS = ["/", "/roadmaps/fundamentos/", "/introducao/", "/sobre/", "/apoie/"];
 
 const ROTAS = [
   ...ROTAS_FIXAS,
@@ -60,7 +60,7 @@ const ROTAS = [
   // A mesma página com a outra casca: é a rota com o menu completo, e a única
   // em que o piso alto tem o que medir.
   ...TOPICOS.filter((t) => roadmapsDoTopico(t.slug).some((r) => r.slug === "fundamentos")).map(
-    (t) => `/fundamentos/${t.slug}/`
+    (t) => `/roadmaps/fundamentos/${t.slug}/`
   ),
 ];
 
@@ -75,7 +75,7 @@ const ROTAS = [
 //
 // O piso por rota deixou de ser um número só quando os tópicos perderam a casa.
 // Antes, TODA rota carregava o menu dos 47 tópicos, e um piso de 40 valia para
-// qualquer página. Hoje a casca varia com a rota: `/fundamentos/<t>/` tem o menu
+// qualquer página. Hoje a casca varia com a rota: `/roadmaps/fundamentos/<t>/` tem o menu
 // inteiro (126 a 144 botões), `/topicos/<t>/` tem a barra dos roadmaps do tópico
 // (32 num tópico com visualizador, 3 num sem material) e `/roadmaps/` tem 1.
 // Um piso único ou reprovava as páginas leves ou não protegia nada nas pesadas.
@@ -84,7 +84,7 @@ const PISO_HTML_TOTAL = 4000;
 const PISO_HTML_ROTA = 1;
 /** As que carregam o menu completo. Se ele sumir, é aqui que aparece. */
 const PISO_HTML_ROTA_COM_MENU = 40;
-const COM_MENU = (rota: string) => rota.startsWith("/fundamentos/") && rota !== "/fundamentos/";
+const COM_MENU = (rota: string) => rota.startsWith("/roadmaps/fundamentos/") && rota !== "/roadmaps/fundamentos/";
 const PISO_DOM_ROTA = 20;
 
 /**

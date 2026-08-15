@@ -40,7 +40,7 @@ export default function RoadmapsPage() {
       <h1>Roadmaps</h1>
       <p className="roadmap-intro">
         Um roadmap é uma ordem de leitura sobre uma família de estruturas: quais tópicos, em que
-        sequência, e por quê. Os <Link href="/fundamentos">Fundamentos</Link> são o principal, do
+        sequência, e por quê. Os <Link href="/roadmaps/fundamentos">Fundamentos</Link> são o principal, do
         zero à entrevista; estes {ROADMAPS_EXTRAS.length} são percursos com objetivo próprio, e
         montam-se sobre os mesmos <Link href="/topicos">tópicos</Link> do guia. Um tópico pode estar
         em vários: {TOTAL_TOPICS_FORA_DOS_FUNDAMENTOS} deles ficam fora da sequência principal.

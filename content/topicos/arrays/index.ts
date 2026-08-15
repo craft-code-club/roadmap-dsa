@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Pratica, Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "arrays",
@@ -36,3 +36,29 @@ export const sumario = [
     "As armadilhas que pegam todo mundo",
     "Como praticar",
 ];
+
+// Os problemas para praticar e as referências.
+//
+// Export à parte, e não campos do `topico`, por peso: as duas listas são 3/4
+// do dado de um tópico (64 KB dos 85 KB somando os 80), e só a PÁGINA do
+// tópico as desenha. O `content/topicos/index.ts` importa `topico` e `sumario`
+// pelo nome e nunca este; quem o lê é `content/topicos/pratica.ts`, que só o
+// servidor importa. Assim a barra lateral, que é cliente, não carrega
+// problema nenhum.
+export const pratica: Pratica = {
+  problems: [
+    { id: "lc-26", name: "Remove Duplicates from Sorted Array", number: "26", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/remove-duplicates-from-sorted-array/" },
+    { id: "lc-88", name: "Merge Sorted Array", number: "88", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/merge-sorted-array/" },
+    { id: "lc-189", name: "Rotate Array", number: "189", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/rotate-array/" },
+    { id: "lc-238", name: "Product of Array Except Self", number: "238", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/product-of-array-except-self/" },
+    { id: "lc-54", name: "Spiral Matrix", number: "54", source: "LeetCode", level: "Médio", url: "https://leetcode.com/problems/spiral-matrix/" },
+    { id: "gfg-arrays", name: "Array Data Structure Guide", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/array-data-structure-guide/" },
+  ],
+
+  references: [
+    { title: "How Do Dynamic Arrays Work?", url: "https://www.geeksforgeeks.org/dsa/how-do-dynamic-arrays-work/", source: "GeeksforGeeks" },
+    { title: "How are lists implemented in CPython?", url: "https://docs.python.org/3/faq/design.html#how-are-lists-implemented-in-cpython", source: "Documentação do Python" },
+    { title: "Arrays (guia de programação em C#)", url: "https://learn.microsoft.com/pt-br/dotnet/csharp/programming-guide/arrays/", source: "Microsoft Learn" },
+    { title: "Jagged Array in Java", url: "https://www.geeksforgeeks.org/dsa/jagged-array-in-java/", source: "GeeksforGeeks" },
+  ],
+};

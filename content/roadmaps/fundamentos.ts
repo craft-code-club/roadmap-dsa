@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // OS FUNDAMENTOS: a sequência principal, do Big O aos grafos.
 //

@@ -15,7 +15,7 @@ import { SITE_URL } from "../src/lib/links";
 
 const ROTAS = [
   { path: "/", nome: "home" },
-  { path: "/fundamentos/", nome: "roadmap" },
+  { path: "/roadmaps/fundamentos/", nome: "roadmap" },
   { path: "/introducao/", nome: "introdução" },
 ];
 

@@ -69,10 +69,10 @@ export default function Home() {
               dentro dos Fundamentos, com o menu do roadmap do lado e o "Próximo" no fim.
               A página canônica do tópico (`/topicos/big-o/`) é para quem chega pelo
               índice geral, sem percurso escolhido. */}
-          <Link href="/fundamentos/big-o" className="btn btn-primary">
+          <Link href="/roadmaps/fundamentos/big-o" className="btn btn-primary">
             Começar por Big O
           </Link>
-          <Link href="/fundamentos" className="btn">Ver os Fundamentos</Link>
+          <Link href="/roadmaps/fundamentos" className="btn">Ver os Fundamentos</Link>
         </div>
       </section>
 
@@ -102,7 +102,7 @@ export default function Home() {
       <section className="section-pad-x">
         <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 18 }}>
           <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Comece por aqui</h2>
-          <Link href="/fundamentos" className="link-btn">Ver tudo →</Link>
+          <Link href="/roadmaps/fundamentos" className="link-btn">Ver tudo →</Link>
         </div>
         <div className="grid-3">
           {destaques.map((t) => (

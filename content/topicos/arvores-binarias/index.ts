@@ -1,4 +1,4 @@
-import type { Topic } from "../index";
+import type { Pratica, Topic } from "@/content/tipos";
 
 export const topico: Topic = {
   slug: "arvores-binarias",
@@ -35,3 +35,29 @@ export const sumario = [
     "A forma decide o custo",
     "Como praticar",
 ];
+
+// Os problemas para praticar e as referências.
+//
+// Export à parte, e não campos do `topico`, por peso: as duas listas são 3/4
+// do dado de um tópico (64 KB dos 85 KB somando os 80), e só a PÁGINA do
+// tópico as desenha. O `content/topicos/index.ts` importa `topico` e `sumario`
+// pelo nome e nunca este; quem o lê é `content/topicos/pratica.ts`, que só o
+// servidor importa. Assim a barra lateral, que é cliente, não carrega
+// problema nenhum.
+export const pratica: Pratica = {
+  problems: [
+    { id: "lc-226", name: "Invert Binary Tree", number: "226", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/invert-binary-tree/" },
+    { id: "lc-100", name: "Same Tree", number: "100", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/same-tree/" },
+    { id: "lc-110", name: "Balanced Binary Tree", number: "110", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/balanced-binary-tree/" },
+    { id: "lc-543", name: "Diameter of Binary Tree", number: "543", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/diameter-of-binary-tree/" },
+    { id: "lc-222", name: "Count Complete Tree Nodes", number: "222", source: "LeetCode", level: "Fácil", url: "https://leetcode.com/problems/count-complete-tree-nodes/" },
+    { id: "gfg-binary-tree", name: "Binary Tree Data Structure", source: "GeeksforGeeks", level: "Guia", url: "https://www.geeksforgeeks.org/dsa/binary-tree-data-structure/" },
+  ],
+
+  references: [
+    { title: "Types of Binary Tree (cheia, perfeita, completa, degenerada)", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/types-of-binary-tree/" },
+    { title: "Binary Tree Representation: ponteiros e array", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/binary-tree-representation/" },
+    { title: "Relação entre número de nós e altura", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/relationship-number-nodes-height-binary-tree/" },
+    { title: "Binary Tree Data Structure: o guia completo", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/binary-tree-data-structure/" },
+  ],
+};

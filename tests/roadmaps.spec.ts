@@ -1,9 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { isEmptyTopic, topicTags, TOPICOS } from "../content/topicos";
+import { isEmptyTopic, temArtigo, topicTags, TOPICOS } from "../content/topicos";
 import { getPratica, TOTAL_PROBLEMS } from "../content/topicos/pratica";
-import { getArtigo } from "../content/topicos/artigos";
 import {
   EXTRA_CARDS,
   FUNDAMENTOS,
@@ -65,17 +64,53 @@ test("toda pasta de content/topicos/ está registrada no índice, e vice-versa",
   // `index.ts`, o corpo em `artigos.ts`, a prática em `pratica.ts`), porque as
   // duas últimas não podem entrar no JavaScript do cliente. Registro à mão
   // esquece: o arquivo fica na pasta e o site não o serve.
+  // `temArtigo` lê o `sumario`, que fica no `index.ts` do tópico. O `Body` mora
+  // em `content/topicos/artigos.ts`, e este arquivo NÃO pode importá-lo: o
+  // transpilador do Playwright não lê `.mdx`. Quem casa as duas metades é o
+  // `getArtigo`, que estoura no build quando uma existe sem a outra.
   const semRegistro = pastas.filter(
-    (p) => existsSync(path.join(dir, p, "artigo.mdx")) !== !!getArtigo(p)
+    (p) => existsSync(path.join(dir, p, "artigo.mdx")) !== temArtigo(p)
   );
-  expect(semRegistro, "pasta com artigo.mdx que o content/topicos/artigos.ts não importa (ou o contrário)").toEqual([]);
+  expect(semRegistro, "pasta com artigo.mdx sem `sumario` no index.ts (ou o contrário)").toEqual([]);
 
-  const praticaSolta = pastas.filter((p) => {
-    const temArquivo = existsSync(path.join(dir, p, "pratica.ts"));
+  // A pasta tem DOIS arquivos, e é contrato: o dado e o texto. Um terceiro
+  // arquivo aqui é sinal de que alguém dividiu o tópico de novo, e o lugar de
+  // dividir (quando o peso obriga) é o registro, não a pasta.
+  const demais = pastas.flatMap((p) =>
+    readdirSync(path.join(dir, p))
+      .filter((n) => n !== "index.ts" && n !== "artigo.mdx")
+      .map((n) => `${p}/${n}`)
+  );
+  expect(demais, "arquivo a mais na pasta de um tópico (o contrato é index.ts + artigo.mdx)").toEqual([]);
+
+  // A prática mora no `index.ts` do tópico e é registrada em
+  // `content/topicos/pratica.ts` por um import nomeado. Import esquecido = a
+  // seção "Problemas para praticar" some da página, sem erro nenhum.
+  const semPratica = pastas.filter((p) => {
+    const escrita = readFileSync(path.join(dir, p, "index.ts"), "utf8").includes("export const pratica");
     const pratica = getPratica(p);
-    return temArquivo !== !!(pratica.problems || pratica.references);
+    return escrita !== !!(pratica.problems || pratica.references);
   });
-  expect(praticaSolta, "pasta com pratica.ts que o content/topicos/pratica.ts não importa (ou o contrário)").toEqual([]);
+  expect(semPratica, "tópico com `pratica` que o content/topicos/pratica.ts não importa").toEqual([]);
+});
+
+test("dois tópicos com o mesmo assunto escrevem o assunto igual", () => {
+  // O `group` é TEXTO LIVRE, e é ele que o índice `/topicos/` usa para montar as
+  // seções e o `id` da âncora de cada uma. Duas grafias do mesmo assunto
+  // ("Estruturas Probabilísticas" e "Estruturas probabilísticas") viram duas
+  // seções com o mesmo título na tela e o MESMO `id` no HTML — e a lista, ao
+  // filtrar, passou a desenhar as linhas de uma delas duas vezes.
+  //
+  // A régua é a chave da âncora, e não o texto: é ela que colide.
+  const chave = (g: string) =>
+    g.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-");
+  const porChave = new Map<string, Set<string>>();
+  for (const t of TOPICOS) {
+    const k = chave(t.group);
+    porChave.set(k, (porChave.get(k) ?? new Set()).add(t.group));
+  }
+  const ambiguos = [...porChave.values()].filter((g) => g.size > 1).map((g) => [...g]);
+  expect(ambiguos, "o mesmo assunto escrito de dois jeitos vira duas seções em /topicos/").toEqual([]);
 });
 
 test("a etiqueta de exercícios bate com a lista de problemas de verdade", () => {
@@ -98,24 +133,36 @@ test("dentro de um roadmap, as citações do artigo continuam no roadmap", async
   // e o `.mdx` não sabe por qual percurso o leitor chegou. Sem a reescrita, uma
   // citação tirava o leitor do roadmap no meio de uma frase que prometia
   // continuidade: o menu sumia, o "Próximo" sumia, e nada avisava.
-  await page.goto("/fundamentos/big-o/");
-  const noArtigo = await page
-    .locator("article a[href^='/topicos/'], article a[href^='/fundamentos/']")
-    .evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
-  const citacoes = noArtigo.filter((h) => /^\/(topicos|fundamentos)\/[a-z0-9-]+\/$/.test(h));
-  expect(citacoes.length, "o artigo do Big O parou de citar outros tópicos").toBeGreaterThan(2);
+  //
+  // Só o CORPO do artigo entra na conta. O que fecha a página — a ponte para a
+  // canônica, o anterior/próximo, os cards dos outros roadmaps — aponta para
+  // fora DE PROPÓSITO, e é ele que dá a saída para quem quer sair.
+  const doCorpo = (rota: string) =>
+    page.goto(rota).then(() =>
+      page
+        .locator("article a")
+        .evaluateAll((as) =>
+          as
+            .filter((a) => !a.closest(".pagina-canonica, .continue-explorando, .prevnext, .breadcrumb"))
+            .map((a) => a.getAttribute("href") ?? "")
+            .filter((h) => /^\/(topicos|roadmaps)\//.test(h))
+        )
+    );
+
+  const nosFundamentos = await doCorpo(`${urlDoTopicoNoRoadmap(FUNDAMENTOS, "big-o")}/`);
+  expect(nosFundamentos.length, "o artigo do Big O parou de citar outros tópicos").toBeGreaterThan(2);
   expect(
-    citacoes.filter((h) => h.startsWith("/topicos/")),
+    nosFundamentos.filter((h) => h.startsWith("/topicos/")),
     "citação apontando para fora do roadmap: o leitor perde o percurso ao clicar"
   ).toEqual([]);
 
-  // A outra metade: um tópico que ESTE roadmap não tem continua com o link
-  // canônico. Fingir uma URL dentro do roadmap seria inventar uma página.
-  await page.goto("/roadmaps/bancos-de-dados/hash-table/");
-  const fora = await page
-    .locator("article a[href^='/topicos/']")
-    .evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
-  expect(fora.length, "nenhuma citação para fora do roadmap: o caso não está sendo medido").toBeGreaterThan(0);
+  // A outra metade: um tópico que ESTE roadmap não cita continua com o link
+  // canônico. Inventar uma URL dentro do roadmap seria inventar uma página.
+  const emBancos = await doCorpo(`${urlDoTopicoNoRoadmap(BANCOS, "hash-table")}/`);
+  expect(
+    emBancos.filter((h) => h.startsWith("/topicos/")).length,
+    "nenhuma citação para fora: o caso não está sendo medido"
+  ).toBeGreaterThan(0);
 });
 
 test("todo arquivo de content/roadmaps/ está registrado no índice, e vice-versa", () => {
@@ -236,12 +283,18 @@ test("as rotas renomeadas têm redirecionamento declarado, e não sobraram como 
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith("#"));
 
-  expect(regras).toContain("/topico/*  /topicos/:splat  301");
-  expect(regras).toContain("/roadmap/  /fundamentos/  301");
+  const destino = (origem: string) =>
+    regras.find((l) => l.split(/\s+/)[0] === origem)?.split(/\s+/).slice(1).join(" ");
+  expect(destino("/topico/*"), "o item no singular").toBe("/topicos/:splat 301");
+  expect(destino("/roadmap"), "a sequência principal, do nome antigo").toBe("/roadmaps/fundamentos/ 301");
+  expect(destino("/fundamentos/*"), "os Fundamentos, do endereço curto").toBe(
+    "/roadmaps/fundamentos/:splat 301"
+  );
 
   const out = path.join(process.cwd(), "out");
-  expect(existsSync(path.join(out, "topico")), "/topico/ ainda é página: o 301 nunca roda").toBe(false);
-  expect(existsSync(path.join(out, "roadmap")), "/roadmap/ ainda é página: o 301 nunca roda").toBe(false);
+  for (const antiga of ["topico", "roadmap", "fundamentos"]) {
+    expect(existsSync(path.join(out, antiga)), `/${antiga}/ ainda é página: o 301 nunca roda`).toBe(false);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -249,7 +302,7 @@ test("as rotas renomeadas têm redirecionamento declarado, e não sobraram como 
 // ---------------------------------------------------------------------------
 
 for (const [rota, onde] of [
-  ["/fundamentos/", "no fim dos Fundamentos"],
+  ["/roadmaps/fundamentos/", "no fim dos Fundamentos"],
   ["/roadmaps/", "na vitrine"],
 ] as const) {
   test(`a vitrine ${onde} traz os ${EXTRA_CARDS.length} roadmaps, com o destino certo`, async ({ page }) => {
@@ -280,8 +333,13 @@ test("o índice /topicos/ lista cada tópico UMA vez, com os roadmaps dele", asy
 
 test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
   await page.goto("/topicos/");
-  await page.getByLabel("Buscar entre todos os tópicos").fill("bloom");
-  await expect(page.locator(".topico-linha")).toHaveCount(1);
+  // A busca casa nome, assunto e descrição, então "Bloom" traz também quem
+  // fala de filtro probabilístico no texto. O que o teste cobra é que ela
+  // FILTRE (de 80 para um punhado) e que o alvo esteja lá.
+  await page.getByLabel("Buscar entre todos os tópicos").fill("Bloom");
+  const achados = page.locator(".topico-linha");
+  expect(await achados.count()).toBeLessThan(TOPICOS.length / 4);
+  await expect(achados.locator(".topico-linha-nome", { hasText: "Bloom Filter" })).toHaveCount(1);
   await page.getByLabel("Buscar entre todos os tópicos").fill("zzzzzz");
   await expect(page.locator(".topicos-contagem")).toHaveText("Nenhum tópico com esse filtro.");
 });
@@ -289,10 +347,10 @@ test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
 test("a casca certa em cada rota", async ({ page }) => {
   const barra = () => page.locator("#menu-lateral");
 
-  await page.goto("/fundamentos/");
+  await page.goto("/roadmaps/fundamentos/");
   await expect(barra()).toHaveAttribute("aria-label", "Fundamentos");
 
-  await page.goto("/fundamentos/big-o/");
+  await page.goto("/roadmaps/fundamentos/big-o/");
   await expect(barra()).toHaveAttribute("aria-label", "Fundamentos");
   await expect(barra().getByLabel("Buscar tópico")).toHaveCount(1);
 
@@ -308,8 +366,8 @@ test("a casca certa em cada rota", async ({ page }) => {
 
 test("os links do topo acendem na área certa", async ({ page }) => {
   const aceso = (href: string) => page.locator(`.nav-left a[href="${href}"].on`);
-  await page.goto("/fundamentos/big-o/");
-  await expect(aceso("/fundamentos/")).toHaveCount(1);
+  await page.goto("/roadmaps/fundamentos/big-o/");
+  await expect(aceso("/roadmaps/fundamentos/")).toHaveCount(1);
   await page.goto(`${urlDoRoadmap(BANCOS)}/`);
   await expect(aceso("/roadmaps/")).toHaveCount(1);
   await page.goto("/topicos/hash-table/");
@@ -354,7 +412,7 @@ test("marcar um tópico conta em todo lugar em que ele aparece", async ({ page }
   await page.goto("/topicos/hash-table/");
   await expect(page.locator(".topic-chips .btn-concluir")).toHaveText("✓ Concluído");
 
-  await page.goto("/fundamentos/");
+  await page.goto("/roadmaps/fundamentos/");
   const naSequencia = page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" });
   await expect(naSequencia.getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
 });
@@ -368,7 +426,7 @@ test("as páginas novas não rolam na horizontal no celular @mobile", async ({ p
     `${urlDoRoadmap(BANCOS)}/`,
     `${urlDoRoadmap(SEM_MATERIAL)}/`,
     `${urlDoTopicoNoRoadmap(BANCOS, dentro.slug)}/`,
-    "/fundamentos/big-o/",
+    "/roadmaps/fundamentos/big-o/",
   ]) {
     await page.goto(rota);
     const estoura = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);

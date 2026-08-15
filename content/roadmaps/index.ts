@@ -36,46 +36,13 @@
 // índice`, que lê o diretório e compara nos dois sentidos.
 // ---------------------------------------------------------------------------
 
-import { getTopico, isEmptyTopic, TOPICOS, type Level, type Topic } from "../topicos";
+import type { ExtraCard, Roadmap, RoadmapGroup, Topic } from "@/content/tipos";
+import { getTopico, isEmptyTopic, TOPICOS } from "../topicos";
 
 // Reexportado para quem fala de roadmaps e de tópicos na mesma linha não
 // precisar de dois imports do mesmo assunto.
 export { getTopico, isEmptyTopic, TOPICOS };
-export type { Level, Topic };
-
-/**
- * Uma citação: o roadmap aponta para um tópico pelo slug.
- *
- * É um objeto, e não uma string solta, porque o que um roadmap tem a dizer
- * sobre um tópico citado não acaba no slug: a nota de por que ele está ali, um
- * rótulo local, a ordem sugerida de leitura dentro do grupo. Nada disso existe
- * hoje, e o objeto é o que permite acrescentá-los sem tocar nos 80 tópicos.
- */
-export type Citacao = { topic: string };
-
-export type RoadmapGroup = {
-  id: string;
-  name: string;
-  topics: Citacao[];
-  /** Página de abertura do grupo (hoje só a Introdução tem). */
-  intro?: { name: string; href: string; description: string };
-};
-
-export type Roadmap = {
-  /** Vira `/roadmaps/<slug>/`, ou `/fundamentos/` no caso dos Fundamentos. */
-  slug: string;
-  name: string;
-  /** A frase do card. Uma linha. */
-  tagline: string;
-  /** O parágrafo da abertura, e a `description` do SEO. */
-  description: string;
-  level: Level;
-  /** Glifo do card. Só decoração: sempre `aria-hidden`. */
-  glyph: string;
-  groups: RoadmapGroup[];
-  /** Slugs que convém ter estudado antes. Vira a linha "Antes daqui". */
-  requires?: string[];
-};
+export type * from "@/content/tipos";
 
 // ------------------------------ o registro --------------------------------
 
@@ -88,7 +55,13 @@ import { roadmap as consultasEmIntervalos } from "./consultas-em-intervalos";
 import { roadmap as padroesEmStrings } from "./padroes-em-strings";
 import { roadmap as grafosAvancados } from "./grafos-avancados";
 
-/** O slug do roadmap principal. Ele é o único com tratamento próprio de URL. */
+/**
+ * O slug do roadmap principal.
+ *
+ * Ele não tem mais tratamento próprio de URL — mora em `/roadmaps/fundamentos/`
+ * como todo mundo. O que ele ainda tem de próprio é o LUGAR: a home abre nele,
+ * a barra do topo lhe dá item, e a vitrine dos extras o deixa de fora.
+ */
 export const SLUG_DOS_FUNDAMENTOS = "fundamentos";
 
 /** TODOS os roadmaps, os Fundamentos incluídos e sempre na frente. */
@@ -115,17 +88,20 @@ export function getRoadmap(slug: string): Roadmap | undefined {
 }
 
 /**
- * A base de URL de um roadmap.
+ * A URL da abertura de um roadmap. Uma forma só, para todos.
  *
- * Os Fundamentos moram em `/fundamentos/` e não em `/roadmaps/fundamentos/`:
- * é a sequência que a home aponta e a mais buscada do site, e ela ganha a URL
- * curta. Uma função em vez de concatenação espalhada porque essa exceção
- * precisa existir em UM lugar — escrita à mão em cada componente, ela vira o
- * tipo de link que fica certo em quatro telas e errado na quinta.
+ * Os Fundamentos já tiveram endereço curto (`/fundamentos/`), porque eram "o
+ * roadmap" e os outros eram os extras. Não são mais: no dado eles são um
+ * roadmap como os demais, e a exceção no endereço não pagava o que cobrava —
+ * ela vazava para o sitemap, para o card do Open Graph, para a casca, para os
+ * testes, e cada um desses lugares precisava de um `if` para lembrar que um
+ * roadmap mora em outro lugar. Um deles esqueceu, e o sitemap anunciou ao robô
+ * uma rota que não existe no `out/`.
+ *
+ * O endereço antigo continua valendo, por 301 (`public/_redirects`).
  */
 export function urlDoRoadmap(r: Roadmap | string): string {
-  const slug = typeof r === "string" ? r : r.slug;
-  return slug === SLUG_DOS_FUNDAMENTOS ? "/fundamentos" : `/roadmaps/${slug}`;
+  return `/roadmaps/${typeof r === "string" ? r : r.slug}`;
 }
 
 /** A URL de um tópico DENTRO de um roadmap. */
@@ -240,29 +216,6 @@ export function todasAsPaginasDeRoadmap(): { roadmap: Roadmap; topic: Topic }[] 
 }
 
 // --------------------------- os cards da vitrine ---------------------------
-
-/**
- * Um card da vitrine `/roadmaps/`.
- *
- * A vitrine lista ROADMAPS, e só. Tópico solto não entra: desde que o tópico
- * deixou de ter casa, o lugar dele é o índice `/topicos/`, que lista os 80 com
- * busca e filtro. Uma segunda lista de tópicos aqui seria a mesma informação em
- * dois lugares, com duas regras de ordenação envelhecendo em paralelo.
- */
-export type ExtraCard = {
-  slug: string;
-  href: string;
-  name: string;
-  tagline: string;
-  level: Level;
-  glyph: string;
-  /** Quantos tópicos o roadmap cita. */
-  topics: number;
-  /** Quantos já têm material para abrir hoje. */
-  ready: number;
-  /** Os slugs que o card representa, para ele contar o progresso do leitor. */
-  topicSlugs: string[];
-};
 
 function cardDoRoadmap(r: Roadmap): ExtraCard {
   const lista = roadmapTopics(r);

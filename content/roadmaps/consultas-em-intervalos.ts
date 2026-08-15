@@ -1,4 +1,4 @@
-import type { Roadmap } from "./index";
+import type { Roadmap } from "@/content/tipos";
 
 // O Prefix Sum com o array mudando embaixo dele.
 //

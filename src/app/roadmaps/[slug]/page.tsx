@@ -3,16 +3,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  EXTRA_CARDS,
   getRoadmap,
   getTopico,
   roadmapGroups,
   roadmapHasMaterial,
   roadmapTopics,
+  ROADMAPS,
   ROADMAPS_EXTRAS,
+  SLUG_DOS_FUNDAMENTOS,
+  TOPICOS_AVULSOS,
   urlDoRoadmap,
   urlDoTopicoNoRoadmap,
 } from "@content/roadmaps";
 import { isEmptyTopic } from "@content/topicos";
+import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { GrupoCards } from "@/components/GrupoCards";
 import { breadcrumbJsonLd, JsonLd, roadmapJsonLd, type Migalha } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
@@ -30,7 +35,7 @@ import { levelClass } from "@/lib/ui";
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return ROADMAPS_EXTRAS.map((r) => ({ slug: r.slug }));
+  return ROADMAPS.map((r) => ({ slug: r.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -43,8 +48,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // decide o que estudar sabendo o que existe —, mas não pede lugar no índice do
   // Google, e o sitemap usa esta mesma função para decidir quem ele convida.
   const comMaterial = roadmapHasMaterial(r);
+  const principal = r.slug === SLUG_DOS_FUNDAMENTOS;
   return pageMetadata({
-    title: `${r.name}: roadmap visual e gratuito em português`,
+    title: principal
+      ? "Fundamentos de Algoritmos e Estruturas de Dados: a sequência completa"
+      : `${r.name}: roadmap visual e gratuito em português`,
     description: r.description,
     ogTitle: r.name,
     ogDescription: r.tagline,
@@ -62,6 +70,13 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
   const prontos = topicos.filter((t) => !isEmptyTopic(t));
   const primeiro = prontos[0];
   const requisitos = (r.requires ?? []).map((s) => getTopico(s)).filter((t) => !!t);
+  // Os Fundamentos são um roadmap como os outros, e a abertura deles é esta
+  // página. O que muda são três coisas de TEXTO — a chamadinha de cima, o aviso
+  // de que os tópicos são emprestados (aqui a maioria estreia) e o que fecha a
+  // página —, e nenhuma justifica uma segunda página para envelhecer em
+  // paralelo com esta.
+  const principal = r.slug === SLUG_DOS_FUNDAMENTOS;
+  const outros = ROADMAPS_EXTRAS.filter((x) => x.slug !== r.slug);
 
   const migalhas: Migalha[] = [
     { name: "Início", href: "/" },
@@ -95,7 +110,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
         <span className="cur" aria-current="page">{r.name}</span>
       </nav>
 
-      <span className="roadmap-eyebrow">Roadmap</span>
+      <span className="roadmap-eyebrow">{principal ? "Do zero à entrevista" : "Roadmap"}</span>
       <h1>{r.name}</h1>
 
       <div className="topic-chips" style={{ marginTop: 14 }}>
@@ -129,9 +144,9 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
           porque poucos tópicos nasceram aqui. Nenhum nasceu aqui: o que a
           página publica é a CURADORIA. */}
       <p className="roadmap-emprestados">
-        Estes tópicos existem por conta própria e aparecem em outros percursos do guia. O que este
-        roadmap traz é a <strong>ordem</strong>: qual vem antes de qual, e por quê. Marcar um deles
-        conta em toda parte.
+        {principal
+          ? "Siga na ordem ou pule direto para o que você precisa. Cada tópico tem página própria e pode aparecer em outros roadmaps; seu progresso vale em todos eles, e fica salvo neste navegador, sem login e sem conta."
+          : "Estes tópicos existem por conta própria e aparecem em outros percursos do guia. O que este roadmap traz é a ORDEM: qual vem antes de qual, e por quê. Marcar um deles conta em toda parte."}
       </p>
 
       <div className="hero-actions" style={{ marginBottom: 34 }}>
@@ -164,6 +179,47 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
           })),
         }))}
       />
+
+      {/*
+        O fim de um roadmap, e o que vem depois dele.
+
+        Os Fundamentos acabavam no último card de Matemática, e ali quem chegou
+        até o fim não recebia nada: nem "acabou", nem "e agora?". Esta seção é as
+        duas coisas, e agora ela fecha QUALQUER roadmap, porque a pergunta é a
+        mesma em todos.
+
+        Ela vem depois dos grupos de propósito, e não como um grupo a mais: um
+        grupo no meio da lista diria que aquilo faz parte da sequência, e é o
+        oposto — o que está aqui é o que a sequência não comporta. Pela mesma
+        razão ela não entra no `ItemList` acima; a vitrine tem o dela, em
+        `/roadmaps/`.
+      */}
+      {outros.length > 0 && (
+        <section className="rgroup extras-no-roadmap" id="depois-daqui">
+          <div className="rgroup-head">
+            <h2>{principal ? "Além dos Fundamentos" : "Outros roadmaps"}</h2>
+            <span className="rgroup-count">{outros.length}</span>
+            <div className="rgroup-rule" />
+          </div>
+          <p className="extras-intro">
+            {principal ? (
+              <>
+                Acabou a ordem sugerida. O que vem agora não está na fila porque não precisa estar:{" "}
+                <strong>{outros.length} roadmaps</strong> sobre famílias inteiras e{" "}
+                <strong>{TOPICOS_AVULSOS.length} tópicos</strong> que se bastam numa página, para
+                depois que os fundamentos estiverem no lugar.{" "}
+              </>
+            ) : (
+              <>
+                Este não é o único percurso do guia. Cada um destes tem objetivo próprio e cita os
+                tópicos de que precisa, inclusive os que você acabou de ver aqui.{" "}
+              </>
+            )}
+            <Link href="/roadmaps">Ver a vitrine completa →</Link>
+          </p>
+          <ExtrasGrid cards={outros.map((x) => EXTRA_CARDS.find((c) => c.slug === x.slug)!)} />
+        </section>
+      )}
 
       <div className="discord-strip">
         <span className="dot" />

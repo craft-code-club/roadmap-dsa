@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { isEmptyTopic } from "@content/topicos";
-import { ROADMAPS_EXTRAS, roadmapHasMaterial, TOPICOS, urlDoRoadmap } from "@content/roadmaps";
+import { ROADMAPS, roadmapHasMaterial, TOPICOS, urlDoRoadmap } from "@content/roadmaps";
 import {
   atualizacaoDoRoadmap,
   atualizacaoDoTopico,
@@ -44,7 +44,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = ROTAS_FIXAS.map((rota) => ({
     url: `${SITE_URL}${rota}`,
     priority: rota === "/" ? 1 : rota === "/apoie/" || rota === "/sobre/" ? 0.5 : 0.9,
-    changeFrequency: rota === "/" || rota === "/fundamentos/" ? ("weekly" as const) : ("monthly" as const),
+    changeFrequency: rota === "/" ? ("weekly" as const) : ("monthly" as const),
     lastModified: ultimaAlteracao(...CONTEUDO_DA_ROTA[rota]),
   }));
   // `TOPICOS` inteiro, e não só o que os Fundamentos citam: todo tópico tem
@@ -54,7 +54,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // existe) que não sabe quando ela mudou.
   //
   // Estas são as canônicas. As cópias dentro de um roadmap
-  // (`/fundamentos/<t>/`, `/roadmaps/<r>/<t>/`) NÃO entram: elas apontam
+  // (`/roadmaps/<r>/<t>/`) NÃO entram: elas apontam
   // `canonical` para cá, e pedir indexação de uma página que declara outra como
   // preferida é mandar dois sinais opostos no mesmo build.
   const topicos = TOPICOS.filter((t) => !isEmptyTopic(t)).map((t) => ({
@@ -67,12 +67,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // tem material. Roadmap em que todo tópico está "em breve" emite `noindex`, e
   // convidar o robô para uma página que manda ignorá-la é o erro vermelho
   // permanente do Search Console que o filtro acima existe para não criar.
-  //
-  // `ROADMAPS_EXTRAS`, e não `ROADMAPS`: os Fundamentos são um roadmap como os
-  // outros no dado, mas moram em `/fundamentos/` e já entraram acima como rota
-  // fixa. Montar a URL deles aqui pelo padrão `/roadmaps/<slug>/` listava um
-  // endereço que não existe no `out/` — 404 anunciado ao robô pelo próprio site.
-  const roadmaps = ROADMAPS_EXTRAS.filter(roadmapHasMaterial).map((c) => ({
+  const roadmaps = ROADMAPS.filter(roadmapHasMaterial).map((c) => ({
     url: `${SITE_URL}${urlDoRoadmap(c)}/`,
     priority: 0.7,
     changeFrequency: "monthly" as const,
