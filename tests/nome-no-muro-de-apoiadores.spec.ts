@@ -166,6 +166,31 @@ test("o separador de dentro do nome não é só o espaço", () => {
   expect(normalizeNameCase("FULANO D'ÁVILA")).toBe("Fulano D'Ávila");
 });
 
+test("acento solto não parte o nome em dois, e não é uma forma só que chega", () => {
+  // O defeito que este teste prende (achado na review do Copilot no PR #150):
+  // "Á" chega de duas formas, e só uma delas é um code point. Em NFD ele é "A"
+  // mais o acento combinante, e um acento combinante NÃO é `\p{L}` nem `\p{N}`.
+  // Sem `\p{M}` na classe da regex ele virava SEPARADOR: "ÁVILA" decomposto
+  // casava como "A" e "VILA", dois pedaços, e saía "ÁVila".
+  //
+  // Isso não é teoria: o nome vem de formulário e de API, e nem um nem outro
+  // prometem forma normalizada.
+  const composto = "FULANO ÁVILA";
+  const decomposto = composto.normalize("NFD");
+  // Garante que este teste está mesmo exercitando as duas formas, e não duas
+  // cópias da mesma. Sem isto ele passaria mesmo com o defeito de volta.
+  expect(decomposto).not.toBe(composto);
+
+  for (const entrada of [composto, decomposto]) {
+    // A comparação é em NFC porque o que importa é o nome que o leitor vê: a
+    // saída preserva a forma que entrou, e as duas desenham "Fulano Ávila".
+    expect(
+      normalizeNameCase(entrada).normalize("NFC"),
+      `forma ${entrada === composto ? "NFC" : "NFD"}`
+    ).toBe("Fulano Ávila");
+  }
+});
+
 test("arrumar a caixa não mexe no espaçamento nem some com ninguém", () => {
   // Quem normaliza espaço é `normalizeSupporters`. Se as duas coisas
   // acontecessem na mesma função, um teste não conseguiria dizer qual quebrou.

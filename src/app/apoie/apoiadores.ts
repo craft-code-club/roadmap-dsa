@@ -146,11 +146,21 @@ function isShouting(name: string): boolean {
  * "D'ÁVILA" vira "D'Ávila" e "ANA-MARIA" vira "Ana-Maria". Cortar só no espaço
  * devolveria "Sant'ana".
  *
+ * ⚠️ O `\p{M}` da classe é o acento SOLTO, e ele não é decoração da regex. "Á"
+ * chega de duas formas: NFC, um code point só (U+00C1), e NFD, "A" seguido do
+ * acento combinante (U+0041 U+0301). Sem `\p{M}` na classe, o acento da forma
+ * decomposta vira SEPARADOR: "ÁVILA" em NFD casa como "A" e "VILA", dois
+ * pedaços, e sai "ÁVila", com uma maiúscula no meio do nome. Medido. E as duas
+ * formas chegam de verdade, porque o nome vem de formulário e de API, não de um
+ * literal deste arquivo.
+ *
  * O `[...]` antes de pegar a primeira letra é o mesmo cuidado de `initials`: não
- * partir caractere fora do BMP no meio.
+ * partir caractere fora do BMP no meio. Ele também é o que faz o acento
+ * combinante seguir colado na letra que acentua, em vez de virar a "segunda
+ * letra" da palavra.
  */
 function capitalizeWord(word: string): string {
-  return word.replace(/[\p{L}\p{N}]+/gu, (pedaco) => {
+  return word.replace(/[\p{L}\p{N}\p{M}]+/gu, (pedaco) => {
     const letras = [...pedaco.toLowerCase()];
     if (letras.length === 0) return pedaco;
     return letras[0].toUpperCase() + letras.slice(1).join("");
