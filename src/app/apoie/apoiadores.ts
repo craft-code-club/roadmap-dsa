@@ -66,9 +66,10 @@
 // arquivo lia `APOIASE_TOKEN` e `APOIASE_CAMPAIGN_ID`, e NENHUM DOS DOIS existia
 // como secret do repositório (`gh secret list` trazia só os quatro do
 // Cloudflare). O build caía no primeiro `return` e renderizava a lista escrita à
-// mão, que tinha exatamente três nomes. E caía CALADO: aquele `return` era o
-// único caminho de saída sem um aviso, então nada no log do build denunciava que
-// a integração nunca tinha rodado. Agora ele avisa como todos os outros.
+// mão, que na época tinha exatamente três nomes. E caía CALADO: aquele `return`
+// era o único caminho de saída sem um aviso, então nada no log do build
+// denunciava que a integração nunca tinha rodado. Agora ele avisa como todos os
+// outros.
 
 export type Supporter = { name: string };
 export type Partner = { name: string; url?: string };
@@ -83,7 +84,7 @@ export const PARTNERS: Partner[] = [
  * PLANO B, e não "lista manual que se soma à API": a diferença é o defeito que
  * esta versão conserta. Antes estes nomes eram sempre colados na FRENTE do que a
  * API devolvesse, e isso cobrava dois preços. A ordem por recência ia embora
- * (três nomes fixos na frente de todo mundo), e o "sem repetir nome" dependia da
+ * (os nomes fixos na frente de todo mundo), e o "sem repetir nome" dependia da
  * grafia bater caractere a caractere com a do painel: "Wilson Neto" aqui contra
  * "Wilson Gomes Neto" lá são duas chaves diferentes, e a mesma pessoa apareceria
  * em dois cards. Agora a API, quando responde, é a fonte; esta lista entra
@@ -93,8 +94,19 @@ export const PARTNERS: Partner[] = [
  * formato ilegível. Uma resposta que chegou e devolveu zero nomes NÃO é este
  * caso, é uma resposta válida cujo conteúdo é "ninguém autorizou aparecer", e
  * ela vale. Confundir as duas coisas anula o filtro de privacidade.
+ *
+ * A ORDEM É DADO, não decoração: do apoio mais recente para o mais antigo, a
+ * mesma que `toSupporters` produz com `firstSupportDate`. Quem atualizar a lista
+ * põe o nome novo NO TOPO, senão os dois caminhos do muro passam a ordenar de
+ * jeitos diferentes e ninguém percebe, porque ordem errada não quebra nada.
+ *
+ * A caixa dos nomes daqui não precisa estar perfeita: a lista sai por
+ * `normalizeSupporters`, que arruma Caps Lock (ver `normalizeNameCase`). Ainda
+ * assim, o que se digita à mão se digita direito, e é o que está abaixo.
  */
 const FALLBACK_SUPPORTERS: Supporter[] = [
+  { name: "Eliel Sousa" },
+  { name: "Gustavo Huguenin" },
   { name: "Cristiano Cunha" },
   { name: "Wilson Neto" },
   { name: "Eduarda Martins" },
@@ -421,7 +433,7 @@ export function isActive(b: Raw): boolean {
  * Consequência esperada e desejada: uma resposta que não traga `supportPrivate`
  * esvazia o muro, com aviso no log. Ela NÃO cai no plano B, e essa distinção é a
  * outra metade da proteção: cair na lista fixa quando o filtro escondeu todo
- * mundo publicaria três nomes escritos à mão, entre eles, no pior caso, a pessoa
+ * mundo publicaria os nomes escritos à mão, entre eles, no pior caso, a pessoa
  * que acabou de marcar o apoio como privado. Muro vazio conserta em cinco
  * minutos; nome publicado indevidamente, não.
  */
