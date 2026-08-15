@@ -240,35 +240,50 @@ for (const rota of ROTAS) {
 }
 
 /**
- * Os destinos que a barra promete, e o `href` de cada um.
+ * Os destinos que a barra promete, e como cada um é reconhecido.
  *
  * A conferência é por destino, e não por rótulo, porque o mesmo lugar tem nome
  * diferente nos dois lados: "Tópicos" na barra é "Todos os tópicos" no menu, e
  * "Apoiar" é "Apoiadores e Parceiros".
  *
- * ROTA INTERNA CASA EXATO, e não por `includes`. Uma rota é prefixo da outra
- * neste site: `"/"` está contido em TODO href interno, e `"/roadmaps/"` está
- * contido em `"/roadmaps/fundamentos/"`. Com `includes`, "Início" nunca
- * apareceria como perdido nem que sumisse dos dois lugares, e "Roadmaps"
- * sobreviveria escondido atrás do link dos Fundamentos — o teste ficaria verde
- * medindo a coisa errada.
+ * NADA AQUI CASA POR `includes`, e o motivo é o mesmo dos dois lados da lista:
+ * trecho contido dentro de outro texto acha o que não devia.
  *
- * Os dois links de fora casam por trecho de propósito: o alvo ali é o HOST, e o
- * caminho depois dele (o `@CraftCodeClub`, o código do convite) muda sem que a
- * promessa da barra mude.
+ *   `rota`  casa por IGUALDADE. Uma rota é prefixo da outra neste site: `"/"`
+ *           está contido em TODO href interno, e `"/roadmaps/"` está contido em
+ *           `"/roadmaps/fundamentos/"`. Por `includes`, "Início" nunca
+ *           apareceria como perdido nem que sumisse dos dois lugares, e
+ *           "Roadmaps" sobreviveria escondido atrás do link dos Fundamentos.
+ *   `host`  casa pelo HOSTNAME, ele mesmo ou um subdomínio dele. O caminho
+ *           depois do host (o `@CraftCodeClub`, o código do convite) muda sem
+ *           que a promessa da barra mude, então ele fica de fora da conta — mas
+ *           `includes("youtube.com")` aceitaria `notyoutube.com`, e
+ *           `hostname === "youtube.com"` recusaria o `www.` que o link usa
+ *           hoje. Igualdade ou subdomínio é o que diz "este host, e não um que
+ *           termina parecido".
  */
-const DESTINOS = [
-  { nome: "Início", href: "/", externo: false },
-  { nome: "Fundamentos", href: "/roadmaps/fundamentos/", externo: false },
-  { nome: "Roadmaps", href: "/roadmaps/", externo: false },
-  { nome: "Tópicos", href: "/topicos/", externo: false },
-  { nome: "Apoiar", href: "/apoie/", externo: false },
-  { nome: "YouTube", href: "youtube.com/", externo: true },
-  { nome: "Discord", href: "discord.gg/", externo: true },
-] as const;
+type Destino = { nome: string } & ({ rota: string } | { host: string });
 
-const chegaAo = (href: string, destino: (typeof DESTINOS)[number]) =>
-  destino.externo ? href.includes(destino.href) : href === destino.href;
+const DESTINOS: Destino[] = [
+  { nome: "Início", rota: "/" },
+  { nome: "Fundamentos", rota: "/roadmaps/fundamentos/" },
+  { nome: "Roadmaps", rota: "/roadmaps/" },
+  { nome: "Tópicos", rota: "/topicos/" },
+  { nome: "Apoiar", rota: "/apoie/" },
+  { nome: "YouTube", host: "youtube.com" },
+  { nome: "Discord", host: "discord.gg" },
+];
+
+function chegaAo(href: string, destino: Destino): boolean {
+  if ("rota" in destino) return href === destino.rota;
+  let hostname: string;
+  try {
+    hostname = new URL(href).hostname;
+  } catch {
+    return false; // href relativo nunca chega a um destino de fora
+  }
+  return hostname === destino.host || hostname.endsWith(`.${destino.host}`);
+}
 
 test("nada sai da barra sem ter para onde ir: o menu ⋯ recolhe o que sumiu", async ({ page }) => {
   // O degrau novo (940px) tira "Início" e "YouTube" da barra, e o antigo (760)
