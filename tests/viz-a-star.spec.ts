@@ -50,7 +50,7 @@ function expandidas(alvo: Locator): Locator {
 async function abrir(page: Page, w: number, h: number) {
   await page.setViewportSize({ width: w, height: h });
   expect(page.viewportSize(), `a janela pedida foi ${w}x${h}`).toEqual({ width: w, height: h });
-  await page.goto("/topico/a-star/");
+  await page.goto("/topicos/a-star/");
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 

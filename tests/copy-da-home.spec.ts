@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ALL_TOPICS, TOTAL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { TOPICOS, TOTAL_TOPICS, isEmptyTopic } from "../content/topicos";
 
 // A copy da home prometia "47 tópicos com visualização passo a passo, código
 // Python e problemas do LeetCode", e 11 dos 47 não têm NENHUM dos três. É o
@@ -9,14 +9,18 @@ import { ALL_TOPICS, TOTAL_TOPICS, isEmptyTopic } from "../content/roadmap";
 // para o Google, então a página afirmava, para quem busca, o contrário do que
 // ela própria declara para o buscador.
 //
-// Os dois testes de número LEEM A FONTE (`content/roadmap.ts`) em vez de fixar
+// Os dois testes de número LEEM A FONTE (`content/topicos/index.ts`) em vez de fixar
 // 36 e 47: no dia em que um tópico ganhar material eles continuam verdes, e o
 // que eles protegem não é o valor, é a ESCOLHA entre os dois números. Por isso
-// vem junto a asserção do outro lado: a frase que fala do tamanho da trilha
-// ("tópicos no roadmap", o título) tem que continuar com o total. Trocar a
+// vem junto a asserção do outro lado: a frase que fala do tamanho do guia
+// ("tópicos no guia", o título) tem que continuar com o total. Trocar a
 // constante em toda ocorrência conserta a mentira e cria outra.
+//
+// O rótulo já disse "tópicos nos Fundamentos" com o número do site inteiro.
+// Batia enquanto os Fundamentos eram a única sequência; parou de bater quando
+// um tópico passou a poder estar em vários roadmaps ou em nenhum.
 
-const PRONTOS = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
+const PRONTOS = TOPICOS.filter((t) => !isEmptyTopic(t));
 
 /** O número que a frase usa, lido do texto que a página publicou. */
 function numeroDa(texto: string | null, padrao: RegExp, onde: string): number {
@@ -72,17 +76,17 @@ test("a home só promete material nos tópicos que têm material", async ({ page
   ).toEqual([]);
 });
 
-test("o total da trilha continua onde ele é verdade: título e card do roadmap", async ({ page }) => {
+test("o total dos Fundamentos continua onde ele é verdade: título e card", async ({ page }) => {
   await page.goto("/");
 
-  // O título fala do tamanho do guia, não do que cada tópico entrega: 47 é o
-  // número certo aqui, e é o mesmo que o roadmap lista.
+  // O título fala do tamanho da espinha, não do que cada tópico entrega: é o
+  // mesmo número que o /fundamentos/ lista.
   expect(await page.title()).toContain(`${TOTAL_TOPICS} Tópicos`);
 
   // Pelo RÓTULO, não pela posição: o card vizinho mostra 36 hoje ("tópicos com
   // visualização"), e um `.first()` daria um teste que passa lendo o número
   // errado.
-  const cartao = page.locator(".stat").filter({ hasText: "tópicos no roadmap" });
+  const cartao = page.locator(".stat").filter({ hasText: "tópicos no guia" });
   await expect(cartao).toHaveCount(1);
   await expect(cartao.locator(".stat-n")).toHaveText(`${TOTAL_TOPICS}`);
 });

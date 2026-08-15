@@ -30,7 +30,7 @@ function muda(page: Page, titulo: string): Locator {
 
 async function abrir(page: Page, w: number, h: number) {
   await page.setViewportSize({ width: w, height: h });
-  await page.goto("/topico/merge-sort/");
+  await page.goto("/topicos/merge-sort/");
   const vp = page.viewportSize();
   expect(vp).toEqual({ width: w, height: h });
   await page.evaluate(() => document.fonts.ready);

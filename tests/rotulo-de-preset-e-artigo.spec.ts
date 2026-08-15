@@ -82,7 +82,7 @@ for (const caso of CASOS) {
       `a citação do artigo não é prefixo do rótulo: «${caso.citacao}» vs «${caso.rotulo}»`
     ).toBe(true);
 
-    await page.goto(`/topico/${caso.slug}/`);
+    await page.goto(`/topicos/${caso.slug}/`);
 
     // 2 · a instrução está no artigo que o aluno lê, não só no arquivo fonte.
     await expect(page.locator("article")).toContainText(caso.citacao);
@@ -163,7 +163,7 @@ test("nenhum texto de tela de visualizador se ancora na gravação", () => {
 // ---------------------------------------------------------------------------
 
 test("recursão funcional: a prosa do classificador não cita a gravação", async ({ page }) => {
-  await page.goto("/topico/recursao-funcional/");
+  await page.goto("/topicos/recursao-funcional/");
 
   const peca = page.locator("article figure.viz").filter({ hasText: "está em posição de cauda" }).first();
   const casos = peca.locator(".bigo-chip").filter({ hasNotText: "Modo treino" });

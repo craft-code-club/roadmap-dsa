@@ -78,7 +78,7 @@ async function trocarPreset(fig: Locator, i: number): Promise<string> {
 test.describe("faixas: o rótulo cabe no trecho", () => {
   for (const r of REGUAS) {
     test(`quick sort, os dois painéis de três vias, todos os presets (${r.nome})`, async ({ page }) => {
-      await abrir(page, "/topico/quick-sort/", r.w, r.h);
+      await abrir(page, "/topicos/quick-sort/", r.w, r.h);
       const fig = page.locator("figure.viz").filter({ hasText: "o que fazer com os iguais ao pivô" });
       await expect(fig).toHaveCount(1);
 
@@ -101,10 +101,10 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
 
     test(`quick sort, a invariante da partição, passo a passo (${r.nome})`, async ({ page }) => {
       test.slow();
-      await abrir(page, "/topico/quick-sort/", r.w, r.h);
+      await abrir(page, "/topicos/quick-sort/", r.w, r.h);
       // Escopado por QUAL figura, e nunca por QUANTAS têm a casca. Contar
       // `figure.viz-fit` era afirmar o cronograma da migração: a peça alvo era a
-      // única adaptada em `/topico/quick-sort/` quando isto foi escrito, e a
+      // única adaptada em `/topicos/quick-sort/` quando isto foi escrito, e a
       // asserção passou a reprovar no dia em que a peça do pivô ganhou a mesma
       // casca — sem que nada do que este teste mede tivesse mudado. O título é
       // identidade; a contagem é data.
@@ -114,7 +114,7 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
       const fig = page
         .locator("figure.viz-fit")
         .filter({ hasText: "a partição e o pivô que fica pronto" });
-      await expect(fig, "a peça da partição tem que ser única em /topico/quick-sort/").toHaveCount(1);
+      await expect(fig, "a peça da partição tem que ser única em /topicos/quick-sort/").toHaveCount(1);
 
       const chips = fig.locator(".bigo-chip");
       expect(await chips.count(), "os quatro presets da partição").toBe(4);
@@ -150,7 +150,7 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
     });
 
     test(`merge sort, os quatro tamanhos, e a faixa continua de uma linha (${r.nome})`, async ({ page }) => {
-      await abrir(page, "/topico/merge-sort/", r.w, r.h);
+      await abrir(page, "/topicos/merge-sort/", r.w, r.h);
       // A varredura aqui é pelo TAMANHO da entrada, e não pelo passo: os
       // rótulos do merge sort (`0`, `10..15`) não mudam ao longo da animação —
       // o que muda é a cor. O tamanho é que muda a largura de cada trecho.
@@ -187,7 +187,7 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
         return getComputedStyle(el).fontSize;
       }, sel);
 
-    await abrir(page, "/topico/merge-sort/", 390, 844);
+    await abrir(page, "/topicos/merge-sort/", 390, 844);
     expect(await fonte(".ms-niveis .ms-seg"), "celular: o mapa da recursão esconde o rótulo, de propósito").toBe("0px");
 
     // ...e escondê-lo não pode colapsar o desenho. O número não é digitado: sai
@@ -203,13 +203,13 @@ test.describe("faixas: o rótulo cabe no trecho", () => {
     });
     expect(desenho.faixa, "a faixa continua desenhada mesmo com o rótulo escondido").toBe(desenho.minima);
 
-    await abrir(page, "/topico/quick-sort/", 390, 844);
+    await abrir(page, "/topicos/quick-sort/", 390, 844);
     expect(
       await fonte("figure.viz-fit .ms-nivel-faixa .ms-seg"),
       "celular: a invariante do quick sort continua legível"
     ).toBe("9px");
 
-    await abrir(page, "/topico/merge-sort/", 1440, 700);
+    await abrir(page, "/topicos/merge-sort/", 1440, 700);
     expect(await fonte(".ms-niveis .ms-seg"), "fora do celular o rótulo do merge sort volta").toBe("10px");
   });
 });
@@ -256,7 +256,7 @@ async function clicarBotao(page: Page, nome: string) {
 }
 
 async function abrirGaveta(page: Page, w: number, h: number) {
-  await abrir(page, "/topico/quick-sort/", w, h);
+  await abrir(page, "/topicos/quick-sort/", w, h);
   // `aria-label="Menu de tópicos"`, em `src/components/Shell.tsx`. O texto de
   // antes (`"Abrir menu de tópicos"`) não existia no produto: ele só existia
   // aqui, e o `clicarBotao` acima é o que faz esse tipo de descolamento se
@@ -338,7 +338,7 @@ test.describe("gaveta do celular: o card de apoio é alcançável", () => {
     // do que ele mede. Medido nesta página: 2 folhas, e só a de mesma origem
     // (108.190 bytes) tem a regra — a do Google Fonts são 1.639 bytes com zero
     // ocorrência de `sidebar`.
-    await abrir(page, "/topico/quick-sort/", 390, 844);
+    await abrir(page, "/topicos/quick-sort/", 390, 844);
     const folha = await page.evaluate(async () => {
       const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')]
         .map((l) => new URL(l.href, location.href))

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  FEATURED,
-  getTopic,
-  TOTAL_LEETCODE_PROBLEMS,
-  TOTAL_PROBLEMS,
+  getTopico,
   TOTAL_TOPICS,
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
-} from "@content/roadmap";
+} from "@content/topicos";
+import { EXTRA_CARDS, FUNDAMENTOS, urlDoTopicoNoRoadmap } from "@content/roadmaps";
+import { TOTAL_LEETCODE_PROBLEMS, TOTAL_PROBLEMS } from "@content/topicos/pratica";
+import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 import { levelClass } from "@/lib/ui";
@@ -17,8 +17,8 @@ import { levelClass } from "@/lib/ui";
 // novo já entra no título e no card sem ninguém lembrar de atualizar o SEO.
 //
 // São DOIS números, e a escolha é frase a frase. `TOTAL_TOPICS` é o tamanho da
-// trilha, o que o roadmap mapeia: continua certo no título e no card de
-// estatística ("tópicos no roadmap"). `TOTAL_TOPICS_PRONTOS` é quem tem material
+// dos Fundamentos, o que eles mapeiam: continua certo no título e no card de
+// estatística ("tópicos nos Fundamentos"). `TOTAL_TOPICS_PRONTOS` é quem tem material
 // para o aluno abrir, e é ele que vale em toda frase que QUALIFICA os tópicos
 // pelo que eles entregam. Os 11 de diferença não têm vídeo, artigo nem
 // visualização: são exatamente os que o próprio site marca "em breve" e tira do
@@ -33,6 +33,12 @@ export function generateMetadata(): Metadata {
   });
 }
 
+// "Comece por aqui": fundamentos primeiro, do mais básico ao primeiro padrão,
+// sem tópicos difíceis. É o ponto de partida de quem está começando, e por isso
+// é uma lista à mão: derivá-la da ordem dos Fundamentos daria os seis primeiros
+// da sequência, que não é a mesma coisa.
+const FEATURED = ["big-o", "arrays", "strings", "two-pointers", "listas-ligadas", "pilhas"];
+
 const FEATURES = [
   { icone: "▶", titulo: "O algoritmo rodando", texto: "Passo a passo, no seu ritmo, com o seu próprio array de entrada e o código Python acompanhando linha a linha." },
   { icone: "✎", titulo: "Texto direto ao ponto", texto: "Explicação em português de gente, sem tradução automática e sem enrolação acadêmica." },
@@ -40,13 +46,17 @@ const FEATURES = [
 ];
 
 export default function Home() {
+  // O rótulo dizia "tópicos nos Fundamentos" e o número era `TOTAL_TOPICS`, que
+  // é o site inteiro. Enquanto os Fundamentos eram a única sequência os dois
+  // batiam; hoje um tópico pode estar em vários roadmaps ou em nenhum, e o
+  // número da home conta CADA TÓPICO UMA VEZ, venha ele de onde vier.
   const stats = [
-    { n: `${TOTAL_TOPICS}`, rot: "tópicos no roadmap" },
+    { n: `${TOTAL_TOPICS}`, rot: "tópicos no guia" },
     { n: `${TOTAL_VISUALIZERS}`, rot: "tópicos com visualização" },
     { n: `${TOTAL_PROBLEMS}`, rot: "problemas selecionados" },
     { n: "Gratuito", rot: "para sempre" },
   ];
-  const destaques = FEATURED.map((slug) => getTopic(slug)).filter(Boolean);
+  const destaques = FEATURED.map((slug) => getTopico(slug)).filter((t) => !!t);
 
   return (
     <>
@@ -59,10 +69,14 @@ export default function Home() {
           sincronizado, vídeo e uma lista de problemas do LeetCode e do GeeksforGeeks.
         </p>
         <div className="hero-actions">
-          <Link href="/topico/big-o" className="btn btn-primary">
+          {/* Começar é entrar NO percurso, não numa página solta: o botão abre o Big O
+              dentro dos Fundamentos, com o menu do roadmap do lado e o "Próximo" no fim.
+              A página canônica do tópico (`/topicos/big-o/`) é para quem chega pelo
+              índice geral, sem percurso escolhido. */}
+          <Link href="/roadmaps/fundamentos/big-o" className="btn btn-primary">
             Começar por Big O
           </Link>
-          <Link href="/roadmap" className="btn">Ver o roadmap completo</Link>
+          <Link href="/roadmaps/fundamentos" className="btn">Ver os Fundamentos</Link>
         </div>
       </section>
 
@@ -92,20 +106,45 @@ export default function Home() {
       <section className="section-pad-x">
         <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 18 }}>
           <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Comece por aqui</h2>
-          <Link href="/roadmap" className="link-btn">Ver tudo →</Link>
+          <Link href="/roadmaps/fundamentos" className="link-btn">Ver tudo →</Link>
         </div>
         <div className="grid-3">
           {destaques.map((t) => (
-            <Link key={t!.slug} href={`/topico/${t!.slug}`} className="destaque-card">
+            // Dentro dos Fundamentos, como o botão "Começar por Big O" logo
+            // acima: estes seis são a porta de entrada da sequência, e abrir a
+            // página solta seria dar o tópico e tirar o percurso.
+            <Link
+              key={t.slug}
+              href={urlDoTopicoNoRoadmap(FUNDAMENTOS, t.slug)}
+              className="destaque-card"
+            >
               <div className="destaque-top">
-                <span className="destaque-grupo">{t!.group}</span>
-                <span className={`level ${levelClass(t!.level)}`}>{t!.level}</span>
+                <span className="destaque-grupo">{t.group}</span>
+                <span className={`level ${levelClass(t.level)}`}>{t.level}</span>
               </div>
-              <div className="destaque-nome">{t!.name}</div>
-              <p>{t!.description}</p>
+              <div className="destaque-nome">{t.name}</div>
+              <p>{t.description}</p>
             </Link>
           ))}
         </div>
+      </section>
+
+      {/* A porta para fora dos Fundamentos, na home.
+          Ela existe porque a vitrine mora em dois lugares que quem chega hoje
+          não abre: o FIM do /fundamentos/ (depois de 16 grupos de rolagem) e a
+          /roadmaps/, que só se descobre pelo link do topo. Três cards aqui — os
+          que já têm material, que é a ordem do `EXTRA_CARDS` — contam que o
+          site é maior que a fila, sem competir com o "Comece por aqui" logo
+          acima, que continua sendo o convite principal. */}
+      <section className="section-pad-x">
+        <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 6 }}>
+          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Além dos Fundamentos</h2>
+          <Link href="/roadmaps" className="link-btn">Ver tudo →</Link>
+        </div>
+        <p className="sub" style={{ margin: "0 0 18px", fontSize: 15, color: "var(--ccc-muted)" }}>
+          Estruturas que são um assunto à parte, e roadmaps sobre famílias inteiras.
+        </p>
+        <ExtrasGrid cards={EXTRA_CARDS.slice(0, 3)} />
       </section>
 
       <section className="grid-2 section-pad-x">

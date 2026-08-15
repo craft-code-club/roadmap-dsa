@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ALL_TOPICS } from "../content/roadmap";
+import { TOPICOS } from "../content/topicos";
+import { roadmapsDoTopico } from "../content/roadmaps";
 
 // Todo `<button>` do site declara `type="button"`.
 //
@@ -46,14 +47,22 @@ import { ALL_TOPICS } from "../content/roadmap";
 // ` type="button"` de UMA tag, por exemplo o "Sortear" de
 // `content/visualizers/IntervalsVisualizer.tsx` (`<button type="button"
 // className="viz-btn" onClick={randomize}>`), rode `npm run test:build` e
-// espere ver `/topico/intervals/` na lista de reprovadas, com o rótulo
+// espere ver `/topicos/intervals/` na lista de reprovadas, com o rótulo
 // "Sortear" no relatório. `npm test` sozinho não serve: ele exercita o `out/`
 // da build anterior, que ainda tem o atributo.
 
 /** Rotas fixas do site, fora as de tópico. */
-const ROTAS_FIXAS = ["/", "/roadmap/", "/introducao/", "/sobre/", "/apoie/"];
+const ROTAS_FIXAS = ["/", "/roadmaps/fundamentos/", "/introducao/", "/sobre/", "/apoie/"];
 
-const ROTAS = [...ROTAS_FIXAS, ...ALL_TOPICS.map((t) => `/topico/${t.slug}/`)];
+const ROTAS = [
+  ...ROTAS_FIXAS,
+  ...TOPICOS.map((t) => `/topicos/${t.slug}/`),
+  // A mesma página com a outra casca: é a rota com o menu completo, e a única
+  // em que o piso alto tem o que medir.
+  ...TOPICOS.filter((t) => roadmapsDoTopico(t.slug).some((r) => r.slug === "fundamentos")).map(
+    (t) => `/roadmaps/fundamentos/${t.slug}/`
+  ),
+];
 
 /**
  * Pisos de contagem. Eles NÃO são o teste — o teste é o `type` lido. Existem
@@ -62,12 +71,21 @@ const ROTAS = [...ROTAS_FIXAS, ...ALL_TOPICS.map((t) => `/topico/${t.slug}/`)];
  * mentir. Ficam bem abaixo do medido para não reprovarem quando um artigo
  * ganhar ou perder uma peça.
  */
-// Medido no `out/` da `main` de hoje: 4.705 tags em 52 rotas, e 65 na rota mais
-// magra (`/`, `/introducao/`, `/sobre/` e `/apoie/`, que só têm o chassi). Os
-// pisos ficam bem abaixo disso.
-const PISO_HTML_TOTAL = 3000;
-const PISO_HTML_ROTA = 40;
-const PISO_DOM_ROTA = 40;
+// Medido no `out/` de hoje: 6.715 tags em 178 rotas. Os pisos ficam bem abaixo.
+//
+// O piso por rota deixou de ser um número só quando os tópicos perderam a casa.
+// Antes, TODA rota carregava o menu dos 47 tópicos, e um piso de 40 valia para
+// qualquer página. Hoje a casca varia com a rota: `/roadmaps/fundamentos/<t>/` tem o menu
+// inteiro (126 a 144 botões), `/topicos/<t>/` tem a barra dos roadmaps do tópico
+// (32 num tópico com visualizador, 3 num sem material) e `/roadmaps/` tem 1.
+// Um piso único ou reprovava as páginas leves ou não protegia nada nas pesadas.
+const PISO_HTML_TOTAL = 4000;
+/** Nenhuma rota pode vir com ZERO: aí a régua não casou com nada. */
+const PISO_HTML_ROTA = 1;
+/** As que carregam o menu completo. Se ele sumir, é aqui que aparece. */
+const PISO_HTML_ROTA_COM_MENU = 40;
+const COM_MENU = (rota: string) => rota.startsWith("/roadmaps/fundamentos/") && rota !== "/roadmaps/fundamentos/";
+const PISO_DOM_ROTA = 20;
 
 /**
  * As tags `<button>` de abertura do HTML, com o `<script>` fora.
@@ -88,12 +106,29 @@ test("no HTML entregue, nenhum <button> sai sem type", async ({ request }) => {
   const magros: string[] = [];
   let total = 0;
 
-  for (const rota of ROTAS) {
-    const resposta = await request.get(rota);
-    expect(resposta.status(), `${rota} não respondeu 200`).toBe(200);
-    const tags = tagsDeBotao(await resposta.text());
+  // Em lotes, e não uma rota de cada vez: as rotas passaram de 52 para 124
+  // quando cada tópico ganhou as duas URLs, e em série a varredura estourava o
+  // timeout de 30s antes de conferir metade.
+  const LOTE = 16;
+  const paginas: { rota: string; html: string }[] = [];
+  for (let i = 0; i < ROTAS.length; i += LOTE) {
+    const lote = await Promise.all(
+      ROTAS.slice(i, i + LOTE).map(async (rota) => {
+        const resposta = await request.get(rota);
+        return { rota, status: resposta.status(), html: await resposta.text() };
+      })
+    );
+    for (const r of lote) {
+      expect(r.status, `${r.rota} não respondeu 200`).toBe(200);
+      paginas.push({ rota: r.rota, html: r.html });
+    }
+  }
+
+  for (const { rota, html } of paginas) {
+    const tags = tagsDeBotao(html);
     total += tags.length;
-    if (tags.length < PISO_HTML_ROTA) magros.push(`${rota} → ${tags.length} tags`);
+    const piso = COM_MENU(rota) ? PISO_HTML_ROTA_COM_MENU : PISO_HTML_ROTA;
+    if (tags.length < piso) magros.push(`${rota} → ${tags.length} tags (piso ${piso})`);
     for (const tag of tags) {
       // Só `type="button"` passa. `submit` e `reset` explícitos reprovam do
       // mesmo jeito: nenhum dos dois tem o que fazer num site sem formulário, e
@@ -104,7 +139,8 @@ test("no HTML entregue, nenhum <button> sai sem type", async ({ request }) => {
 
   expect(
     magros,
-    `estas rotas trouxeram menos de ${PISO_HTML_ROTA} botões no HTML — ou o build está sem os visualizadores, ou a régua parou de casar, e aí o verde é vazio`
+    "estas rotas vieram abaixo do piso de botões no HTML — ou o build está sem " +
+      "os visualizadores, ou a régua parou de casar, e aí o verde é vazio"
   ).toEqual([]);
   expect(
     total,
@@ -152,7 +188,7 @@ async function varrerDom(page: Page, onde: string, piso: number) {
  * uma cujo miolo troca de conjunto de botões quando o aluno muda de modo, e uma
  * de gráfico, que monta os controles em outro caminho.
  */
-const ROTAS_DOM = ["/topico/two-pointers/", "/topico/intervals/", "/topico/big-o/"];
+const ROTAS_DOM = ["/topicos/two-pointers/", "/topicos/intervals/", "/topicos/big-o/"];
 
 test("no DOM, a propriedade type de todo <button> é 'button' — inclusive nos que só existem depois do clique", async ({
   page,
@@ -166,19 +202,19 @@ test("no DOM, a propriedade type de todo <button> é 'button' — inclusive nos 
   }
 
   // As duas montagens que o HTML estático NÃO tem.
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/topicos/two-pointers/");
   const primeira = page.locator("article figure.viz").first();
 
   // 1 · o bloco de código, que a casca só põe no DOM quando o aluno pede.
   const codigo = primeira.getByRole("button", { name: /código$/ });
   if (await codigo.count()) {
     await codigo.first().click();
-    await varrerDom(page, "/topico/two-pointers/ (código à mostra)", PISO_DOM_ROTA);
+    await varrerDom(page, "/topicos/two-pointers/ (código à mostra)", PISO_DOM_ROTA);
   }
 
   // 2 · o painel expandido, montado no clique com uma segunda cópia do
   // cabeçalho, dos controles e do miolo da peça.
   await primeira.getByRole("button", { name: "⤢ Expandir" }).click();
   await expect(page.locator(".viz-overlay figure.viz")).toBeVisible();
-  await varrerDom(page, "/topico/two-pointers/ (painel expandido)", PISO_DOM_ROTA);
+  await varrerDom(page, "/topicos/two-pointers/ (painel expandido)", PISO_DOM_ROTA);
 });

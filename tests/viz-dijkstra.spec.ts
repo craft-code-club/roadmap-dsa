@@ -35,7 +35,7 @@ function painel(page: Page): Locator {
 async function abrir(page: Page, w: number, h: number) {
   await page.setViewportSize({ width: w, height: h });
   expect(page.viewportSize(), `a janela pedida foi ${w}x${h}`).toEqual({ width: w, height: h });
-  await page.goto("/topico/dijkstra/");
+  await page.goto("/topicos/dijkstra/");
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 

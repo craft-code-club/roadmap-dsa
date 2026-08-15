@@ -25,7 +25,7 @@ import { test, expect } from "./fixtures/console-limpo";
 //
 // O item 2 tem exceção declarada: `color-contrast` numa página de artigo entra
 // **sem teto**. A contagem dela acompanha o tamanho do texto da página (são 16
-// nós hoje em `/topico/two-pointers/`: 10 `.code-lang` e 6 `.viz-cell-idx`,
+// nós hoje em `/topicos/two-pointers/`: 10 `.code-lang` e 6 `.viz-cell-idx`,
 // repetições de dois defeitos só), então qualquer parágrafo novo empurraria o
 // número para cima sem nenhuma regressão de acessibilidade. Teto ali seria alarme
 // falso mensal, e alarme falso é o que faz o guarda ser desligado. Nas regras
@@ -55,10 +55,10 @@ type Conhecida = {
  * Duas coisas mudaram em relação à primeira medição (feita sobre e35c1b2):
  *
  *  - `landmark-unique` **saiu das cinco rotas**: o #50 pôs `aria-label` nos dois
- *    `<nav>` da barra, que era o defeito. Com isso `/` e `/roadmap/` ficam com a
+ *    `<nav>` da barra, que era o defeito. Com isso `/` e `/roadmaps/fundamentos/` ficam com a
  *    lista **vazia** — e lista vazia não é lacuna, é a forma mais forte deste
  *    guarda: qualquer violação que apareça ali vira "regra nova" e reprova;
- *  - `color-contrast` em `/topico/two-pointers/` fica em **16 nós**, e agora de
+ *  - `color-contrast` em `/topicos/two-pointers/` fica em **16 nós**, e agora de
  *    forma determinística. Antes de esperar o assentamento o número era
  *    **sorteado**: três cargas idênticas mediram 16, 28 e 28. Os 12 nós que
  *    entravam e saíam eram sempre os mesmos `.viz-var-name`, e eles **não são
@@ -68,6 +68,23 @@ type Conhecida = {
  *    meio da pintura — não "nós do SSG que o aluno não vê": os 12 elementos
  *    estão no DOM, visíveis e dentro da figura nos dois momentos.
  *
+ * REMEDIDO DE NOVO com a entrada das trilhas, e DUAS entradas saíram por estarem
+ * obsoletas — o log vinha avisando ("passivo obsoleto"), e entrada obsoleta não é
+ * inofensiva: enquanto ela existe, a regra fica anistiada e a volta do defeito
+ * passa calada.
+ *
+ *  - `label` em `/topicos/two-pointers/`: o range de velocidade da casca ganhou um
+ *    `<label class="viz-speed">` envolvendo o input (`src/lib/visualizer.tsx`), e
+ *    label que envolve o campo já dá nome acessível. Zero nós hoje;
+ *  - `heading-order` em `/apoie/`: a página não tem mais `<h3>` depois do `<h1>`
+ *    — os títulos do `out/apoie/index.html` são `h1` seguido só de `h2`.
+ *
+ * A amostra também cresceu de 5 para 9 rotas, com as classes de página que os
+ * roadmaps criaram: a vitrine `/roadmaps/`, a abertura de um roadmap extra
+ * (barra lateral curta), o tópico avulso `/topicos/trie/` (barra lateral
+ * NENHUMA) e `/roadmaps/fundamentos/floyd-warshall/`, que é a amostra de
+ * "tópico em breve" com o menu do roadmap do lado.
+ *
  * O passivo antigo dizia que os 34 nós eram `.code-lang` e `.viz-var-name`, com
  * "o pior medido 3.48:1" atribuído ao segundo. Os dois rótulos estavam errados:
  * 3,48:1 é o `.code-lang`, e a outra família é `.viz-cell-idx`. Os números
@@ -76,8 +93,8 @@ type Conhecida = {
  */
 const PASSIVO: Record<string, Conhecida[]> = {
   "/": [],
-  "/roadmap/": [],
-  "/topico/two-pointers/": [
+  "/roadmaps/fundamentos/": [],
+  "/topicos/two-pointers/": [
     {
       regra: "color-contrast",
       teto: null, // sem teto: acompanha o tamanho do texto da página, ver o cabeçalho
@@ -89,14 +106,6 @@ const PASSIVO: Record<string, Conhecida[]> = {
         "Os dois contra os 4.5:1 exigidos; o pior é o `.code-lang`",
     },
     {
-      regra: "label",
-      teto: 3,
-      nota:
-        "o <input type=range> de velocidade da casca não tem <label> nem aria-label " +
-        "(src/lib/visualizer.tsx:562). São 3 nós porque a página tem 3 visualizadores; " +
-        "é UM defeito, num componente compartilhado por todos os 62",
-    },
-    {
       regra: "scrollable-region-focusable",
       teto: 1,
       nota:
@@ -105,27 +114,48 @@ const PASSIVO: Record<string, Conhecida[]> = {
         "não alcança o que está fora da vista",
     },
   ],
-  "/topico/trie/": [
+  "/topicos/trie/": [
+    {
+      regra: "color-contrast",
+      // Sem teto, pelo mesmo motivo do /topicos/two-pointers/: o número acompanha
+      // quantos blocos de código o artigo tem, e um teto aqui ficaria vermelho
+      // a cada bloco novo — reprovando quem escreve, não quem quebra.
+      teto: null,
+      nota:
+        "6 nós, todos o selo de linguagem do bloco de código (`.code-lang`, " +
+        "src/app/globals.css:377, #5b6d85 sobre #0d1420, 3.48:1 contra os 4.5:1 " +
+        "exigidos) — um por cerca ```python do artigo. É o MESMO defeito de chrome " +
+        "compartilhado que o /topicos/two-pointers/ congela; consertar o `.code-lang` " +
+        "apaga a entrada nas duas rotas de uma vez",
+    },
+  ],
+  // O tópico "em breve" DENTRO de um roadmap: é a única amostra em que o selo
+  // "em breve" e o item apagado do menu aparecem os dois.
+  //
+  // A amostra era `/topicos/counting-sort/`, e mudar de rota não foi capricho:
+  // desde que o tópico deixou de ter casa, a página canônica não desenha o menu
+  // do roadmap (ela lista os roadmaps que citam o tópico), e os dois elementos
+  // que esta entrada cobre sumiram de lá junto com o menu. O guarda avisou
+  // ("passivo obsoleto"), e a resposta certa não era apagar a dívida: era medir
+  // a mesma dívida onde ela continua na tela.
+  "/roadmaps/fundamentos/floyd-warshall/": [
     {
       regra: "color-contrast",
       teto: 2,
       nota:
         "o nome do tópico 'em breve' no menu lateral (`.side-item.soon`, " +
-        "src/app/globals.css:197, #6f83a0 sobre #13233e, 4.05:1) e o selo 'em breve' " +
-        "(`.badge-soon`, src/app/globals.css:220, #7f93ad sobre #22314a, 4.15:1), os dois " +
-        "contra os 4.5:1 exigidos. Teto vale aqui: são dois elementos de chrome fixo, " +
-        "não de conteúdo",
+        "src/app/globals.css, #6f83a0 sobre #13233e, 4.05:1) e o selo 'em breve' " +
+        "(`.badge-soon`, #7f93ad sobre #22314a, 4.15:1), os dois contra os 4.5:1 " +
+        "exigidos. Teto vale aqui: são dois elementos de chrome fixo, não de conteúdo. " +
+        "Esta entrada já morou em `/topicos/trie/` e em `/topicos/counting-sort/`; " +
+        "ela segue a rota que ainda desenha o menu com um item 'em breve'",
     },
   ],
-  "/apoie/": [
-    {
-      regra: "heading-order",
-      teto: 1,
-      nota:
-        "o cartão de doação abre com <h3> logo depois do <h1>, pulando o <h2> " +
-        "(src/app/apoie/page.tsx:29)",
-    },
-  ],
+  // As duas telas novas. Listas vazias, que é a forma mais forte deste guarda:
+  // qualquer violação que apareça nelas vira "regra nova" e reprova.
+  "/roadmaps/": [],
+  "/roadmaps/caminhos-minimos/": [],
+  "/apoie/": [],
 };
 
 /**
@@ -142,15 +172,19 @@ const AMOSTRA = Object.keys(PASSIVO);
  * POR QUE NÃO SÓ UMA FOLGA
  * Esperar o `<h1>` não é sinal de hidratação: ele já vem no HTML do SSG. E medir
  * o axe antes de a página assentar dá resultado **sorteado** — três cargas
- * idênticas de `/topico/two-pointers/` mediram 16, 28 e 28 nós de
+ * idênticas de `/topicos/two-pointers/` mediram 16, 28 e 28 nós de
  * `color-contrast`. Hoje isso não deixa a suíte vermelha só porque essa regra
  * está com `teto: null` nessa rota; no dia em que alguém puser teto, vira flake.
  *
- * O SINAL É O CARIMBO DO MENU, e ele não é invenção deste arquivo: o
- * `navegacao.spec.ts` já espera por ele (`carimboRegravado`), pelo mesmo motivo
- * — conferir logo após o `goto` lê o menu de antes da hidratação, e foi assim
- * que aquele bloco ficou instável no CI. O `Shell` regrava `ccc-dsa-menu` num
- * efeito a cada carga, então o carimbo recente é prova de que o efeito rodou.
+ * O SINAL É `<html data-hidratado>`, posto pelo `ProgressProvider` no efeito de
+ * montagem. Ele substituiu o carimbo `ccc-dsa-menu`, e a troca não é
+ * preferência: aquele carimbo é escrito pela TRILHA LATERAL, e desde as trilhas
+ * há rota sem roadmap lateral nenhuma (o tópico avulso e a vitrine `/roadmaps/`,
+ * ver `src/components/Shell.tsx`). Esperar por ele numa dessas era esperar 30s
+ * por um menu que não ia existir — medido, com `/topicos/trie/` estourando o
+ * timeout. O provedor embrulha o site inteiro, então o novo sinal vale em toda
+ * rota. (O `navegacao.spec.ts` segue usando o carimbo no `carimboRegravado`, e
+ * ali está certo: aquele bloco é sobre o menu.)
  *
  * A folga curta depois dele cobre o que vem DEPOIS da hidratação do `Shell`: as
  * ilhas de visualizador, que chegam por `import()` do `VizLazy`. Ela é folga de
@@ -158,14 +192,32 @@ const AMOSTRA = Object.keys(PASSIVO);
  * Medido com as duas juntas: 6 cargas seguidas, 16 nós nas 6.
  */
 async function esperarHidratar(page: Page) {
-  await page.waitForFunction(() => {
-    try {
-      const salvo = JSON.parse(localStorage.getItem("ccc-dsa-menu") ?? "null");
-      return typeof salvo?.em === "number" && Date.now() - salvo.em < 60_000;
-    } catch {
-      return false;
-    }
-  });
+  await page.waitForSelector("html[data-hidratado]", { state: "attached" });
+  // E, ONDE EXISTE roadmap lateral, o carimbo do menu também.
+  //
+  // Ele é escrito num efeito POSTERIOR ao do provedor, e a diferença é
+  // medível: com só o `data-hidratado`, o axe mediu `/topicos/two-pointers/`
+  // antes de as ilhas de visualizador montarem e o `label` do range de
+  // velocidade "deixou de violar" — três violações conhecidas sumindo é o
+  // guarda afrouxando sozinho, que é pior do que ele reprovar.
+  //
+  // A condição é o CAMPO DE BUSCA, e não o `#menu-lateral`: a barra lateral de
+  // uma trilha usa o mesmo id de landmark e NÃO escreve carimbo nenhum (quem
+  // escreve é o `FundamentosSidebar`). Perguntar pelo landmark fazia
+  // `/roadmaps/<slug>/` esperar 30s por um carimbo que não vem.
+  //
+  // As duas esperas juntas, e não uma só: o carimbo cobre o caso do roadmap e
+  // não existe fora dela; o atributo cobre toda rota. Este é o superconjunto.
+  if (await page.locator("#busca-topico").count()) {
+    await page.waitForFunction(() => {
+      try {
+        const salvo = JSON.parse(localStorage.getItem("ccc-dsa-menu") ?? "null");
+        return typeof salvo?.em === "number" && Date.now() - salvo.em < 60_000;
+      } catch {
+        return false;
+      }
+    });
+  }
   await page.waitForTimeout(400);
 }
 
@@ -221,7 +273,7 @@ for (const rota of AMOSTRA) {
  * não é zelo: é a única das duas que enxerga o estado que o aluno passa a maior
  * parte do tempo olhando.
  *
- * Medido: andar 6 passos no primeiro visualizador de `/topico/two-pointers/`
+ * Medido: andar 6 passos no primeiro visualizador de `/topicos/two-pointers/`
  * leva `color-contrast` de 16 para 18 nós. Os 2 nós novos são `.drop.viz-cell`,
  * a célula marcada como descartada — uma cor que **só existe depois de a
  * animação andar**, e que nenhuma carga de página, com folga ou sem, alcança.
@@ -234,7 +286,7 @@ for (const rota of AMOSTRA) {
  * acabou de receber foco — nada disso depende de quantos passos.
  */
 test("acessibilidade: o visualizador EM USO não ganha regra nova (axe-core)", async ({ page }) => {
-  const rota = "/topico/two-pointers/";
+  const rota = "/topicos/two-pointers/";
   await page.goto(rota);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await esperarHidratar(page);

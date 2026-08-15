@@ -1,0 +1,159 @@
+<Callout>
+O [BFS](/topicos/dfs-bfs) acha o caminho com menos arestas, e isso resolve o problema quando toda aresta custa igual. Assim que os pesos aparecem, menos arestas deixa de significar mais barato: uma estrada direta pode ser mais lenta que um desvio de três trechos rápidos. Dijkstra é a resposta para isso, e a ideia dele cabe numa frase: **sempre feche primeiro o vértice mais barato que ainda está aberto.** O tópico inteiro é entender por que essa frase é segura, e o dia em que ela deixa de ser.
+</Callout>
+
+## O que muda quando a aresta tem peso
+
+Numa fila do BFS, os vértices saem na ordem em que foram descobertos. Isso funciona porque, sem peso, descobrir cedo é o mesmo que estar perto.
+
+Com peso, isso quebra. Você pode descobrir um vértice logo no começo, por uma aresta cara, e existir um caminho muito melhor que passa por três vértices baratos. O BFS não tem como saber: ele já registrou a distância e seguiu em frente.
+
+A correção é trocar a estrutura. Em vez de uma fila, uma **fila de prioridade**: em vez de sair quem chegou primeiro, sai quem tem a **menor distância provisória**.
+
+```python
+import heapq
+
+def dijkstra(inicio, g):
+    dist = {v: float("inf") for v in g}
+    dist[inicio] = 0
+    fila = [(0, inicio)]
+    fechados = set()
+
+    while fila:
+        d, u = heapq.heappop(fila)     # o menor de todos
+        if u in fechados:
+            continue                   # cópia velha, ignora
+        fechados.add(u)                # fechou: valor final
+
+        for v, peso in g[u]:
+            if d + peso < dist[v]:     # relaxamento
+                dist[v] = d + peso
+                heapq.heappush(fila, (dist[v], v))
+    return dist
+```
+
+Trinta segundos de leitura, e três conceitos que valem nomear: **distância provisória**, **relaxamento** e **fechar** um vértice.
+
+## Relaxar: o verbo do algoritmo
+
+Relaxar uma aresta u → v é fazer uma pergunta só:
+
+```text
+chegar em v passando por u é melhor do que o melhor caminho que eu conhecia até v?
+```
+
+Se for, você atualiza `dist[v]` e avisa a fila. Se não, não faz nada. É isso, e o algoritmo inteiro é repetir essa pergunta para toda aresta que sai de cada vértice fechado.
+
+O nome vem da física: você começa com uma estimativa esticada (infinito) e vai afrouxando até ela encostar no valor real.
+
+<DijkstraVisualizer />
+
+Comece no primeiro preset e acompanhe o painel de **distância provisória**. Repare no B: ele começa valendo 4 (a aresta direta A→B), e depois cai para 3 quando o C fecha e revela o caminho A→C→B. É o relaxamento acontecendo.
+
+Depois vá para o preset **"a tentação do caminho direto"**: a aresta A→B custa 10 e parece péssima, mas o desvio A→C→D→B custa 3. Guloso não quer dizer míope, e o Dijkstra acha o desvio sem precisar testar todos os caminhos.
+
+## Por que fechar o menor é seguro
+
+Aqui está a parte que vale entender de verdade, porque é ela que separa "decorei o código" de "sei quando posso usar".
+
+Quando você tira da fila o vértice `u` com a menor distância provisória `d`, você fecha ele afirmando que `d` é a resposta final. Por que isso é seguro?
+
+Suponha que existisse um caminho melhor até `u`, ainda não descoberto. Esse caminho teria que passar por algum vértice `x` que ainda está aberto. Mas `x` está na fila com distância **maior ou igual** a `d`, porque `u` era o menor. E o pedaço de `x` até `u` só pode **somar**, já que todos os pesos são não negativos. Então esse caminho custaria pelo menos `d`. Não existe caminho melhor.
+
+<Callout>
+Toda a prova depende de uma frase: **o resto do caminho só pode somar**. É por isso que Dijkstra exige pesos não negativos, e é por isso que ele consegue fechar cada vértice uma vez só, sem nunca revisitar.
+</Callout>
+
+## O dia em que a hipótese cai
+
+Agora rode o terceiro preset do visualizador, com a aresta C → B valendo **-2**.
+
+Veja o que acontece: o B fecha valendo 1, porque naquele momento era o menor da fila. Só depois o C fecha e revela que passar por ele daria 0. O Dijkstra registra o novo valor mas **não reabre** o B, e o erro se propaga: o D e o F ficam com valores maiores que o real.
+
+| | Dijkstra devolve | Resposta correta |
+| --- | --- | --- |
+| B | 0 | 0 |
+| D | 4 | **3** |
+| F | 5 | **4** |
+
+Repare que isso **não é bug de implementação**. O código está certo; a hipótese é que caiu. Peso negativo faz "o resto do caminho só pode somar" virar mentira, e a prova da seção anterior desmonta junto.
+
+<Callout tipo="aviso">
+Uma tentação comum e errada: somar uma constante a todos os pesos para deixá-los positivos. Isso muda a resposta, porque um caminho com mais arestas recebe a constante mais vezes. Um caminho de 5 arestas ganha 5 vezes a constante e um de 2 arestas ganha 2, então caminhos longos são penalizados e o mínimo pode mudar de lugar. Se existe peso negativo, o algoritmo é [Bellman-Ford](/topicos/bellman-ford), e ponto.
+</Callout>
+
+## O detalhe do `continue`
+
+Vale explicar a linha que costuma parecer supérflua:
+
+```python
+if u in fechados:
+    continue
+```
+
+Quando você relaxa uma aresta e melhora `dist[v]`, você empurra `(nova_dist, v)` na fila. Mas a entrada antiga, com a distância pior, continua lá: `heapq` não sabe remover nem atualizar elemento do meio.
+
+Então a fila acumula cópias velhas do mesmo vértice. A saída, chamada de **lazy deletion**, é aceitar isso e simplesmente ignorar a cópia quando ela sair: se o vértice já fechou, aquela entrada é lixo.
+
+Existe a alternativa de usar uma fila de prioridade com `decrease-key`, que atualiza no lugar. É teoricamente mais elegante e na prática quase nunca vale a pena: o custo de manter os índices costuma superar o de deixar cópias na fila.
+
+## Complexidade
+
+Com fila de prioridade binária (o `heapq` do Python):
+
+```text
+O((V + E) · log V)
+```
+
+Cada vértice entra e sai da fila, e cada aresta pode causar um push. Cada operação de heap custa log do tamanho da fila. Em grafo esparso, que é o caso comum, isso é bem próximo de O(E log V).
+
+Sem fila de prioridade, procurando o mínimo por varredura, vira **O(V²)**. Parece pior, mas em grafo **muito denso** (E próximo de V²) o V² pode ganhar, porque você evita o log e a estrutura extra.
+
+| Estrutura | Complexidade | Quando ganha |
+| --- | --- | --- |
+| Heap binário | O((V + E) log V) | grafo esparso, o caso normal |
+| Array simples | O(V²) | grafo denso |
+| Heap de Fibonacci | O(E + V log V) | melhor na teoria, raro na prática |
+
+## Reconstruir o caminho, e não só o custo
+
+O código acima devolve **distâncias**, e quase todo problema real quer o **caminho**. A mudança é pequena: guarde de quem você veio.
+
+```python
+anterior = {}
+...
+if d + peso < dist[v]:
+    dist[v] = d + peso
+    anterior[v] = u           # <- a única linha nova
+    heapq.heappush(fila, (dist[v], v))
+
+def caminho(destino, anterior):
+    rota = [destino]
+    while destino in anterior:
+        destino = anterior[destino]
+        rota.append(destino)
+    return rota[::-1]          # da origem para o destino
+```
+
+Você reconstrói andando de trás para frente e invertendo no fim. É o mesmo truque de qualquer BFS que precisa devolver a rota.
+
+## Onde isso aparece de verdade
+
+Dijkstra não é exercício: é o algoritmo por trás de coisas que você usa.
+
+- **GPS e mapas**: o caso canônico, com o peso sendo tempo em vez de distância. Na prática, os mapas reais usam variantes com pré-processamento, porque rodar Dijkstra puro no grafo de estradas de um país é caro demais.
+- **Roteamento de rede**: o protocolo OSPF, que roda em boa parte da internet, é Dijkstra com o custo do enlace como peso.
+- **Jogos**: pathfinding em mapa com terrenos de custos diferentes (lama custa mais que estrada). Quando dá para estimar a distância até o alvo, o [A*](/topicos/a-star) faz o mesmo trabalho visitando muito menos.
+- **Escalonamento e custo mínimo**: qualquer problema em que estados são vértices e transições têm custo.
+
+<Callout>
+Uma leitura que ajuda: **BFS é o Dijkstra de um grafo em que todo peso é 1**. Se você colocar peso 1 em tudo, a fila de prioridade passa a devolver os vértices exatamente na ordem em que uma fila comum devolveria. Os dois algoritmos são o mesmo, e o BFS é a otimização óbvia para o caso particular.
+</Callout>
+
+## Como praticar
+
+**Network Delay Time** é o Dijkstra puro, sem disfarce, e é o melhor lugar para escrever a implementação do zero. Depois, **Path with Minimum Effort** e **Swim in Rising Water** trocam a soma dos pesos por outra função de custo (o máximo em vez da soma), o que obriga a entender o relaxamento em vez de repetir o código.
+
+**Cheapest Flights Within K Stops** é ótimo por ser uma armadilha: ele parece Dijkstra e o Dijkstra puro dá resposta errada, porque a restrição de número de paradas cria uma segunda dimensão de estado. É a ponte natural para o [Bellman-Ford](/topicos/bellman-ford), que resolve esse problema com naturalidade.
+
+Uma dica de entrevista: ao ver "menor custo", "caminho mais barato" ou "tempo mínimo" com pesos, diga em voz alta as duas perguntas que decidem o algoritmo. **Existe peso negativo?** Se sim, Bellman-Ford. **Dá para estimar a distância até o alvo?** Se sim, A*. Se não for nenhum dos dois, é Dijkstra.

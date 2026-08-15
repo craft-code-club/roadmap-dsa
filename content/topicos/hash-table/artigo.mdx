@@ -1,0 +1,521 @@
+<Callout>
+Você já usou uma tabela hash hoje, mesmo sem chamar assim. Todo `dict` do Python, todo `HashMap` do Java, todo `Dictionary` do C# e todo `Map` do JavaScript é uma tabela hash por baixo. Ela é a estrutura que transforma "procurar" em "ir direto", e entender o que acontece embaixo do capô é o que separa usar de saber quando **não** usar.
+</Callout>
+
+## Por que buscar um valor dói
+
+Toda estrutura de dados existe para resolver algum problema. O problema da tabela hash tem nome: **lookup**, que é procurar uma informação dentro de uma coleção.
+
+Pegue este array e procure o valor `4`:
+
+```python
+nums = [3, 5, 1, 4, 2]
+```
+
+Não tem jeito esperto: você compara a posição 0, depois a 1, depois a 2, até achar. No pior caso o `4` está na última posição, ou nem existe, e você varreu tudo. Isso é **O(n)**.
+
+<Callout tipo="aviso">
+Cuidado para não confundir duas coisas diferentes. Acessar `nums[3]` é **O(1)**: o array calcula o endereço e vai direto. Procurar **o valor** `4` sem saber o índice é **O(n)**. O array te dá o salto direto, mas só se você já souber a posição, que é justamente o que você não sabe.
+</Callout>
+
+Trocar o array por uma [lista encadeada](/topicos/listas-ligadas) não melhora nada: continua sendo nó a nó, O(n), e você ainda perde o acesso por índice. Ordenar e usar [busca binária](/topicos/busca-binaria) melhora bastante, porque cortar o espaço pela metade a cada passo dá **O(log n)**. É o que você faz num dicionário de papel: abre no meio, decide se a palavra está para trás ou para frente, e repete. Só que essa mágica cobra um preço: alguém tem que manter tudo ordenado o tempo todo.
+
+Compare os três com 1 milhão de itens, no pior caso:
+
+| Estratégia | Comparações | Família |
+| --- | --- | --- |
+| Busca linear | 1.000.000 | O(n) |
+| Busca binária (array ordenado) | 20 | O(log n) |
+| Tabela hash | 1 | O(1) |
+
+Vinte é ótimo. Um é melhor. E "um" quer dizer uma coisa muito específica: **o custo não muda quando a coleção cresce**. Com 10 itens é um. Com 1 bilhão, continua sendo um.
+
+A analogia que fecha a ideia: imagine entrar de carro num estacionamento gigante de shopping. A versão ingênua é dar voltas procurando vaga livre, que é a busca linear. A versão eficiente é pegar um ticket na entrada que já diz "piso 2, fila C, vaga 14". Você vai direto, e na volta o mesmo ticket te leva de volta ao carro sem procurar nada. A tabela hash é esse ticket.
+
+## A ideia: a chave diz onde ela mora
+
+Uma tabela hash tem só duas peças:
+
+<Colunas>
+<Cartao titulo="Um array por baixo">
+O repositório. É array de propósito: só o array dá acesso direto a qualquer posição pelo índice, em O(1). Com uma lista encadeada na base, o salto direto não existiria e a ideia inteira desmontaria.
+</Cartao>
+<Cartao titulo="Uma função de hash">
+A peça que dá nome à estrutura. Ela recebe a chave e devolve um número. Depois esse número vira um índice válido do array com um resto de divisão pelo tamanho da tabela.
+</Cartao>
+</Colunas>
+
+Vamos construir uma função de hash bem ingênua: **some o código ASCII de cada caractere da chave**. Para `"Ana"`, com `A = 65`, `n = 110` e `a = 97`:
+
+```text
+65 + 110 + 97 = 272
+```
+
+O problema é que 272 não é um índice de um array de 5 posições. A segunda metade da receita resolve isso, e essa parte é comum a **todas** as tabelas hash: pegue o **resto da divisão pelo tamanho da tabela**.
+
+```text
+272 % 5 = 2
+```
+
+Pronto: `"Ana"` mora no bucket 2. Sem percorrer nada, sem comparar nada com nada. Aplicando a mesma receita em cinco nomes, numa tabela de 5 posições:
+
+| Chave | Soma ASCII | Resto por 5 | Bucket |
+| --- | --- | --- | --- |
+| Ana | 272 | 272 % 5 | 2 |
+| Bob | 275 | 275 % 5 | 0 |
+| Lia | 278 | 278 % 5 | 3 |
+| Leo | 288 | 288 % 5 | 3 |
+| Eva | 284 | 284 % 5 | 4 |
+
+Em código, a tabela inteira cabe em poucas linhas:
+
+```python
+class TabelaHash:
+    def __init__(self, capacidade=5):
+        self.buckets = [[] for _ in range(capacidade)]
+        self.n = 0
+
+    def _hash(self, chave):
+        soma = sum(ord(c) for c in chave)   # 65 + 110 + 97 = 272
+        return soma % len(self.buckets)     # 272 % 5 = 2
+```
+
+Repare que a soma dos códigos **não é** o índice: ela é só um número grande e determinístico. Quem transforma esse número num endereço é o módulo, e é por isso que o tamanho da tabela participa da conta. Guarde isso: quando o tamanho mudar, todos os endereços mudam junto.
+
+Rode o visualizador abaixo passo a passo. Ele começa no cenário **"Cinco chaves, cinco buckets"**, com encadeamento ligado. Acompanhe os dois passos de cada chave, primeiro a soma ASCII e depois o módulo, e repare no painel de variáveis: `soma` é sempre um número na casa das centenas, e `indice` é sempre um número de 0 a 4.
+
+Depois pare de assistir e mexa nele. Troque a lista de chaves pelo seu nome e o de quem estiver perto, clique em **Sortear**, mude a capacidade de 5 para 8, e antes de avançar cada passo tente prever em que bucket a chave vai cair. Errar a previsão é justamente o momento em que o módulo entra na cabeça.
+
+<HashTableVisualizer />
+
+## Colisão: duas chaves, o mesmo bucket
+
+Olhe de novo a tabela de cima. `"Lia"` dá 278 e cai no bucket 3. `"Leo"` dá 288 e cai... no bucket 3 também. Isso é uma **colisão**, e não é bug nem azar: é uma consequência matemática inevitável. Você está espremendo infinitas chaves possíveis em um número finito de posições, então duas chaves vão disputar o mesmo endereço mais cedo ou mais tarde.
+
+Existem duas famílias de solução, e vale conhecer as duas.
+
+### Encadeamento: cada bucket vira uma corrente
+
+Cada posição do array deixa de guardar um valor e passa a guardar uma **lista encadeada** de nós. Colidiu? O novo nó entra no fim da corrente daquele bucket.
+
+Com os cinco nomes, o resultado final é este:
+
+```text
+0: Bob
+1: (vazio)
+2: Ana
+3: Lia → Leo
+4: Eva
+```
+
+Três buckets com um nó, um bucket com dois nós e um bucket vazio. Buscar `"Leo"` passa a ser: calcular o hash (bucket 3), olhar o primeiro nó (`"Lia"`, não é), andar para o próximo (`"Leo"`, achei). Duas comparações em vez de uma, e só dentro daquele bucket.
+
+```python
+def put(self, chave, valor):
+    i = self._hash(chave)
+    for no in self.buckets[i]:       # a corrente daquele bucket, e só ela
+        if no.chave == chave:        # mesma chave: é atualização, não inserção
+            no.valor = valor
+            return
+    self.buckets[i].append(No(chave, valor))
+    self.n += 1
+
+def get(self, chave):
+    i = self._hash(chave)            # O(1): o salto direto
+    for no in self.buckets[i]:       # O(tamanho da corrente), quase sempre 0 ou 1
+        if no.chave == chave:
+            return no.valor
+    raise KeyError(chave)
+```
+
+### Sondagem linear: procure o vizinho livre
+
+Também chamada de endereçamento aberto (**open addressing**). Cada posição guarda no máximo um item. Se o endereço calculado está ocupado por outra chave, você tenta o próximo, e o próximo, dando a volta no array quando chega ao fim.
+
+Volte ao visualizador e clique em **Sondagem linear**. Acompanhe as duas últimas inserções, que são o coração da técnica:
+
+- `"Leo"` quer o índice 3, mas `"Lia"` já está lá. Vai para o 4, que está livre. Entra no 4.
+- `"Eva"` quer o índice 4, que agora é do `"Leo"`. Tenta o 0, que é do `"Bob"`. Tenta o 1, livre. Entra no 1.
+
+O array final fica `[Bob, Eva, Ana, Lia, Leo]`, sem nenhum buraco. Duas colisões, três comparações de chave no total, e o painel de variáveis mostra os dois contadores subindo.
+
+```python
+def put(self, chave, valor):
+    i = self._hash(chave)
+    while self.slots[i] is not None:          # a casa está ocupada
+        if self.slots[i].chave == chave:      # ocupada por mim mesmo: atualiza
+            self.slots[i].valor = valor
+            return
+        i = (i + 1) % len(self.slots)         # tenta o vizinho, dando a volta
+    self.slots[i] = Item(chave, valor)
+    self.n += 1
+```
+
+O `% len(self.slots)` na hora de avançar é o que faz o índice 4 virar o 0 em vez de estourar o array. E o "mais um" não é lei: existem variações que pulam de dois em dois, que elevam ao quadrado (sondagem quadrática) ou que aplicam uma segunda função de hash. O conceito é o mesmo: ocupado, procure outra casa por uma regra determinística.
+
+<Callout>
+O detalhe que mais confunde no começo: **o hash sozinho nunca prova nada**. Ele te leva a um endereço, mas quem garante que a chave certa está lá é a comparação de igualdade que vem depois. Buscar `"Leo"` na sondagem linear é ir ao 3, comparar com `"Lia"`, ver que não bate, ir ao 4, comparar de novo e só então devolver o valor. Hash aponta, igualdade confirma.
+</Callout>
+
+As duas estratégias resolvem o mesmo problema com contas diferentes:
+
+| Critério | Encadeamento | Sondagem linear |
+| --- | --- | --- |
+| Cabe mais que a capacidade? | Sim, a corrente cresce | Não, a tabela lota |
+| Custo de memória | Um ponteiro por nó | Só o array |
+| Remoção | Religa o nó anterior | Precisa de marcador |
+| Localidade de cache | Espalhada pela memória | Tudo contíguo |
+
+Frameworks de mercado (Java, C#) usam encadeamento, e é a estratégia que costuma aparecer nos problemas de entrevista. A sondagem linear ganha em localidade de cache, porque tudo mora no mesmo array contíguo, e é comum em implementações de alto desempenho.
+
+### Remover é a operação que separa as duas
+
+Buscar e inserir se parecem nas duas estratégias. Remover não, e é aí que a diferença fica concreta. Se você for escrever um `Design HashMap` (o último problema da lista lá embaixo), é este passo que vai te pegar.
+
+No **encadeamento**, remover é remover um nó de uma lista encadeada: ande na corrente guardando o nó anterior e religue o ponteiro por cima do nó que sai.
+
+```python
+def remove(self, chave):
+    i = self._hash(chave)
+    bucket = self.buckets[i]
+    for k, no in enumerate(bucket):
+        if no.chave == chave:
+            bucket.pop(k)        # numa lista de verdade: anterior.prox = no.prox
+            self.n -= 1
+            return
+    raise KeyError(chave)
+```
+
+Na **sondagem linear**, zerar a posição é um bug, e dá para ver isso no array que a gente montou: `[Bob, Eva, Ana, Lia, Leo]`. Lembre que a `"Eva"` queria o índice 4, achou o `"Leo"` lá, pulou para o 0, achou o `"Bob"`, e só parou no 1. Agora remova o `"Leo"` do índice 4 zerando a casa. Procure a `"Eva"`: o hash manda ir ao 4, o 4 está vazio, e a busca conclui que ela não existe. Ela existe, está no índice 1, e a trilha que levava até lá foi cortada.
+
+A solução padrão é não zerar: marcar a casa como **removida**, um estado diferente de "nunca foi usada". Esse marcador tem nome, *tombstone* (lápide), e a regra é curta: a **busca** atravessa a lápide como se fosse casa ocupada, e a **inserção** pode ocupá-la.
+
+```python
+REMOVIDO = object()              # nem None (nunca usado), nem um Item de verdade
+
+def remove(self, chave):
+    i = self._hash(chave)
+    for _ in range(len(self.slots)):     # no máximo uma volta inteira no array
+        item = self.slots[i]
+        if item is None:                 # casa nunca usada: a trilha acaba aqui
+            break
+        if item is not REMOVIDO and item.chave == chave:
+            self.slots[i] = REMOVIDO     # lápide: a trilha continua de pé
+            self.n -= 1
+            return
+        i = (i + 1) % len(self.slots)
+    raise KeyError(chave)
+```
+
+O preço é que as lápides se acumulam e vão deixando as sondagens mais longas, mesmo com poucas chaves de verdade. Por isso implementações sérias contam as lápides e disparam uma limpeza no rehash. Some isso à complexidade do código e você entende por que a maioria dos frameworks escolheu encadeamento.
+
+## Fator de carga e rehash
+
+Quanto mais cheia a tabela, mais colisões. É intuitivo: numa tabela de 5 posições com 4 ocupadas, qualquer chave nova tem 80% de chance de bater em alguém. As correntes crescem, as sondagens ficam longas, e o O(1) começa a virar O(n) devagarinho.
+
+A defesa se chama **fator de carga**:
+
+```python
+fator_de_carga = self.n / len(self.buckets)   # chaves guardadas / tamanho do array
+```
+
+O número de mercado é **0,75**. Quando a próxima inserção passaria desse limite, a tabela se redimensiona **antes** de inserir. Repare na diferença para um array dinâmico: o array dobra quando enche de verdade, a tabela hash dobra bem antes, de propósito, para nunca operar apertada.
+
+O redimensionamento tem três passos:
+
+1. **Dobre a capacidade.** É a estratégia comum: começa em 4 e vai 8, 16, 32, 64.
+2. **Refaça o hash de tudo.** Esta é a parte cara.
+3. **Troque o array antigo pelo novo.**
+
+```python
+def put(self, chave, valor):
+    if (self.n + 1) / len(self.buckets) > 0.75:   # cabe mais uma sem estourar?
+        self._rehash()
+    ...
+
+def _rehash(self):
+    antigos = self.buckets
+    self.buckets = [[] for _ in range(len(antigos) * 2)]   # dobra
+    for bucket in antigos:
+        for no in bucket:
+            j = self._hash(no.chave)     # o módulo mudou: endereço novo
+            self.buckets[j].append(no)
+```
+
+O passo 2 é o que assusta quem vê pela primeira vez. Por que refazer? Porque o divisor do módulo mudou. Uma chave cuja soma é 278 cai no bucket 2 quando a capacidade é 4 (`278 % 4 = 2`) e no bucket 6 quando a capacidade é 8 (`278 % 8 = 6`). Nenhum endereço antigo continua valendo. Diferente de um array dinâmico, onde você copia o bloco e pronto, aqui você **recalcula chave por chave**.
+
+No visualizador, escolha a capacidade **4** e ligue **Rehash em 0,75**. Rode e veja acontecer:
+
+- Ana, Bob e Lia entram normalmente. Com 3 chaves em 4 buckets, o fator de carga é exatamente 0,75, ainda dentro do limite.
+- `"Leo"` seria a quarta chave: 4/4 = 1,00, acima do limite. Antes de inserir, a capacidade dobra para 8 e as três chaves são reendereçadas, na ordem em que estavam nos buckets antigos. Ana continua no 0 por sorte (`272 % 8 = 0`), Lia sai do bucket 2 e vai para o 6 (`278 % 8 = 6`), e Bob continua no 3 (`275 % 8 = 3`).
+- Aí sim `"Leo"` é inserido: `288 % 8 = 0`, e agora ele colide com a Ana, que antes estava sozinha.
+
+O final é 5 chaves em 8 buckets, fator de carga 0,63. Guarde a lição do terceiro item: **o rehash não elimina colisões, ele redistribui**. Quem colidia pode se separar, e quem estava tranquilo pode passar a colidir.
+
+<Callout tipo="aviso">
+Redimensionar é **O(n)**, e acontece no meio de uma inserção que você achou que fosse O(1). Se você sabe quantos itens vai guardar, diga isso na criação (`dict` pré-dimensionado, `new HashMap<>(1000)`, `make(map[string]int, 1000)` em Go). É de graça, evita vários rehashes seguidos e é a otimização de tabela hash com melhor relação custo-benefício que existe.
+</Callout>
+
+Três detalhes que valem saber:
+
+**A tabela nunca encolhe.** Remova todas as chaves e a capacidade continua a mesma, igual a um array dinâmico. Um mapa que já teve 1 milhão de itens continua ocupando espaço de 1 milhão depois de esvaziado. Se isso importa, crie um mapa novo em vez de limpar o antigo.
+
+**Capacidade prima é uma alternativa a potências de 2.** Números primos tendem a espalhar melhor os restos e a reduzir agrupamentos, porque o divisor não compartilha fatores com padrões nos dados. O visualizador da corrida entre lista e hash, mais adiante nesta página, usa 11 buckets exatamente por isso. A contrapartida é que `% 11` custa uma divisão de verdade, enquanto `% 16` vira uma operação de bits (`& 15`), e é por isso que Java e C# preferem potências de 2 e embaralham os bits do hash antes do módulo.
+
+**Dá para não pagar o O(n) de uma vez.** Existe a técnica do **rehash incremental**: em vez de migrar tudo numa inserção só, você mantém a tabela velha e a nova vivas ao mesmo tempo e move um punhado de chaves a cada operação, até esvaziar a velha. Nenhuma operação isolada trava, mas durante a transição toda busca pode ter que olhar nas duas tabelas, e o código fica bem mais complicado. É o caminho de bancos de dados em memória, como o Redis, onde uma pausa de centenas de milissegundos é inaceitável.
+
+## O que faz uma função de hash ser boa
+
+Três exigências, nessa ordem de importância:
+
+**1. Determinismo.** A mesma chave tem que dar o mesmo número, sempre, na mesma execução. Sem isso nada funciona: você guarda no bucket 3 e procura no 7.
+
+**2. Distribuição uniforme.** As chaves precisam se espalhar pelos buckets. Uma função que joga metade das chaves no mesmo lugar transformou sua tabela hash numa lista encadeada com passos extras.
+
+**3. Velocidade.** O hash é calculado em toda inserção, toda busca e toda remoção. Se ele for lento, o O(1) não vale nada na prática.
+
+O item 3 explica uma confusão comum. Funções de hash **criptográficas** (SHA-256) e, mais ainda, as de senha (bcrypt, Argon2) são lentas **de propósito**: a lentidão é uma proteção contra força bruta. Isso é excelente para senha e péssimo para tabela hash. O que se usa aqui são as **não criptográficas**, feitas para serem rápidas e espalhar bem: MurmurHash, CityHash, FarmHash, xxHash. Na prática, o `hash()` do Python, o `hashCode()` do Java e o `GetHashCode()` do C# já entregam uma dessas.
+
+E a nossa soma de ASCII? É péssima, e dá para provar em uma linha. Ela ignora a **ordem** dos caracteres, então qualquer anagrama colide:
+
+```python
+sum(ord(c) for c in "Lia")   # 76 + 105 + 97  = 278
+sum(ord(c) for c in "Ali")   # 65 + 108 + 105 = 278
+sum(ord(c) for c in "Ila")   # 73 + 108 + 97  = 278
+sum(ord(c) for c in "Lai")   # 76 + 97  + 105 = 278
+```
+
+Quatro chaves, um número. Elas vão colidir em qualquer capacidade, hoje e depois de todo rehash. Clique no cenário **Anagramas: o pior caso** no visualizador: as quatro chaves formam uma corrente única no bucket 3, com 3 colisões e 6 comparações para inserir quatro nomes. Uma tabela hash que virou lista.
+
+Uma função decente resolve isso multiplicando por uma constante a cada caractere, o que faz a posição importar:
+
+```python
+def hash_polinomial(chave):
+    h = 0
+    for c in chave:
+        h = (h * 31 + ord(c)) % (2**32)   # o 31 do Java, um primo pequeno
+    return h
+```
+
+<Callout tipo="aviso">
+Dois cuidados práticos. O primeiro: `GetHashCode()` e `hashCode()` podem devolver **números negativos**, e índice de array não aceita negativo. Toda implementação séria normaliza o sinal antes do módulo. O segundo: hash **não é** endereço de memória. Dois objetos iguais em endereços diferentes precisam produzir o mesmo hash, senão o mapa não os enxerga como a mesma chave.
+</Callout>
+
+## Set, dicionário e map são a mesma casa
+
+Aqui vale separar dois conceitos que se confundem: **estrutura de dados** e **ADT** (Abstract Data Type). A ADT é o contrato, a interface: ela diz quais operações existem, não como elas são implementadas. Um dicionário é uma ADT ("guarde valor por chave"); a tabela hash é uma das implementações possíveis dela. Uma fila de prioridade é outra ADT, normalmente implementada com heap.
+
+Todas essas caem na mesma casa:
+
+| Linguagem | Chave e valor | Só a chave |
+| --- | --- | --- |
+| Python | `dict` | `set` |
+| Java | `HashMap` | `HashSet` |
+| C# | `Dictionary` | `HashSet` |
+| JavaScript | `Map` | `Set` |
+
+A diferença entre as duas colunas é só uma: no **set**, a chave é o próprio valor. Por isso ele é a ferramenta natural para "isso já apareceu?" e para eliminar duplicatas. No **map**, chave e valor são coisas separadas, e a chave é quem passa pela função de hash.
+
+Sobre `hashtable` e `hashmap`: no dia a dia os dois nomes são usados de forma intercambiável. Quando há distinção (Java, por exemplo), `Hashtable` é a implementação antiga e sincronizada, e `HashMap` é a moderna. O conceito por baixo é o mesmo.
+
+### A regra de ouro: hash e igualdade andam juntos
+
+Este é o erro que mais aparece em código de produção. Imagine um objeto `Pessoa(nome, idade)` em que:
+
+- `hashCode()` usa **só o nome**;
+- `equals()` usa **nome e idade**.
+
+Insira quatro pessoas chamadas John, com 25, 26, 27 e 28 anos. Como o hash olha só o nome, as quatro caem no **mesmo bucket**, formando uma corrente de quatro nós. Buscar o John de 28 anos exige calcular o hash uma vez e depois comparar com 25, com 26, com 27 e finalmente com 28: **quatro comparações**. O `get` que deveria ser O(1) virou O(n).
+
+Coloque a idade no `hashCode` e os quatro se espalham: o `get` vira um hash e uma comparação de igualdade.
+
+E existe uma versão pior, que aparece de vez em quando: implementar `equals` como `this.hashCode() == outro.hashCode()`. Aí duas chaves **diferentes** que colidiram passam a ser consideradas iguais, e o mapa devolve alegremente o valor errado. É um bug silencioso, porque só se manifesta quando acontece uma colisão.
+
+O contrato é este, e vale em qualquer linguagem:
+
+```python
+# se a == b, então hash(a) == hash(b)     -> obrigatório
+# se hash(a) == hash(b), então a == b     -> NÃO vale, isso é colisão
+```
+
+## O(1) amortizado, quase sempre
+
+Chegou a hora da pergunta de entrevista. Qual é a complexidade de busca num dicionário?
+
+Se você for purista, a resposta é **O(n)**. É sempre possível que todas as chaves colidam no mesmo bucket, e aí a busca vira percorrer uma lista. Se você for prático, a resposta é **O(1)**, porque com uma função de hash decente e um fator de carga controlado isso praticamente não acontece.
+
+A resposta completa é a que impressiona: *"na teoria é O(n), porque no pior caso todas as chaves colidem, mas com uma função de hash que distribui bem e o fator de carga em 0,75 esse caso é raríssimo, então na prática a gente trata como O(1) amortizado."*
+
+Esse **amortizado** é a mesma ideia do array dinâmico. A maioria absoluta das inserções custa O(1); de vez em quando uma delas dispara o rehash e custa O(n). Diluindo esse custo por todas as inserções, a média por operação continua constante.
+
+A tabela abaixo põe a estrutura ao lado das que vieram antes dela no roadmap. Leia por coluna, não por linha: procure onde a tabela hash **ganha** (as três operações em O(1) médio) e onde ela **perde** (é a única linha em que o caso médio e o pior caso estão em famílias diferentes, e a única que não te dá nenhuma ordem de volta).
+
+<HashTableOperacoes />
+
+Repare no que a tabela não mostra, porque não é uma coluna: **espaço**. Uma tabela hash com n chaves ocupa O(n), como todo mundo ali, só que com uma constante maior, porque o array precisa ser maior que n para manter o fator de carga baixo. É por isso que os quatro padrões da última seção sempre aparecem descritos como "O(n) de tempo **e** O(n) de memória": a tabela hash é a ferramenta clássica de trocar memória por tempo.
+
+Agora veja a diferença acontecendo. O visualizador abaixo roda as duas buscas ao mesmo tempo, sobre os mesmos oito nomes: a lista comparando um por um, e a tabela hash saltando direto. Comece no cenário padrão, com o alvo `"Mia"` na última posição da lista.
+
+<HashTableBuscaVisualizer />
+
+O que você deveria ver ao passear pelos quatro cenários:
+
+- **Alvo no fim da lista.** A lista gasta 8 comparações e a tabela hash gasta 1. Repare que o contador da direita congela no passo 3 enquanto o da esquerda continua subindo.
+- **Alvo na primeira posição.** Empate em 1 comparação. Com entrada minúscula e sorte, a busca linear é tão boa quanto, e mais simples. O Big O só cobra a conta na escala.
+- **Chave que não existe.** O caso mais bonito: a lista precisa de 8 comparações para **provar uma ausência**, e a tabela hash precisa de **zero**. O bucket 5 está vazio, e isso já é a resposta.
+- **Com hash ruim.** Troque para a função que devolve 0 para qualquer chave e veja os dois contadores empatarem em 8. Não é azar: é o pior caso, e ele foi causado por uma função de hash, não pelos dados.
+
+<Callout>
+Repare no último cartão: **pior caso com 1 milhão de nomes**. Com a função boa, ele fica em 1. Com a função ruim, ele vira 1.000.000, exatamente igual à busca linear. É a demonstração mais direta de que a função de hash não é um detalhe da implementação, ela é a estrutura.
+</Callout>
+
+### O pior caso que o Java se recusou a aceitar
+
+Aquele O(n) do pior caso incomodou tanta gente que a implementação mudou por baixo. Desde o Java 8, quando a corrente de um bucket passa de **8 nós** (e a tabela já tem pelo menos 64 buckets), aquele bucket específico deixa de ser lista encadeada e vira uma **árvore balanceada**. Buscar dentro dele sai de O(k) e vira O(log k), e o pior caso do `HashMap` inteiro cai de O(n) para O(log n). Quando a corrente encolhe de volta para 6 nós, a árvore desfaz e volta a ser lista.
+
+Guarde a lição, não o número: isso **não conserta** um `hashCode()` ruim, só limita o estrago. Aquele `Pessoa` de quatro Johns continua colidindo, o `get` continua fazendo trabalho que não deveria fazer, e a resposta de entrevista continua sendo "na teoria é O(n)". O que a treeificação faz é tirar do atacante da última seção o prêmio maior: com árvore no bucket, forçar colisões degrada você para O(log n), não para O(n).
+
+Note também o que essa defesa exige: para ordenar as chaves dentro da árvore, alguém precisa saber comparar duas chaves que caíram no mesmo lugar. Mais um lembrete de que hash e igualdade nunca viajam sozinhos.
+
+Por fim, o preço fixo em memória. Manter o fator de carga em 0,75 significa aceitar, por design, cerca de 25% do array vazio, e isso vale mesmo com zero colisões. Você troca memória por menos colisão, e essa troca é a natureza da estrutura.
+
+## As armadilhas que pegam todo mundo
+
+**Chave mutável é chave perdida.** Se você insere um objeto e depois muda um campo que participa do hash, o objeto continua fisicamente no bucket antigo, mas a busca passa a calcular um bucket novo. O item vira um fantasma: está no mapa e não é encontrado. Use chaves imutáveis, ou nunca mexa nelas depois de inserir.
+
+**A ordem não é uma promessa.** Uma tabela hash não tem ordem: a posição vem do hash, não da hora em que você inseriu. No exemplo acima, `"Ana"` entrou primeiro e foi parar no bucket 2, enquanto `"Bob"` entrou depois e ficou no 0. Algumas implementações **acrescentam** essa garantia (o `dict` do Python desde a 3.7, o `LinkedHashMap` do Java), mas isso é um extra dessas implementações, não uma propriedade da estrutura. Se você precisa de ordem, diga isso no tipo que escolher.
+
+**Remover com sondagem linear não é apagar.** Zerar o slot corta a trilha de sondagem e some com chaves que estão lá. É o caso do `"Leo"` e da `"Eva"` que a gente destrinchou na seção de colisão, e a saída é a lápide.
+
+**O(1) é sobre o tamanho da coleção, não sobre o tamanho da chave.** Calcular o hash de uma string de 1 MB custa proporcional a 1 MB. O que a tabela promete é que esse custo não cresce quando você guarda mais itens, e não que ele seja gratuito.
+
+**Mexer no mapa enquanto percorre ele é erro em toda linguagem.** Em Python, apagar uma chave dentro de um `for k in mapa` levanta `RuntimeError: dictionary changed size during iteration`; em Java, é `ConcurrentModificationException`. Percorra uma cópia (`list(mapa.items())`) ou junte as chaves a remover numa lista e apague depois do laço.
+
+**Rehash não é atômico.** Durante o redimensionamento existem dois arrays vivos ao mesmo tempo, e a troca só acontece no fim. Se duas threads mexem no mesmo mapa nesse intervalo, o resultado é indefinido. É por isso que existem `ConcurrentHashMap` e companhia, e por isso um `HashMap` comum nunca deve ser compartilhado entre threads sem proteção.
+
+**Chave vinda do usuário é superfície de ataque.** Se um atacante consegue escolher as chaves e conhece a função de hash, ele consegue montar entradas que colidem todas no mesmo bucket e derrubar seu endpoint com O(n²). É o *hash flooding*, e é o motivo pelo qual linguagens modernas embaralham a semente do hash a cada processo.
+
+## Os quatro padrões que caem em prova
+
+Quase todo problema de tabela hash em entrevista é uma variação destes quatro. Reconhecer o padrão vale mais que decorar solução.
+
+**1. Já vi isso antes?** É o set puro. Custa O(n) de tempo e O(n) de memória, contra O(n²) da força bruta.
+
+```python
+def tem_duplicado(nums):
+    vistos = set()
+    for x in nums:
+        if x in vistos:      # O(1)
+            return True
+        vistos.add(x)        # O(1)
+    return False
+```
+
+**2. Quantas vezes cada coisa aparece?** É o mapa de frequência, o padrão mais comum de todos. Há uma versão instrutiva dele: contar letras com um array de 26 posições, em que a "função de hash" é `ord(c) - ord('A')`.
+
+```python
+texto = "CRAFTCODECLUB"
+contagem = [0] * 26
+for c in texto:
+    contagem[ord(c) - ord('A')] += 1   # 'C' -> 2, 'R' -> 17, ...
+
+maior = max(range(26), key=lambda i: contagem[i])
+print(chr(maior + ord('A')), contagem[maior])   # C 3
+```
+
+Aquele `ord(c) - ord('A')` é a mesma ideia da tabela hash em miniatura: uma conta transforma a chave num índice, e você vai direto à posição sem procurar. Não tem colisão porque o alfabeto tem exatamente 26 letras e o array tem 26 posições, ou seja, a função é perfeita para esse domínio. Quando o domínio não é fechado assim, você troca o array por um `dict` e ganha a mesma coisa.
+
+**3. Qual é o complemento?** É o Two Sum feito direito. Em vez de testar todos os pares, você guarda o que já viu e pergunta ao mapa se o parceiro exato já passou por ali.
+
+```python
+def two_sum(nums, alvo):
+    visto = {}                       # valor -> índice
+    for i, x in enumerate(nums):
+        if alvo - x in visto:        # O(1), em vez de varrer o array
+            return [visto[alvo - x], i]
+        visto[x] = i
+    return []
+```
+
+Isso derruba um O(n²) para O(n) numa passada só. Compare com o [Two Pointers](/topicos/two-pointers), que resolve o mesmo problema em O(n) **sem memória extra**, mas exigindo o array ordenado. Duas ferramentas, dois trade-offs.
+
+**4. Agrupar por uma chave canônica.** Quando o problema pede "junte tudo que é equivalente", pense em qual chave representa o grupo. Para anagramas, a palavra com as letras ordenadas serve: `"eat"`, `"tea"` e `"ate"` viram todas `"aet"`.
+
+```python
+from collections import defaultdict
+
+def agrupar_anagramas(palavras):
+    grupos = defaultdict(list)
+    for p in palavras:
+        chave = "".join(sorted(p))   # a chave canônica do grupo
+        grupos[chave].append(p)
+    return list(grupos.values())
+```
+
+### Escolher a chave é resolver o problema
+
+Repare no que os quatro padrões têm em comum: em nenhum deles a dificuldade estava na tabela hash. A tabela sempre faz a mesma coisa. O que muda de um problema para o outro é **o que você decide usar como chave**, e é ali que a solução nasce ou morre.
+
+| O enunciado pede | A chave é | O valor é |
+| --- | --- | --- |
+| "existe repetido?" | o próprio elemento | nada, use um `set` |
+| "quantas vezes aparece?" | o elemento | a contagem |
+| "existe o par que soma X?" | o elemento já visto | o índice dele |
+| "agrupe os equivalentes" | a forma canônica do grupo | a lista do grupo |
+| "existe subarray somando k?" | a [soma de prefixo](/topicos/prefix-sum) já vista | quantas vezes / o índice |
+| "essa linha já apareceu?" | a linha convertida em tupla | o índice da linha |
+
+Duas regras práticas para achar a chave certa:
+
+**A chave precisa ser imutável.** Em Python, `list` não pode ser chave e `tuple` pode, exatamente porque a lista muda e a tupla não. É a armadilha da "chave mutável" da seção anterior aparecendo como erro de compilação em vez de bug silencioso. Quando precisar usar uma coleção como chave, converta: `tuple(linha)` para uma linha de matriz, `"".join(sorted(p))` ou `tuple(contagem)` para um anagrama, `frozenset(x)` quando a ordem não importar.
+
+**Duas coisas equivalentes têm que gerar exatamente a mesma chave.** É o contrato de `hashCode` e `equals` de novo, agora do lado de cá. Se `"eat"` gera `"aet"` mas `"Eat"` gera `"Eat"`, o agrupamento silenciosamente erra. Normalize antes (caixa, espaços, acentos) e o problema some.
+
+### Contar é a parte fácil, ordenar é que decide
+
+Muito problema de frequência não termina no mapa: ele pede "os k mais frequentes", e aí você precisa de ordem, que é justamente o que a tabela hash não tem. Três saídas, em ordem crescente de esperteza:
+
+```python
+from collections import Counter
+
+freq = Counter(nums)                                   # O(n)
+
+# 1. ordenar tudo: O(n log n), e quase sempre passa
+mais = sorted(freq, key=freq.get, reverse=True)[:k]
+
+# 2. heap de tamanho k: O(n log k), melhor quando k é pequeno
+import heapq
+mais = heapq.nlargest(k, freq, key=freq.get)
+
+# 3. balde por frequência: O(n), a resposta "ótima" de entrevista
+baldes = [[] for _ in range(len(nums) + 1)]            # frequência vai de 0 a n
+for valor, c in freq.items():
+    baldes[c].append(valor)                            # o índice É a frequência
+mais = [v for c in range(len(nums), 0, -1) for v in baldes[c]][:k]
+```
+
+A terceira é a mesma ideia do array de 26 posições, um nível acima: a frequência é limitada (vai de 1 a n), então ela pode virar **índice** de array em vez de valor a ordenar. Sempre que uma grandeza for limitada e inteira, considere transformá-la em índice.
+
+### Os casos de borda que reprovam a submissão
+
+Antes de dar submit, rode a solução de cabeça nestas cinco entradas. É onde a maioria dos "wrong answer" mora:
+
+- **Entrada vazia.** `[]` e `""`. O laço não executa e a resposta tem que ser o elemento neutro (`False`, `0`, `[]`), nunca um `ValueError` de `max()` sobre uma sequência vazia.
+- **Um elemento só.** `[5]` não tem par e não tem duplicata. É o teste que pega a solução de Two Sum que **grava antes de consultar**: com alvo 10, ela casa o 5 com ele mesmo e devolve `[0, 0]`.
+- **Tudo igual.** `[2, 2, 2, 2]` põe todas as chaves no mesmo balde do seu mapa e é o teste natural de "eu tratei repetição ou só o primeiro?". No Two Sum com alvo 4, a resposta certa é `[0, 1]`, e ela só sai se você consultar o mapa **antes** de gravar o valor atual. Inverta as duas linhas e você devolve `[0, 0]`.
+- **k maior que n.** "Os 5 mais frequentes" num array de 3 elementos. Fatiar com `[:k]` em Python é seguro, mas um laço `for i in range(k)` estoura.
+- **A chave que não existe.** `mapa[chave]` levanta `KeyError`, `mapa.get(chave, 0)`, `defaultdict(int)` e `Counter` não. Escolha um e seja consistente, porque metade dos bugs de contagem é uma chave lida antes de existir.
+
+### Antes de rodar, tente prever
+
+Use o visualizador para testar. Escreva a resposta no papel antes de clicar em Rodar:
+
+- **Uma chave só, capacidade 4, rehash ligado.** Tem rehash? (1/4 = 0,25, então não.)
+- **A mesma chave duas vezes** (`Ana, Ana`). O `n` vira 2 ou continua 1? E `colisoes`, sobe? (Não: mesmo hash com a mesma chave é atualização, não colisão. Sobe só `comparacoes`, porque a igualdade foi conferida de verdade.)
+- **Capacidade 4 com 5 chaves e rehash desligado, na sondagem linear.** O que acontece quando a quinta chega?
+- **Anagramas com sondagem linear** em vez de encadeamento. As colisões somem ou só mudam de forma? (Continuam 3, e as quatro chaves se espalham por 4 casas: a colisão virou sondagem.)
+- **Capacidade 16 e o botão Sortear.** Com o triplo de buckets e só 5 a 7 chaves, quantas rodadas você aguenta até aparecer uma colisão? Menos do que parece: `Ana`, `Leo`, `Rui` e `Tom` somam 272, 288, 304 e 304, os quatro múltiplos exatos de 16, e por isso os quatro caem no bucket 0. Mais buckets **não** salvam uma função de hash que concentra.
+
+Quando as previsões baterem com a tela, você entendeu a estrutura. Aí vá para os problemas listados abaixo, na ordem: comece pelo `Contains Duplicate`, que é o set puro em quatro linhas, e termine pelo `Design HashMap`. Esse último aparece como Fácil no LeetCode, mas é a única forma honesta de descobrir se bucket, colisão e fator de carga entraram de verdade: você vai escrever tudo o que está nesta página.
+
+Daqui, dois caminhos naturais: revisitar [Arrays e Listas](/topicos/arrays) e [Listas Encadeadas](/topicos/listas-ligadas), que são as duas peças de que a tabela hash é feita, e revisar a [Notação Big O](/topicos/big-o) para entender por que a diferença entre O(1) e O(n) é a diferença entre um sistema que escala e um que não.

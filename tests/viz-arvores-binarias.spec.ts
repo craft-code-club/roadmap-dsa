@@ -13,7 +13,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // motivo, nenhum contador de passo ou atalho de teclado pode prometer uma linha
 // do tempo que ele também não tem.
 
-const URL = "/topico/arvores-binarias/";
+const URL = "/topicos/arvores-binarias/";
 // Folga de subpixel, igual à do hook.
 const SLACK = 8;
 

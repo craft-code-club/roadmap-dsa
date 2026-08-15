@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
+import { ROADMAPS, roadmapTopics } from "@content/roadmaps";
+import { isEmptyTopic, TOPICOS, type Topic } from "@content/topicos";
 
 // As rotas fixas e os arquivos que respondem pelo conteúdo de cada uma.
 //
@@ -11,7 +12,7 @@ import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 // importa o módulo.
 //
 // É uma LISTA por rota, e não um arquivo só, porque `page.tsx` quase nunca é
-// onde o texto mora. A home e o `/roadmap/` importam de `content/roadmap.ts`:
+// onde o texto mora. A home importa de `content/topicos/index.ts`:
 // mexer num tópico muda as duas telas sem tocar em nenhum dos dois `page.tsx`,
 // e a data ficava parada no dia em que o layout mudou pela última vez. O
 // `/apoie/` tem a mesma forma com `apoiadores.ts`, que é onde a lista de nomes
@@ -20,17 +21,29 @@ import { ALL_TOPICS, isEmptyTopic } from "@content/roadmap";
 // O tipo do `Record` é o que cobra a segunda metade: acrescentar uma rota em
 // `ROTAS_FIXAS` sem declarar de que arquivos ela tira data é erro de
 // compilação, não uma URL sem `lastmod` descoberta meses depois.
-export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/apoie/", "/sobre/"] as const;
+export const ROTAS_FIXAS = [
+  "/",
+  "/introducao/",
+  "/roadmaps/",
+  "/topicos/",
+  "/apoie/",
+  "/sobre/",
+] as const;
 
 export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly string[]> = {
-  "/": ["src/app/page.tsx", "content/roadmap.ts"],
+  "/": ["src/app/page.tsx", "content/topicos/index.ts", "content/roadmaps/index.ts"],
   "/introducao/": ["src/app/introducao/page.tsx"],
-  "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
+  // A vitrine lê o índice dos roadmaps (é de lá que saem os cards) e o dos
+  // tópicos (o texto de abertura cita quantos tópicos os cards somam).
+  "/roadmaps/": ["src/app/roadmaps/page.tsx", "content/roadmaps/index.ts", "content/topicos/index.ts"],
+  // O índice completo lista TODO tópico do site, com as etiquetas dos roadmaps
+  // que citam cada um: ele muda quando qualquer um dos dois índices muda.
+  "/topicos/": ["src/app/topicos/page.tsx", "content/topicos/index.ts", "content/roadmaps/index.ts"],
   "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
   // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
   // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
   // página sem ninguém tocar no `page.tsx` dela.
-  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts"],
+  "/sobre/": ["src/app/sobre/page.tsx", "content/topicos/index.ts", "content/roadmaps/index.ts"],
 };
 
 // A data de uma página, derivada do `git log`. Um lugar só, porque são dois
@@ -40,7 +53,7 @@ export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly str
 // de `isEmptyTopic` lá), e aqui a consequência seria pior: o sitemap
 // escondendo a data por não confiar nela enquanto a página a estampa.
 //
-// A data vem do Git, e não de um campo `updatedAt` no `content/roadmap.ts`:
+// A data vem do Git, e não de um campo `updatedAt` no `content/topicos/index.ts`:
 // data que depende de alguém lembrar de atualizá-la em cada PR envelhece errado
 // e passa a mentir, o que é pior do que não existir.
 //
@@ -92,7 +105,7 @@ export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly str
 
 // Um `git log` por caminho, e não por consulta. São 48 chamadas só para montar
 // o sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,
-// 1,39s no total): `content/roadmap.ts` sozinho é consultado 6 vezes, uma por
+// 1,39s no total): `content/topicos/index.ts` sozinho é consultado 6 vezes, uma por
 // rota fixa que o lista e uma por tópico sem artigo que cai no fallback. Com a
 // página de tópico consultando os mesmos caminhos, o cache deixou de ser uma
 // economia e virou o que segura o custo. Ele vale por build — o `git log` de um
@@ -162,10 +175,30 @@ export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefine
   return datas.length ? new Date(Math.max(...datas)) : undefined;
 }
 
-const ARQUIVO_DO_ROADMAP = "content/roadmap.ts";
+const ARQUIVO_DO_ROADMAP = "content/topicos/index.ts";
+const ARQUIVO_DOS_ROADMAPS = "content/roadmaps/index.ts";
+
+/**
+ * Os arquivos de dados que descrevem tópicos, na ordem em que são varridos.
+ *
+ * Eram um só até as trilhas existirem, e a diferença é visível: o selo
+ * "Atualizado em" de um tópico de trilha saía da data do `roadmap.ts`, um arquivo
+ * que aquele tópico não tem uma linha dentro. Página datada por arquivo que não
+ * é dela é exatamente o defeito que o mecanismo de intervalo veio consertar,
+ * reaberto pela porta ao lado.
+ */
+const ARQUIVOS_DE_TOPICO = [ARQUIVO_DO_ROADMAP, ARQUIVO_DOS_ROADMAPS] as const;
+
+/** Em que arquivo de dados o tópico é descrito. É o plano B da data dele. */
+function arquivoDoTopico(slug: string): string {
+  return `content/topicos/${slug}/index.ts`;
+}
+
+/** Onde um tópico é descrito: arquivo e intervalo de linhas (1-based). */
+type Trecho = { arquivo: string; ini: number; fim: number };
 
 /** Os intervalos, lidos e validados uma vez por build. */
-let intervalos: Map<string, readonly [number, number]> | undefined;
+let intervalos: Map<string, Trecho> | undefined;
 
 /**
  * O intervalo de linhas que descreve cada tópico dentro do `roadmap.ts`.
@@ -188,14 +221,19 @@ let intervalos: Map<string, readonly [number, number]> | undefined;
  *
  * Medido na `main` de hoje: 47 de 47 tópicos validam.
  */
-function intervalosDosTopicos(): Map<string, readonly [number, number]> {
+function intervalosDosTopicos(): Map<string, Trecho> {
   if (intervalos) return intervalos;
   intervalos = new Map();
+  for (const arquivo of ARQUIVOS_DE_TOPICO) varrerArquivoDeTopicos(arquivo, intervalos);
+  return intervalos;
+}
+
+function varrerArquivoDeTopicos(arquivo: string, intervalos: Map<string, Trecho>): void {
   let linhas: string[];
   try {
-    linhas = readFileSync(ARQUIVO_DO_ROADMAP, "utf8").split("\n");
+    linhas = readFileSync(arquivo, "utf8").split("\n");
   } catch {
-    return intervalos; // sem o arquivo, todo tópico cai no plano B
+    return; // sem o arquivo, todo tópico dele cai no plano B
   }
 
   // Onde cada `slug:` começa, em linha e coluna. A coluna importa: no objeto de
@@ -239,9 +277,8 @@ function intervalosDosTopicos(): Map<string, readonly [number, number]> {
     // A validação: um slug dentro, e um só.
     let quantosSlugs = 0;
     for (const [, [j]] of posicaoDoSlug) if (j >= inicio && j <= fim) quantosSlugs++;
-    if (quantosSlugs === 1) intervalos.set(slug, [inicio + 1, fim + 1]);
+    if (quantosSlugs === 1) intervalos.set(slug, { arquivo, ini: inicio + 1, fim: fim + 1 });
   }
-  return intervalos;
 }
 
 const cacheDoIntervalo = new Map<string, number | undefined>();
@@ -265,15 +302,15 @@ const cacheDoIntervalo = new Map<string, number | undefined>();
  * de `git log` que o build já pagava. É custo de build, uma vez, num site
  * estático — e vem com cache, então as 47 páginas dividem as 47 consultas.
  */
-function commitDoIntervalo(ini: number, fim: number): number | undefined {
-  const chave = `${ini},${fim}`;
+function commitDoIntervalo({ arquivo, ini, fim }: Trecho): number | undefined {
+  const chave = `${arquivo}:${ini},${fim}`;
   const emCache = cacheDoIntervalo.get(chave);
   if (emCache !== undefined || cacheDoIntervalo.has(chave)) return emCache;
   let valor: number | undefined;
   try {
     const saida = execFileSync(
       "git",
-      ["log", "-L", `${ini},${fim}:${ARQUIVO_DO_ROADMAP}`, "--no-patch", "--format=%cI"],
+      ["log", "-L", `${ini},${fim}:${arquivo}`, "--no-patch", "--format=%cI"],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
     );
     const iso = saida.split("\n", 1)[0].trim();
@@ -311,13 +348,56 @@ function commitDoIntervalo(ini: number, fim: number): number | undefined {
  * O `??` sobrevive como plano B, para o tópico cujo intervalo não validou.
  */
 export function atualizacaoDoTopico(slug: string): Date | undefined {
-  const doArtigo = ultimaAlteracao(`content/topics/${slug}.mdx`);
-  const intervalo = intervalosDosTopicos().get(slug);
-  const doIntervalo = intervalo ? commitDoIntervalo(intervalo[0], intervalo[1]) : undefined;
+  const doArtigo = ultimaAlteracao(`content/topicos/${slug}/artigo.mdx`);
+  const trecho = intervalosDosTopicos().get(slug);
+  const doIntervalo = trecho ? commitDoIntervalo(trecho) : undefined;
   if (doIntervalo === undefined) {
-    return doArtigo ?? ultimaAlteracao(ARQUIVO_DO_ROADMAP);
+    return doArtigo ?? ultimaAlteracao(arquivoDoTopico(slug));
   }
   return new Date(Math.max(doIntervalo, doArtigo?.getTime() ?? 0));
+}
+
+/**
+ * Quando a abertura de uma trilha mudou pela última vez.
+ *
+ * Ela é feita do `courses.ts` (nome, descrição, pré-requisitos, a lista de
+ * tópicos que ela desenha) e dos ARTIGOS dos tópicos dele — publicar um tópico
+ * muda a abertura, que passa a mostrar um card a mais como publicado. A data é
+ * a mais recente entre as duas coisas, pelo mesmo raciocínio do tópico: o
+ * carimbo é uma afirmação sobre a página inteira.
+ */
+export function atualizacaoDoRoadmap(slug: string): Date | undefined {
+  const r = ROADMAPS.find((x) => x.slug === slug);
+  if (!r) return undefined;
+  // `roadmapTopics` resolve as citações, e é o certo aqui: publicar a Tabela
+  // Dijkstra muda a abertura de "Caminhos Mínimos" mesmo o Dijkstra sendo dos
+  // Fundamentos, porque o card dela naquela página passa a contar como
+  // publicado.
+  // Os caminhos que de fato mudam esta página, e são três famílias:
+  //
+  //   · o ARQUIVO DO ROADMAP. Ele é quem tem o nome, a descrição, os grupos e a
+  //     ordem — ou seja, quase tudo o que a abertura desenha. Ficou de fora
+  //     enquanto todos os roadmaps moravam num arquivo só; desde que cada um
+  //     tem o seu, editar a ordem de um roadmap não movia o `lastmod` dele;
+  //   · o `index.ts` de cada tópico citado. É lá que mora o estado de
+  //     publicação: promover um tópico de "em breve" para "publicado" muda o
+  //     card na abertura mesmo sem tocar em artigo nenhum, e um tópico que
+  //     ganha só vídeo não tem artigo para tocar;
+  //   · o artigo de cada tópico citado, que é o conteúdo em si.
+  //
+  // O índice geral (`ARQUIVO_DOS_ROADMAPS`) continua, porque é ele que decide
+  // quais roadmaps existem.
+  const citados = roadmapTopics(r);
+  const dados = citados.map((t: Topic) => `content/topicos/${t.slug}/index.ts`);
+  const artigos = citados
+    .filter((t: Topic) => !isEmptyTopic(t))
+    .map((t: Topic) => `content/topicos/${t.slug}/artigo.mdx`);
+  return ultimaAlteracao(
+    ARQUIVO_DOS_ROADMAPS,
+    `content/roadmaps/${r.slug}.ts`,
+    ...dados,
+    ...artigos
+  );
 }
 
 /**
@@ -362,7 +442,7 @@ export function datasDistinguemCaminhos(carimbos: readonly (number | undefined)[
 export function caminhosDatados(): string[] {
   return [
     ...Object.values(CONTEUDO_DA_ROTA).flat(),
-    ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `content/topics/${t.slug}.mdx`),
+    ...TOPICOS.filter((t: Topic) => !isEmptyTopic(t)).map((t: Topic) => `content/topicos/${t.slug}/artigo.mdx`),
   ];
 }
 
@@ -398,7 +478,7 @@ export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T
 export type DatasDoTopico = {
   /**
    * O primeiro commit do artigo. Ausente quando o tópico não tem `.mdx`: aí a
-   * data de reserva é a do `content/roadmap.ts`, e o primeiro commit DELE é o
+   * data de reserva é a do `content/topicos/index.ts`, e o primeiro commit DELE é o
    * começo do repositório — que não é a data em que aquele tópico nasceu.
    */
   publicado?: Date;
@@ -416,7 +496,7 @@ export function datasDoTopico(slug: string): DatasDoTopico | undefined {
   if (!oGitEnxergaOHistorico()) return undefined;
   const atualizado = atualizacaoDoTopico(slug);
   if (!atualizado) return undefined;
-  const publicado = primeiroCommitDoArquivo(`content/topics/${slug}.mdx`);
+  const publicado = primeiroCommitDoArquivo(`content/topicos/${slug}/artigo.mdx`);
   return publicado === undefined
     ? { atualizado }
     : { publicado: new Date(publicado), atualizado };

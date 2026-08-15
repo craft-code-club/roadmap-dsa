@@ -18,7 +18,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // Todo teste aqui mede COMPORTAMENTO e lê RÓTULO. Contar elemento não prova
 // nada, e comportamento certo debaixo do rótulo errado ensina errado igual.
 
-const URL = "/topico/recursao-funcional/";
+const URL = "/topicos/recursao-funcional/";
 
 const CONGELA =
   "*, *::before, *::after { transition: none !important; animation: none !important; }";

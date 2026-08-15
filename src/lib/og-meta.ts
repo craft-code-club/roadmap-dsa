@@ -1,4 +1,4 @@
-import { TOTAL_TOPICS } from "@content/roadmap";
+import { TOTAL_TOPICS } from "@content/topicos";
 
 // O que os METADADOS precisam saber sobre o card social, sem nada que desenhe
 // o card.

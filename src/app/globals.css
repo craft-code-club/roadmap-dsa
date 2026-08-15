@@ -69,6 +69,13 @@ html { scroll-behavior: smooth; }
 
 /* ------------------------------- shell ---------------------------------- */
 .shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); align-items: start; }
+/* Tópico avulso e vitrine `/roadmaps/` não têm barra lateral (ver `Shell.tsx`).
+   Sem esta linha o grid reservaria os 290px para um elemento que não existe, e
+   a página inteira nasceria com uma faixa vazia à esquerda. Recentrar o miolo é
+   trabalho das duas regras marcadas com `.sem-lateral` mais abaixo: os
+   invólucros de conteúdo têm `max-width` e nenhum tem margem automática, porque
+   até aqui eles nunca precisaram — a barra lateral fazia esse papel. */
+.shell.sem-lateral { grid-template-columns: minmax(0, 1fr); }
 
 /* Link de pular para o conteúdo (WCAG 2.4.1). Fica FORA da tela em vez de
    `display: none`, que o tiraria da ordem de tabulação junto e o deixaria
@@ -171,6 +178,74 @@ html { scroll-behavior: smooth; }
    o anel de quem navega sem mouse. A borda azul continua, somada ao anel. */
 .side-search:focus { border-color: var(--ccc-accent); }
 .side-scroll { flex: 1; overflow-y: auto; padding: 10px 10px 4px; }
+
+/* --- cabeça da barra lateral de uma TRILHA (src/components/TrackSidebar.tsx) --- */
+/* A porta de saída, no topo: o leitor chegou aqui por um card da vitrine, e sem
+   esta linha o caminho de volta para os Fundamentos é o botão do navegador. */
+.side-voltar { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 12.5px; color: var(--ccc-muted); text-decoration: none; }
+.side-voltar:hover { color: #fff; }
+.side-roadmap-nome { display: block; margin: 8px 0 11px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #e7edf6; text-decoration: none; }
+.side-roadmap-nome:hover { color: #fff; }
+.side-roadmap-nome.on { color: #dbeafe; }
+/* O grupo do roadmap é rótulo, não botão: com dois ou três grupos a sanfona só
+   esconde metade dela atrás de um clique (ver o cabeçalho do TrackSidebar).
+   Alinhado com o `.side-group-btn` dos Fundamentos para as duas barras terem a mesma
+   régua vertical. */
+/* A seta do item CITADO na barra de um roadmap: ele mora em outra casa. É um
+   glifo de 10px porque a informação é secundária — quem só quer estudar a lista
+   não precisa dela, e quem se pergunta "de onde saiu isto?" acha. */
+.badge-emprestado { flex: none; font-size: 10px; color: #7f93ad; }
+.side-item.on .badge-emprestado { color: #a9b3ff; }
+
+.side-group-rotulo { padding: 10px 10px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ccc-muted); }
+
+/* --- a porta para fora, no pé da lista --- */
+.side-extras {
+  display: flex; align-items: center; gap: 10px; margin: 14px 4px 8px; padding: 11px 12px;
+  border: 1px solid var(--ccc-line); border-radius: 10px; background: rgba(255, 255, 255, 0.02);
+  color: inherit; text-decoration: none;
+}
+.side-extras:hover { border-color: rgba(59, 130, 246, 0.45); background: rgba(59, 130, 246, 0.07); }
+.side-extras-ico { color: var(--ccc-accent-2); font-size: 14px; flex: none; }
+.side-extras-nome { display: block; font-size: 12.5px; font-weight: 600; color: #dbe6f4; }
+.side-extras-sub { display: block; margin-top: 2px; font-size: 11px; color: var(--ccc-muted); }
+
+/* ------------------------------------------------------------------
+   A barra de `/topicos/<slug>/`: os roadmaps que citam o tópico.
+
+   Cada item é um CARD, e não uma linha de lista, porque ele carrega três
+   coisas com pesos diferentes (o nome do roadmap, o quanto o leitor já andou
+   nele, e o convite para continuar a leitura lá dentro). Em linha corrida as
+   três brigavam pela mesma altura, e o "0/44 · 0%" colava no nome.
+   ------------------------------------------------------------------ */
+/* O rastro passou a existir na abertura de roadmap, e a chamadinha logo abaixo
+   colava nele. */
+.roadmap-wrap .breadcrumb + .roadmap-eyebrow { display: block; margin-top: 14px; }
+
+.side-topico-nome { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #e7edf6; }
+
+.side-roadmap-item {
+  margin: 0 4px 8px; padding: 11px 12px 10px;
+  border: 1px solid var(--ccc-line); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+/* O rótulo da lista, dentro do rolável: ele é o título dos cards, e não do
+   cabeçalho, então acompanha a rolagem em vez de ficar preso em cima. */
+.side-label-solto { display: block; padding: 14px 16px 0; }
+.side-label-solto + .side-roadmap-item { margin-top: 10px; }
+.side-roadmap-item:hover { border-color: rgba(59, 130, 246, 0.35); }
+.side-roadmap-link { display: flex; align-items: flex-start; gap: 9px; color: inherit; text-decoration: none; }
+.side-roadmap-glifo { flex: none; margin-top: 1px; font-size: 13px; color: var(--ccc-accent-2); }
+.side-roadmap-texto { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.side-roadmap-titulo { font-size: 12.5px; font-weight: 600; line-height: 1.35; color: #dbe6f4; }
+.side-roadmap-link:hover .side-roadmap-titulo { color: #fff; }
+.side-roadmap-item .progress-track { margin-top: 9px; }
+.side-roadmap-abrir {
+  display: inline-block; margin-top: 9px; font-size: 11.5px; font-weight: 500;
+  color: var(--ccc-accent-2); text-decoration: none;
+}
+.side-roadmap-abrir:hover { text-decoration: underline; text-underline-offset: 2px; }
+
 .side-group { margin-bottom: 2px; }
 .side-group-btn {
   display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px;
@@ -221,7 +296,7 @@ html { scroll-behavior: smooth; }
  *
  * O TAMANHO DO QUADRADO não mudou (16px aqui, 20px no `.problem-check`): o que
  * o aluno vê alinhado é o ✓ com o nome do tópico ao lado, e mexer na caixa
- * mexeria nas 47 linhas da trilha.
+ * mexeria nas 46 linhas da barra.
  *
  * O tamanho do desenho deixa sobra PAR na caixa de conteúdo (14px de caixa para
  * 10px de marca, 2px de cada lado) para o centro não cair em meio pixel. */
@@ -350,6 +425,15 @@ html { scroll-behavior: smooth; }
 .ttag-article { color: #6ee7b7; border-color: rgba(52, 211, 153, 0.32); }
 .ttag-video { color: #fca5a5; border-color: rgba(248, 113, 113, 0.3); }
 .ttag-exercises { color: #fcd34d; border-color: rgba(251, 191, 36, 0.32); }
+/* De onde o tópico veio, quando o card não é da casa dele. Cinza de propósito:
+   é contexto, não material — as outras `ttag` dizem O QUE o tópico tem, e uma
+   sexta cor competiria com elas. */
+/* Onde o tópico aparece, e não o que ele tem: mais apagada que as etiquetas de
+   material, de propósito. Ela repete em quase todo card do índice completo (46
+   dos 50 estão nos Fundamentos), e com o peso das outras virava a primeira
+   coisa que o olho encontrava em cinquenta cards seguidos. */
+.ttag-origem { color: #8b93c4; border-color: rgba(124, 58, 237, 0.22); background: none; }
+.ttag-origem::before { display: none; }
 
 /* level pills */
 .level { padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; border: 1px solid; }
@@ -358,12 +442,147 @@ html { scroll-behavior: smooth; }
 .level-dificil { border-color: rgba(248, 113, 113, 0.4); color: #fca5a5; }
 .level-guia { border-color: rgba(255, 255, 255, 0.16); color: #9fb4cf; }
 
+/* ------ roadmaps e outros tópicos ------ */
+/* A vitrine do que existe fora dos Fundamentos: a seção do fim do /fundamentos/,
+   a página /roadmaps/ e a banda "Continue explorando" no pé de cada avulso. As três
+   desenham o MESMO card (src/components/ExtrasGrid.tsx). */
+
+/* `auto-fill` em vez das três colunas fixas do `.grid-3`: esta grade aparece em
+   três larguras diferentes: a página inteira em /roadmaps/, a página inteira no
+   /fundamentos/ e a COLUNA DO ARTIGO no pé de um avulso, que tem o índice "Nesta
+   página" ao lado e sobra com ~760px. Três colunas fixas ali dariam cards de
+   240px com o título quebrando em três linhas. Vem depois do `.grid-3` no
+   arquivo de propósito: mesma especificidade, e quem vem por último vence. */
+.extras-grid { grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); }
+.extra-card {
+  display: block; padding: 17px 18px; border: 1px solid var(--ccc-line); border-radius: 12px;
+  background: var(--ccc-surface); color: inherit; text-decoration: none;
+}
+.extra-card:hover { border-color: rgba(59, 130, 246, 0.45); background: var(--ccc-surface-2); }
+.extra-card.done { background: rgba(52, 211, 153, 0.05); }
+.extra-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.extra-glyph {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+  background: var(--ccc-accent-soft); color: var(--ccc-accent-2); font-size: 15px; line-height: 1;
+}
+/* Card sem material ainda: o glifo perde a cor de destaque e a caixa perde o
+   convite. Ele continua clicável e continua na grade — mapear o território é
+   parte do valor —, mas não disputa atenção com o que dá para estudar hoje. */
+.extra-card.soon { background: rgba(255, 255, 255, 0.015); }
+.extra-card.soon .extra-glyph { background: rgba(255, 255, 255, 0.05); color: #7f93ad; }
+.extra-kind {
+  padding: 3px 8px; border: 1px solid var(--ccc-line); border-radius: 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--ccc-muted); white-space: nowrap;
+}
+/* Roxo para roadmap, azul para tópico: são os dois tons que a marca já usa (o
+   quadrado "DSA" do topo é um gradiente de um para o outro), então a distinção
+   não introduz cor nova no sistema. */
+.extra-kind-roadmap { color: #c4b5fd; border-color: rgba(124, 58, 237, 0.45); background: rgba(124, 58, 237, 0.12); }
+.extra-kind-topico { color: #93bbfd; border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08); }
+.extra-name { margin-top: 14px; font-size: 15px; font-weight: 600; }
+.extra-card p { margin: 7px 0 0; font-size: 12.5px; line-height: 1.5; color: #8ea3bd; }
+.extra-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 13px; }
+.extra-meta { font-size: 11.5px; color: var(--ccc-muted); font-family: var(--mono); }
+
+/* A seção no fim do /fundamentos/. A linha em cima é o que diz "acabou
+   aqui" — sem ela, a vitrine parece o 17º grupo da sequência. */
+.extras-no-roadmap { margin-top: 46px; padding-top: 34px; border-top: 1px solid var(--ccc-line); }
+.extras-intro { margin: 0 0 20px; max-width: 68ch; font-size: 14.5px; line-height: 1.6; color: #a3b6cf; }
+.extras-intro strong { color: #dbe6f4; font-weight: 600; }
+/* Link NO MEIO de um parágrafo precisa de mais do que cor. É a regra
+   `link-in-text-block` do axe (WCAG 1.4.1, "use of color"), e ela reprovou de
+   verdade quando o `/roadmap/` ganhou a linha da vitrine: contraste de 2.4:1
+   entre o azul do link e o cinza do texto, longe dos 3:1 que dispensariam o
+   sublinhado. O resto do site escapava da regra por acidente — os links dele
+   moram em bloco próprio (cards, listas, botões), e o axe só cobra a
+   distinção quando o link está dentro de um bloco de texto corrido. Estes dois
+   parágrafos foram os primeiros com link no meio da frase. */
+/* Link dentro de parágrafo precisa de mais que cor para se distinguir do texto
+   em volta (axe `link-in-text-block`, e a razão é daltonismo, não estética). */
+.roadmap-intro a, .extras-intro a, .pagina-canonica a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Os dois formatos, explicados antes da grade em /roadmaps/. */
+.formatos { margin-bottom: 36px; }
+.formato-card { padding: 18px 20px; border: 1px solid var(--ccc-line); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
+.formato-card p { margin: 11px 0 0; font-size: 13.5px; line-height: 1.6; color: #9db1c9; }
+
+/* "Antes daqui": os tópicos que o roadmap pressupõe. */
+.roadmap-requisitos { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -16px 0 28px; }
+.roadmap-requisitos-rot { font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ccc-muted); }
+.roadmap-requisitos-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.req-link { padding: 5px 11px; border: 1px solid var(--ccc-line); border-radius: 99px; background: rgba(255, 255, 255, 0.02); font-size: 12.5px; color: #a7bad2; text-decoration: none; }
+.req-link:hover { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
+
+/* O aviso de que o roadmap é feito de citações, na abertura dele. */
+.roadmap-emprestados { margin: -8px 0 26px; max-width: 68ch; font-size: 13.5px; line-height: 1.6; color: #93a9c2; }
+.roadmap-emprestados strong { color: #dbe6f4; }
+
+/* A ponte da página dentro de um roadmap para a página canônica do tópico. */
+.pagina-canonica { margin-top: 26px; font-size: 13px; color: var(--ccc-muted); }
+
+/* ------ o índice completo (/topicos/) ------ */
+.topicos-controles { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 14px; }
+.topicos-busca { max-width: 380px; margin-top: 0; }
+/* Os assuntos do índice completo, em linha própria abaixo da busca.
+   São dezesseis; misturados aos quatro botões de material eles fariam um
+   paredão de botões antes do primeiro card. Mais leves que aqueles de
+   propósito: ali se escolhe UM estado, aqui se vai marcando vários. */
+.topicos-assuntos {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 16px;
+}
+.topicos-assunto {
+  padding: 5px 11px; border: 1px solid transparent; border-radius: 99px;
+  background: rgba(255, 255, 255, 0.045); color: #9db1c9;
+  font: inherit; font-size: 12.5px; cursor: pointer; transition: color .15s, background .15s, border-color .15s;
+}
+.topicos-assunto:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.topicos-assunto.on {
+  border-color: rgba(59, 130, 246, 0.5); background: var(--ccc-accent-soft);
+  color: #dbeafe; font-weight: 600;
+}
+/* Apagado, e não escondido: o assunto que some faz concluir que o guia não o
+   tem. Ele existe, só não sobrou nada dele depois da busca e do material. */
+.topicos-assunto:disabled { opacity: 0.32; cursor: not-allowed; }
+.topicos-limpar {
+  margin-left: 4px; padding: 5px 11px; border: 1px dashed var(--ccc-line); border-radius: 99px;
+  background: none; color: var(--ccc-muted); font: inherit; font-size: 12px; cursor: pointer;
+}
+.topicos-limpar:hover { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
+.topicos-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.topicos-filtro {
+  padding: 7px 13px; border: 1px solid var(--ccc-line); border-radius: 99px;
+  background: transparent; color: #a9bcd4; font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.topicos-filtro:hover { border-color: rgba(59, 130, 246, 0.45); color: #fff; }
+.topicos-filtro.on { border-color: var(--ccc-accent); background: var(--ccc-accent-soft); color: #dbeafe; font-weight: 600; }
+.topicos-contagem { margin: 0 0 26px; font-size: 12.5px; color: var(--ccc-muted); font-family: var(--mono); }
+/* A etiqueta do tópico que não está em roadmap nenhum.
+   Neutra de propósito: não é aviso nem falta, é uma escolha (a Skip List saiu
+   da sequência porque o assunto dela é outro). Ela só aparece no índice
+   completo, que é a única tela que fala de todos os percursos ao mesmo tempo. */
+.ttag-avulso { border-color: rgba(148, 163, 184, 0.3); color: #94a3b8; }
+/* O assunto do tópico, que era o título de uma seção e virou etiqueta. Ela é a
+   primeira do card e a mais forte das etiquetas: é por ela que se procura. */
+.ttag-assunto { color: #cbd5e1; border-color: rgba(203, 213, 225, 0.32); background: rgba(203, 213, 225, 0.07); font-weight: 600; }
+
+/* A banda do pé do tópico avulso. */
+.continue-explorando { margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--ccc-line); }
+.continue-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 16px; }
+.continue-explorando .extras-grid { margin-top: 16px; }
+
 /* ------ topic page ------ */
 /* `align-items: start` é o que faz o índice colar: sem ele o <nav> estica até a
    altura do artigo (stretch é o padrão do grid) e o `position: sticky` não tem
    folga nenhuma para deslizar. */
 .topic-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 40px; padding: 40px 48px 80px; max-width: 1180px; align-items: start; }
 .topic-layout > article { min-width: 0; }
+/* Tópico avulso: sem os 290px de barra lateral, o `max-width` sozinho encosta o
+   artigo na borda esquerda de uma janela larga e deixa 400px de vazio à
+   direita. A margem automática recentra, e o teto um pouco menor devolve a
+   medida de leitura — a coluna de texto passava de 110 caracteres em 1440px. */
+.sem-lateral .topic-layout { max-width: 1060px; margin-inline: auto; }
+.sem-lateral .roadmap-wrap { margin-inline: auto; }
 .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ccc-muted); }
 .breadcrumb .cur { color: #c9d6e6; }
 .topic-h1 { margin: 12px 0 14px; font-size: 42px; font-weight: 600; letter-spacing: -0.035em; }
@@ -2077,6 +2296,8 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .ms-seg { font-size: 9px; padding: 0 2px; }
   .ms-niveis .ms-seg { font-size: 0; }
   .prevnext { flex-direction: column; }
+  /* A linha do índice vira bloco: nome e descrição em cima, etiquetas embaixo.
+     Lado a lado em 390px a coluna de etiquetas espremia o nome em três linhas. */
   .topic-done { flex-direction: column; align-items: flex-start; }
 }
 /* Consulta por ALTURA, que é a dimensão que estoura no notebook: a largura

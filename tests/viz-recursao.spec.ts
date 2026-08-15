@@ -18,7 +18,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // painel para arrumar.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/recursao/";
+const URL = "/topicos/recursao/";
 
 // Janela de notebook de 16", que é o caso que motivou a casca. Nela as duas
 // peças passam do orçamento com o código à mostra (885 e 1291px contra 816).

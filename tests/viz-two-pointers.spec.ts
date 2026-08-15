@@ -14,7 +14,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // identificador nunca mais os arraste junto.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/two-pointers/";
+const URL = "/topicos/two-pointers/";
 
 // Janela de notebook de 16", que é o caso que motivou a casca.
 const BAIXA = { width: 1512, height: 900 };

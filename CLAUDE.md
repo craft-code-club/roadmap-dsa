@@ -49,11 +49,35 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
 
 ## Modelo de conteúdo
 
-- **`content/roadmap.ts` é a fonte única** dos grupos e tópicos (dirige menu, roadmap, tags, SEO).
-  `content/` fica na raiz, irmão de `src/`: `src/` é o código de estrutura, `content/` são os
-  dados, artigos e visualizadores. Agrupamento estilo LeetCode (16 grupos): cada estrutura junto
-  das técnicas que operam sobre ela; paradigmas (Recursão, Backtracking, Programação Dinâmica,
-  Greedy Algorithms) como grupos próprios.
+- **`content/fundamentos.ts` é a fonte única dos FUNDAMENTOS**, a sequência principal (dirige o
+  menu lateral, o `/fundamentos/`, as tags e o SEO). `content/` fica na raiz, irmão de `src/`:
+  `src/` é o código de estrutura, `content/` são os dados, artigos e visualizadores. Agrupamento
+  estilo LeetCode (16 grupos): cada estrutura junto das técnicas que operam sobre ela; paradigmas
+  (Recursão, Backtracking, Programação Dinâmica, Greedy Algorithms) como grupos próprios.
+- **`content/roadmaps/` é a casa dos roadmaps extras**, um arquivo por roadmap
+  (`content/roadmaps/<slug>.ts`), com `index.ts` guardando o modelo, o registro e os derivados
+  das três casas. **`content/avulsos.ts`** guarda os tópicos que se bastam numa página só.
+  O índice é uma lista à mão porque o módulo é importado por componente de cliente (o `Shell`
+  decide a barra lateral com ele) e código de cliente não tem `fs`; quem impede que ela envelheça
+  é o teste `todo arquivo de content/roadmaps/ está registrado no índice`, que lê a pasta.
+- **Vocabulário, e ele importa:** *Fundamentos* é a sequência principal; *roadmap* é um percurso
+  extra; *tópico* é uma página. "Trilha" e "curso" não existem mais no produto nem no código
+  (só sobrou "Trilha de navegação", que é o nome do breadcrumb).
+- **A página canônica de um tópico é sempre `/topicos/<slug>/`**, venha ele de onde vier. Quem
+  precisa de todos os tópicos do site (`generateStaticParams`, sitemap, guarda de datas) usa
+  `SITE_TOPICS`; quem fala dos Fundamentos (progresso, barra lateral, números da home) usa
+  `ALL_TOPICS`. Trocar um pelo outro não dá erro — dá número errado na home ou 404 num tópico.
+- **UM TÓPICO PODE ESTAR EM MAIS DE UM ROADMAP.** O grupo de um roadmap aceita um `Topic` escrito
+  ali (ele é o DONO) ou uma `string` com o slug (ele só CITA). O dono decide a casca da página
+  canônica e reivindica o slug; quem cita ganha o tópico na lista e uma URL própria
+  (`/roadmaps/<r>/<topico>/`) com `canonical` de volta para `/topicos/<slug>/` e fora do sitemap.
+  Exemplos vivos: `content/roadmaps/caminhos-minimos.ts` cita 6 tópicos e não tem nenhum
+  próprio (todos são dos Fundamentos, em outra ordem); a Skip List não é citada por roadmap
+  nenhum e por isso abre sem barra lateral.
+  O **namespace é global e o build cobra**: slug de tópico, id de grupo, slug de roadmap, citação
+  que resolve e tópico não repetido são conferidos no import de `content/roadmaps/index.ts`.
+  Como escolher a casa de um tópico novo: ver a tabela em
+  [README](./README.md#fundamentos-roadmap-ou-tópico-avulso-onde-o-tópico-mora).
 - **Identificadores em inglês; qualquer coisa que o aluno lê em português.** Vale para os
   campos do roadmap **e para o código dos visualizadores** (variáveis, tipos, props, funções).
   Comentários podem ser em português; nome de componente, o que fizer sentido. A fronteira que
@@ -61,12 +85,32 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   passo são **conteúdo didático**, mesmo dentro de uma string — renomear em lote traduz o
   identificador e estraga a aula junto ("O array precisa estar sorted"). Detalhes e o
   procedimento de conferência em [`content/visualizers/README.md`](content/visualizers/README.md) §0.
-- Campos do tópico: `name`, `group`,
-  `level`, `description`, `youtube` (id), `article` (link do blog), `extraVideos`, `references`,
-  `problems`, `viz`, `noViz`, `status: "ready" | "soon"`.
-- Tópicos "ready" têm corpo em `content/topics/<slug>.mdx`, registrado em `content/topics/index.ts`.
-- **"Em breve" é só para tópico vazio.** `isEmptyTopic()` (em `content/roadmap.ts`) = `soon` sem
-  `youtube`, `article`, `viz` nem `extraVideos`. Só esses levam o selo "em breve" no menu lateral e
+- **O tópico não tem casa.** Cada um é uma pasta com **dois arquivos**:
+  `content/topicos/<slug>/index.ts` (o dado: `topico`, o `sumario` do artigo e a `pratica`) e
+  `content/topicos/<slug>/artigo.mdx` (o texto). Um terceiro arquivo ali reprova no teste: quando
+  o peso obriga a separar, quem separa é o REGISTRO, não a pasta.
+- **Os roadmaps CITAM tópicos**, em `content/roadmaps/<slug>.ts`, por
+  `topics: [{ topic: "hash-table" }]`. Um tópico pode ser citado por nenhum, por um ou por seis; o
+  tópico não muda por isso e não sabe quem o cita. Os Fundamentos são um roadmap como os outros.
+- **Três registros à mão**, porque `content/topicos/index.ts` é importado por componente de
+  cliente (a barra lateral) e cliente não tem `fs`:
+  `content/topicos/index.ts` (os tópicos), `content/topicos/artigos.ts` (os `.mdx`) e
+  `content/topicos/pratica.ts` (problemas e referências). Os dois últimos **só o servidor
+  importa**, e é isso que mantém 2,1 MB de artigo e 64 KB de problema fora de toda página.
+  Esqueceu de registrar? O arquivo fica na pasta e o site não o serve — quem cobra é
+  `tests/roadmaps.spec.ts`, que lê o diretório e compara nos dois sentidos.
+- **Os TIPOS moram em `src/content/tipos.ts`**, não em `content/`. Na raiz, `content/` é só
+  conteúdo; o modelo é código. Um tópico novo importa `Topic` de `@/content/tipos`.
+- Campos do tópico: `name`, `group`, `level`, `description`, `youtube` (id), `article` (link do
+  blog), `extraVideos`, `viz`, `noViz`, `status: "ready" | "soon"`. O `group` é o **assunto**
+  ("Arrays e Strings"), não um endereço — quem dá endereço é o roadmap que cita. Dois tópicos com
+  o mesmo assunto têm de escrevê-lo **igual**: duas grafias viram duas seções em `/topicos/` com o
+  mesmo título e o mesmo `id` de âncora (já aconteceu, e a lista passou a duplicar linhas).
+- **"Em breve" é só para tópico vazio.** `isEmptyTopic()` (em `content/topicos/index.ts`) = `soon`
+  sem `youtube`, `article` nem `viz`. **`extraVideos` NÃO entra na conta**, de propósito e com a
+  razão escrita no código: são links para resoluções soltas de exercício, e um tópico que só tem
+  isso continua sem aula, sem texto e sem visualização. (A doc já disse o contrário do código
+  aqui; quem vale é o código.) Só os vazios levam o selo "em breve" no menu lateral e
   o `noindex`; quem já tem qualquer material aparece normal. Tópico que nunca vai ter visualizador
   recebe `noViz: true` e deixa de mostrar o aviso de "visualização em construção".
 - **"NOVO" é tag manual, não data.** O selo do menu lateral vem de `isNew: true` no tópico. Quem
@@ -103,9 +147,26 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   clique só. *Fora do app* (README, CONTRIBUTING, SECURITY, templates do `.github/`, qualquer
   `.md`): `https://craftcodeclub.io/join`, que é o ponto de rotação da comunidade. Nunca cole
   `discord.gg/<código>` cru em arquivo de documentação.
-- Barra: **esquerda** = Início, Roadmap; **direita** = YouTube, Discord, Apoiar + menu `⋯`.
-  O menu `⋯` tem: Craft & Code Club, GitHub do projeto, Apoiadores e Parceiros (e, só no mobile,
-  Início/Roadmap/YouTube que somem da barra).
+- Barra: **esquerda** = Início, Fundamentos, Roadmaps, Tópicos; **direita** = YouTube, Discord,
+  Apoiar + menu `⋯`. O menu `⋯` tem: Sobre o projeto, Craft & Code Club, GitHub do projeto,
+  Apoiadores e Parceiros (e, só no mobile, os quatro da esquerda + YouTube).
+- **Um tópico tem DUAS URLs, e elas não competem.** `/topicos/<slug>/` é a **canônica**: quem chega
+  pelo índice geral, sem percurso, e vê na barra os roadmaps que citam o tópico.
+  `/roadmaps/<r>/<slug>/` é a mesma página dentro de um percurso: menu do roadmap, anterior/próximo,
+  e as **citações do artigo reescritas** para o roadmap (`linkDentroDoRoadmap`), para o leitor não
+  cair fora dele ao clicar numa referência. Toda cópia aponta `canonical` para a canônica e fica
+  fora do sitemap.
+- **A casca muda com a rota, e é o `Shell` que decide** (`layoutDaRota`): a barra do roadmap em
+  `/roadmaps/<slug>/` e em tudo abaixo dele, a barra dos roadmaps-que-citam em `/topicos/<slug>/`,
+  e **nenhuma barra** na vitrine `/roadmaps/`, no índice `/topicos/` e nos tópicos que ninguém cita. A ausência é a decisão,
+  não um esquecimento: num tópico avulso a barra ao lado seria uma lista para lugar nenhum.
+  ⚠️ O `layoutDaRota` casa o PRIMEIRO SEGMENTO da rota por string. Renomeou rota? Aquele `if` não
+  quebra o build nem o tipo: ele silenciosamente devolve a casca padrão, e o roadmap inteiro passa
+  a abrir com a barra dos Fundamentos. Mexeu no `Shell` ou numa rota? Rode
+  `tests/roadmaps.spec.ts`, que é quem mede as cascas — foi ele que pegou exatamente isso.
+- **Rota renomeada leva 301 no mesmo PR**, em `public/_redirects`: hoje `/topico/*` →
+  `/topicos/*`, `/fundamentos/*` e `/roadmap*` → `/roadmaps/fundamentos/*`. E a rota de origem
+  **não pode existir como arquivo no `out/`**, senão o Pages serve o arquivo e a regra nunca roda.
 - Links **externos** mostram `↗` (classe `ext`; a regra CSS é `.topnav > a.ext` para não afetar o
   menu). Bolinhas de marca: Discord blurple, YouTube vermelho, Apoiar âmbar.
 
@@ -113,8 +174,19 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
 
 - `sitemap.ts`, `robots.ts` e `opengraph-image.tsx` existem. **Rotas de metadata precisam de
   `export const dynamic = "force-static"`** por causa do `output: "export"`.
-- Tópicos realmente vazios (`soon` sem youtube/article/viz/extraVideos) recebem `noindex`
+- Tópicos realmente vazios (`soon` sem youtube, article nem viz) recebem `noindex`
   (ver `generateMetadata` em `topico/[slug]/page.tsx`). Ao ganhar conteúdo, saem do noindex sozinhos.
+- **A mesma régua vale um nível acima:** a abertura de um roadmap sem NENHUM tópico com material
+  também é `noindex` e fica fora do sitemap (`roadmapHasMaterial`). Ela continua no site (mapear
+  o território vale para quem estuda), mas não pede lugar no índice.
+- **`/roadmaps/<r>/<topico>/` serve o mesmo texto de `/topicos/<slug>/`**, então ela aponta
+  `canonical` (e `og:url`) para a canônica, fica FORA do sitemap e não emite JSON-LD nenhum: quem
+  declara o recurso é a canônica, e declarar de novo numa página que acabou de dizer "a principal
+  é outra" é a mesma contradição do `noindex` com `LearningResource`.
+- O rastro de navegação tem **quatro formas** (Fundamentos, roadmap, avulso, e o tópico dentro de
+  um roadmap) e a página monta o array de migalhas UMA vez, usando-o nos links e no
+  `BreadcrumbList`. Não recrie a decisão dentro do `jsonld.ts`: o teste "o rastro marcado é o
+  rastro desenhado" existe por causa disso.
 
 ## Responsividade
 

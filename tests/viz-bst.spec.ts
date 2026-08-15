@@ -17,7 +17,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // O tópico tem um visualizador só, e ele tem as três camadas.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/bst/";
+const URL = "/topicos/bst/";
 
 // Janela de notebook de 16", que é o caso que motivou a casca. Nela a peça
 // passa do orçamento com o código à mostra (1149px contra 816).

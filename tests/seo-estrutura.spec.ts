@@ -2,9 +2,18 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { isEmptyTopic, TOPICOS } from "../content/topicos";
+import {
+  roadmapHasMaterial,
+  roadmapsDoTopico,
+  FUNDAMENTOS,
+  ROADMAPS,
+  roadmapTopics,
+  urlDoRoadmap,
+} from "../content/roadmaps";
 import { LINKS, SITE_URL } from "../src/lib/links";
 import {
+  atualizacaoDoRoadmap,
   atualizacaoDoTopico,
   caminhosDatados,
   CONTEUDO_DA_ROTA,
@@ -19,12 +28,12 @@ import {
 // social das TRÊS páginas de entrada, e faz isso a partir de uma lista escrita à
 // mão (`ROTAS`). Uma lista à mão só cobre o que alguém lembrou de escrever nela,
 // e foi exatamente assim que 48 das 51 rotas ficaram sem canonical enquanto a
-// suíte seguia verde — ela chegava a VISITAR `/topico/big-o/` e `/apoie/` para
+// suíte seguia verde — ela chegava a VISITAR `/topicos/big-o/` e `/apoie/` para
 // conferir `og:locale`, e nunca olhava o canonical.
 //
 // Daí as duas regras deste arquivo:
 //
-//   1. a lista de rotas vem de `ALL_TOPICS`, a fonte de dados. Tópico novo entra
+//   1. a lista de rotas vem de `TOPICOS`, a fonte de dados. Tópico novo entra
 //      na cobertura sozinho, no mesmo commit que o cria;
 //   2. o JSON-LD é lido com `JSON.parse` e conferido CAMPO POR NOME. Contar
 //      `<script>` não prova nada: este repositório já teve suíte verde sobre um
@@ -44,16 +53,29 @@ const OUT = path.join(process.cwd(), "out");
 // do build DIVERGEM em silêncio — o teste que compara as duas passa a comparar
 // a rota nova consigo mesma ausente dos dois lados.
 const ROTAS_FIXAS = Object.keys(CONTEUDO_DA_ROTA);
-const ROTAS_TOPICO = ALL_TOPICS.map((t) => `/topico/${t.slug}/`);
-const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO];
+// `TOPICOS`, e não `TOPICOS`: a rota `/topicos/<slug>/` serve os tópicos
+// do roadmap, os das trilhas e os tópicos avulsos, e todos precisam declarar
+// canonical, card social e dado estruturado. Com a lista do roadmap aqui, os
+// tópicos de fora dela entrariam no site sem entrar em nenhuma das coberturas
+// deste arquivo — que é literalmente o defeito descrito no cabeçalho, repetido
+// um nível acima.
+const ROTAS_TOPICO = TOPICOS.map((t) => `/topicos/${t.slug}/`);
+// `urlDoRoadmap`, e não a string montada à mão: é a mesma função que as páginas
+// e o sitemap usam, e é ela que garante que os três concordem sobre onde cada
+// roadmap mora.
+const ROTAS_CURSO = ROADMAPS.map((c) => `${urlDoRoadmap(c)}/`);
+const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO, ...ROTAS_CURSO];
 
-// Rotas que o site quer no índice do Google: as fixas mais os tópicos que têm
-// material. É a MESMA função `isEmptyTopic` que a página usa para decidir o
-// `noindex` — dois predicados para a mesma decisão é como o buraco do sitemap
-// nasceu, e recriar a condição aqui recriaria o buraco dentro do teste.
+// Rotas que o site quer no índice do Google: as fixas, mais os tópicos que têm
+// material, mais as trilhas que têm ao menos um tópico com material. São as
+// MESMAS funções que as páginas usam para decidir o `noindex` (`isEmptyTopic` e
+// `roadmapHasMaterial`) — dois predicados para a mesma decisão é como o buraco
+// do sitemap nasceu, e recriar a condição aqui recriaria o buraco dentro do
+// teste.
 const ROTAS_INDEXAVEIS = [
   ...ROTAS_FIXAS,
-  ...ALL_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `/topico/${t.slug}/`),
+  ...TOPICOS.filter((t) => !isEmptyTopic(t)).map((t) => `/topicos/${t.slug}/`),
+  ...ROADMAPS.filter(roadmapHasMaterial).map((c) => `${urlDoRoadmap(c)}/`),
 ];
 
 function arquivoDaRota(rota: string): string {
@@ -169,8 +191,8 @@ test("nenhuma página de tópico usa o card de compartilhamento de outra rota", 
   // do card compartilhado.
   const cards = new Map<string, string[]>();
   const daRaiz: string[] = [];
-  for (const t of ALL_TOPICS) {
-    const rota = `/topico/${t.slug}/`;
+  for (const t of TOPICOS) {
+    const rota = `/topicos/${t.slug}/`;
     const img = metaProp(html(rota), "og:image");
     if (img === null) continue;
     if (new URL(img).pathname === "/opengraph-image") daRaiz.push(rota);
@@ -195,19 +217,19 @@ test("o card de um tópico, quando existe, é gerado no segmento dele", () => {
   // tópico entrou inerte.
   const errados: string[] = [];
   let comCard = 0;
-  for (const t of ALL_TOPICS) {
-    const rota = `/topico/${t.slug}/`;
+  for (const t of TOPICOS) {
+    const rota = `/topicos/${t.slug}/`;
     const img = metaProp(html(rota), "og:image");
     if (img === null) continue;
     comCard += 1;
-    if (!new URL(img).pathname.startsWith(`/topico/${t.slug}/`)) errados.push(`${rota} → ${img}`);
+    if (!new URL(img).pathname.startsWith(`/topicos/${t.slug}/`)) errados.push(`${rota} → ${img}`);
   }
   expect(errados, "card apontando para um segmento que não é o do tópico").toEqual([]);
   expect(
-    [comCard, ALL_TOPICS.length],
+    [comCard, TOPICOS.length],
     "quantos tópicos declaram card: 0 = o PR do card por tópico ainda não entrou; " +
-      `${ALL_TOPICS.length} = entrou e está valendo. Qualquer valor no meio é defeito.`
-  ).toEqual(comCard === 0 ? [0, ALL_TOPICS.length] : [ALL_TOPICS.length, ALL_TOPICS.length]);
+      `${TOPICOS.length} = entrou e está valendo. Qualquer valor no meio é defeito.`
+  ).toEqual(comCard === 0 ? [0, TOPICOS.length] : [TOPICOS.length, TOPICOS.length]);
 });
 
 // ---------------------------------------------------------------------------
@@ -435,6 +457,12 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     }
     const slug = loc.match(/\/topico\/([^/]+)\//)?.[1];
     const rota = loc.replace(SITE_URL, "");
+    // A terceira forma de URL do sitemap, desde as trilhas. Ela não é tópico (não
+    // tem `.mdx` próprio) nem rota fixa (não está no `CONTEUDO_DA_ROTA`), e sem
+    // este ramo o `dataEsperada` recebia `undefined` e o teste morria num
+    // TypeError — que é o pior jeito de descobrir uma rota nova, porque não
+    // parece com o defeito que ele existe para pegar.
+    const trilha = ROADMAPS.find((c) => rota === `${urlDoRoadmap(c)}/`);
 
     // [PROPRIEDADE] O carimbo é de um commit que EXISTE. Nenhuma regra honesta
     // inventa um instante: ela escolhe um commit. É o que mata o `new Date()`
@@ -451,9 +479,20 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // se a regra passar a considerar mais entradas (foi o que aconteceu agora,
     // quando o intervalo do `roadmap.ts` entrou na conta), e teria pegado o
     // furo inverso — datar a página antes do próprio artigo.
-    const piso = dataEsperada(
-      slug ? [`content/topics/${slug}.mdx`] : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]
-    );
+    // A abertura de um roadmap é feita do `roadmaps.ts` e dos artigos dos
+    // tópicos dele: publicar um tópico muda a página, que passa a mostrar um
+    // card a mais como publicado. O piso é o mais recente entre essas coisas.
+    const arquivosDaRota = slug
+      ? [`content/topics/${slug}.mdx`]
+      : trilha
+        ? [
+            "content/roadmaps.ts",
+            ...roadmapTopics(trilha)
+              .filter((t) => !isEmptyTopic(t))
+              .map((t) => `content/topics/${t.slug}.mdx`),
+          ]
+        : CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA];
+    const piso = dataEsperada(arquivosDaRota);
     if (piso !== undefined && ms < piso) {
       velhasDemais.push(`${loc} → ${lastmod}, mais velho que ${new Date(piso).toISOString()}`);
     }
@@ -464,7 +503,9 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // sobrar, o bloco não guarda mais nada.
     const doModulo = slug
       ? atualizacaoDoTopico(slug)
-      : ultimaAlteracao(...CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]);
+      : trilha
+        ? atualizacaoDoRoadmap(trilha.slug)
+        : ultimaAlteracao(...CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]);
     if (doModulo && doModulo.getTime() !== ms) {
       fiacao.push(`${loc} → XML ${lastmod}, módulo ${doModulo.toISOString()}`);
     }
@@ -508,8 +549,8 @@ test("toda rota traz Organization e WebSite com os perfis da comunidade", () => 
 
 test("cada página de tópico descreve o tópico, com os dados que estão na tela", () => {
   const sem: string[] = [];
-  for (const t of ALL_TOPICS) {
-    const rota = `/topico/${t.slug}/`;
+  for (const t of TOPICOS) {
+    const rota = `/topicos/${t.slug}/`;
     const recurso = doTipo(jsonLd(rota), "LearningResource");
     // Os dois lados da condicional, não só o que interessa: página sem material
     // é `noindex` e sai do sitemap, então também não declara ser um recurso de
@@ -540,71 +581,125 @@ test("cada página de tópico descreve o tópico, com os dados que estão na tel
     else expect(recurso.programmingLanguage, rota).toBeUndefined();
     expect((recurso.about as No | undefined)?.name, rota).toBe(t.group);
   }
-  const indexaveis = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
+  const indexaveis = TOPICOS.filter((t) => !isEmptyTopic(t)).length;
   expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem LearningResource`).toEqual([]);
 });
 
-test("o BreadcrumbList repete, item a item, a trilha que a página mostra", () => {
+// O rastro esperado de um tópico, derivado de ONDE ele mora — a mesma pergunta
+// que a página faz (`getPlacement`) para desenhar os links. São três formas hoje
+// e o teste conhece as três; escrever a do roadmap e deixar as outras de fora
+// seria dizer que um tópico de trilha não precisa de rastro.
+function rastroEsperado(t: { slug: string; name: string }) {
+  // Uma forma só, agora: a página canônica de um tópico é sempre
+  // Início / Tópicos / <nome>. Ela não sabe de roadmap nenhum, e é por isso que
+  // ela é estável o bastante para ser a canônica.
+  return [
+    { name: "Início", href: "/" },
+    { name: "Tópicos", href: "/topicos/" },
+    { name: t.name, href: `/topicos/${t.slug}/` },
+  ];
+}
+
+test("o BreadcrumbList repete, item a item, o rastro que a página mostra", () => {
   const sem: string[] = [];
-  for (const t of ALL_TOPICS) {
-    const rota = `/topico/${t.slug}/`;
-    const trilha = doTipo(jsonLd(rota), "BreadcrumbList");
-    // A trilha DESENHADA continua nas 47 páginas; só a marcação some junto com o
-    // resto do JSON-LD nas que pedem para não ser indexadas.
+  for (const t of TOPICOS) {
+    const rota = `/topicos/${t.slug}/`;
+    const roadmap = doTipo(jsonLd(rota), "BreadcrumbList");
+    // O roadmap DESENHADA continua em todas as páginas; só a marcação some junto
+    // com o resto do JSON-LD nas que pedem para não ser indexadas.
     if (isEmptyTopic(t)) {
-      expect(trilha, `${rota} é noindex e não pode declarar BreadcrumbList`).toBeUndefined();
+      expect(roadmap, `${rota} é noindex e não pode declarar BreadcrumbList`).toBeUndefined();
       continue;
     }
-    if (!trilha) {
+    if (!roadmap) {
       sem.push(rota);
       continue;
     }
-    const itens = trilha.itemListElement as No[];
-    expect(itens.map((i) => i.name), rota).toEqual(["Início", t.group, t.name]);
-    expect(itens.map((i) => i.position), rota).toEqual([1, 2, 3]);
-    expect(itens.map((i) => i.item), rota).toEqual([
-      urlAbsoluta("/"),
-      urlAbsoluta("/roadmap/"),
-      urlAbsoluta(rota),
-    ]);
+    const esperado = rastroEsperado(t);
+    const itens = roadmap.itemListElement as No[];
+    expect(itens.map((i) => i.name), rota).toEqual(esperado.map((m) => m.name));
+    expect(itens.map((i) => i.position), rota).toEqual(esperado.map((_, i) => i + 1));
+    expect(itens.map((i) => i.item), rota).toEqual(esperado.map((m) => urlAbsoluta(m.href)));
   }
-  const indexaveis = ALL_TOPICS.filter((t) => !isEmptyTopic(t)).length;
+  const indexaveis = TOPICOS.filter((t) => !isEmptyTopic(t)).length;
   expect(sem, `${sem.length} de ${indexaveis} tópicos indexáveis sem BreadcrumbList`).toEqual([]);
 });
 
-test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
-  const lista = doTipo(jsonLd("/roadmap/"), "ItemList");
-  expect(lista, "/roadmap/ sem ItemList").toBeTruthy();
-  expect(lista!.numberOfItems).toBe(ALL_TOPICS.length);
+test("a abertura de cada trilha indexável declara o rastro e a lista dela", () => {
+  for (const c of ROADMAPS.filter(roadmapHasMaterial)) {
+    const rota = `${urlDoRoadmap(c)}/`;
+    const nos = jsonLd(rota);
+
+    const lista = doTipo(nos, "ItemList");
+    expect(lista, `${rota} sem ItemList`).toBeTruthy();
+    const topicos = roadmapTopics(c);
+    expect(lista!.numberOfItems, rota).toBe(topicos.length);
+    expect((lista!.itemListElement as No[]).map((i) => i.name), rota).toEqual(
+      topicos.map((t) => t.name)
+    );
+    expect((lista!.itemListElement as No[]).map((i) => i.url), rota).toEqual(
+      topicos.map((t) => urlAbsoluta(`/topicos/${t.slug}/`))
+    );
+
+    const roadmap = doTipo(nos, "BreadcrumbList");
+    expect(roadmap, `${rota} sem BreadcrumbList`).toBeTruthy();
+    expect((roadmap!.itemListElement as No[]).map((i) => i.name), rota).toEqual([
+      "Início",
+      "Roadmaps",
+      c.name,
+    ]);
+  }
+  // A outra metade: trilha sem material nenhum é `noindex`, e página noindex não
+  // declara ser recurso de coisa alguma.
+  for (const c of ROADMAPS.filter((c) => !roadmapHasMaterial(c))) {
+    const nos = jsonLd(`${urlDoRoadmap(c)}/`);
+    expect(doTipo(nos, "ItemList"), `${urlDoRoadmap(c)}/ é noindex e não pode declarar ItemList`)
+      .toBeUndefined();
+  }
+});
+
+test("os Fundamentos listam os tópicos que eles renderizam, na ordem em que renderizam", () => {
+  // Os tópicos DO ROADMAP, e não `TOPICOS`: desde que o tópico deixou de ter
+  // casa, `TOPICOS` é o site inteiro (80) e os Fundamentos são um recorte dele
+  // (44). Declarar 80 numa página que desenha 44 é a marcação contando outra
+  // história que a tela.
+  const doRoadmap = roadmapTopics(FUNDAMENTOS);
+  const lista = doTipo(jsonLd(`${urlDoRoadmap(FUNDAMENTOS)}/`), "ItemList");
+  expect(lista, "os Fundamentos sem ItemList").toBeTruthy();
+  expect(lista!.numberOfItems).toBe(doRoadmap.length);
   const itens = lista!.itemListElement as No[];
-  expect(itens.map((i) => i.name)).toEqual(ALL_TOPICS.map((t) => t.name));
+  expect(itens.map((i) => i.name)).toEqual(doRoadmap.map((t) => t.name));
   expect(itens.map((i) => i.url)).toEqual(
-    ALL_TOPICS.map((t) => urlAbsoluta(`/topico/${t.slug}/`))
+    doRoadmap.map((t) => urlAbsoluta(`/topicos/${t.slug}/`))
   );
-  expect(itens.map((i) => i.position)).toEqual(ALL_TOPICS.map((_, i) => i + 1));
+  expect(itens.map((i) => i.position)).toEqual(doRoadmap.map((_, i) => i + 1));
 });
 
 test("o JSON-LD do tópico não promete vídeo, que é o que falta para o VideoObject", () => {
   // `VideoObject` exige `uploadDate`, que não existe no type `Topic`. Marcar o
   // vídeo sem ele é marcação inválida; marcar com data inventada é pior.
-  const comVideo = ALL_TOPICS.find((t) => t.youtube)!;
-  const nos = jsonLd(`/topico/${comVideo.slug}/`);
+  const comVideo = TOPICOS.find((t) => t.youtube)!;
+  const nos = jsonLd(`/topicos/${comVideo.slug}/`);
   expect(doTipo(nos, "VideoObject"), "VideoObject só entra quando houver uploadDate").toBeUndefined();
 });
 
 // ---------------------------------------------------------------------------
-// 4. O que o aluno vê: trilha navegável e hierarquia de títulos
+// 4. O que o aluno vê: roadmap navegável e hierarquia de títulos
 // ---------------------------------------------------------------------------
 
-test("a trilha do tópico é navegável e diz onde o aluno está", async ({ page }) => {
-  const t = ALL_TOPICS[1]; // um tópico com grupo de verdade (o [0] é a Introdução)
-  await page.goto(`/topico/${t.slug}/`);
-  const trilha = page.locator(".breadcrumb");
+test("o rastro do tópico é navegável e diz onde o aluno está", async ({ page }) => {
+  const t = TOPICOS[1]; // um tópico com grupo de verdade (o [0] é a Introdução)
+  await page.goto(`/topicos/${t.slug}/`);
+  const roadmap = page.locator(".breadcrumb");
 
-  const inicio = trilha.getByRole("link", { name: "Início" });
+  const inicio = roadmap.getByRole("link", { name: "Início" });
   await expect(inicio).toHaveAttribute("href", "/");
-  await expect(trilha.getByRole("link", { name: t.group })).toHaveAttribute("href", "/roadmap/");
-  await expect(trilha.locator(".cur")).toHaveAttribute("aria-current", "page");
+  // O degrau do meio é "Tópicos", e não o assunto do tópico: a página canônica
+  // não fica DENTRO de roadmap nenhum, e o rastro dela diz de onde ela vem de
+  // verdade — do índice completo. O rastro que passa pelo roadmap é o da outra
+  // rota (`/roadmaps/fundamentos/<t>/`), e quem o mede é `tests/roadmaps.spec.ts`.
+  await expect(roadmap.getByRole("link", { name: "Tópicos" })).toHaveAttribute("href", "/topicos/");
+  await expect(roadmap.locator(".cur")).toHaveAttribute("aria-current", "page");
 
   // Interagir, não contar: o link tem que levar mesmo à home.
   await inicio.click();
@@ -612,11 +707,22 @@ test("a trilha do tópico é navegável e diz onde o aluno está", async ({ page
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
 });
 
-test("a trilha marcada é a trilha desenhada", async ({ page }) => {
+test("o rastro marcado é o rastro desenhado", async ({ page }) => {
   // Regra do Google que decide o desenho: a marcação reflete o que está na tela.
-  const comMarcacao = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
-  for (const t of [comMarcacao[0], comMarcacao[comMarcacao.length - 1]]) {
-    const rota = `/topico/${t.slug}/`;
+  //
+  // A página canônica tem UMA forma de rastro, sempre, e é isso que este teste
+  // afirma: ela não muda com o número de roadmaps que citam o tópico. A amostra
+  // pega as duas pontas da lista e um tópico citado por mais de um roadmap, que
+  // é o caso em que a forma poderia ter escorregado.
+  const comMarcacao = TOPICOS.filter((t) => !isEmptyTopic(t));
+  const amostra = [
+    comMarcacao[0],
+    comMarcacao[comMarcacao.length - 1],
+    ...comMarcacao.filter((t) => roadmapsDoTopico(t.slug).length > 1).slice(0, 1),
+  ];
+  expect(amostra.length, "amostra vazia").toBeGreaterThanOrEqual(2);
+  for (const t of amostra) {
+    const rota = `/topicos/${t.slug}/`;
     await page.goto(rota);
     const naTela = await page
       .locator(".breadcrumb")
@@ -643,11 +749,11 @@ test("todo landmark de navegação da página de tópico tem nome próprio", asy
   // a promessa desde o começo.
   //
   // Roda num tópico `ready` (tem índice "Nesta página") e num `soon` (não tem):
-  // sem o segundo, um regresso que sumisse com a trilha passaria calado.
-  const pronto = ALL_TOPICS.find((t) => !isEmptyTopic(t))!;
-  const vazio = ALL_TOPICS.find((t) => isEmptyTopic(t))!;
+  // sem o segundo, um regresso que sumisse com o roadmap passaria calado.
+  const pronto = TOPICOS.find((t) => !isEmptyTopic(t))!;
+  const vazio = TOPICOS.find((t) => isEmptyTopic(t))!;
   for (const [t, navsEsperados] of [[pronto, 5], [vazio, 4]] as const) {
-    await page.goto(`/topico/${t.slug}/`);
+    await page.goto(`/topicos/${t.slug}/`);
     const total = await page.getByRole("navigation").count();
     const comNome = await page.getByRole("navigation", { name: /\S/ }).count();
     const anonimos = await page.locator("nav").evaluateAll((els) =>

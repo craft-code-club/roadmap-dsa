@@ -21,7 +21,7 @@ const PAINEL = ".viz-overlay-fit figure.viz-fit";
 const SLACK = 8;
 
 async function abrirTopico(page: Page) {
-  await page.goto("/topico/heap-sort/");
+  await page.goto("/topicos/heap-sort/");
   await page.evaluate(() => document.fonts.ready);
   await page.locator(ARTIGO).scrollIntoViewIfNeeded();
   // A decisão da casca roda em dois passes de layout depois das fontes; sem

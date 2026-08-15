@@ -65,7 +65,7 @@ async function pronta(fig: Locator) {
 }
 
 async function abrir(page: Page) {
-  await page.goto("/topico/binary-numbers/");
+  await page.goto("/topicos/binary-numbers/");
   await page.evaluate(() => document.fonts.ready);
   const fig = noArtigo(page);
   await pronta(fig);
@@ -198,7 +198,7 @@ test.describe("binary numbers · as duas peças sem linha do tempo", () => {
 
   test("no painel o cabeçalho não anda quando o miolo rola, e o Esc fecha e destrava", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
-    await page.goto("/topico/binary-numbers/");
+    await page.goto("/topicos/binary-numbers/");
     await page.evaluate(() => document.fonts.ready);
     const f = noArtigoPor(page, TITULOS.bases);
     // `pronta()` não serve aqui: com `collapsible: false` o hook nem espera as
@@ -261,7 +261,7 @@ test.describe("binary numbers · as duas peças sem linha do tempo", () => {
     // causa é do hook e alcança todo mundo: `previous` é o próprio
     // `⤢ Expandir`, que vive DENTRO da figura que o `createPortal` desmonta e
     // remonta, então o `previous.focus()` da limpeza roda num nó já destacado.
-    // Medido também em `/topico/big-o/`, que é a peça de referência do
+    // Medido também em `/topicos/big-o/`, que é a peça de referência do
     // contrato. Escrever a asserção do jeito errado aqui cimentaria o defeito;
     // nomear o teste pelo que ele NÃO faz é pior ainda, porque o relatório da
     // suíte passa a prometer uma cobertura que não existe. O conserto do hook

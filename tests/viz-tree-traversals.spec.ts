@@ -18,7 +18,7 @@ import { test, expect, type Page } from "@playwright/test";
 // código, painel de variáveis e controles. Nenhum arquivo ficou de fora.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/tree-traversals/";
+const URL = "/topicos/tree-traversals/";
 
 // Notebook de 16", o caso que motivou a casca. Nela a peça passa do orçamento
 // (855px de miolo padrão contra 816) e o código entra recolhido.

@@ -25,7 +25,7 @@ const botao = (fig: Locator, nome: RegExp) => fig.getByRole("button", { name: no
 
 async function abrirPagina(page: Page, w: number, h: number) {
   await page.setViewportSize({ width: w, height: h });
-  await page.goto("/topico/quick-sort/");
+  await page.goto("/topicos/quick-sort/");
   const vp = page.viewportSize();
   expect(vp, "a janela pedida é a janela medida").toEqual({ width: w, height: h });
   await page.evaluate(() => document.fonts.ready.then(() => undefined));

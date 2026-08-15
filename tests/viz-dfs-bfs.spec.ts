@@ -20,7 +20,7 @@ import { test, expect, type Page } from "@playwright/test";
 // código, painel de variáveis e controles. Nenhum arquivo ficou de fora.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/dfs-bfs/";
+const URL = "/topicos/dfs-bfs/";
 
 // Notebook de 16", o caso que motivou a casca. Nela a peça pede 1132px de um
 // orçamento de 816 com o código aberto, e o código entra recolhido.

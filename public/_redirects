@@ -1,0 +1,27 @@
+# Redirecionamentos do Cloudflare Pages.
+#
+# Sintaxe: <origem> <destino> <código>. Uma regra por linha, a primeira que casa
+# vence, e o arquivo é copiado para a raiz do site pelo `output: "export"`.
+#
+# ⚠️ A rota de origem NÃO pode existir como arquivo no `out/`: o Pages serve o
+# asset estático e a regra nunca chega a ser avaliada. Por isso `/topico/[slug]`
+# e `/roadmap` deixaram de ser rotas do App Router em vez de virarem páginas que
+# redirecionam por JavaScript — redirect no cliente não transfere sinal de SEO
+# nenhum, e ainda pisca.
+
+# O item de um tópico seguiu a convenção REST do resto do site:
+# /topicos/ é a lista, /topicos/<slug>/ é um item. A rota antiga no singular era
+# a mais linkada do site (Google, Discord, posts do blog), e o 301 é o que passa
+# o histórico dela para o endereço novo. É também o sinal mais forte de
+# canonicalização que existe — mais forte que `rel=canonical`, que é só uma
+# dica.
+/topico/*  /topicos/:splat  301
+
+# Os Fundamentos deixaram de ter endereço próprio: eles são um roadmap como os
+# outros, e moram em /roadmaps/fundamentos/. As duas rotas que levavam até eles
+# continuam valendo por 301, que é o sinal mais forte que existe para uma rota
+# que mudou de nome (o `canonical` é dica; o 301 é ordem).
+/fundamentos/*  /roadmaps/fundamentos/:splat  301
+/fundamentos    /roadmaps/fundamentos/  301
+/roadmap/*      /roadmaps/fundamentos/:splat  301
+/roadmap        /roadmaps/fundamentos/  301

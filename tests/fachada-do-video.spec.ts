@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { ALL_TOPICS } from "../content/roadmap";
+import { TOPICOS } from "../content/topicos";
 
 // A fachada do vídeo da aula: o `<iframe>` do YouTube só nasce quando o aluno
 // clica (`src/components/VideoFacade.tsx`).
@@ -31,8 +31,8 @@ import { ALL_TOPICS } from "../content/roadmap";
 // das URLs, que continuam sendo as reais.
 
 /** O primeiro tópico com vídeo, pela mesma ordem do roadmap. */
-const TOPICO = ALL_TOPICS.find((t) => t.youtube)!;
-const ROTA = `/topico/${TOPICO.slug}/`;
+const TOPICO = TOPICOS.find((t) => t.youtube)!;
+const ROTA = `/topicos/${TOPICO.slug}/`;
 const NOME_DO_BOTAO = `Assistir à aula: ${TOPICO.name}`;
 const OUT = join(__dirname, "..", "out");
 
@@ -123,12 +123,12 @@ test("o HTML entregue não tem <iframe> do YouTube, e tem o botão da fachada", 
 
   // A outra ponta: sem esta parte, apagar a seção de vídeo inteira também
   // deixaria a asserção de cima verde.
-  const comVideo = ALL_TOPICS.filter((t) => t.youtube);
+  const comVideo = TOPICOS.filter((t) => t.youtube);
   expect(comVideo.length, "nenhum tópico com vídeo: não há o que provar").toBeGreaterThan(0);
 
   const semBotao = comVideo
     .filter((t) => {
-      const html = readFileSync(join(OUT, "topico", t.slug, "index.html"), "utf8");
+      const html = readFileSync(join(OUT, "topicos", t.slug, "index.html"), "utf8");
       // Os dois atributos na MESMA tag de abertura, e não dois `includes`
       // soltos: a página tem outros botões já tipados (`TopicComplete.tsx`),
       // então tirar o `type` daqui deixaria a versão frouxa VERDE. Botão sem

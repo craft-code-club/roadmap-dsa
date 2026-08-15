@@ -16,7 +16,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 //     contra 816 de orçamento COM o código aberto passando de 1038), e só a
 //     partir de ~1130px de janela é que ele abre sozinho.
 
-const URL = "/topico/busca-binaria/";
+const URL = "/topicos/busca-binaria/";
 
 type Peca = {
   nome: string;

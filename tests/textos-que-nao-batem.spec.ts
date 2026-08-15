@@ -89,7 +89,7 @@ test.describe("bellman-ford · o cartão de relaxamentos", () => {
     page,
   }) => {
     test.slow();
-    const fig = await abrir(page, "/topico/bellman-ford/", "Bellman-Ford, rodada a rodada");
+    const fig = await abrir(page, "/topicos/bellman-ford/", "Bellman-Ford, rodada a rodada");
     const relaxamentos = variavel(fig, "relaxamentos");
 
     for (const p of PRESETS) {
@@ -132,7 +132,7 @@ test.describe("bellman-ford · o cartão de relaxamentos", () => {
   test("ele conta enquanto a animação anda, e a rodada extra não entra na conta", async ({
     page,
   }) => {
-    const fig = await abrir(page, "/topico/bellman-ford/", "Bellman-Ford, rodada a rodada");
+    const fig = await abrir(page, "/topicos/bellman-ford/", "Bellman-Ford, rodada a rodada");
     const valor = variavel(fig, "relaxamentos").locator(".viz-var-val");
 
     // Preset de peso negativo: 8 arestas por rodada. O passo 10 é o fim da
@@ -163,7 +163,7 @@ test.describe("n-ary-trees · a fila do BFS concorda com o número", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   async function abrirBfs(page: Page, arvore: string): Promise<Locator> {
-    const fig = await abrir(page, "/topico/n-ary-trees/", "o mesmo template quando os filhos");
+    const fig = await abrir(page, "/topicos/n-ary-trees/", "o mesmo template quando os filhos");
     await fig.getByRole("button", { name: arvore, exact: true }).click();
     await fig.getByRole("button", { name: "Por nível (BFS)", exact: true }).click();
     await expect(contadorDe(fig)).toContainText("passo 1 de ");
@@ -240,7 +240,7 @@ test.describe("negative-binary · a linha do 'lido de volta'", () => {
   test("os quatro presets alcançáveis, os três cartões, e nenhuma promessa de falha", async ({
     page,
   }) => {
-    const fig = await abrir(page, "/topico/negative-binary/", "três formas de escrever um negativo");
+    const fig = await abrir(page, "/topicos/negative-binary/", "três formas de escrever um negativo");
 
     // Os quatro chips são TUDO que a interface oferece: sem eles não há entrada.
     await expect(fig.locator(".bigo-chips button")).toHaveText([
@@ -261,7 +261,7 @@ test.describe("negative-binary · a linha do 'lido de volta'", () => {
         await expect(
           card.locator(".bb-formula-fim"),
           `negar ${v}, cartão ${i}: a linha do lido de volta`
-        ).toHaveText(`Lido de volta: ${-v} — bits diferentes, mesmo número.`);
+        ).toHaveText(`Lido de volta: ${-v}: bits diferentes, mesmo número.`);
         fitas.push((await card.locator(".bn-fita .bn-bit-val").allInnerTexts()).join(""));
       }
 
@@ -309,7 +309,7 @@ test.describe("merge-sort · a cor da linha da divergência", () => {
   }
 
   test("a linha destacada é a do acerto, e não pode vir pintada de falha", async ({ page }) => {
-    const fig = await abrir(page, "/topico/merge-sort/", "o sinal que decide a estabilidade");
+    const fig = await abrir(page, "/topicos/merge-sort/", "o sinal que decide a estabilidade");
 
     const cores = await coresDaLista(fig);
     // Sem três cores distintas a comparação abaixo não significa nada.
@@ -359,7 +359,7 @@ test.describe("merge-sort · a cor da linha da divergência", () => {
 // dizia "V(V-1)/2 = 15 arestas. É o teto" com o cartão mostrando 30 de 30 ao
 // lado. Agora elas recebem os mesmos números que os cartões mostram.
 
-const GRAFO = { url: "/topico/grafos-intro/", titulo: "o mesmo grafo em matriz e em lista" };
+const GRAFO = { url: "/topicos/grafos-intro/", titulo: "o mesmo grafo em matriz e em lista" };
 
 const PRESETS_GRAFO = ["Esparso (rede social)", "Denso", "Completo", "Caminho (o mínimo conexo)"];
 

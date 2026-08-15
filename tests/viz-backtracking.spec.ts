@@ -13,7 +13,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // do controle comparada com ela mesma que prova — `toBeInViewport()` sozinho
 // passa nas duas pontas da rolagem.
 
-const URL = "/topico/backtracking/";
+const URL = "/topicos/backtracking/";
 
 const ARVORE = 0;
 const SUDOKU = 1;

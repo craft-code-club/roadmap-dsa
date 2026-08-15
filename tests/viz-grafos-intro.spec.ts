@@ -15,7 +15,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // nenhum contador de passo, nenhum atalho de teclado e nenhum botão de
 // reprodução para uma linha do tempo que não existe.
 
-const URL = "/topico/grafos-intro/";
+const URL = "/topicos/grafos-intro/";
 // Folga de subpixel, igual à do hook.
 const SLACK = 8;
 

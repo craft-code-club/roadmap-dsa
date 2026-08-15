@@ -23,9 +23,9 @@ function contadorDePasso(fig: Locator): Locator {
  * seletores daqui, e a razão de existir está logo abaixo.
  */
 const PECAS = {
-  "/topico/big-o/": "contando operações no mesmo array",
-  "/topico/merge-sort/": "a descida divide, a subida ordena",
-  "/topico/arrays/": "memória contígua e o endereço de nums[i]",
+  "/topicos/big-o/": "contando operações no mesmo array",
+  "/topicos/merge-sort/": "a descida divide, a subida ordena",
+  "/topicos/arrays/": "memória contígua e o endereço de nums[i]",
 } as const;
 
 /**
@@ -33,9 +33,9 @@ const PECAS = {
  *
  * Aqui havia `page.locator("figure.viz-fit").first()`, que é uma afirmação sobre
  * a ORDEM no documento e só acerta enquanto a página tem uma figura na casca.
- * Em `/topico/big-o/` o `[0]` passa a ser o gráfico das famílias assim que ele
+ * Em `/topicos/big-o/` o `[0]` passa a ser o gráfico das famílias assim que ele
  * for adaptado: sem `Próximo ›`, sem `▶ Rodar`, sem `↺ Reiniciar`, sem slider, e
- * com o `.viz-step` valendo "n = 62". Em `/topico/merge-sort/` o alvo é o `[0]`
+ * com o `.viz-step` valendo "n = 62". Em `/topicos/merge-sort/` o alvo é o `[0]`
  * por acidente, ao lado de dois irmãos cujo `.viz-step` diz "4 rodadas de
  * intercalação…" e "as duas versões se separam na decisão 2".
  *
@@ -85,7 +85,7 @@ test.describe("os seletores deste arquivo apontam para a peça certa", () => {
 
 test.describe("a região viva anuncia o passo", () => {
   test("o texto muda quando o aluno aperta Próximo ›", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/big-o/");
+    const fig = await figuraDe(page, "/topicos/big-o/");
 
     const status = fig.getByRole("status");
     await expect(status).toHaveCount(1);
@@ -119,7 +119,7 @@ test.describe("a região viva anuncia o passo", () => {
   });
 
   test("o anúncio não vira ruído durante a reprodução automática", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const fig = await figuraDe(page, "/topicos/merge-sort/");
     const status = fig.getByRole("status");
     const contador = contadorDePasso(fig);
     const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
@@ -152,7 +152,7 @@ test.describe("a região viva anuncia o passo", () => {
   test("um salto programático cala a região, em vez de deixar o anúncio velho de pé", async ({
     page,
   }) => {
-    const fig = await figuraDe(page, "/topico/arrays/");
+    const fig = await figuraDe(page, "/topicos/arrays/");
     const status = fig.getByRole("status");
     const contador = contadorDePasso(fig);
 
@@ -186,7 +186,7 @@ test.describe("a região viva anuncia o passo", () => {
   test("um total novo cala o anúncio, e a frase com o total velho nunca chega ao DOM", async ({
     page,
   }) => {
-    const fig = await figuraDe(page, "/topico/arrays/");
+    const fig = await figuraDe(page, "/topicos/arrays/");
     const status = fig.getByRole("status");
     const contador = contadorDePasso(fig);
     const campo = fig.getByLabel("Array", { exact: true });
@@ -261,7 +261,7 @@ test.describe("o ▶ Rodar não perde o próprio estado", () => {
   test("dois toques no mesmo tick voltam ao parado, em vez de mandar rodar duas vezes", async ({
     page,
   }) => {
-    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const fig = await figuraDe(page, "/topicos/merge-sort/");
     const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
     const contador = contadorDePasso(fig);
     await expect(rodar).toHaveText(/Rodar/);
@@ -287,7 +287,7 @@ test.describe("o ▶ Rodar não perde o próprio estado", () => {
 
 test.describe("a animação não roda para quem não está vendo", () => {
   test("sair da tela pausa, e voltar NÃO retoma sozinho", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const fig = await figuraDe(page, "/topicos/merge-sort/");
     const contador = contadorDePasso(fig);
     await expect(contador).toHaveCount(1);
     const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
@@ -324,7 +324,7 @@ test.describe("a animação não roda para quem não está vendo", () => {
   });
 
   test("a pausa automática não deixa a região viva dizendo que ainda roda", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/merge-sort/");
+    const fig = await figuraDe(page, "/topicos/merge-sort/");
     const status = fig.getByRole("status");
     const contador = contadorDePasso(fig);
     const rodar = fig.getByRole("button", { name: /Rodar|Pausar/ });
@@ -362,7 +362,7 @@ test.describe("o foco volta para o botão que abriu o painel", () => {
   // foco está no `<figure>`, e no `✕ Fechar` está no próprio botão que some.
   for (const saida of ["Esc", "✕ Fechar"] as const) {
     test(`fechando com ${saida}, o foco volta para o ⤢ Expandir`, async ({ page }) => {
-      const fig = await figuraDe(page, "/topico/big-o/");
+      const fig = await figuraDe(page, "/topicos/big-o/");
       const expandir = fig.getByRole("button", { name: /Expandir/ });
 
       // Abrir pelo TECLADO: é o público desta correção.
@@ -408,7 +408,7 @@ test.describe("o foco volta para o botão que abriu o painel", () => {
   // que o resto da suíte usa: quando ele acende, os efeitos do hook JÁ rodaram,
   // e o roubo de foco (se houvesse) já teria acontecido.
   test("abrir a página não move o foco para dentro de um visualizador", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/big-o/");
+    const fig = await figuraDe(page, "/topicos/big-o/");
     await expect(fig).toHaveAttribute("data-anim", "on");
 
     // O valor primeiro, e dizendo QUEM roubou: sem a guarda esta linha recebe o
@@ -427,7 +427,7 @@ test.describe("o foco volta para o botão que abriu o painel", () => {
 
 test.describe("os dois controles que não tinham nome", () => {
   test("o ↺ se chama Reiniciar e volta ao passo 1", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/big-o/");
+    const fig = await figuraDe(page, "/topicos/big-o/");
     const contador = contadorDePasso(fig);
     const proximo = fig.getByRole("button", { name: "Próximo ›" });
 
@@ -444,7 +444,7 @@ test.describe("os dois controles que não tinham nome", () => {
   });
 
   test("o slider de velocidade tem rótulo de verdade, e o layout não muda", async ({ page }) => {
-    const fig = await figuraDe(page, "/topico/big-o/");
+    const fig = await figuraDe(page, "/topicos/big-o/");
     const slider = fig.getByRole("slider", { name: /Velocidade/ });
     await expect(slider).toHaveCount(1);
 

@@ -1,0 +1,225 @@
+<Callout>
+A árvore binária dá forma; a árvore de busca binária dá **regra**. Uma única invariante transforma uma estrutura hierárquica qualquer numa ferramenta de busca: tudo à esquerda é menor, tudo à direita é maior. Dessa frase saem busca, inserção e remoção em O(log n), a listagem ordenada de graça, e também a maior pegadinha do tópico, que é o dia em que a regra é obedecida à risca e mesmo assim a estrutura fica lenta.
+</Callout>
+
+## A invariante, e o que ela compra
+
+A definição cabe em duas linhas. Para **todo** nó da árvore:
+
+```text
+todos os valores da subárvore ESQUERDA  <  valor do nó
+todos os valores da subárvore DIREITA   >  valor do nó
+```
+
+Guarde o "todos", porque metade dos bugs deste tópico nasce de esquecer que a regra vale para a subárvore inteira, e não só para os dois filhos diretos.
+
+O que essa regra compra é uma coisa só, e ela é enorme: **em cada nó, você descarta metade do que sobrou sem olhar**. Comparou com o nó, foi para um lado, a outra subárvore inteira deixou de existir para você. É exatamente a jogada da busca binária num array ordenado.
+
+A diferença é o que a BST resolve e o array não: no array ordenado, inserir um elemento no meio custa deslocar tudo o que vem depois. Na árvore, inserir é pendurar um nó e trocar um ponteiro. Você fica com a busca do array ordenado **e** a inserção da lista encadeada.
+
+| | Array ordenado | Lista encadeada | BST |
+| --- | --- | --- | --- |
+| Buscar | O(log n) | O(n) | O(h) |
+| Inserir | O(n) | O(1) no lugar certo | O(h) |
+| Listar em ordem | O(n) | O(n) | O(n) |
+
+O `h` é a altura, e o tópico inteiro é sobre quanto ele vale.
+
+## Buscar e inserir são o mesmo passeio
+
+A busca é um laço de três linhas: compara, decide o lado, desce.
+
+```python
+def busca(no, alvo):
+    while no is not None:
+        if alvo == no.valor:
+            return no
+        no = no.esq if alvo < no.valor else no.dir
+    return None
+```
+
+A inserção é literalmente a mesma caminhada. Você desce comparando até chegar num ponto vazio, e é ali que o novo valor nasce, **sempre como folha**:
+
+```python
+def insere(no, valor):
+    if no is None:
+        return No(valor)
+    if valor < no.valor:
+        no.esq = insere(no.esq, valor)
+    else:
+        no.dir = insere(no.dir, valor)
+    return no
+```
+
+Isso tem uma consequência prática ótima: inserir **nunca reorganiza a árvore**. Nenhum nó existente muda de lugar, nenhum dado é deslocado. É por isso que a inserção custa o mesmo que a busca, e é a diferença fundamental para o array ordenado.
+
+<BSTVisualizer />
+
+Comece em **construir** com o preset "pelo meio" e rode. Repare que cada valor desce por um caminho único: a invariante não deixa escolha. Depois troque para **buscar**, procure o 7 e conte as comparações. Por fim, procure um valor que não existe, como 99: o caminho percorrido é exatamente onde ele **seria** inserido, o que é a prova de que buscar e inserir são o mesmo passeio.
+
+Agora o experimento que importa: troque o preset para **"inserindo ordenado: 1 2 3 4 5 6 7"**. São os mesmos sete valores, o mesmo código e a mesma invariante. E a busca pelo 7 sai de 3 comparações para 7.
+
+## Em ordem devolve a ordem
+
+Uma consequência que vale destacar: percorrer a BST [em ordem](/topicos/tree-traversals) (esquerda, nó, direita) devolve os valores **ordenados**, sempre.
+
+```python
+def em_ordem(no, saida):
+    if no is None:
+        return
+    em_ordem(no.esq, saida)
+    saida.append(no.valor)
+    em_ordem(no.dir, saida)
+```
+
+O painel de baixo do visualizador mostra isso: troque de preset à vontade, a árvore muda de forma completamente, e a sequência em ordem continua a mesma. **A forma muda o custo, nunca o conteúdo.**
+
+Daí saem três operações que aparecem muito:
+
+- **k-ésimo menor**: percorra em ordem e pare no k-ésimo. Não precisa da lista inteira.
+- **Sucessor de um nó**: o menor valor da subárvore direita, ou o ancestral mais próximo que o contém pela esquerda.
+- **Busca por faixa**: todos os valores entre a e b saem podando os ramos que não podem conter nada no intervalo.
+
+## Remover: os três casos
+
+Remoção é o único lugar realmente chato da BST, porque tirar um nó do meio pode desconectar a árvore. São três casos, e o terceiro é o interessante.
+
+<Colunas>
+<Cartao titulo="1. Folha">
+Não tem ninguém pendurado nele. Apague e ponha `None` no pai. Fim.
+</Cartao>
+
+<Cartao titulo="2. Um filho">
+O filho sobe para o lugar do pai. A invariante sobrevive porque a subárvore inteira já estava do lado certo do avô.
+</Cartao>
+</Colunas>
+
+O caso difícil é o **nó com dois filhos**, porque você não pode escolher um dos filhos para subir: o outro ficaria sem lugar. A saída é não remover o nó, e sim **trocar o valor dele** por outro que preserve a invariante.
+
+Só existem dois candidatos:
+
+- o **sucessor em ordem**: o menor valor da subárvore direita (desça uma vez à direita, depois sempre à esquerda);
+- o **predecessor em ordem**: o maior valor da subárvore esquerda.
+
+Qualquer um dos dois serve, porque os dois são, por construção, o valor imediatamente vizinho na ordem: maiores que tudo à esquerda e menores que tudo à direita. Copie o valor dele para o nó que você queria remover, e então remova o sucessor lá embaixo. E aí vem a parte boa: **o sucessor nunca tem filho esquerdo** (se tivesse, ele não seria o menor), então essa segunda remoção cai sempre no caso 1 ou no caso 2. A recursão termina em um passo.
+
+```python
+def remove(no, valor):
+    if no is None:
+        return None
+    if valor < no.valor:
+        no.esq = remove(no.esq, valor)
+    elif valor > no.valor:
+        no.dir = remove(no.dir, valor)
+    else:
+        if no.esq is None:                 # casos 1 e 2
+            return no.dir
+        if no.dir is None:
+            return no.esq
+        suc = no.dir                       # caso 3: menor da direita
+        while suc.esq is not None:
+            suc = suc.esq
+        no.valor = suc.valor               # copia o valor
+        no.dir = remove(no.dir, suc.valor) # remove o sucessor (caso 1 ou 2)
+    return no
+```
+
+<Callout tipo="aviso">
+Repare que o caso 3 **não** é um terceiro algoritmo: ele é uma redução aos dois primeiros. Essa é a leitura que faz o código parar de parecer arbitrário, e é o que vale dizer em voz alta numa entrevista.
+</Callout>
+
+## A letra miúda: dado ordenado destrói a árvore
+
+Volte ao experimento dos dois presets, porque ele é o coração deste tópico.
+
+Inserir 1, 2, 3, 4, 5, 6, 7 nessa ordem produz uma árvore em que **ninguém nunca vai para a esquerda**, porque cada valor novo é maior que todos os anteriores. O resultado é uma linha reta: uma lista encadeada com dois ponteiros por nó, altura n, e busca O(n).
+
+E o pior é que isso não é um caso raro de laboratório. Dado ordenado é o caso mais comum do mundo real: ids autoincrementais, timestamps, um arquivo CSV já ordenado, o resultado de um `ORDER BY`. Inserir isso numa BST sem proteção degrada a estrutura para o pior caso possível.
+
+| Forma | Altura | Busca em 1.000.000 de nós |
+| --- | --- | --- |
+| Balanceada | ~20 | 20 comparações |
+| Degenerada | 1.000.000 | 1.000.000 de comparações |
+
+Não é uma constante pior: é a estrutura deixando de funcionar. E note que a invariante está **perfeitamente obedecida** nos dois casos. O problema nunca foi a regra, foi a forma.
+
+<Callout>
+Existe um caso em que a ordem trabalha a seu favor: se você já tem o array ordenado e quer montar uma BST balanceada, insira **o do meio primeiro**, depois o meio de cada metade, recursivamente. É dividir para conquistar, é o problema **Convert Sorted Array to Binary Search Tree** do LeetCode, e é exatamente o que o preset "pelo meio" do visualizador faz.
+</Callout>
+
+## Balanceamento: as três saídas
+
+Como a BST pura não se protege, a solução é acrescentar um mecanismo que mantém a altura em O(log n). Existem três famílias, e vale conhecer o nome de todas:
+
+- **AVL**: guarda em cada nó a diferença de altura entre os lados e faz **rotações** quando ela passa de 1. É a mais rigorosamente balanceada, então busca rápido e paga um pouco mais caro na escrita.
+- **Rubro-negra**: garante balanceamento mais frouxo, com regras de cor, e por isso rebalanceia menos. É o que costuma estar por trás do `TreeMap` do Java, do `std::map` do C++ e de vários schedulers de kernel.
+- **[Skip List](/topicos/skip-list)**: resolve o mesmo problema sem rotação nenhuma, sorteando a altura de cada nó. Consegue O(log n) **esperado** em vez de garantido, com código muito mais simples.
+
+Uma observação prática de implementação: para árvore que rebalanceia, a representação com **ponteiros** ganha da representação em array. Uma rotação mexe em três ou quatro ponteiros; num array, a mesma rotação obrigaria a mover subárvores inteiras de posição.
+
+## A armadilha de validar uma BST
+
+Este é o erro clássico, e ele cai em entrevista o tempo todo. A tentação é escrever:
+
+```python
+# ERRADO
+def valida(no):
+    if no is None:
+        return True
+    if no.esq and no.esq.valor >= no.valor:
+        return False
+    if no.dir and no.dir.valor <= no.valor:
+        return False
+    return valida(no.esq) and valida(no.dir)
+```
+
+Isso checa cada nó contra os **filhos diretos**, e a invariante fala da subárvore inteira. Veja o contraexemplo:
+
+```text
+        10
+       /  \
+      5    15
+          /  \
+         6    20
+```
+
+Todo nó está certo em relação aos filhos: 6 < 15 e 15 < 20. Mas o **6** está na subárvore direita do 10, e 6 < 10. A árvore é inválida e o código acima aprova.
+
+A correção é carregar a faixa permitida para baixo:
+
+```python
+def valida(no, minimo=float("-inf"), maximo=float("inf")):
+    if no is None:
+        return True
+    if not (minimo < no.valor < maximo):
+        return False
+    return (valida(no.esq, minimo, no.valor)
+            and valida(no.dir, no.valor, maximo))
+```
+
+Cada descida à esquerda aperta o teto; cada descida à direita aperta o piso. A alternativa igualmente boa é percorrer **em ordem** e checar se a saída é estritamente crescente, que é a mesma ideia dita de outro jeito.
+
+## BST ou tabela hash?
+
+Se você só precisa de "existe?" e "pegue pela chave", a [tabela hash](/topicos/hash-table) ganha: O(1) médio contra O(log n). A BST não está tentando competir nisso.
+
+O que a hash não faz, e a BST faz de graça, é **ordem**:
+
+- listar tudo ordenado sem ordenar (percurso em ordem, O(n));
+- menor e maior elemento (desça sempre para um lado);
+- **busca por faixa**: todos os valores entre 100 e 200;
+- **vizinho mais próximo**: o menor valor maior ou igual a x, que é o `floor`/`ceiling` e não tem equivalente em hash.
+
+A regra prática: **precisa de ordem, use árvore; não precisa, use hash**. É por isso que índice de banco de dados é B-tree e não hash: `WHERE data BETWEEN` e `ORDER BY` são o pão de cada dia, e hash não ajuda em nenhum dos dois.
+
+## Como praticar
+
+Comece por **Search in a Binary Search Tree** e **Insert into a Binary Search Tree**, que são os dois laços deste artigo escritos do zero. Depois **Validate Binary Search Tree**, que é onde a armadilha da seção anterior mora, e vale tentar primeiro o jeito errado só para ver o contraexemplo derrubar.
+
+Em seguida, os que exploram a ordem: **Kth Smallest Element in a BST** (percorra em ordem e conte) e **Lowest Common Ancestor of a BST**, que numa BST é muito mais fácil que numa árvore qualquer, porque a invariante diz de que lado cada valor está.
+
+Por fim, **Convert Sorted Array to Binary Search Tree** é o antídoto contra a degeneração, e **Delete Node in a BST** é o caso dos três cenários, que é o mais trabalhoso de escrever certo na primeira tentativa.
+
+Uma dica de entrevista: quando o enunciado disser "árvore de busca binária", pergunte a si mesmo se a solução está **usando** a invariante. Se o seu código funcionaria igual numa árvore binária qualquer, provavelmente você está deixando o log n na mesa.
+
+Daqui, [Trie](/topicos/trie) mostra uma árvore de busca que não compara valores inteiros, e sim caminha por prefixo. E do lado dos grafos, a mesma ideia de "descartar o que não pode conter a resposta" volta em [Dijkstra](/topicos/dijkstra), com outra roupa.

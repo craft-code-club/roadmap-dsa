@@ -6,7 +6,7 @@ export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const dynamic = "force-static";
 
-// Card da home. Também é o fallback de toda rota sem card próprio (os /topico/*),
+// Card da home. Também é o fallback de toda rota sem card próprio (os /topicos/*),
 // por isso a chamada aqui fala do site inteiro e não de uma página só.
 export default function OpengraphImage() {
   return ogImage({

@@ -1,11 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { isEmptyTopic, TOPICOS } from "../content/topicos";
 import {
+  caminhosDatados,
   CONTEUDO_DA_ROTA,
   datasDistinguemCaminhos,
   LIMITE_DE_CONCENTRACAO,
+  ultimaAlteracao,
 } from "../src/lib/datas-do-git";
 import { dataLonga, diaIso } from "../src/lib/format";
 import { SITE_URL } from "../src/lib/links";
@@ -31,6 +33,18 @@ import { SITE_URL } from "../src/lib/links";
 // data vale tem um dono só, importado acima.
 
 const OUT = path.join(process.cwd(), "out");
+
+/**
+ * Este build teve como carimbar as páginas?
+ *
+ * A MESMA pergunta que `src/lib/datas-do-git.ts` faz, com a MESMA função, sobre
+ * os MESMOS caminhos. Recriar a condição aqui é o que fez o guarda errar duas
+ * vezes, e é o que faria este arquivo cobrar selo de um build que decidiu
+ * (corretamente) não desenhar nenhum.
+ */
+const CARIMBOS_VALEM = datasDistinguemCaminhos(
+  caminhosDatados().map((c) => ultimaAlteracao(c)?.getTime())
+);
 
 function html(rota: string): string {
   const f = path.join(OUT, rota.replace(/^\//, ""), "index.html");
@@ -64,8 +78,8 @@ function doTipo(nos: No[], tipo: string): No | undefined {
   });
 }
 
-const INDEXAVEIS = ALL_TOPICS.filter((t) => !isEmptyTopic(t));
-const rotaDo = (slug: string) => `/topico/${slug}/`;
+const INDEXAVEIS = TOPICOS.filter((t) => !isEmptyTopic(t));
+const rotaDo = (slug: string) => `/topicos/${slug}/`;
 
 /** O `lastmod` de cada URL do sitemap, por rota. Ausente = o campo não saiu. */
 function lastmodPorRota(): Map<string, string | undefined> {
@@ -113,7 +127,7 @@ test("o tópico sem material nenhum não declara autor de coisa alguma", () => {
   // A outra metade da condicional. Página `noindex` não emite JSON-LD de tópico,
   // então não pode declarar autoria — se declarasse, o site estaria assinando
   // uma página que ele mesmo pede para o Google ignorar.
-  const vazios = ALL_TOPICS.filter((t) => isEmptyTopic(t));
+  const vazios = TOPICOS.filter((t) => isEmptyTopic(t));
   expect(vazios.length, "o repositório precisa ter ao menos um tópico vazio").toBeGreaterThan(0);
   for (const t of vazios) {
     const nos = jsonLd(rotaDo(t.slug));
@@ -322,10 +336,19 @@ test("o selo 'Publicado em' não está na tela de nenhum tópico", async ({ page
     }
     // E o de atualização continua lá: este teste não pode passar porque a
     // página inteira perdeu os selos.
-    await expect(
-      page.locator(".topic-chips span.chip", { hasText: "Atualizado em" }),
-      `${t.slug} perdeu também o selo de atualização`
-    ).toHaveCount(1);
+    //
+    // "Continua lá" vale QUANDO o build teve como datar as páginas. O guarda de
+    // `datas-do-git` apaga todos os carimbos quando o `git log` resolve a mesma
+    // data para tudo — é o caso de um clone raso, e é também o caso legítimo do
+    // build feito logo depois de um commit que mexeu em todo arquivo datado
+    // (uma migração de estrutura). Cobrar o selo ali reprovaria o guarda por
+    // fazer exatamente o que ele existe para fazer.
+    if (CARIMBOS_VALEM) {
+      await expect(
+        page.locator(".topic-chips span.chip", { hasText: "Atualizado em" }),
+        `${t.slug} perdeu também o selo de atualização`
+      ).toHaveCount(1);
+    }
   }
   expect(comSelo, "o selo de publicação voltou à tela").toEqual([]);
 });
@@ -334,7 +357,7 @@ test("o rodapé aparece em TODA rota, e não só na home", async ({ page }) => {
   // Ele existia só em `src/app/page.tsx`: a home tinha rodapé e as 34 páginas de
   // aula tinham zero. Quem chegava numa delas pela busca não tinha caminho
   // nenhum para descobrir quem publica o material.
-  const rotas = ["/", "/roadmap/", "/sobre/", "/apoie/", "/introducao/", rotaDo(INDEXAVEIS[0].slug)];
+  const rotas = ["/", "/roadmaps/fundamentos/", "/sobre/", "/apoie/", "/introducao/", rotaDo(INDEXAVEIS[0].slug)];
   for (const rota of rotas) {
     await page.goto(rota);
     const pe = page.locator("footer.site-foot");
@@ -450,7 +473,7 @@ test("dá para chegar ao /sobre pelo menu, e ele é o PRIMEIRO item", async ({ p
   // O rodapé saiu desta conta de propósito: ele não tem mais links, porque a
   // barra é fixa e já leva a tudo. Se um dia alguém devolver links ao rodapé,
   // é o teste do rodapé que reprova, não este.
-  await page.goto("/roadmap/");
+  await page.goto("/roadmaps/fundamentos/");
   await page.getByRole("button", { name: "Mais opções" }).click();
 
   // Primeiro item, e a ordem é a decisão: "quem escreveu isto?" vem antes de

@@ -26,25 +26,38 @@ npm test         # testes de navegação (Playwright)
 ## Estrutura
 
 ```
-content/                    conteúdo (irmão de src/): dados, artigos e visualizadores
-  roadmap.ts                ÍNDICE dos tópicos: fonte única do menu/roadmap
-  topics/*.mdx              corpo dos artigos "ready"
-  topics/index.ts           registro slug -> MDX
+content/                    SÓ conteúdo (irmão de src/): dados, artigos e visualizadores
+  topicos/<slug>/index.ts   o dado de um tópico: `topico`, `sumario` e `pratica`
+  topicos/<slug>/artigo.mdx o texto dele. A pasta tem esses dois arquivos, e só
+  topicos/index.ts          o registro dos tópicos (importado também pelo cliente)
+  topicos/artigos.ts        o registro dos corpos .mdx (só servidor)
+  topicos/pratica.ts        o registro dos problemas e referências (só servidor)
+  roadmaps/<slug>.ts        um roadmap: nome, nível e a ordem em que ele CITA tópicos
+  roadmaps/index.ts         o registro dos roadmaps, os derivados e o guarda de namespace
   visualizers/              visualizadores (ilhas client usadas nos artigos)
     SlidingWindowVisualizer.tsx
     TwoPointersVisualizer.tsx
 src/                        código de estrutura (não é conteúdo)
+  content/tipos.ts          o MODELO do conteúdo: Topic, Roadmap, Pratica, Artigo…
   app/                      rotas (App Router)
     page.tsx                home
-    roadmap/                o roadmap inteiro
-    topico/[slug]/          página de tópico (artigo + vídeo + problemas + referências)
+    roadmaps/               vitrine dos roadmaps
+      [slug]/               abertura de um roadmap (os Fundamentos são um deles)
+        [topico]/           um tópico servido dentro dele
+    topicos/                o índice completo
+    topicos/[slug]/         a página canônica de um tópico
     apoie/                  página de apoio
       apoiadores.ts         apoiadores (da APOIA.se, no build) e parceiros
     opengraph-image.tsx     imagem de preview (OG), gerada no build
     sitemap.ts, robots.ts   SEO
   components/
-    Shell.tsx               casca: header + sidebar + progresso + busca
-    RoadmapGroups.tsx       grade de grupos e tópicos do roadmap
+    Shell.tsx               moldura: header + gaveta + rodapé; escolhe a barra lateral
+    FundamentosSidebar.tsx  barra lateral dos Fundamentos (busca, progresso, 16 grupos)
+    RoadmapSidebar.tsx      barra lateral de um roadmap
+    TopicoPagina.tsx        o artigo de um tópico, usado pelas DUAS rotas que o servem
+    GrupoCards.tsx          grade de grupos e tópicos (Fundamentos e abertura de roadmap)
+    TodosOsTopicos.tsx      o índice completo, com busca e filtros
+    ExtrasGrid.tsx          os cards de "Roadmaps e outros tópicos"
     ProgressProvider.tsx    progresso no localStorage (tópicos + problemas)
     ProblemList.tsx         lista de problemas com checkbox
   lib/
@@ -56,27 +69,44 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
 
 ## Como adicionar um tópico
 
-1. **Registre no índice** em `content/roadmap.ts` (grupo certo). Só isso já coloca o tópico
-   no menu e no roadmap. Os nomes dos campos são em inglês; os valores exibidos ficam em
-   português. Campos: `youtube`, `article`, `extraVideos`, `references`, `problems`, `viz`.
+Um tópico é uma **pasta com dois arquivos**. Ele não pertence a lugar nenhum: quem monta
+sequência são os roadmaps, e eles o **citam** pelo slug.
+
+1. **Crie `content/topicos/kadane/index.ts`.** Os nomes dos campos são em inglês; os valores
+   que o aluno lê, em português.
 
    ```ts
-   { slug: "kadane", name: "Kadane", group: "Arrays e Strings",
+   import type { Pratica, Topic } from "@/content/tipos";
+
+   export const topico: Topic = {
+     slug: "kadane", name: "Kadane", group: "Arrays e Strings",
      level: "Médio", status: "soon", youtube: "VIDEO_ID",
-     description: "Maior soma contígua, o clássico." }
+     description: "Maior soma contígua, o clássico.",
+   };
+
+   export const pratica: Pratica = {
+     problems: [{ id: "lc-53", name: "Maximum Subarray", number: "53",
+                  source: "LeetCode", level: "Médio", url: "https://leetcode.com/…" }],
+     references: [{ title: "Kadane's Algorithm", source: "GeeksforGeeks", url: "https://…" }],
+   };
    ```
 
-   O selo **"em breve"** no menu lateral aparece só nos tópicos ainda sem nenhum material:
-   `status: "soon"` **e** sem `youtube`, `article`, `viz` e `extraVideos` (é a regra do
-   `isEmptyTopic()`, em `content/roadmap.ts`). Assim que o tópico ganha um vídeo, um artigo ou
-   um visualizador, o selo some sozinho, e tópico `ready` nunca leva o selo. Se o tópico não
-   vai ter visualizador, marque `noViz: true` para a página não prometer um que não vem.
+   O `group` é o **assunto**, não um endereço: ele não põe o tópico em roadmap nenhum. Escreva-o
+   **igual** ao dos tópicos do mesmo assunto (duas grafias viram duas seções em `/topicos/`).
+
+   O selo **"em breve"** aparece só nos tópicos ainda sem material nenhum: `status: "soon"` **e**
+   sem `youtube`, `article`, `viz` e `extraVideos` (é o `isEmptyTopic()`, em
+   `content/topicos/index.ts`). Ganhou vídeo, artigo ou visualizador, o selo some sozinho. Se o
+   tópico não vai ter visualizador, marque `noViz: true`.
 
    O selo **"NOVO"** é o oposto: uma **tag manual**, `isNew: true`. Não tem data, então não
-   envelhece sozinho. Quem publica um tópico marca o dele e **tira a marca dos anteriores**, no
-   mesmo PR. É a única forma de o selo continuar querendo dizer "chegou agora".
+   envelhece sozinho — quem publica marca o seu e **tira a marca dos anteriores**, no mesmo PR.
 
-2. **Escreva o artigo** (para virar `status: "ready"`): crie `content/topics/kadane.mdx`.
+2. **Registre nos índices.** No `content/topicos/index.ts`, o import nomeado e a entrada em
+   `MODULOS`; no `content/topicos/pratica.ts`, o import da `pratica`. Sem isso o arquivo existe e
+   o site não o serve — e é `tests/roadmaps.spec.ts` que cobra.
+
+3. **Escreva o artigo** (para virar `status: "ready"`): `content/topicos/kadane/artigo.mdx`.
    Dentro do MDX você já pode usar, sem importar: `<Callout>`, `<Colunas>`, `<Cartao>` e
    qualquer visualizador exposto em `mdx-components.tsx`.
 
@@ -85,7 +115,82 @@ mdx-components.tsx          componentes globais disponíveis em todo .mdx
    linguagem no canto do bloco. Cerca sem linguagem sai sem cor e sem selo, que é justamente o
    que se quer em diagrama ASCII e pseudo-fórmula.
 
-3. **Ligue o artigo:** registre em `content/topics/index.ts` e mude `status` para `"ready"`.
+4. **Ligue o artigo:** o import do `.mdx` em `content/topicos/artigos.ts`, a lista dos `## h2`
+   em `export const sumario` no `index.ts` do tópico, e `status: "ready"`.
+
+5. **Cite o tópico num roadmap**, se ele pertencer a algum percurso: em
+   `content/roadmaps/<slug>.ts`, dentro do grupo certo, `{ topic: "kadane" }`. Pode citar em
+   quantos quiser.
+
+## Tópicos e roadmaps: uma relação só
+
+Um tópico **não tem casa**. Ele existe sozinho, em `content/topicos/<slug>/`, e publica sempre a
+mesma página canônica: `/topicos/<slug>/`. Um roadmap é uma **curadoria**: um nome, um objetivo e
+a ordem em que ele **cita** tópicos.
+
+```ts
+// content/roadmaps/caminhos-minimos.ts
+groups: [
+  { id: "cm-o-mapa", name: "O mapa, antes do algoritmo", topics: [
+    { topic: "grafos-intro" },   // os mesmos tópicos dos Fundamentos,
+    { topic: "dfs-bfs" },        // em outra ordem, respondendo outra pergunta
+  ]},
+  { id: "cm-uma-origem", name: "De uma origem para todos", topics: [
+    { topic: "dijkstra" }, { topic: "bellman-ford" }, { topic: "a-star" },
+  ]},
+]
+```
+
+Um tópico pode ser citado por **nenhum** roadmap, por um ou por seis, e não muda por causa disso.
+Isso é o que permite o Dijkstra responder "como se percorre um grafo com pesos" nos Fundamentos e
+"que algoritmo eu uso neste mapa" em Caminhos Mínimos, sendo a mesma página.
+
+**Os dois exemplos que o repositório carrega hoje**, e eles são o teste vivo do modelo:
+
+| | O que demonstra |
+| --- | --- |
+| **Caminhos Mínimos** (`content/roadmaps/caminhos-minimos.ts`) | 6 tópicos, **nenhum** próprio: todos vêm dos Fundamentos, em outra ordem. 30 linhas de citação, zero conteúdo duplicado. |
+| **Skip List** (`content/topicos/skip-list/`) | um tópico que **nenhum** roadmap cita. Ele saiu de "Listas Encadeadas" porque o assunto dele é outro, continua publicado em `/topicos/skip-list/` sem barra lateral, e os quatro artigos que o citam continuam apontando para lá mesmo de dentro de um roadmap. |
+
+**Os Fundamentos são um roadmap como os outros** (`content/roadmaps/fundamentos.ts`,
+`/roadmaps/fundamentos/`). O que eles têm de próprio é o lugar: a home abre neles, a barra do topo
+lhes dá item, e a vitrine dos extras os deixa de fora.
+
+Na tela: quem lê **dentro** de um roadmap tem o menu dele, o anterior/próximo dele, e até as
+citações do artigo reescritas para ele — clicar numa referência no meio do texto não tira ninguém
+do percurso. Quem chega pela **página canônica** vê, na barra, os roadmaps que citam aquele
+tópico, e a banda "Este tópico faz parte de" no fim.
+
+O vocabulário é fixo: **Fundamentos** é o roadmap principal, **roadmap** é um percurso,
+**tópico** é uma página. Nos identificadores: `Roadmap`, `Topic`, `Citacao`.
+
+### Rotas
+
+```
+/roadmaps/                   a vitrine dos roadmaps
+/roadmaps/<r>/               a abertura de um roadmap  (os Fundamentos: /roadmaps/fundamentos/)
+/roadmaps/<r>/<topico>/      um tópico servido DENTRO dele (canonical → /topicos/<slug>/)
+/topicos/                    o índice completo, com busca e filtros
+/topicos/<slug>/             a página canônica de um tópico
+```
+
+`/plural` é a lista e `/plural/<id>` é o item, como numa API REST. As rotas antigas continuam
+valendo por **301** (`public/_redirects`): `/topico/*`, `/fundamentos/*` e `/roadmap`.
+
+### O que o código já cobra por você
+
+No `npm run build`, direto do import de `content/roadmaps/index.ts`:
+
+- **slug único no site inteiro** entre as três casas (citação não conta, porque citar é
+  justamente não reivindicar);
+- **id de grupo único** (é chave de React e âncora de `/fundamentos/#<id>`);
+- **citação que resolve**: citar um slug inexistente sumiria da lista em silêncio;
+- **sem tópico repetido** no mesmo roadmap, que daria duas caixas de progresso para o mesmo slug;
+- **pré-requisito que existe**.
+
+E no `npm test`: `todo arquivo de content/roadmaps/ está registrado no índice`. O índice é uma
+lista à mão (o módulo é importado por componente de cliente, e código de cliente não tem `fs`),
+então é o teste que impede um arquivo criado e não registrado de virar um roadmap invisível.
 
 ## Como adicionar um visualizador
 

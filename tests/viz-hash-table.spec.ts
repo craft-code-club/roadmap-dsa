@@ -18,7 +18,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // no mesmo cartão: é exatamente o que o guarda de idioma, que compara o
 // CONJUNTO de textos e não onde cada um aparece, não consegue ver.
 
-const URL = "/topico/hash-table/";
+const URL = "/topicos/hash-table/";
 
 const CONGELA =
   "*, *::before, *::after { transition: none !important; animation: none !important; }";

@@ -1,27 +1,26 @@
 import { test, expect, type Locator } from "@playwright/test";
-import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { isEmptyTopic, TOPICOS } from "../content/topicos";
+import { FUNDAMENTOS, roadmapGroups, roadmapTopics } from "../content/roadmaps";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("aprofundamento em cada estrutura");
   await page.getByRole("link", { name: "Começar por Big O" }).click();
-  await expect(page).toHaveURL(/topico\/big-o/);
+  await expect(page).toHaveURL(/roadmaps\/fundamentos\/big-o/);
   await expect(page.getByRole("heading", { level: 1, name: /Big O/ })).toBeVisible();
 });
 
-test("nav do topo abre o roadmap e um tópico", async ({ page }) => {
+test("nav do topo abre os Fundamentos e um tópico", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Roadmap", exact: true }).click();
-  await expect(page).toHaveURL(/\/roadmap/);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Roadmap de Algoritmos e Estruturas de Dados" })
-  ).toBeVisible();
+  await page.getByRole("link", { name: "Fundamentos", exact: true }).click();
+  await expect(page).toHaveURL(/\/roadmaps\/fundamentos/);
+  await expect(page.getByRole("heading", { level: 1, name: "Fundamentos" })).toBeVisible();
   await page.getByRole("link", { name: /Two Pointers/ }).first().click();
-  await expect(page).toHaveURL(/topico\/two-pointers/);
+  await expect(page).toHaveURL(/roadmaps\/fundamentos\/two-pointers/);
 });
 
 test("página de tópico traz vídeo e problemas com links externos certos", async ({ page }) => {
-  await page.goto("/topico/sliding-window/");
+  await page.goto("/topicos/sliding-window/");
   // A seção do vídeo chega como FACHADA: o `<iframe>` só nasce no clique
   // (`src/components/VideoFacade.tsx`), então contar `iframe` aqui daria zero.
   // Quem prova o clique, o teclado e a caixa é `tests/fachada-do-video.spec.ts`;
@@ -48,7 +47,7 @@ test("no mobile, YouTube e Craft & Code Club ficam acessíveis pelo menu ⋯", a
 });
 
 test("tópico mostra Referências (links de artigos) quando existem", async ({ page }) => {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/topicos/two-pointers/");
   await expect(page.getByRole("heading", { name: "Referências" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Floyd.s Cycle Finding Algorithm/ })).toHaveAttribute("href", /geeksforgeeks/);
 });
@@ -89,7 +88,7 @@ test("muro de apoiadores: um card por pessoa, contagem batendo e convite no fim"
 });
 
 test("Two Pointers é uma página completa com os três visualizadores e problemas", async ({ page }) => {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/topicos/two-pointers/");
   // um visualizador por sabor da técnica: convergente, ritmos diferentes e Floyd
   await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(3);
   await expect(page.getByText("ponteiros convergentes: dois números que somam o alvo")).toBeVisible();
@@ -100,7 +99,7 @@ test("Two Pointers é uma página completa com os três visualizadores e problem
 });
 
 test("os três visualizadores de Two Pointers têm estado próprio e contam operações", async ({ page }) => {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/topicos/two-pointers/");
   const passos = page.locator(".viz-step");
   await page.getByRole("button", { name: /Próximo/ }).first().click();
   // regex ancorada: "passo 2 de" também é prefixo de "passo 20 de", e o número
@@ -118,7 +117,7 @@ test("os três visualizadores de Two Pointers têm estado próprio e contam oper
 });
 
 test("Strings traz os três visualizadores e os números do artigo batem com a tela", async ({ page }) => {
-  await page.goto("/topico/strings/");
+  await page.goto("/topicos/strings/");
   // montagem e rotate são passo a passo; o de bytes é painel de leitura
   await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(2);
   await expect(page.getByText("o custo de montar uma string")).toBeVisible();
@@ -152,7 +151,7 @@ test("Strings traz os três visualizadores e os números do artigo batem com a t
 });
 
 test("Tabelas Hash: os contadores da tela batem com os números do artigo", async ({ page }) => {
-  await page.goto("/topico/hash-table/");
+  await page.goto("/topicos/hash-table/");
   // dois passo a passo (inserção e a corrida lista x hash) + a tabela estática
   await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(2);
   await expect(page.getByText("inserindo chaves numa tabela hash")).toBeVisible();
@@ -194,7 +193,7 @@ test("Tabelas Hash: os contadores da tela batem com os números do artigo", asyn
 });
 
 test("Sliding Window reúne janela fixa e variável na mesma página", async ({ page }) => {
-  await page.goto("/topico/sliding-window/");
+  await page.goto("/topicos/sliding-window/");
   await expect(page.getByRole("heading", { level: 1, name: "Sliding Window" })).toBeVisible();
   // três visualizadores: o contraste com a força bruta e um para cada variação
   await expect(page.getByRole("button", { name: /Rodar/ })).toHaveCount(3);
@@ -216,7 +215,7 @@ test("progresso dos slugs antigos de Sliding Window migra para o unificado", asy
   await page.addInitScript(() => {
     localStorage.setItem("ccc-dsa-progresso", JSON.stringify({ "sliding-window-fixed": 1 }));
   });
-  await page.goto("/topico/sliding-window/");
+  await page.goto("/topicos/sliding-window/");
   await expect(page.getByRole("button", { name: "✓ Concluído" }).first()).toBeVisible();
   // e a chave antiga sai do storage, em vez de virar lixo permanente
   const salvo = await page.evaluate(() => localStorage.getItem("ccc-dsa-progresso"));
@@ -224,7 +223,7 @@ test("progresso dos slugs antigos de Sliding Window migra para o unificado", asy
 });
 
 test("Big O traz o gráfico de crescimento, o contador de operações e a tabela de famílias", async ({ page }) => {
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
   // gráfico: o canvas existe e o marcador reage ao chip de uma família
   await expect(page.locator("canvas.bigo-canvas")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "O(n!)" })).toBeVisible();
@@ -265,7 +264,7 @@ const CONTADOR = "figure.viz-fit:has(.viz-code-slot)";
 const GRAFICO = "figure.viz-fit:has(canvas)";
 
 test("Big O: o seletor do contador separa as duas peças da casca na página", async ({ page }) => {
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
   // Se algum dia esta asserção cair, é porque uma peça entrou ou saiu da casca
   // nesta página, e todo `CONTADOR` daqui para baixo precisa ser reconferido.
   await expect(page.locator("figure.viz-fit")).toHaveCount(2);
@@ -307,7 +306,7 @@ function alturaCodigo(page: import("@playwright/test").Page) {
 
 test("Big O expandido: cabeçalho e controles ficam parados, só o miolo rola", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 620 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   await viz.getByRole("button", { name: /Expandir/ }).click();
@@ -351,7 +350,7 @@ test("Big O expandido: cabeçalho e controles ficam parados, só o miolo rola", 
 
 test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 620 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   await viz.getByRole("button", { name: /Expandir/ }).click();
@@ -393,7 +392,7 @@ test("Big O expandido: o Tab circula dentro do painel, como manda o aria-modal",
 
 test("Big O expandido: setas andam o passo e espaço roda, sem atrapalhar quem digita", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   await viz.getByRole("button", { name: /Expandir/ }).click();
@@ -455,7 +454,7 @@ test("Big O expandido: setas andam o passo e espaço roda, sem atrapalhar quem d
 
 test("Big O: em tela baixa o código já abre recolhido, com as variáveis em uma linha", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   const alternar = viz.locator(".viz-toggle-codigo");
@@ -492,7 +491,7 @@ test("Big O: em tela baixa o código já abre recolhido, com as variáveis em um
 
 test("Big O: em tela alta o código já vem aberto, sem precisar de clique", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 1400 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   await expect(viz.locator(".viz-toggle-codigo")).toHaveText("Ocultar código");
@@ -504,7 +503,7 @@ test("Big O: em tela alta o código já vem aberto, sem precisar de clique", asy
 
 test("Big O: a conta de altura lê o token do cabeçalho, não um número fixo", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 1400 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const alternar = page.locator(`${CONTADOR} .viz-toggle-codigo`);
   await expect(alternar).toHaveText("Ocultar código"); // com essa altura, cabe
@@ -519,7 +518,7 @@ test("Big O: a conta de altura lê o token do cabeçalho, não um número fixo",
 
 test("Big O: a escolha do aluno atravessa expandir e fechar", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   const alternar = viz.locator(".viz-toggle-codigo");
@@ -554,7 +553,7 @@ test("Big O: a escolha do aluno atravessa expandir e fechar", async ({ page }) =
 
 test("Big O: a escolha do aluno vence a medição numa troca de estado", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 560 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   const alternar = viz.locator(".viz-toggle-codigo");
@@ -589,7 +588,7 @@ test("no celular, o botão do código funciona no contador do Big O", async ({ p
   // apagava o bloco por CSS. Com o botão na tela, clicar nele não fazia nada —
   // o aluno de celular clicava e continuava sem código.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/topico/big-o/");
+  await page.goto("/topicos/big-o/");
 
   const viz = page.locator(CONTADOR);
   const alternar = viz.locator(".viz-toggle-codigo");
@@ -602,14 +601,14 @@ test("no celular, o botão do código funciona no contador do Big O", async ({ p
 });
 
 test("marcar um tópico como concluído persiste na sessão", async ({ page }) => {
-  await page.goto("/topico/sliding-window/");
+  await page.goto("/topicos/sliding-window/");
   // Há dois botões de concluir (topo e fim da página); ambos alternam juntos.
   await page.getByRole("button", { name: "Marcar como concluído" }).first().click();
   await expect(page.getByRole("button", { name: "✓ Concluído" }).first()).toBeVisible();
 });
 
 test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) => {
-  await page.goto("/topico/sliding-window/");
+  await page.goto("/topicos/sliding-window/");
   const toc = page.locator(".toc-links a").first();
   await expect(toc).toHaveAttribute("href", /^#.+/);
   // a âncora precisa existir na página (id no título correspondente)
@@ -618,7 +617,7 @@ test("índice 'Nesta página' tem links âncora funcionais", async ({ page }) =>
 });
 
 test("índice 'Nesta página' fica grudado ao rolar o artigo", async ({ page }) => {
-  await page.goto("/topico/prefix-sum/");
+  await page.goto("/topicos/prefix-sum/");
   const toc = page.locator(".toc");
   const rolarPara = async (y: number) => {
     await page.evaluate((alvo) => window.scrollTo({ top: alvo, behavior: "instant" }), y);
@@ -680,7 +679,7 @@ const irParaOFimDaPagina = async (page: import("@playwright/test").Page) => {
 };
 
 test("clicar em Próximo volta ao topo de uma vez, não numa animação cancelável", async ({ page }) => {
-  await page.goto("/topico/arrays/");
+  await page.goto("/roadmaps/fundamentos/arrays/");
   await irParaOFimDaPagina(page);
 
   const proximo = page.locator(".prevnext a.next");
@@ -713,7 +712,7 @@ test("a âncora do índice 'Nesta página' continua rolando suave", async ({ pag
   // runner) com movimento reduzido ligado este teste reprovaria por um motivo
   // que não é o dele. O caso do movimento reduzido tem teste próprio, logo abaixo.
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/topico/pilhas/");
+  await page.goto("/topicos/pilhas/");
   // A terceira âncora, e não a primeira: ela fica longe o bastante do topo para
   // a rolagem ter trajetória para medir. Confiro a contagem antes porque, se o
   // artigo encolher, a falha honesta é "o índice tem 2 âncoras" e não um erro
@@ -732,7 +731,7 @@ test("com movimento reduzido, nada anima — e o destino é o mesmo", async ({ p
   // vai direto ao título e a troca de tópico abre no topo, sem animação para
   // ser cancelada no meio do caminho.
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/topico/pilhas/");
+  await page.goto("/roadmaps/fundamentos/pilhas/");
   const ancoras = page.locator(".toc-links a");
   expect(await ancoras.count(), "o índice encolheu: escolha outra âncora").toBeGreaterThanOrEqual(3);
   const traj = await trajetoriaDaRolagem(page, () => ancoras.nth(2).click());
@@ -747,7 +746,7 @@ test("com movimento reduzido, nada anima — e o destino é o mesmo", async ({ p
 });
 
 test("código Python sai colorido do build, com selo discreto da linguagem", async ({ page }) => {
-  await page.goto("/topico/prefix-sum/");
+  await page.goto("/topicos/prefix-sum/");
   // pega o bloco Python pelo conteúdo, não pela ordem: um bloco de outra
   // linguagem pode entrar antes dele no artigo sem quebrar o teste
   const bloco = page
@@ -843,7 +842,7 @@ async function abrirComMenuPronto(
 }
 
 test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page }) => {
-  await abrirComMenuPronto(page, "/topico/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   // Arrays e Strings porque é onde o leitor está; Introdução não entra de carona.
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 
@@ -851,14 +850,14 @@ test("o menu abre o grupo da página, não um par fixo de grupos", async ({ page
   // porque a visita acima já virou histórico — e histórico o menu devolve de
   // propósito (é o outro teste); aqui o que se mede é a primeira visita.
   await page.evaluate(() => localStorage.clear());
-  await abrirComMenuPronto(page, "/topico/backtracking/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/backtracking/");
   expect(await gruposAbertos(page)).toEqual(["Backtracking"]);
 });
 
 test("o menu lembra os grupos que o leitor abriu, e o da página abre junto", async ({ page }) => {
-  await abrirComMenuPronto(page, "/topico/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   await page.locator(".side-group-btn", { hasText: "Grafos" }).click();
-  await expect(page.locator(".side-item[href='/topico/dijkstra/']")).toBeVisible();
+  await expect(page.locator(".side-item[href='/roadmaps/fundamentos/dijkstra/']")).toBeVisible();
 
   // F5 na mesma página: a escolha volta, e o grupo da rota continua aberto.
   await abrirComMenuPronto(page, "recarregar");
@@ -887,14 +886,14 @@ const memoriaDoMenu = (page: import("@playwright/test").Page, ids: string[], hor
 
 test("dentro do dia, o menu devolve o que o leitor tinha aberto", async ({ page }) => {
   await memoriaDoMenu(page, ["grafos"], 23);
-  await abrirComMenuPronto(page, "/topico/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 });
 
 test("passado um dia, o menu volta ao padrão da página", async ({ page }) => {
   // Quem some por três dias não lembra por que aqueles grupos estavam abertos.
   await memoriaDoMenu(page, ["grafos", "heaps"], 25);
-  await abrirComMenuPronto(page, "/topico/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings"]);
 
   // E em página sem grupo próprio sobra o grupo de abertura, não o menu vazio.
@@ -904,7 +903,7 @@ test("passado um dia, o menu volta ao padrão da página", async ({ page }) => {
 
 test("o prazo conta da última visita: voltar hoje renova a memória", async ({ page }) => {
   await memoriaDoMenu(page, ["grafos"], 20);
-  await abrirComMenuPronto(page, "/topico/arrays/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/arrays/");
   expect(await gruposAbertos(page)).toEqual(["Arrays e Strings", "Grafos"]);
 
   // O carimbo que ficou gravado é de agora, e não o de 20 horas atrás: amanhã
@@ -918,7 +917,7 @@ test("o prazo conta da última visita: voltar hoje renova a memória", async ({ 
 test("o grupo da página atual abre mesmo que estivesse fechado", async ({ page }) => {
   // Cenário do leitor que fechou tudo e depois abriu um tópico de outro grupo.
   await memoriaDoMenu(page, ["hashing"], 1);
-  await abrirComMenuPronto(page, "/topico/dijkstra/");
+  await abrirComMenuPronto(page, "/roadmaps/fundamentos/dijkstra/");
   expect(await gruposAbertos(page)).toEqual(["Hashing", "Grafos"]);
   await expect(page.locator(".side-item.on")).toHaveText(/Dijkstra/);
 });
@@ -941,7 +940,7 @@ test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", a
   // Com os outros grupos fechados, um tópico do fim da lista ainda pode cair
   // abaixo da dobra do menu — e aí o leitor não vê onde está.
   await page.setViewportSize({ width: 1440, height: 700 });
-  await page.goto("/topico/negative-binary/");
+  await page.goto("/roadmaps/fundamentos/negative-binary/");
 
   // Quem rola é um efeito, que roda depois da hidratação: ler uma vez logo após
   // o `goto` mediria o menu antes de ele existir como React. A espera é sobre a
@@ -964,11 +963,11 @@ test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", a
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
-test("Roadmap, Apoiar e Introdução mostram onde o leitor está", async ({ page }) => {
-  // Regressão: com `trailingSlash: true` a rota chega como "/roadmap/", e a
+test("Fundamentos, Apoiar e Introdução mostram onde o leitor está", async ({ page }) => {
+  // Regressão: com `trailingSlash: true` a rota chega como "/roadmaps/fundamentos/", e a
   // comparação crua com o href deixava a barra do topo sempre apagada.
-  await page.goto("/roadmap/");
-  await expect(page.locator(".nav-left a.on")).toHaveText("Roadmap");
+  await page.goto("/roadmaps/fundamentos/");
+  await expect(page.locator(".nav-left a.on")).toHaveText("Fundamentos");
   await page.goto("/apoie/");
   await expect(page.locator(".nav-right a.on")).toContainText("Apoiar");
   await page.goto("/introducao/");
@@ -976,8 +975,14 @@ test("Roadmap, Apoiar e Introdução mostram onde o leitor está", async ({ page
 });
 
 test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({ page }) => {
-  const marcados = ALL_TOPICS.filter((t) => t.isNew);
-  await page.goto("/topico/big-o/");
+  // O menu é do ROADMAP: ele só mostra o selo dos tópicos que ESTE roadmap
+  // cita. Os outros marcados (hoje `bloom-filter`, `union-find` e `trie`, que
+  // vivem em roadmaps extras) aparecem no menu deles, e o filtro abaixo é o que
+  // diz isso — sem ele, o teste cobraria dos Fundamentos um selo que é de outro
+  // percurso, e a correção "óbvia" seria tirar a tag do tópico.
+  const marcados = roadmapTopics(FUNDAMENTOS).filter((t) => t.isNew);
+  expect(marcados.length, "nenhum tópico marcado nos Fundamentos: o teste não prova nada").toBeGreaterThan(0);
+  await page.goto("/roadmaps/fundamentos/big-o/");
 
   // abre todo grupo ainda fechado, para que os selos de todos os tópicos contem
   const grupos = page.locator(".side-group");
@@ -988,7 +993,7 @@ test("selo NOVO segue a tag isNew, não a existência de visualizador", async ({
 
   await expect(page.locator(".side-item .badge-novo")).toHaveCount(marcados.length);
   for (const t of marcados) {
-    await expect(page.locator(`.side-item[href="/topico/${t.slug}/"] .badge-novo`)).toBeVisible();
+    await expect(page.locator(`.side-item[href="/roadmaps/fundamentos/${t.slug}/"] .badge-novo`)).toBeVisible();
   }
 });
 
@@ -996,7 +1001,7 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
   await page.goto("/introducao/");
   await expect(page.getByRole("heading", { level: 1, name: "Por onde começar" })).toBeVisible();
   await page.getByRole("link", { name: "Começar por Big O" }).click();
-  await expect(page).toHaveURL(/topico\/big-o/);
+  await expect(page).toHaveURL(/roadmaps\/fundamentos\/big-o/);
 });
 
 // Cobertura de todos os tópicos "ready": em vez de um teste artesanal por
@@ -1005,10 +1010,16 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 // controles de reprodução, o colapso de painel no celular e o overflow no
 // mobile.
 //
-// A LISTA DE SLUGS É DERIVADA de `ALL_TOPICS`, não escrita à mão. Escrita à mão
+// A LISTA DE SLUGS É DERIVADA de `TOPICOS`, não escrita à mão. Escrita à mão
 // ela envelhece em silêncio: promover um tópico sem lembrar de acrescentá-lo
 // aqui deixa a página nova fora dos QUATRO guardas de uma vez, com o CI verde e
-// nenhum sinal de que faltou alguma coisa. São 11 promoções pela frente.
+// nenhum sinal de que faltou alguma coisa.
+//
+// `TOPICOS`, e não `TOPICOS`: a página de um tópico de trilha e a de uma
+// tópico avulso saem do MESMO template das do roadmap, e o contrato que este
+// bloco cobra é do template. Com a lista do roadmap aqui, os 31 tópicos de fora
+// dela ficariam sem os quatro guardas — inclusive o de overflow no celular, que
+// é o único teste de mobile que uma página de artigo tem.
 //
 // O que continua à mão é a DESCRIÇÃO de cada tópico, e de propósito:
 //
@@ -1016,7 +1027,10 @@ test("página de introdução explica o guia e leva ao primeiro tópico", async 
 //   porque a página renderiza `t.name` — o teste passaria a comparar o dado com
 //   ele mesmo e pararia de pegar título trocado;
 // - `vizMin` não existe na fonte: `viz` é o nome de UM visualizador, não a
-//   contagem dos que o MDX de fato instancia.
+//   contagem dos que o MDX de fato instancia. E `0` é um valor legítimo: as
+//   páginas escritas fora do roadmap (Union-Find, Trie, Bloom Filter) ainda não
+//   têm visualizador, e o piso delas é zero até alguém escrever um. Elas
+//   continuam passando pelos outros três guardas.
 const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
   "big-o": { h1: "Notação Big O", vizMin: 2 },
   arrays: { h1: "Arrays e Listas", vizMin: 3 },
@@ -1060,14 +1074,14 @@ const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
 // guardas, mesmo antes de alguém descrevê-lo: `t.name` é o que a página
 // renderiza e `vizMin: 1` é o piso de qualquer página completa. Quem avisa que
 // falta descrever é o teste logo abaixo, e ele reprova alto.
-const TOPICOS_PRONTOS = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => ({
+const TOPICOS_PRONTOS = TOPICOS.filter((t) => t.status === "ready").map((t) => ({
   slug: t.slug,
   h1: DESCRICAO[t.slug]?.h1 ?? t.name,
   vizMin: DESCRICAO[t.slug]?.vizMin ?? 1,
 }));
 
 test("todo tópico 'ready' está descrito na tabela dos guardas de contrato", () => {
-  const prontos = ALL_TOPICS.filter((t) => t.status === "ready").map((t) => t.slug);
+  const prontos = TOPICOS.filter((t) => t.status === "ready").map((t) => t.slug);
   const semDescricao = prontos.filter((s) => !DESCRICAO[s]);
   const descritosDeMais = Object.keys(DESCRICAO).filter((s) => !prontos.includes(s));
 
@@ -1089,7 +1103,7 @@ test("todo tópico 'ready' está descrito na tabela dos guardas de contrato", ()
 
 for (const t of TOPICOS_PRONTOS) {
   test(`tópico ${t.slug} entrega artigo, visualizadores e âncoras válidas`, async ({ page }) => {
-    await page.goto(`/topico/${t.slug}/`);
+    await page.goto(`/topicos/${t.slug}/`);
     await expect(page.getByRole("heading", { level: 1, name: t.h1 })).toBeVisible();
 
     // o artigo existe de verdade (não é o cartão de "em construção")
@@ -1114,7 +1128,7 @@ for (const t of TOPICOS_PRONTOS) {
 }
 
 test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async ({ page }) => {
-  await page.goto("/topico/tree-traversals/");
+  await page.goto("/topicos/tree-traversals/");
   const viz = page.locator("figure.viz").first();
   const irAteOFim = async () => {
     const proximo = viz.getByRole("button", { name: "Próximo ›" });
@@ -1146,7 +1160,7 @@ test("percursos em árvore: trocar a ordem muda a saída, não o caminho", async
 });
 
 test("BST: a mesma sequência inserida em ordem degenera a árvore", async ({ page }) => {
-  await page.goto("/topico/bst/");
+  await page.goto("/topicos/bst/");
   const viz = page.locator("figure.viz").first();
   // O texto do card é rótulo + valor concatenados ("altura3"), então a regex
   // ancorada casa só o card certo: "altura mínima3" não bate. Evita tanto o
@@ -1165,7 +1179,7 @@ test("BST: a mesma sequência inserida em ordem degenera a árvore", async ({ pa
 });
 
 test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
-  await page.goto("/topico/mst/");
+  await page.goto("/topicos/mst/");
   const viz = page.locator("figure.viz").first();
   const pesos = viz.locator(".viz-var", { hasText: /Kruskal|Prim/ });
   const textos = await pesos.allTextContents();
@@ -1180,7 +1194,7 @@ test("MST: Kruskal e Prim fecham no mesmo peso total", async ({ page }) => {
 });
 
 test("heap: inserir, remover e construir contam trabalho diferente sobre os mesmos dados", async ({ page }) => {
-  await page.goto("/topico/binary-heap/");
+  await page.goto("/topicos/binary-heap/");
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   // O laço sai calado se o limite estourar, e aí a asserção seguinte roda num
@@ -1227,7 +1241,7 @@ test("heap: inserir, remover e construir contam trabalho diferente sobre os mesm
 // evitar. Agora toda troca de animação reabre no mesmo ponto, e o ↺ continua
 // sendo o único caminho para o passo zero.
 test("heap: trocar preset ou modo reabre com árvore, não com um nó solto", async ({ page }) => {
-  await page.goto("/topico/binary-heap/");
+  await page.goto("/topicos/binary-heap/");
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
   const nos = viz.locator("svg g.tt-no");
 
@@ -1251,7 +1265,7 @@ test("heap: trocar preset ou modo reabre com árvore, não com um nó solto", as
 });
 
 test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ page }) => {
-  await page.goto("/topico/binary-heap/");
+  await page.goto("/topicos/binary-heap/");
   const viz = page.locator("figure.viz").filter({ hasText: "a árvore e o array do heap se movendo juntos" });
   await viz.getByRole("button", { name: "remover o topo" }).click();
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
@@ -1263,7 +1277,7 @@ test("heap: remover o topo repetidamente devolve os valores em ordem", async ({ 
 });
 
 test("índices do heap: clicar num nó acende pai e filhos com as contas certas", async ({ page }) => {
-  await page.goto("/topico/binary-heap/");
+  await page.goto("/topicos/binary-heap/");
   // a tabela de escolha de estrutura é estática e não entra na contagem de viz
   await expect(page.locator("article figure.bigo-fam")).toHaveCount(1);
   const viz = page.locator("figure.viz").filter({ hasText: "clique num nó e veja de onde saem pai e filhos" });
@@ -1291,7 +1305,7 @@ test("índices do heap: clicar num nó acende pai e filhos com as contas certas"
 });
 
 test("heap sort: a fronteira anda e o array sai ordenado", async ({ page }) => {
-  await page.goto("/topico/heap-sort/");
+  await page.goto("/topicos/heap-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "heap sort: duas fases no mesmo array" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   await expect(proximo, "a animação não reiniciou: Próximo já começou desabilitado").toBeEnabled();
@@ -1306,7 +1320,7 @@ test("heap sort: a fronteira anda e o array sai ordenado", async ({ page }) => {
 });
 
 test("heap sort é instável: os empates saem fora da ordem de entrada", async ({ page }) => {
-  await page.goto("/topico/heap-sort/");
+  await page.goto("/topicos/heap-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "significa na prática" });
   const nomes = (fila: number) =>
     viz.locator(".hs-fila").nth(fila).locator(".hp-cel.reg em");
@@ -1326,7 +1340,7 @@ test("heap sort é instável: os empates saem fora da ordem de entrada", async (
 });
 
 test("busca binária: descarta metade por passo e para no ponto de inserção", async ({ page }) => {
-  await page.goto("/topico/busca-binaria/");
+  await page.goto("/topicos/busca-binaria/");
   const viz = page.locator("figure.viz").filter({ hasText: "metade some a cada olhada" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const irAteOFim = async () => {
@@ -1364,7 +1378,7 @@ test("busca binária: descarta metade por passo e para no ponto de inserção", 
 });
 
 test("busca binária: a fórmula ingênua do meio estoura o inteiro de 32 bits", async ({ page }) => {
-  await page.goto("/topico/busca-binaria/");
+  await page.goto("/topicos/busca-binaria/");
   const viz = page.locator("figure.viz").filter({ hasText: "as duas formas de achar o meio" });
 
   // com índices pequenos as duas fórmulas concordam, que é o motivo de o bug passar
@@ -1383,7 +1397,7 @@ test("busca binária: a fórmula ingênua do meio estoura o inteiro de 32 bits",
 });
 
 test("fronteira: a mesma busca devolve primeira, última e ponto de inserção", async ({ page }) => {
-  await page.goto("/topico/busca-binaria/");
+  await page.goto("/topicos/busca-binaria/");
   const viz = page.locator("figure.viz").filter({ hasText: "repetidos, bordas e a posição de inserção" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const resposta = async (rot: RegExp) => {
@@ -1425,7 +1439,7 @@ test("fronteira: a mesma busca devolve primeira, última e ponto de inserção",
 });
 
 test("ordenação básica: o selection sort não tem melhor caso", async ({ page }) => {
-  await page.goto("/topico/ordenacao-basica/");
+  await page.goto("/topicos/ordenacao-basica/");
   const viz = page.locator("figure.viz").filter({ hasText: "os três O(n²) sobre o mesmo array" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   // O card concatena rótulo e valor num nó só, então uma asserção de substring
@@ -1471,7 +1485,7 @@ test("ordenação básica: o selection sort não tem melhor caso", async ({ page
 });
 
 test("ordenação básica: as barras batem com o passo a passo e a lei das inversões", async ({ page }) => {
-  await page.goto("/topico/ordenacao-basica/");
+  await page.goto("/topicos/ordenacao-basica/");
   const corrida = page.locator("figure.viz").filter({ hasText: "o mesmo array custa três preços" });
   const barras = (linha: number) => corrida.locator(".ord-linha").nth(linha).locator(".bb-barra-txt");
 
@@ -1508,7 +1522,7 @@ test("ordenação básica: as barras batem com o passo a passo e a lei das inver
 });
 
 test("merge sort: o custo não depende dos dados, e o empate depende do sinal", async ({ page }) => {
-  await page.goto("/topico/merge-sort/");
+  await page.goto("/topicos/merge-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "a descida divide, a subida ordena" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   // O card concatena rótulo e valor num nó só, então uma asserção de substring
@@ -1564,7 +1578,7 @@ test("merge sort: o custo não depende dos dados, e o empate depende do sinal", 
 });
 
 test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) => {
-  await page.goto("/topico/quick-sort/");
+  await page.goto("/topicos/quick-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "a partição e o pivô que fica pronto" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   // O card concatena rótulo e valor num nó só, então uma asserção de substring
@@ -1632,7 +1646,7 @@ test("quick sort: o pior caso mora nas entradas mais comuns", async ({ page }) =
 });
 
 test("shell sort: a h-ordenação não se perde e o gap só compensa com n grande", async ({ page }) => {
-  await page.goto("/topico/shell-sort/");
+  await page.goto("/topicos/shell-sort/");
   const viz = page.locator("figure.viz").filter({ hasText: "o insertion sort com gap" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   // O card concatena rótulo e valor num nó só, então uma asserção de substring
@@ -1684,7 +1698,7 @@ test("shell sort: a h-ordenação não se perde e o gap só compensa com n grand
 });
 
 test("backtracking: escolher, explorar e desfazer, com a lista voltando ao início", async ({ page }) => {
-  await page.goto("/topico/backtracking/");
+  await page.goto("/topicos/backtracking/");
   const viz = page.locator("figure.viz").filter({ hasText: "escolher, explorar, desfazer" });
   const proximo = viz.getByRole("button", { name: "Próximo ›" });
   const stat = (rot: RegExp) => viz.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
@@ -1725,7 +1739,7 @@ test("backtracking: escolher, explorar e desfazer, com a lista voltando ao iníc
 });
 
 test("backtracking: o sudoku fecha válido e a poda não muda a resposta", async ({ page }) => {
-  await page.goto("/topico/backtracking/");
+  await page.goto("/topicos/backtracking/");
   const sud = page.locator("figure.viz").filter({ hasText: "resolvendo sudoku" });
   const proximo = sud.getByRole("button", { name: "Próximo ›" });
   await expect(proximo).toBeEnabled();
@@ -1758,7 +1772,7 @@ test("backtracking: o sudoku fecha válido e a poda não muda a resposta", async
 });
 
 test("números binários: a soma das posições ligadas e as divisões por 2", async ({ page }) => {
-  await page.goto("/topico/binary-numbers/");
+  await page.goto("/topicos/binary-numbers/");
   const conv = page.locator("figure.viz").filter({ hasText: "soma de potências de dois" });
   const stat = (rot: RegExp) => conv.locator(".bigo-stat").filter({ hasText: rot }).locator("strong");
 
@@ -1799,7 +1813,7 @@ test("números binários: a soma das posições ligadas e as divisões por 2", a
 });
 
 test("binários negativos: complemento de dois, zero único e o padrão sem sinal", async ({ page }) => {
-  await page.goto("/topico/negative-binary/");
+  await page.goto("/topicos/negative-binary/");
   const comp = page.locator("figure.viz").filter({ hasText: "inverter e somar 1" });
   const proximo = comp.getByRole("button", { name: "Próximo ›" });
   const irAteOFim = async () => {
@@ -1854,7 +1868,7 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
   // não renderizava o grupo fechado, e por isso escondia 46 dos 47 tópicos do
   // rastreador no pior caso. Corrigido aquilo, os 11 selos do site inteiro
   // passaram a estar no DOM, e o que contava o grupo passou a contar o site.
-  // Ler de ALL_TOPICS em vez de fixar uma lista faz o teste sobreviver ao dia
+  // Ler de TOPICOS em vez de fixar uma lista faz o teste sobreviver ao dia
   // em que qualquer um destes tópicos for publicado.
   //
   // O menu lembra os grupos abertos entre visitas, e este teste passa por vários
@@ -1864,15 +1878,15 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
   await page.addInitScript(() => localStorage.removeItem("ccc-dsa-menu"));
 
   const conferirGrupo = async (slug: string) => {
-    await page.goto(`/topico/${slug}/`);
-    const grupo = ALL_TOPICS.find((t) => t.slug === slug)!.group;
-    const doGrupo = ALL_TOPICS.filter((t) => t.group === grupo);
+    await page.goto(`/roadmaps/fundamentos/${slug}/`);
+    const grupo = TOPICOS.find((t) => t.slug === slug)!.group;
+    const doGrupo = TOPICOS.filter((t) => t.group === grupo);
     const vazios = doGrupo.filter((t) => isEmptyTopic(t));
     await expect(page.locator(".sidebar .side-items:not([hidden]) .badge-soon")).toHaveCount(
       vazios.length
     );
     for (const t of doGrupo) {
-      const item = page.locator(`.sidebar a[href="/topico/${t.slug}/"]`);
+      const item = page.locator(`.sidebar a[href="/roadmaps/fundamentos/${t.slug}/"]`);
       if (isEmptyTopic(t)) await expect(item, `${t.slug} devia estar em breve`).toHaveClass(/\bsoon\b/);
       else await expect(item, `${t.slug} NÃO devia estar em breve`).not.toHaveClass(/\bsoon\b/);
     }
@@ -1881,7 +1895,7 @@ test("o selo em breve aparece em quem não tem vídeo, artigo nem visualização
   // Programação Dinâmica só tem vídeos extras (recortes de resolução), e isso
   // não é material do tópico: ela continua em breve.
   await conferirGrupo("programacao-dinamica");
-  await expect(page.locator('.sidebar a[href="/topico/programacao-dinamica/"]')).toHaveClass(/\bsoon\b/);
+  await expect(page.locator('.sidebar a[href="/roadmaps/fundamentos/programacao-dinamica/"]')).toHaveClass(/\bsoon\b/);
 
   // Manipulação de Bits tem dois publicados e um vazio, no mesmo grupo
   await conferirGrupo("binary-numbers");
@@ -1899,7 +1913,7 @@ test("todo visualizador com passos tem controles que funcionam", async ({ page }
   const naoAvanca: string[] = [];
 
   for (const t of TOPICOS_PRONTOS) {
-    await page.goto(`/topico/${t.slug}/`);
+    await page.goto(`/topicos/${t.slug}/`);
     const vizes = page.locator("article figure.viz");
     for (let i = 0; i < (await vizes.count()); i++) {
       const viz = vizes.nth(i);
@@ -1937,7 +1951,7 @@ test("no celular, nenhum painel de visualizador colapsa", async ({ page }) => {
   const colapsados: string[] = [];
 
   for (const t of TOPICOS_PRONTOS) {
-    await page.goto(`/topico/${t.slug}/`);
+    await page.goto(`/topicos/${t.slug}/`);
     const paineis = await page
       .locator(
         "article figure.viz .gr-painel, article figure.viz .tt-painel, " +
@@ -1961,7 +1975,7 @@ test("no celular, nenhum painel de visualizador colapsa", async ({ page }) => {
 test("nenhuma página de tópico rola na horizontal no celular", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const t of TOPICOS_PRONTOS) {
-    await page.goto(`/topico/${t.slug}/`);
+    await page.goto(`/topicos/${t.slug}/`);
     const estoura = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
     expect(estoura, `${t.slug} estoura a largura no mobile`).toBe(false);
   }

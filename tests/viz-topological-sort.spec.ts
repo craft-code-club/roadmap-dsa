@@ -22,7 +22,7 @@ import { test, expect, type Page } from "@playwright/test";
 // código, painel de variáveis e controles. Nenhum arquivo ficou de fora.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/topological-sort/";
+const URL = "/topicos/topological-sort/";
 
 // Notebook de 16", a régua que motivou a casca. Nela a peça passa do orçamento
 // com o código aberto (1183 contra 816) e ele entra recolhido.

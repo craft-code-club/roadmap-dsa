@@ -28,7 +28,7 @@ function painel(page: Page): Locator {
 
 async function abrirTopico(page: Page, largura = 1512, altura = 900) {
   await page.setViewportSize({ width: largura, height: altura });
-  await page.goto("/topico/strings/");
+  await page.goto("/topicos/strings/");
   // As fontes chegam com `display: swap`: medir antes mede a de fallback.
   await page.evaluate(() => document.fonts.ready);
 }

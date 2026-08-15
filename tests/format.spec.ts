@@ -52,13 +52,13 @@ async function expandir(page: Page, url: string, i: number) {
 // `tsc` não reclama, porque a assinatura é a mesma.
 // ---------------------------------------------------------------------------
 
-const HASH = "/topico/hash-table/";
+const HASH = "/topicos/hash-table/";
 
 /**
  * A ordem das peças na página, que é o que o `nth()` endereça.
  *
- * Em `/topico/hash-table/` o `HashTableOperacoes` é tabela estática, sem casca
- * e sem overlay: ele não conta. Em `/topico/strings/` as três peças contam.
+ * Em `/topicos/hash-table/` o `HashTableOperacoes` é tabela estática, sem casca
+ * e sem overlay: ele não conta. Em `/topicos/strings/` as três peças contam.
  */
 const HASH_BUSCA = 1;
 const STRINGS_CONCAT = 1; // 0 é o StringsBytesVisualizer
@@ -141,7 +141,7 @@ test("o resumo do pior caso compara os dois números sem perder a palavra", asyn
 test("montar string caractere a caractere: a volta 1 fala no singular e a volta 2 no plural", async ({
   page,
 }) => {
-  const painel = await expandir(page, "/topico/strings/", STRINGS_CONCAT);
+  const painel = await expandir(page, "/topicos/strings/", STRINGS_CONCAT);
   const nota = painel.locator("p.viz-note");
   const proximo = painel.getByRole("button", { name: /Próximo/ });
 
@@ -155,7 +155,7 @@ test("montar string caractere a caractere: a volta 1 fala no singular e a volta 
 });
 
 test("rotate string: o prefixo que bate concorda sem duplicar o número", async ({ page }) => {
-  const painel = await expandir(page, "/topico/strings/", STRINGS_ROTATE);
+  const painel = await expandir(page, "/topicos/strings/", STRINGS_ROTATE);
   const nota = painel.locator("p.viz-note");
   const proximo = painel.getByRole("button", { name: /Próximo/ });
 
@@ -263,7 +263,7 @@ test("sem a prop `speeds`, o controle de velocidade continua nomeando as marchas
   page,
 }) => {
   // A fila é uma das onze que deixaram de passar a prop.
-  const painel = await expandir(page, "/topico/filas/", 0);
+  const painel = await expandir(page, "/topicos/filas/", 0);
   const slider = painel.getByRole("slider", { name: "Velocidade" });
 
   // Marcha inicial: a terceira do array, que a tela chama de "1x".

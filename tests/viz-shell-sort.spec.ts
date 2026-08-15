@@ -38,7 +38,7 @@ async function pronta(fig: Locator) {
 }
 
 async function abrir(page: Page) {
-  await page.goto("/topico/shell-sort/");
+  await page.goto("/topicos/shell-sort/");
   await page.evaluate(() => document.fonts.ready);
   const fig = noArtigo(page);
   await pronta(fig);

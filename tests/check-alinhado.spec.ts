@@ -240,7 +240,7 @@ const TOLERANCIA = 0.35;
 
 /** Os três lugares onde o quadradinho aparece, já no estado marcado. */
 async function marcados(page: Page) {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/roadmaps/fundamentos/two-pointers/");
 
   const lateral = page
     .locator(".sidebar")
@@ -277,7 +277,7 @@ for (const tela of TELAS) {
     ];
 
     // O terceiro mora no /roadmap, e o progresso marcado acima chega junto.
-    await page.goto("/roadmap/");
+    await page.goto("/roadmaps/fundamentos/");
     const card = page
       .locator(".topic-card-wrap")
       .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
@@ -308,7 +308,7 @@ for (const tela of TELAS) {
 test("o ✓ fica centralizado no celular (390x844)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.goto("/roadmap/");
+  await page.goto("/roadmaps/fundamentos/");
   const card = page
     .locator(".topic-card-wrap")
     .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
@@ -316,7 +316,7 @@ test("o ✓ fica centralizado no celular (390x844)", async ({ page }) => {
   await expect(card).toHaveAttribute("aria-checked", "true");
   const noCard = await medir(page, card);
 
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/roadmaps/fundamentos/two-pointers/");
   const problema = page.locator(".problem-check").first();
   if ((await problema.getAttribute("aria-checked")) === "false") await problema.click();
   await expect(problema).toHaveAttribute("aria-checked", "true");
@@ -409,7 +409,7 @@ test("o quadradinho de progresso não herda o padding do <button>", async ({ pag
   await conferir("trilha lateral", lateral);
   await conferir("lista de problemas", problema);
 
-  await page.goto("/roadmap/");
+  await page.goto("/roadmaps/fundamentos/");
   const card = page
     .locator(".topic-card-wrap")
     .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
@@ -432,20 +432,20 @@ test("o desenho do ✓ não entra no nome acessível", async ({ page }) => {
     );
     expect(soltos, `${onde}: todo <svg> do quadradinho tem que ser aria-hidden`).toEqual([]);
   };
-  await conferirAriaHidden("/topico/two-pointers");
+  await conferirAriaHidden("/roadmaps/fundamentos/two-pointers");
 
-  await page.goto("/roadmap/");
+  await page.goto("/roadmaps/fundamentos/");
   const card = page
     .locator(".topic-card-wrap")
     .getByRole("checkbox", { name: "Marcar Two Pointers como concluído" });
   await expect(card).toHaveAccessibleName("Marcar Two Pointers como concluído");
-  await conferirAriaHidden("/roadmap");
+  await conferirAriaHidden("/roadmaps/fundamentos");
 });
 
 // A VARREDURA DE CLASSE do achado acima.
 //
 // O revisor apontou UM `<button>` sem `type` (o da lista de problemas) e disse
-// que `Shell` e `RoadmapGroups` "já usam". Medido no repositório inteiro, não
+// que `Shell` e `FundamentosGroups` "já usam". Medido no repositório inteiro, não
 // usavam: das 211 tags `<button>` de `src/` e `content/`, só 5 declaravam
 // `type`. Na fronteira desta casa — o chassi do site e a casca do visualizador —
 // eram 10 sem, e não 1. As outras 196 vivem em `content/visualizers/`, que este
@@ -482,7 +482,7 @@ const CHASSI_TOPICO: Grupo[] = [
 
 const CHASSI_ROADMAP: Grupo[] = [
   { sel: ".header-menu-toggle", onde: "abrir o menu de tópicos (Shell)", minimo: 1 },
-  { sel: ".tcard-check", onde: "quadradinho do card do roadmap (RoadmapGroups)", minimo: 10 },
+  { sel: ".tcard-check", onde: "quadradinho do card do roadmap (FundamentosGroups)", minimo: 10 },
 ];
 
 async function varrer(page: Page, grupos: Grupo[], pagina: string) {
@@ -517,13 +517,13 @@ async function varrer(page: Page, grupos: Grupo[], pagina: string) {
 }
 
 test("nenhum <button> do chassi nem da casca do visualizador é submit por omissão", async ({ page }) => {
-  await page.goto("/topico/two-pointers/");
+  await page.goto("/roadmaps/fundamentos/two-pointers/");
   // A casca do visualizador só existe depois que o componente hidrata; sem
   // esperar, a varredura passaria por não achar nada (e o piso acusaria).
   await expect(page.locator(".viz-expand").first()).toBeVisible();
-  await varrer(page, CHASSI_TOPICO, "/topico/two-pointers");
+  await varrer(page, CHASSI_TOPICO, "/roadmaps/fundamentos/two-pointers");
 
-  await page.goto("/roadmap/");
+  await page.goto("/roadmaps/fundamentos/");
   await expect(page.locator(".tcard-check").first()).toBeVisible();
-  await varrer(page, CHASSI_ROADMAP, "/roadmap");
+  await varrer(page, CHASSI_ROADMAP, "/roadmaps/fundamentos");
 });

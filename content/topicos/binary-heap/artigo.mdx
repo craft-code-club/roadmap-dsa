@@ -1,0 +1,153 @@
+<Callout>
+Toda vez que um sistema precisa responder **"qual é o próximo?"** enquanto a lista de candidatos muda o tempo todo, existe um heap por perto. Ele é a estrutura por trás da fila de prioridade, do [Dijkstra](/topicos/dijkstra), do escalonador do seu sistema operacional e do [heap sort](/topicos/heap-sort). E o mais bonito é que ele não usa ponteiro nenhum: é uma árvore que mora dentro de um array comum.
+</Callout>
+
+## A pergunta que o heap responde
+
+Imagine uma fila de atendimento de emergência. Pacientes chegam a qualquer momento, cada um com uma gravidade, e a pergunta que o sistema faz a cada rodada é sempre a mesma: **quem é o mais grave agora?**
+
+Com as estruturas que você já conhece, as duas saídas óbvias são ruins de um jeito ou de outro. Guardar tudo num array desordenado deixa a chegada barata, mas cada atendimento vira uma varredura completa para achar o máximo. Manter o array sempre ordenado inverte o problema: achar o mais grave é instantâneo, e cada chegada desloca metade do array para abrir espaço.
+
+<HeapEstruturas />
+
+Repare que nenhuma linha ganha em tudo, e é exatamente por isso que o heap existe. Ele é a única que faz **ver o extremo** e **remover o extremo** baratos ao mesmo tempo, que é o par de operações de uma fila de prioridade. O preço está na última coluna, e é honesto declarar: buscar um valor qualquer dentro de um heap é varredura linear.
+
+A [árvore de busca binária](/topicos/bst) balanceada também resolve o problema, e resolve mais coisas. A escolha entre as duas é uma pergunta só: **você precisa de mais alguma coisa além dos extremos?** Se precisa buscar, percorrer em ordem ou pegar o vizinho de um valor, use a árvore. Se a sua vida inteira é "insere" e "me dá o menor", o heap é mais simples, mais compacto e mais rápido na prática.
+
+## A regra, e o que ela não promete
+
+Um binary heap é uma **árvore binária completa** que obedece a **uma** regra.
+
+<Colunas>
+<Cartao titulo="Completa">
+Todos os níveis estão cheios, com a única exceção do último, que é preenchido da esquerda para a direita sem buracos. Não é enfeite: é essa forma que permite guardar a árvore num array.
+</Cartao>
+<Cartao titulo="Ordenada pela propriedade do heap">
+Num **min-heap**, todo pai é menor ou igual aos filhos. Num **max-heap**, maior ou igual. Só isso, e vale em todos os nós, inclusive dentro de cada subárvore.
+</Cartao>
+</Colunas>
+
+A parte que mais confunde é o que a regra **não** diz. Ela é uma relação entre pai e filho, nunca entre irmãos. Num min-heap, o filho da esquerda pode tranquilamente ser maior que o da direita, e um nó lá embaixo à esquerda pode ser menor que um nó do meio à direita. A única garantia global que sai disso é a que interessa: **o menor de todos está na raiz**, porque ele é menor que os filhos, que são menores que os netos, e assim por diante.
+
+<Callout tipo="aviso">
+Não confunda com a [árvore de busca binária](/topicos/bst). Lá a regra é horizontal (tudo à esquerda é menor, tudo à direita é maior) e o percurso em ordem devolve os valores ordenados. Aqui a regra é vertical, e **o array de um heap quase nunca está ordenado**. Um array ordenado é sempre um min-heap válido; a recíproca é falsa.
+</Callout>
+
+Essa diferença tem uma consequência prática direta: um heap é muito mais fácil de manter equilibrado. A BST depende da ordem de inserção e degenera para uma lista quando os dados chegam ordenados, o que exige rebalanceamento (AVL, Red-Black) para ficar em O(log n) no pior caso. O heap é balanceado **por definição**, porque a forma completa faz parte da definição. Com n elementos, a altura é sempre ⌊log₂ n⌋.
+
+## A árvore que mora dentro de um array
+
+Aqui está a ideia que faz o heap valer a pena. Como a árvore é completa e não tem buracos, dá para numerar os nós por nível, da esquerda para a direita, e usar esse número como índice de um array. As ligações da árvore viram três contas:
+
+```python
+filho_esquerdo(i) = 2 * i + 1
+filho_direito(i)  = 2 * i + 2
+pai(i)            = (i - 1) // 2
+```
+
+Clique nos nós abaixo e veja as três contas rodando ao vivo. O seletor de k existe para mostrar que o **2** dessas fórmulas não é mágica: ele é o número de filhos por nó. Troque para 3 e as fórmulas viram `3i + 1`, `3i + 2`, `3i + 3`, e tudo continua funcionando.
+
+<HeapIndicesVisualizer />
+
+O que se ganha com isso:
+
+- **Zero ponteiros.** Um nó em formato de objeto guardaria o valor mais duas referências. No array, essas duas referências viram uma multiplicação e uma soma, e ocupam zero byte.
+- **Memória contígua.** Os valores ficam grudados na RAM, então o processador traz vários de uma vez na mesma linha de cache. Uma árvore de nós espalha os valores pelo heap de memória e paga uma ida à memória por nó visitado.
+- **Acesso direto às pontas.** O extremo está sempre em `a[0]` e o último elemento sempre em `a[n - 1]`, os dois em O(1).
+
+Vale reparar numa coincidência que não é coincidência: essa numeração por nível é exatamente o resultado de um [percurso em largura (BFS)](/topicos/tree-traversals) na árvore. Ler o heap do índice 0 ao último é caminhar nível por nível.
+
+## Subir e descer: as duas únicas operações
+
+Todo o heap se resume a dois movimentos. Um valor está fora do lugar, e ele **sobe** trocando com o pai, ou **desce** trocando com o filho mais extremo. Nada mais.
+
+**Inserir** coloca o valor no fim do array, que é a única posição que preserva a forma completa, e o faz subir enquanto ele violar a regra com o pai.
+
+**Remover o topo** é o movimento contrário, e o truque está no começo: como a raiz vai embora, alguém precisa ocupar o lugar dela sem abrir buraco na árvore, e o único candidato é o **último** elemento. Ele sobe para a raiz e desce comparando com os dois filhos ao mesmo tempo, sempre trocando com o mais extremo dos três.
+
+Rode as duas no visualizador abaixo. No modo remover, deixe rodar até o fim e olhe a saída: ela sai ordenada, o que já entrega a ideia do [heap sort](/topicos/heap-sort).
+
+<BinaryHeapVisualizer />
+
+Os dois movimentos percorrem **um caminho só**, da folha à raiz ou da raiz a uma folha, e nunca visitam a árvore inteira. Como a altura é ⌊log₂ n⌋, os dois custam O(log n). Num heap de 1 milhão de elementos são 20 níveis: inserir ou remover custa no máximo 19 trocas, contra 1 milhão de comparações de uma varredura linear.
+
+```python
+def push(heap, valor):
+    heap.append(valor)
+    i = len(heap) - 1
+    while i > 0:
+        pai = (i - 1) // 2
+        if heap[pai] <= heap[i]:
+            break
+        heap[pai], heap[i] = heap[i], heap[pai]
+        i = pai
+
+def pop(heap):
+    topo = heap[0]
+    heap[0] = heap[-1]
+    heap.pop()
+    desce(heap, 0)
+    return topo
+```
+
+<Callout tipo="aviso">
+Na descida, comparar o pai só com o filho da esquerda é o erro mais comum de quem escreve heap pela primeira vez. É preciso olhar **os dois filhos**, escolher o mais extremo entre os três e trocar com ele. E antes de qualquer acesso, checar se o índice existe: `2 * i + 1` frequentemente aponta para fora do array, e é essa checagem que encerra a descida numa folha.
+</Callout>
+
+## Construir um heap de uma vez custa O(n)
+
+Se você já tem um array pronto e quer transformá-lo em heap, a saída óbvia é inserir os elementos um a um: n inserções de O(log n) cada, ou seja, O(n log n). Existe uma forma melhor, e ela é surpreendente.
+
+Em vez de subir n vezes, você **desce**, começando do último nó que tem filho e andando de trás para a frente até a raiz. No modo "construir de uma vez" do visualizador acima, o algoritmo começa em `n // 2 - 1`, e o painel compara o custo com o de inserir um a um.
+
+```python
+def build_heap(a):
+    for i in range(len(a) // 2 - 1, -1, -1):
+        desce(a, i, len(a))
+```
+
+O ponto de partida não é detalhe: **da metade do array para a frente só existe folha**, e folha não tem para onde descer. Essa única conta descarta metade do trabalho antes de começar.
+
+E é daí que sai a complexidade. Repare em quanto cada nível pode descer, no máximo:
+
+| Nível | Quantos nós | Descida máxima | Trabalho |
+| --- | --- | --- | --- |
+| folhas | n/2 | 0 | 0 |
+| um acima | n/4 | 1 | n/4 |
+| dois acima | n/8 | 2 | 2n/8 |
+| raiz | 1 | log₂ n | log₂ n |
+
+A soma `n/4 · 1 + n/8 · 2 + n/16 · 3 + ...` converge para **n**, não para n log n. A intuição é que os nós baratos são a maioria esmagadora e os caros são raríssimos: só existe uma raiz. Inserir um a um faz o contrário, porque cada inserção nova entra justamente no nível mais fundo, que é o mais caro.
+
+## Onde o heap já está rodando no seu código
+
+Você provavelmente já usou um heap sem saber, porque ele quase nunca aparece com esse nome: aparece como **fila de prioridade**.
+
+<Colunas>
+<Cartao titulo="Na biblioteca padrão">
+`PriorityQueue` no Java, `heapq` no Python, `PriorityQueue<T>` no .NET, `container/heap` no Go. Abrir o código-fonte de qualquer uma dessas é um ótimo exercício: as três fórmulas de índice estão lá dentro.
+</Cartao>
+<Cartao titulo="Nos algoritmos de grafo">
+[Dijkstra](/topicos/dijkstra) e Prim ([MST](/topicos/mst)) são gulosos, e o passo guloso deles é "pegue o mais barato ainda não fechado". Trocar a varredura linear por um min-heap é o que leva o Dijkstra de O(V²) para O((V + E) log V).
+</Cartao>
+</Colunas>
+
+Além desses, três usos que aparecem toda hora:
+
+- **Top-K.** Para achar os k maiores de um fluxo de n elementos, guarde um **min-heap de tamanho k**: cada novo valor compara com a raiz, e se for maior, substitui. Custa O(n log k) e usa memória proporcional a k, não a n. É a resposta certa quando os dados não cabem na memória.
+- **Escalonamento.** Sistemas operacionais, filas de tarefas e agendadores precisam do próximo evento por horário. É exatamente um min-heap com a data como chave.
+- **Cache com política de despejo.** Numa política que despeja o item menos usado, o heap mantém o candidato ao despejo sempre acessível em O(1).
+
+## As armadilhas
+
+**O array de um heap não está ordenado.** Vale repetir porque é o engano mais comum: imprimir o array interno e esperar uma sequência crescente leva a bugs sutis. A ordem só aparece quando você remove os elementos um por um.
+
+**"O segundo menor" não é `a[1]`.** A regra não diz nada sobre irmãos, então o segundo menor de um min-heap está em `a[1]` **ou** em `a[2]`, e você precisa comparar os dois. Generalizando, achar o k-ésimo sem remover exige percorrer os candidatos.
+
+**Buscar um valor qualquer é O(n).** Não existe caminho de busca dentro de um heap, porque a regra não diz para que lado ir. Se o seu código precisa de `contém(x)` ou de remover um elemento arbitrário em tempo hábil, mantenha um dicionário de valor para índice ao lado, ou escolha outra estrutura.
+
+**Prioridade não é o dado.** Numa fila de prioridade real, o que se compara quase nunca é o objeto inteiro: é um campo de prioridade. Guarde a tupla `(prioridade, dado)` e cuide do critério de desempate, porque comparar o segundo campo por acidente costuma explodir no primeiro empate.
+
+**A ordem de chegada muda o heap, e isso é normal.** Os mesmos valores inseridos em ordens diferentes produzem arrays diferentes, e todos são heaps válidos. Um teste que compara o array interno com um valor fixo está testando a implementação, não o contrato: teste a **ordem de saída**.
+
+Daqui o caminho natural é ver o heap virar algoritmo de ordenação em [Heap Sort](/topicos/heap-sort), e depois virar peça de outro algoritmo no [Dijkstra](/topicos/dijkstra). Se a comparação com as árvores ficou em aberto, [Árvore de Busca Binária](/topicos/bst) fecha o outro lado, e [Filas e Deques](/topicos/filas) mostra a fila comum que a fila de prioridade generaliza.

@@ -18,7 +18,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 //     que `algo` está mesmo em `measureOn`.
 // ---------------------------------------------------------------------------
 
-const URL = "/topico/ordenacao-basica/";
+const URL = "/topicos/ordenacao-basica/";
 const SLACK = 8;
 
 // As três figuras estão na casca. Só o passo a passo tem bloco recolhível, e é

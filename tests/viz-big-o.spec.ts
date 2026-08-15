@@ -55,7 +55,7 @@ async function ligarTodas(fig: Locator) {
 
 test.describe("big-o · gráfico de crescimento na casca adaptativa", () => {
   test("a página tem duas figure.viz e cada .viz-step diz uma coisa diferente", async ({ page }) => {
-    await page.goto("/topico/big-o/");
+    await page.goto("/topicos/big-o/");
 
     // nível PÁGINA: as duas peças estão na casca, e há dois `.viz-step` com
     // sentidos diferentes. Um locator não escopado pegaria o primeiro calado.
@@ -78,7 +78,7 @@ test.describe("big-o · gráfico de crescimento na casca adaptativa", () => {
   });
 
   test("sem bloco dispensável, nenhum botão promete esconder coisa nenhuma", async ({ page }) => {
-    await page.goto("/topico/big-o/");
+    await page.goto("/topicos/big-o/");
     const fig = grafico(page);
 
     // A peça não tem `.viz-code-slot` nem botão de recolher: `collapsible: false`.
@@ -104,7 +104,7 @@ test.describe("big-o · gráfico de crescimento na casca adaptativa", () => {
 
   test("no painel, cabeçalho e controles ficam parados enquanto o miolo rola", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
-    await page.goto("/topico/big-o/");
+    await page.goto("/topicos/big-o/");
     const painel = await abrirPainel(page);
     await ligarTodas(painel);
 
@@ -135,7 +135,7 @@ test.describe("big-o · gráfico de crescimento na casca adaptativa", () => {
 
   test("o gráfico continua sendo o dono das setas dentro do painel", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
-    await page.goto("/topico/big-o/");
+    await page.goto("/topicos/big-o/");
 
     // O canvas tem altura fixa e ela depende do estado expandido: 300 no artigo,
     // 400 no painel. Afirmar as duas é a prova de que o `viz.expanded` do hook
@@ -168,7 +168,7 @@ test.describe("big-o · gráfico de crescimento na casca adaptativa", () => {
 
   test("o painel é um diálogo: Tab circula dentro dele e Esc fecha", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
-    await page.goto("/topico/big-o/");
+    await page.goto("/topicos/big-o/");
     const painel = await abrirPainel(page);
 
     const dialogo = page.locator('.viz-overlay[role="dialog"]');

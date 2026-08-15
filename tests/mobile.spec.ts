@@ -35,13 +35,13 @@ import { test, expect } from "./fixtures/console-limpo";
 /** Uma página de cada tipo, mais as duas que a regra do `font-size` alcança. */
 const ROTAS = [
   "/",
-  "/roadmap/",
+  "/roadmaps/fundamentos/",
   "/apoie/",
-  "/topico/big-o/",
-  "/topico/two-pointers/", // a página mais densa: 1176 folhas de texto
-  "/topico/merge-sort/", // dona original da regra de `.ms-seg`
-  "/topico/quick-sort/", // a outra dona da MESMA classe
-  "/topico/binary-numbers/", // a fita de bits, que encolhe até 8px de propósito
+  "/topicos/big-o/",
+  "/topicos/two-pointers/", // a página mais densa: 1176 folhas de texto
+  "/topicos/merge-sort/", // dona original da regra de `.ms-seg`
+  "/topicos/quick-sort/", // a outra dona da MESMA classe
+  "/topicos/binary-numbers/", // a fita de bits, que encolhe até 8px de propósito
 ];
 
 /**
@@ -167,7 +167,7 @@ for (const rota of ROTAS) {
 // regra do CSS, os três testes de cima passam (a exceção cobre `.ms-seg` de
 // novo) e o quick sort perde os rótulos em silêncio.
 test("@mobile as faixas da invariante do quick sort continuam legíveis", async ({ page }) => {
-  await page.goto("/topico/quick-sort/");
+  await page.goto("/topicos/quick-sort/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
   const faixas = page.locator(".ms-seg").filter({ hasNot: page.locator("*") });

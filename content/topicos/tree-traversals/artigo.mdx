@@ -1,0 +1,298 @@
+<Callout>
+Uma árvore não tem "próximo elemento". Num array o percurso é óbvio, o índice anda de 0 até n-1 e acabou; numa árvore você chega num nó e tem duas saídas, e a ordem em que você escolhe define coisas diferentes. Percorrer é a operação mais básica sobre árvore, e é a base de tudo que vem depois: comparar duas árvores, copiar, deletar, avaliar uma expressão, achar o caminho mais curto. A boa notícia é que os três percursos em profundidade são **o mesmo código com uma linha em outro lugar**.
+</Callout>
+
+## Duas famílias, uma decisão
+
+Existem dois jeitos de andar por uma árvore, e a diferença entre eles não está na árvore: está na **estrutura auxiliar** que guarda quem ainda falta visitar.
+
+<Colunas>
+<Cartao titulo="Profundidade (DFS)">
+Afunda até onde der antes de considerar o irmão. A estrutura é uma **pilha**, e na versão recursiva ela é a própria pilha de chamadas do programa.
+</Cartao>
+
+<Cartao titulo="Largura (BFS)">
+Termina o nível inteiro antes de descer. A estrutura é uma **fila**, e ela precisa ser explícita: não existe versão recursiva natural.
+</Cartao>
+</Colunas>
+
+Pilha devolve o último que entrou, então o percurso mergulha. Fila devolve o primeiro, então o percurso espalha. É só isso, e daí saem todas as outras diferenças, inclusive as de complexidade de espaço no fim deste artigo.
+
+Dentro do DFS ainda há uma segunda decisão, e é aqui que quase todo mundo se embola: **em que momento você processa o nó**. Antes de descer, no meio, ou depois de tudo? Cada resposta é um percurso com nome próprio: pré-ordem, em ordem e pós-ordem.
+
+## Uma árvore, quatro respostas
+
+Esta árvore acompanha o tópico inteiro, e é a mesma que o visualizador usa. Vale desenhá-la num papel ao lado, porque quase todo raciocínio daqui para frente volta nela:
+
+```text
+            1
+          /   \
+         2     3
+        / \   /
+       4   5 6
+```
+
+Os quatro percursos leem os mesmos seis nós e devolvem quatro sequências diferentes:
+
+| Percurso | Quando processa o nó | Saída |
+| --- | --- | --- |
+| Pré-ordem | na chegada, antes dos filhos | 1, 2, 4, 5, 3, 6 |
+| Em ordem | entre o filho esquerdo e o direito | 4, 2, 5, 1, 6, 3 |
+| Pós-ordem | depois dos dois filhos | 4, 5, 2, 6, 3, 1 |
+| Por nível (BFS) | na ordem em que sai da fila | 1, 2, 3, 4, 5, 6 |
+
+Repare que os três primeiros percorrem exatamente o mesmo caminho pela árvore. Se você marcasse com um lápis por onde o dedo passa, os três desenhos seriam idênticos. O que muda é **onde no caminho o nó é anotado**.
+
+<TreeTraversalVisualizer />
+
+Comece na pré-ordem e clique em **Rodar**. Depois troque para **em ordem** sem mudar mais nada e repare em dois painéis ao mesmo tempo: o da pilha, que se comporta igualzinho, e o da saída, que muda completamente. Depois vá para **por nível** e veja a estrutura auxiliar trocar de pilha para fila, e o caminho mudar junto.
+
+Três experimentos que valem a pena:
+
+- **Troque para a árvore BST** e rode **em ordem**: a saída sai 1, 2, 3, 4, 5, 6. Não é sorte, é a seção sobre em ordem mais adiante.
+- **Troque para a árvore degenerada** e olhe o "pico da pilha": ele vai a 6, o número de nós. É a diferença entre O(h) e O(n) aparecendo na tela.
+- Em qualquer configuração, compare o **pico da pilha** no DFS com o **pico da fila** no BFS. Eles medem coisas diferentes, e a última seção explica por quê.
+
+## O truque das três visitas
+
+Tem um jeito de nunca mais confundir as três ordens, e ele é puramente geométrico. Contorne a árvore com um lápis, no sentido anti-horário, começando à esquerda da raiz e sem tirar a ponta do papel. Você vai passar **três vezes** por cada nó: uma pela esquerda dele, uma por baixo, e uma pela direita.
+
+```text
+     visita 1 (esquerda)  ->  PRÉ-ordem
+     visita 2 (por baixo)  ->  EM ordem
+     visita 3 (direita)   ->  PÓS-ordem
+```
+
+Cada percurso é "anote o nó na k-ésima vez que o lápis passar por ele". Pré na primeira, em ordem na segunda, pós na terceira. O caminho do lápis é único, o que muda é qual das três passagens você escolhe registrar. É exatamente a mesma ideia que o código vai mostrar na próxima seção, só que desenhada.
+
+<Callout>
+Um jeito rápido de conferir se você entendeu: na pós-ordem, a raiz é sempre o **último** elemento da saída. Na pré-ordem, é sempre o **primeiro**. Em ordem, a raiz cai em algum lugar do meio, e a posição dela diz exatamente quantos nós existem na subárvore esquerda.
+</Callout>
+
+## O template: uma linha muda tudo
+
+Aqui está o motivo de este tópico ser mais fácil do que parece. Este é o esqueleto do DFS recursivo:
+
+```python
+def percorre(no):
+    if no is None:      # caso base: acabou o galho
+        return
+    # (A)
+    percorre(no.esq)
+    # (B)
+    percorre(no.dir)
+    # (C)
+```
+
+Coloque `processa(no)` em **(A)** e você tem pré-ordem. Em **(B)**, em ordem. Em **(C)**, pós-ordem. O resto do código é byte por byte idêntico. É assim que vale a pena memorizar: não são três algoritmos, é um algoritmo com três pontos de saída.
+
+<Colunas>
+<Cartao titulo="Pré-ordem">
+```python
+def percorre(no):
+    if no is None:
+        return
+    processa(no)
+    percorre(no.esq)
+    percorre(no.dir)
+```
+</Cartao>
+
+<Cartao titulo="Pós-ordem">
+```python
+def percorre(no):
+    if no is None:
+        return
+    percorre(no.esq)
+    percorre(no.dir)
+    processa(no)
+```
+</Cartao>
+</Colunas>
+
+Repare no caso base. Ele testa `no is None` **depois** de a chamada acontecer, em vez de checar `if no.esq is not None` antes de chamar. As duas formas funcionam; esta é mais limpa, porque concentra a decisão num lugar só e o custo é uma chamada extra por folha, que não muda a complexidade.
+
+<Callout tipo="aviso">
+"Esquerda antes da direita" é convenção, não regra. Inverter as duas linhas produz o percurso espelhado, e isso tem uso real: para checar se duas árvores são espelhos uma da outra, você roda um DFS normal numa e um DFS invertido na outra, comparando os nós dois a dois.
+</Callout>
+
+## Pré-ordem: quando o pai precisa existir antes do filho
+
+Pré-ordem processa o nó **antes** de qualquer descendente. Use quando a operação no filho depende de o pai já ter sido resolvido.
+
+O caso mais claro é **copiar uma árvore**. Para pendurar o nó 2 como filho de 1, o 1 precisa existir. Descer criando o pai antes dos filhos é exatamente a pré-ordem:
+
+```python
+def copia(no):
+    if no is None:
+        return None
+    novo = No(no.valor)        # (A) o pai nasce primeiro
+    novo.esq = copia(no.esq)
+    novo.dir = copia(no.dir)
+    return novo
+```
+
+O outro caso é **imprimir hierarquia com indentação**: organograma, árvore de diretórios, sumário de documento. O gerente aparece antes dos liderados, a pasta antes do conteúdo. Um nível de indentação é a profundidade da recursão:
+
+```python
+def imprime(no, nivel=0):
+    if no is None:
+        return
+    print("  " * nivel + str(no.valor))
+    imprime(no.esq, nivel + 1)
+    imprime(no.dir, nivel + 1)
+```
+
+Pré-ordem também é o formato natural de **serializar** uma árvore: a sequência guarda a estrutura de cima para baixo, e a reconstrução consegue recriar cada pai antes de pendurar os filhos nele.
+
+## Em ordem: o percurso que ordena
+
+Em ordem processa o nó **entre** as duas subárvores. Sozinho, isso não parece grande coisa. Numa árvore de busca binária, é a propriedade que dá nome à estrutura.
+
+Numa BST vale a invariante: tudo que está na subárvore esquerda é menor que o nó, tudo na direita é maior. Então "esquerda, eu, direita" significa literalmente "todos os menores, eu, todos os maiores". Aplicado recursivamente, o percurso em ordem **cospe a árvore inteira ordenada**, em O(n) e sem comparar nada:
+
+```python
+def em_ordem(no, saida):
+    if no is None:
+        return
+    em_ordem(no.esq, saida)
+    saida.append(no.valor)     # (B)
+    em_ordem(no.dir, saida)
+```
+
+É por isso que o visualizador desenha a árvore com o x de cada nó vindo da posição dele em ordem: **ler a árvore da esquerda para a direita na tela é o percurso em ordem**. Numa BST, ler da esquerda para a direita é ler ordenado.
+
+Isso rende dois usos que aparecem muito em entrevista:
+
+- **Validar uma BST**: percorra em ordem e cheque se a saída é estritamente crescente. Se em algum ponto o valor não subiu, a invariante está quebrada.
+- **k-ésimo menor elemento**: pare o percurso no k-ésimo nó processado. Você não precisa da saída inteira, só do contador.
+
+<Callout tipo="aviso">
+Em ordem só produz saída ordenada se a árvore for uma BST. Numa árvore binária qualquer, como a do começo deste artigo, em ordem devolve 4, 2, 5, 1, 6, 3, que não tem ordem nenhuma. O percurso não ordena a árvore: ele revela uma ordem que a BST já tinha.
+</Callout>
+
+## Pós-ordem: quando o pai depende dos filhos
+
+Pós-ordem processa o nó **depois** dos dois filhos. Use quando o resultado do pai é função dos resultados dos filhos, ou quando destruir o pai antes do filho seria um erro.
+
+O exemplo mais direto é **apagar uma árvore de diretórios**. Você não consegue remover uma pasta que ainda tem arquivo dentro: precisa esvaziar primeiro e só então apagar a pasta. Isso é pós-ordem, e o mesmo raciocínio vale para liberar memória de uma árvore em linguagem sem coletor de lixo.
+
+O segundo exemplo é mais bonito: **avaliar uma árvore de expressão**. Nela, folha é número e nó interno é operador. Considere esta:
+
+```text
+             +
+          /     \
+        -         +
+       / \       / \
+      1   2     3   ×
+                   / \
+                  4   5
+```
+
+Você não consegue resolver o `+` da raiz sem antes resolver os dois lados. Descendo à esquerda, `1 - 2 = -1`. Descendo à direita, primeiro `4 × 5 = 20`, depois `3 + 20 = 23`. Só agora a raiz vira `-1 + 23 = 22`. A ordem em que os nós são resolvidos é a pós-ordem: 1, 2, `-`, 3, 4, 5, `×`, `+`, `+`.
+
+```python
+def avalia(no):
+    if no.esq is None and no.dir is None:
+        return no.valor            # folha: já é um número
+    a = avalia(no.esq)
+    b = avalia(no.dir)
+    return aplica(no.valor, a, b)  # (C) só agora
+```
+
+Quem já usou calculadora HP reconhece o padrão: a saída em pós-ordem **é** a notação polonesa reversa. Você digita os operandos e o operador por último, que é exatamente a ordem em que a árvore se resolve.
+
+<Callout>
+A generalização vale a pena guardar: sempre que um problema vira uma árvore de dependências, em que um nó só pode ser resolvido depois de todos os filhos, a resposta é pós-ordem. Pense num quadro de tarefas: subtarefa fecha antes da tarefa, que fecha antes do épico, que fecha antes da sprint.
+</Callout>
+
+E se a operação não depende de ninguém, como imprimir um valor? Aí **tanto faz**. Os três passam por todos os nós exatamente uma vez; muda só o instante. Escolher entre eles é uma decisão sobre dependência, não sobre corretude.
+
+## BFS: quando o que importa é a distância
+
+Por nível é o outro mundo. Aqui a estrutura é uma fila, e o algoritmo não é recursivo:
+
+```python
+from collections import deque
+
+def por_nivel(raiz):
+    if raiz is None:
+        return
+    fila = deque([raiz])
+    while fila:
+        no = fila.popleft()        # o mais antigo sai primeiro
+        processa(no)
+        if no.esq: fila.append(no.esq)
+        if no.dir: fila.append(no.dir)
+```
+
+Um nó só entra na fila depois do pai, e a fila é FIFO. Disso sai uma garantia forte: **nenhum nó de profundidade k+1 é processado antes de todos os de profundidade k**. O percurso avança em camadas concêntricas.
+
+É essa garantia que faz BFS ser o algoritmo de **caminho mais curto em grafo sem peso**: a primeira vez que você chega num nó, você chegou pelo caminho com menos arestas. Nenhum caminho mais curto poderia ter ficado para trás, porque ele teria sido explorado num nível anterior.
+
+Para processar nível a nível de verdade, e não só na ordem certa, existe um truque simples: fixe o tamanho da fila antes de cada rodada.
+
+```python
+while fila:
+    tamanho = len(fila)            # trava o nível atual
+    nivel = []
+    for _ in range(tamanho):
+        no = fila.popleft()
+        nivel.append(no.valor)
+        if no.esq: fila.append(no.esq)
+        if no.dir: fila.append(no.dir)
+    print(nivel)                   # uma lista por nível
+```
+
+É o esqueleto de meia dúzia de problemas clássicos: vista lateral direita da árvore (o último de cada nível), profundidade mínima, média por nível, percurso em zigue-zague.
+
+<Callout>
+A analogia que fixa a diferença: espalhar uma notícia. No DFS você conta para um amigo, que conta para um amigo dele, e a informação vai até a ponta antes de o seu vizinho ficar sabendo. No BFS você conta para todos os seus vizinhos, e só depois eles contam para os deles. Contágio, propagação e viralização são BFS, e é por isso que o BFS aparece muito mais em grafos do que em árvores.
+</Callout>
+
+## O custo: por que o espaço não é o mesmo
+
+Tempo é fácil e vale para os quatro: cada nó entra e sai uma vez, então é **O(n)**. Não existe percurso mais barato, você precisa tocar em todo mundo.
+
+Espaço é onde mora a diferença, e é a parte que mais confunde.
+
+**DFS gasta O(h)**, com h sendo a altura da árvore. A pilha guarda o caminho da raiz até o nó atual, e mais nada: quando você desce um galho, os nós já resolvidos do galho anterior já saíram. A pilha nunca fica maior que a altura, mesmo que a árvore tenha um milhão de nós.
+
+**BFS gasta O(n)** no pior caso, e o motivo é justamente o oposto: a fila guarda um nível inteiro ao mesmo tempo. Numa árvore binária completa, o último nível sozinho tem cerca de n/2 nós, e todos eles estão na fila simultaneamente.
+
+| | Tempo | Espaço | Onde dói |
+| --- | --- | --- | --- |
+| DFS (pré, em, pós) | O(n) | O(h) | árvore alta e fina |
+| BFS (por nível) | O(n) | O(largura máxima), até O(n) | árvore larga e rasa |
+
+Os dois se invertem, e isso é uma decisão de projeto real: numa árvore muito profunda o DFS recursivo estoura a pilha; numa árvore muito larga o BFS estoura a memória.
+
+<Callout tipo="aviso">
+**h não é log n.** Isso só vale em árvore balanceada. A árvore degenerada do visualizador, em que todo nó tem um filho só, tem altura igual ao número de nós: o O(h) do DFS vira O(n) e a recursão pode estourar a pilha. Manter h perto de log n é exatamente o trabalho que a [árvore de busca binária](/topicos/bst) balanceada faz, e o motivo de ela existir.
+</Callout>
+
+Se a profundidade for um risco, o DFS iterativo com pilha explícita resolve: é o mesmo algoritmo, com a pilha do programa trocada por uma sua, que mora no heap e não tem o limite de recursão da linguagem.
+
+```python
+def pre_ordem_iterativo(raiz):
+    if raiz is None:
+        return
+    pilha = [raiz]
+    while pilha:
+        no = pilha.pop()
+        processa(no)
+        if no.dir: pilha.append(no.dir)   # direita primeiro:
+        if no.esq: pilha.append(no.esq)   # a esquerda sai antes
+```
+
+Repare no detalhe que quase todo mundo erra na primeira tentativa: empilhar a **direita antes** da esquerda. Como a pilha é LIFO, o último a entrar é o primeiro a sair, então é assim que a esquerda continua sendo visitada primeiro. E compare este código com o `por_nivel` da seção anterior: eles são idênticos, exceto por `pop()` contra `popleft()`. Trocar a estrutura troca o algoritmo.
+
+## Como praticar
+
+A ordem sugerida vai do template puro para os problemas em que a escolha do percurso é a solução.
+
+Comece pelos três DFS no mesmo problema (**Binary Tree Inorder Traversal**), só para sentir na mão que muda uma linha. Depois vá para **Maximum Depth**, que é pós-ordem disfarçada: a altura do nó é 1 mais o máximo das alturas dos filhos, ou seja, o pai depende dos filhos. **Same Tree** e **Symmetric Tree** são pré-ordem em duas árvores ao mesmo tempo, e o segundo é o caso do percurso espelhado. **Binary Tree Level Order Traversal** é o esqueleto do BFS com o `len(fila)` travando o nível, e **Right Side View** é o mesmo esqueleto pegando só o último de cada rodada.
+
+Uma dica que economiza tempo em entrevista: antes de escrever qualquer coisa, responda a pergunta "o resultado deste nó depende dos filhos?". Se depende, é pós-ordem. Se o filho depende do pai, é pré-ordem. Se o enunciado fala em nível, distância ou "mais próximo", é BFS. Se é uma BST e o enunciado fala em ordem ou k-ésimo, é em ordem.
+
+Depois daqui, o caminho natural é [Árvores Binárias](/topicos/arvores-binarias), que aprofunda a estrutura em si, e a [Árvore de Busca Binária](/topicos/bst), onde o percurso em ordem deixa de ser curiosidade e vira a razão de a estrutura existir. Do lado de grafos, [DFS e BFS em Grafos](/topicos/dfs-bfs) reaproveita exatamente estes dois esqueletos, com uma diferença só: lá existe ciclo, então você precisa marcar quem já visitou.

@@ -8,7 +8,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // existe justamente para contrastar dois contadores, então um número certo sob
 // o rótulo errado ensina errado do mesmo jeito.
 
-const URL = "/topico/sliding-window/";
+const URL = "/topicos/sliding-window/";
 
 // Ordem no artigo.
 const FORCA_BRUTA = 0;

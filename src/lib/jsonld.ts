@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { ALL_TOPICS, type Topic } from "@content/roadmap";
+import { TOPICOS, type Topic } from "@content/topicos";
 import { LINKS, SITE_URL } from "@/lib/links";
 import { SITE_NAME } from "@/lib/seo";
 
@@ -14,7 +14,7 @@ import { SITE_NAME } from "@/lib/seo";
 //   timeRequired      → o selo "⏱ N min de leitura", no mesmo lugar
 //   programmingLanguage → o selo "Python", que é a linguagem do CÓDIGO
 //   inLanguage        → `pt-BR`, o `lang` do `<html>` (não confundir com o de cima)
-//   about             → o grupo, que a trilha mostra logo acima do título
+//   about             → o grupo, que o roadmap mostra logo acima do título
 //   author            → "por Craft & Code Club", ao lado da marca no topo
 //   dateModified      → o selo "Atualizado em", no mesmo `.topic-chips`
 //   itemListElement   → os cards que o /roadmap renderiza, na mesma ordem
@@ -95,12 +95,12 @@ export function webSiteJsonLd() {
 /**
  * A página de um tópico como recurso de aprendizado.
  *
- * `LearningResource` e não `Course`: um tópico é material de estudo, não um
- * programa com turma, instrutor e matrícula — e `Course` só rende resultado rico
- * com `hasCourseInstance`/`offers`, que este produto não tem para declarar.
+ * `LearningResource` e não `Roadmap`: um tópico é material de estudo, não um
+ * programa com turma, instrutor e matrícula — e `Roadmap` só rende resultado rico
+ * com `hasRoadmapInstance`/`offers`, que este produto não tem para declarar.
  */
 export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: Date }) {
-  const url = abs(`/topico/${t.slug}/`);
+  const url = abs(`/topicos/${t.slug}/`);
   const timeRequired = duracaoIso(t.readingTime);
   return {
     "@context": "https://schema.org",
@@ -132,41 +132,113 @@ export function topicJsonLd(t: Topic, datas?: { publicado?: Date; atualizado?: D
   };
 }
 
+/** Um degrau da trilha de navegação: o que a página desenha e o que ela marca. */
+export type Migalha = { name: string; href: string };
+
 /**
- * A trilha do tópico, item a item igual à que a página desenha.
+ * O rastro de navegação do tópico, item a item igual ao que a página desenha.
  *
- * O nível do meio aponta para `/roadmap/` e não para o grupo: a âncora do grupo
- * não existe hoje. `RoadmapGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
+ * Ela recebe o rastro PRONTO, e não o tópico, desde que existem trilhas: um
+ * tópico do roadmap tem três degraus (Início / grupo / tópico) e um
+ * tópico de trilha tem quatro (Início / Trilhas / trilha / tópico). Montar a
+ * marcação aqui a partir do `Topic` significaria esta função reimplementar a
+ * decisão de onde o tópico mora — a mesma decisão que a página acabou de tomar
+ * para desenhar os links —, e as duas versões divergiriam no dia em que um
+ * formato novo aparecesse. A página monta uma vez e usa nos dois lugares, que é
+ * o que o teste "o rastro marcado é o rastro desenhado" cobra.
+ *
+ * O nível do grupo aponta para `/fundamentos/` e não para o grupo: a âncora do grupo
+ * não existe hoje. `FundamentosGroups.tsx` usa `key={g.id}`, e `key` é prop do React,
  * não vira atributo — não há `#<id>` no HTML para linkar. Quando a `<section>`
- * ganhar o `id`, este destino vira `/roadmap/#<id>` e a marcação continua com os
- * mesmos três níveis.
+ * ganhar o `id`, este destino vira `/fundamentos/#<id>` e a marcação continua igual.
  */
-export function breadcrumbJsonLd(t: Topic) {
+export function breadcrumbJsonLd(migalhas: Migalha[]) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Início", item: abs("/") },
-      { "@type": "ListItem", position: 2, name: t.group, item: abs("/roadmap/") },
-      { "@type": "ListItem", position: 3, name: t.name, item: abs(`/topico/${t.slug}/`) },
-    ],
+    itemListElement: migalhas.map((m, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: m.name,
+      item: abs(m.href),
+    })),
   };
 }
 
-/** A trilha inteira do /roadmap, na ordem em que a página renderiza os cards. */
-export function roadmapJsonLd() {
+/**
+ * Os Fundamentos inteiros, na ordem em que a página renderiza os cards.
+ *
+ * A lista é a dos tópicos que ESTE roadmap cita, e não `TOPICOS`. Quando os
+ * tópicos deixaram de ter casa, `TOPICOS` passou a ser o site inteiro (80) e os
+ * Fundamentos, um recorte dele (44): declarar 80 numa página que desenha 44 é a
+ * marcação contando outra história que a tela, que é a regra do Google que este
+ * arquivo segue em todo lugar.
+ */
+export function fundamentosJsonLd(topicos: Topic[]) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "@id": `${SITE_URL}/roadmap/#trilha`,
+    "@id": `${SITE_URL}/fundamentos/#roadmap`,
     name: "Roadmap de Algoritmos e Estruturas de Dados",
-    numberOfItems: ALL_TOPICS.length,
+    numberOfItems: topicos.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
-    itemListElement: ALL_TOPICS.map((t, i) => ({
+    itemListElement: topicos.map((t, i) => ({
       "@type": "ListItem",
       position: i + 1,
       name: t.name,
-      url: abs(`/topico/${t.slug}/`),
+      url: abs(`/topicos/${t.slug}/`),
+    })),
+  };
+}
+
+/**
+ * A vitrine de `/roadmaps/`, na ordem em que a página desenha os cards.
+ *
+ * `ItemList`, e não `Roadmap` para cada item, pela mesma razão que a página de
+ * tópico é `LearningResource` e não `Roadmap`: o tipo `Roadmap` do schema.org só
+ * rende resultado rico com `hasRoadmapInstance`/`offers` — turma, instrutor,
+ * matrícula, preço —, e nada disso existe aqui. Declarar o tipo sem os campos é
+ * marcação que o Google descarta; declarar os campos é inventar dado.
+ */
+export function extrasJsonLd(
+  cards: { name: string; href: string }[],
+  // O `@id` e o `name` são da PÁGINA, não do helper. Fixos, as duas telas que
+  // chamam esta função (a vitrine e o índice completo) emitiam o mesmo `@id`:
+  // o índice declarava ser a coleção de outra página, com o nome dela junto.
+  // Duas listas com uma identidade só é a contradição que o consumidor de
+  // JSON-LD resolve escolhendo uma e ignorando a outra.
+  lista: { id: string; name: string } = { id: "/roadmaps/#vitrine", name: "Roadmaps e tópicos avulsos" }
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${SITE_URL}${lista.id}`,
+    name: lista.name,
+    numberOfItems: cards.length,
+    itemListOrder: "https://schema.org/ItemListOrderAscending",
+    itemListElement: cards.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      url: abs(c.href),
+    })),
+  };
+}
+
+/** Os tópicos de uma trilha, na ordem em que a abertura dela os apresenta. */
+export function roadmapJsonLd(trilha: { slug: string; name: string; topics: Topic[] }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${SITE_URL}/roadmaps/${trilha.slug}/#trilha`,
+    name: trilha.name,
+    numberOfItems: trilha.topics.length,
+    itemListOrder: "https://schema.org/ItemListOrderAscending",
+    itemListElement: trilha.topics.map((t, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: t.name,
+      url: abs(`/topicos/${t.slug}/`),
     })),
   };
 }
