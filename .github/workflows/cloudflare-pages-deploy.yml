@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: ["main"]
 
+
+permissions: {}
+
+
 env:
   ARTIFACT_NAME: roadmap-dsa-artifact
 
@@ -14,10 +18,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build Pages
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           # Histórico completo, e não o clone raso (profundidade 1) do padrão.
           # O motivo é medido: num clone raso o `git log <caminho>` NÃO falha,
           # ele devolve a data do HEAD para qualquer arquivo. Quem deriva data
@@ -103,6 +110,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     name: Playwright (no artefato que vai ao ar)
+    permissions:
+      contents: read
     # Só fora de PR. Em PR quem testa é o `tests.yml`, que constrói por conta
     # própria — e precisa continuar assim, porque PR de fork não recebe
     # artefato (o `Upload artifact` acima é bloqueado para fork) e porque o
@@ -114,6 +123,8 @@ jobs:
       # dependências.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -161,7 +172,7 @@ jobs:
     # de propósito. `!failure() && !cancelled()` é o idioma para dependência
     # opcional: roda quando nenhum dos dois REPROVOU. Se o `test` reprovar,
     # `failure()` é verdadeiro e o deploy não acontece — que é o ponto.
-    if: ${{ !failure() && !cancelled() }}
+    if: ${{ !failure() && !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
     name: Deploy to Cloudflare Pages
     permissions:
       contents: read
@@ -169,18 +180,17 @@ jobs:
       pull-requests: write # To create a comment in the PR
     steps:
       - name: Checkout
-        if: github.event.pull_request.head.repo.fork == false
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download a Build Artifact
-        if: github.event.pull_request.head.repo.fork == false
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ./out
 
       - name: Impressão digital do out/
-        if: github.event.pull_request.head.repo.fork == false
         run: |
           arquivos=$(find out -type f | wc -l | tr -d " ")
           hash=$(find out -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1)
@@ -189,7 +199,6 @@ jobs:
 
       - name: Deploy
         id: deploy
-        if: github.event.pull_request.head.repo.fork == false
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -207,7 +216,3 @@ jobs:
           message: |
             ### 🚀 **Preview Url** 🚀
             [${{ steps.deploy.outputs.deployment-url }}](${{ steps.deploy.outputs.deployment-url }})
-
-      - name: Skip
-        if: github.event.pull_request.head.repo.fork == true
-        run: echo "Skipping deploy for forked PR"

@@ -18,16 +18,23 @@ on:
   pull_request:
     branches: ["main"]
 
+
+permissions: {}
+
+
 # PRs de forks/colaboradores externos exigem aprovação de um admin para rodar
 # (configuração de Actions do repositório). Este workflow não usa segredos.
 jobs:
   e2e:
     runs-on: ubuntu-latest
     name: Playwright (navegação e links)
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           # Histórico completo. Num clone raso o `git log <caminho>` não falha,
           # ele devolve a data do HEAD para todo mundo — e este job CONSTRÓI,
           # então qualquer data derivada do histórico (o `lastmod` do sitemap)
@@ -71,10 +78,13 @@ jobs:
   guardas:
     runs-on: ubuntu-latest
     name: Guardas (lint, idioma na tela e âncoras no artigo)
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           # Obrigatório aqui, não é preferência: o guarda de idioma compara
           # DUAS versões do mesmo arquivo, e o lado de lá é a base do PR. Num
           # clone raso o `git archive <base>` nem encontra o objeto.
