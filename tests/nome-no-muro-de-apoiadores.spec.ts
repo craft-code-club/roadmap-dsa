@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { apoiaseHeaders, initials, shortenName } from "../src/app/apoie/apoiadores";
+import {
+  apoiaseHeaders,
+  initials,
+  normalizeSupporters,
+  shortenName,
+} from "../src/app/apoie/apoiadores";
 
 /**
  * O nome que o card mostra, e o header que a integração manda.
@@ -91,6 +96,48 @@ test("a sigla do avatar acompanha o nome já encurtado", () => {
   for (const [entrada, esperado] of casos) {
     expect(initials(shortenName(entrada)), `entrada: ${JSON.stringify(entrada)}`).toBe(esperado);
   }
+});
+
+// ---------------------------------------------------------------------------
+// normalizeSupporters: quem some do muro, e quem não pode sumir
+// ---------------------------------------------------------------------------
+
+test("duas pessoas com o mesmo primeiro e último nome continuam sendo duas", () => {
+  // O defeito que este teste prende (achado na review do PR #96): deduplicar
+  // pelo nome JÁ encurtado apaga gente. "Maria Aparecida Silva" e "Maria
+  // Beatriz Silva" viram a mesma chave "Maria Silva", e uma das duas some do
+  // muro E da contagem do painel de gratidão, que sai da mesma lista.
+  //
+  // O muro mostra "Maria Silva" duas vezes, e está certo: são duas apoiadoras.
+  // Perder uma é bem pior que repetir um rótulo.
+  const muro = normalizeSupporters([
+    { name: "Maria Aparecida Silva" },
+    { name: "Maria Beatriz Silva" },
+  ]);
+  expect(muro).toHaveLength(2);
+  expect(muro.map((s) => shortenName(s.name))).toEqual(["Maria Silva", "Maria Silva"]);
+});
+
+test("o mesmo nome digitado duas vezes vira um card só", () => {
+  // Repetição de verdade: mesma inscrição, espaçamento e caixa diferentes.
+  const muro = normalizeSupporters([
+    { name: "Cristiano Cunha" },
+    { name: "  cristiano   CUNHA " },
+    { name: "Eduarda Martins" },
+  ]);
+  expect(muro).toEqual([{ name: "Cristiano Cunha" }, { name: "Eduarda Martins" }]);
+});
+
+test("a lista guarda o nome completo, e a ordem de chegada", () => {
+  // O encurtamento é de apresentação e mora no `page.tsx`. Se ele voltar para
+  // cá, o teste de cima volta a reprovar, que é o ponto.
+  const muro = normalizeSupporters([
+    { name: "Maria Aparecida da Silva Souza" },
+    { name: "" },
+    { name: "   " },
+    { name: "Ana" },
+  ]);
+  expect(muro).toEqual([{ name: "Maria Aparecida da Silva Souza" }, { name: "Ana" }]);
 });
 
 // ---------------------------------------------------------------------------

@@ -143,19 +143,26 @@ export function initials(name: string): string {
 }
 
 /**
- * Encurta os nomes e tira os repetidos, preservando a ordem de chegada.
+ * Tira os repetidos preservando a ordem de chegada, pelo nome COMPLETO.
  *
- * A ORDEM DAS DUAS OPERAÇÕES É O PONTO. Encurtar DEPOIS de deduplicar deixaria
- * passar "Wilson Neto" e "Wilson Gomes Neto" como duas pessoas, que é justamente
- * o par que o muro precisa juntar quando o nome do painel for mais completo que
- * o daqui. Deduplicar sobre o nome JÁ encurtado é o que faz os dois virarem uma
- * chave só.
+ * ⚠️ NÃO deduplique pelo nome encurtado, por mais tentador que pareça juntar
+ * "Wilson Neto" com "Wilson Gomes Neto". Encurtar antes de comparar apaga
+ * gente: "Maria Aparecida Silva" e "Maria Beatriz Silva" são duas pessoas e
+ * viram a mesma chave "Maria Silva", então uma delas some do muro E da contagem
+ * do painel de gratidão, que sai da mesma lista. Perder um apoiador é bem pior
+ * que mostrar a mesma pessoa duas vezes.
+ *
+ * O encurtamento é de APRESENTAÇÃO e acontece na página (`shortenName` no
+ * `page.tsx`); aqui em baixo o dado guarda a identidade que a API deu.
+ *
+ * A chave normaliza espaço e caixa porque "  maria   souza " e "Maria Souza"
+ * são a mesma inscrição digitada duas vezes, e isso é repetição de verdade.
  */
-function normalizeSupporters(list: Supporter[]): Supporter[] {
+export function normalizeSupporters(list: Supporter[]): Supporter[] {
   const seen = new Set<string>();
   const out: Supporter[] = [];
   for (const s of list) {
-    const name = shortenName(s.name);
+    const name = s.name.trim().replace(/\s+/g, " ");
     const key = name.toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
