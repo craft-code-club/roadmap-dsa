@@ -12,7 +12,8 @@
 // CREDENCIAL (env local e secret no GitHub), os três nomes:
 //   APOIASE_KEY       vai no header `x-api-key`
 //   APOIASE_SECRET    vai no header `Authorization: Bearer <...>` (é um JWT)
-//   APOIASE_CAMPAIGN  id da campanha
+//   APOIASE_CAMPAIGN  id da campanha, um ObjectId do Mongo (24 hex), não um
+//                     número: quem tratar isso como inteiro erra em silêncio
 //
 // O par chave/segredo é o da API PÚBLICA da APOIA.se, documentada em
 // https://apoiase.notion.site/APOIA-se-API-4b87651821884061a7532abfd7f26087
@@ -32,6 +33,32 @@
 // rotear). A diferença entre os dois códigos é o sinal: 404 quer dizer que a
 // chave passou pelo portão e que o caminho é que não existe. A credencial está
 // certa; a rota de listagem é que não existe mesmo.
+//
+// DE ONDE VEIO O FORMATO DOS CAMPOS LIDOS AQUI EMBAIXO
+//
+// Do bundle de produção do PAINEL DO CRIADOR (`dashboard.apoia.se`), que consome
+// uma API interna, `dashboard-api-v1.apoia.se`, com três rotas de relatório:
+//
+//     GET /api/reports/backers/total/<CAMPAIGN_ID>    -> { total, totalPages }
+//     GET /api/reports/backers/<CAMPAIGN_ID>?page=N   -> { backers, campaignRewards }
+//     GET /api/reports/backers/csv/<CAMPAIGN_ID>      -> CSV
+//
+// Autenticação lá é só `Authorization: Bearer`, SEM `x-api-key`: é um esquema
+// diferente do da API pública, não a mesma credencial com outra URL.
+//
+// Cada apoiador vem com `name`, `email`, `supportValue`, `supportStatus`,
+// `supportActive`, `supportPrivate`, `firstSupportDate`, `supportLastModified`,
+// `paymentMethod`, `rewardChosen`, `addressDelivery` e `timesSupportCreation`.
+// É esse contrato que `pickTime`, `isActive` e `isPublic` leem. Antes disto o
+// código procurava `created_at`, `first_support_at` e `support_status`, que não
+// existem: a ordenação era um no-op e o filtro de status nunca casava.
+//
+// ⚠️ ESSA ROTA INTERNA NÃO ESTÁ LIGADA, DE PROPÓSITO. `backersUrl()` continua
+// apontando para a API pública. Usar API interna e não documentada de terceiro é
+// decisão do dono do projeto (termos de uso, estabilidade, token de sessão que
+// expira e precisa de renovação manual), e ela ainda não foi tomada. O que este
+// arquivo faz é chegar com o parsing e a proteção de privacidade CERTOS antes de
+// qualquer fio ser ligado: no dia da decisão, muda a URL e mais nada.
 //
 // POR QUE A PÁGINA MOSTRAVA 3 COM 5 APOIOS NA CAMPANHA
 //
@@ -214,9 +241,10 @@ export function apoiaseHeaders(key: string, secret: string): Record<string, stri
  * QUANDO O SUPORTE DA APOIA.se CONFIRMAR A ROTA, é esta função que muda, e só
  * ela.
  */
-function backersUrl(campaign?: string): string {
+function backersUrl(campaign?: string, page = 1): string {
   const url = new URL("/backers", API_BASE);
   if (campaign) url.searchParams.set("campaign", campaign);
+  url.searchParams.set("page", String(page));
   return url.toString();
 }
 
@@ -230,8 +258,8 @@ function nestedName(v: unknown): string | undefined {
   return undefined;
 }
 
-// A resposta da listagem não está documentada, então lemos o nome de forma
-// defensiva, tentando as chaves mais prováveis.
+// O nome. O campo real do relatório é `name`; o resto é rede de segurança para
+// formato diferente, e não custa nada manter.
 function pickName(b: Raw): string | null {
   const direct = [b.name, b.nome, b.backer_name, b.supporter_name, b.apoiador].find(
     (v): v is string => typeof v === "string" && v.trim().length > 0
@@ -240,30 +268,87 @@ function pickName(b: Raw): string | null {
   return s.length ? s : null;
 }
 
-// Timestamp do apoio, para ordenar do mais recente para o mais antigo. Sem data,
-// vira 0 e preserva a ordem que a API já devolveu.
+/**
+ * Timestamp do apoio, para ordenar do mais recente para o mais antigo.
+ *
+ * ⚠️ OS CAMPOS SÃO camelCase, e isso já esteve errado aqui. A versão anterior
+ * procurava `created_at`, `first_support_at` e `status_changed_at`, que NÃO
+ * existem no relatório: os reais são `firstSupportDate` e `supportLastModified`.
+ * Nenhuma chave casava, todo apoio virava 0, e o `.sort()` logo abaixo era um
+ * no-op silencioso — a lista saía na ordem em que a API mandou e ninguém tinha
+ * como perceber, porque ordem errada não quebra nada, só mente.
+ *
+ * `firstSupportDate` primeiro, de propósito: o muro conta desde quando a pessoa
+ * apoia, não quando o registro dela foi mexido pela última vez.
+ */
 function pickTime(b: Raw): number {
   const raw = [
-    b.status_changed_at,
-    b.statusChangedAt,
-    b.created_at,
+    b.firstSupportDate,
+    b.supportLastModified,
+    // Rede de segurança para outros formatos. Não são os campos do relatório.
     b.createdAt,
-    b.subscribed_at,
-    b.first_support_at,
+    b.created_at,
     b.date,
-    b.updated_at,
   ].find((v) => typeof v === "string" || typeof v === "number");
   if (raw === undefined) return 0;
   const t = Date.parse(String(raw));
   return Number.isNaN(t) ? 0 : t;
 }
 
-// Sem status, assume ativo. Com status, descarta apoios claramente encerrados.
-function isActive(b: Raw): boolean {
-  const raw = [b.status, b.status_atual, b.support_status].find((v) => typeof v === "string");
-  const status = typeof raw === "string" ? raw.toLowerCase() : "";
-  if (!status) return true;
-  return !/cancel|inativ|inactive|expir|encerrad|refund|falh|failed/.test(status);
+/**
+ * Os únicos valores de `supportStatus` que valem um card no muro.
+ *
+ * O vocabulário observado no relatório é `complete`, `blocked`, `locked`,
+ * `incomplete` e `closed_campaign`, e só o primeiro é um apoio saudável.
+ *
+ * LISTA DE PERMISSÃO, e não de proibição: a versão anterior perguntava se o
+ * status casava `/cancel|inativ|expir|.../`, e NENHUM dos quatro estados ruins
+ * casa com isso. `blocked`, `locked` e `closed_campaign` passariam como ativos,
+ * e `incomplete` passaria duas vezes (não casa a proibição e ainda contém a
+ * palavra "complete", que pegaria uma comparação por substring). Por isso a
+ * comparação é exata.
+ */
+const SUPPORT_STATUS_PUBLICAVEL = new Set(["complete"]);
+
+/**
+ * O apoio está ativo?
+ *
+ * Lê `supportStatus` (camelCase, o campo real) e `supportActive`. Sem nenhum dos
+ * dois, assume ativo: quem não declara estado nenhum já não passa pelo filtro de
+ * privacidade abaixo, que é o fail-closed de verdade.
+ */
+export function isActive(b: Raw): boolean {
+  if (b.supportActive === false) return false;
+
+  const raw = [b.supportStatus, b.status, b.support_status].find((v) => typeof v === "string");
+  if (typeof raw !== "string") return true;
+  return SUPPORT_STATUS_PUBLICAVEL.has(raw.trim().toLowerCase());
+}
+
+/**
+ * Esta pessoa AUTORIZOU aparecer no muro?
+ *
+ * ⚠️ FAIL-CLOSED, e é a regra mais importante do arquivo. A APOIA.se deixa o
+ * apoiador marcar o apoio como privado (`supportPrivate: true`), e o muro é uma
+ * página pública e indexada. Publicar quem pediu para não aparecer não é bug de
+ * dado, é incidente de privacidade, e não tem desfazer: sai no HTML, no payload
+ * RSC e no cache do Google.
+ *
+ * Então a pergunta não é "é privado?", é "está explicitamente declarado como NÃO
+ * privado?". Campo ausente, nulo, string, número ou qualquer coisa que não seja
+ * o booleano `false` significa NÃO PUBLICA. O custo de errar para este lado é um
+ * nome a menos no muro; para o outro lado, é publicar alguém contra a vontade
+ * dela.
+ *
+ * Consequência esperada e desejada: uma resposta que não traga `supportPrivate`
+ * esvazia o muro e o faz cair no plano B, com aviso no log. Muro vazio conserta
+ * em cinco minutos; nome publicado indevidamente, não.
+ */
+export function isPublic(b: Raw): boolean {
+  const declarado = [b.supportPrivate, b.support_private, b.isPrivate, b.private].find(
+    (v) => v !== undefined
+  );
+  return declarado === false;
 }
 
 function toList(json: unknown): Raw[] {
@@ -278,18 +363,87 @@ function toList(json: unknown): Raw[] {
 }
 
 /**
- * Só o NOME sai daqui, e isso é uma decisão de privacidade, não um detalhe de
- * tipo. A resposta da APOIA.se pode trazer e-mail, valor apoiado e data: nada
- * disso pode chegar ao HTML, que é público e fica indexado. `Supporter` tem um
- * campo só justamente para não haver caminho por onde o resto passe.
+ * Uma página da listagem: os apoiadores e quantas páginas existem ao todo.
+ *
+ * `totalPages` vem na própria resposta do relatório, o que dispensa a chamada
+ * separada de contagem. Sem o campo, assume uma página só.
  */
-function toSupporters(raw: Raw[]): Supporter[] {
+export function readPage(json: unknown): { backers: Raw[]; totalPages: number } {
+  const backers = toList(json);
+  let totalPages = 1;
+  if (json && typeof json === "object") {
+    const t = (json as Raw).totalPages;
+    if (typeof t === "number" && Number.isFinite(t) && t >= 1) totalPages = Math.floor(t);
+  }
+  return { backers, totalPages };
+}
+
+/**
+ * Teto de páginas. Não é o limite da API, é o limite da nossa paciência: um
+ * `totalPages` absurdo (ou um campo que mude de significado) não pode virar um
+ * laço infinito segurando o build.
+ */
+const MAX_PAGES = 20;
+
+/**
+ * Junta todas as páginas, chamando `carregar` uma vez por página.
+ *
+ * A versão anterior fazia UMA requisição e pronto: com a campanha passando de
+ * uma página, o muro mostraria só a primeira fatia e diria que aquilo era o
+ * total. Silencioso de novo, porque uma lista curta parece uma lista.
+ *
+ * Recebe o carregador por parâmetro (em vez de chamar `fetch` aqui dentro) para
+ * a concatenação poder ser exercitada sem rede.
+ */
+export async function collectAllPages(
+  carregar: (page: number) => Promise<unknown>,
+  maxPages: number = MAX_PAGES
+): Promise<Raw[]> {
+  const primeira = readPage(await carregar(1));
+  const total = Math.min(primeira.totalPages, maxPages);
+  if (primeira.totalPages > maxPages) {
+    console.warn(
+      `[apoia.se] a listagem diz ter ${primeira.totalPages} páginas e o teto é ${maxPages}. ` +
+        `Lendo só as primeiras: o muro pode sair incompleto.`
+    );
+  }
+
+  const todos = [...primeira.backers];
+  for (let page = 2; page <= total; page++) {
+    todos.push(...readPage(await carregar(page)).backers);
+  }
+  return todos;
+}
+
+/**
+ * Da resposta crua para os nomes do muro.
+ *
+ * Só o NOME sai daqui, e isso é decisão de privacidade, não detalhe de tipo. O
+ * relatório traz `email`, `supportValue`, `paymentMethod` e `addressDelivery`, e
+ * nada disso pode chegar ao HTML, que é público e indexado. `Supporter` tem um
+ * campo só justamente para não haver caminho por onde o resto passe.
+ *
+ * A ordem dos filtros é a ordem do risco: privacidade primeiro.
+ */
+export function toSupporters(raw: Raw[]): Supporter[] {
   return raw
+    .filter(isPublic)
     .filter(isActive)
     .map((b) => ({ name: pickName(b), t: pickTime(b) }))
     .filter((b): b is { name: string; t: number } => b.name !== null)
     .sort((a, b) => b.t - a.t) // mais recente primeiro
     .map((b) => ({ name: b.name }));
+}
+
+/** Resposta HTTP não-ok, com o endereço e sem nada do cabeçalho. */
+class RespostaHttp extends Error {
+  constructor(
+    readonly status: number,
+    readonly url: string
+  ) {
+    super(`HTTP ${status}`);
+    this.name = "RespostaHttp";
+  }
 }
 
 export async function fetchSupporters(): Promise<Supporter[]> {
@@ -307,40 +461,44 @@ export async function fetchSupporters(): Promise<Supporter[]> {
     return normalizeSupporters(FALLBACK_SUPPORTERS);
   }
 
-  const url = backersUrl(campaign);
-  try {
-    const res = await fetch(url, {
-      headers: apoiaseHeaders(key, secret),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) {
-      // A URL entra no aviso, o header nunca: é o que separa um log útil de um
-      // log que publica a credencial no console da CI.
-      console.warn(
-        `[apoia.se] ${res.status} em ${url}. A rota de listagem ainda não foi confirmada com o ` +
-          `suporte da APOIA.se (a doc v0.1 só tem /backers/charges/<email>). Muro no plano B.`
-      );
-      return normalizeSupporters(FALLBACK_SUPPORTERS);
-    }
+  const headers = apoiaseHeaders(key, secret);
+  const carregar = async (page: number): Promise<unknown> => {
+    const url = backersUrl(campaign, page);
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+    // A URL entra no erro, o header nunca: é o que separa um log útil de um log
+    // que publica a credencial no console da CI.
+    if (!res.ok) throw new RespostaHttp(res.status, url);
+    return res.json();
+  };
 
-    const raw = toList(await res.json());
+  try {
+    const raw = await collectAllPages(carregar);
     const muro = normalizeSupporters(toSupporters(raw));
 
-    if (raw.length > 0 && muro.length === 0) {
-      console.warn(
-        `[apoia.se] ${raw.length} apoios recebidos e nenhum nome reconhecido. O formato da resposta ` +
-          `não é o esperado: ajuste pickName().`
-      );
-    }
     if (muro.length === 0) {
-      console.warn("[apoia.se] a API não devolveu nome nenhum. Muro no plano B.");
+      // Os três motivos possíveis, separados, porque o conserto de cada um é
+      // diferente. O do meio é o que mais assusta e é o comportamento correto:
+      // sem `supportPrivate: false` declarado, ninguém é publicado.
+      const publicos = raw.filter(isPublic).length;
+      const ativos = raw.filter(isPublic).filter(isActive).length;
+      console.warn(
+        `[apoia.se] ${raw.length} apoios recebidos e nenhum nome no muro: ${publicos} autorizaram ` +
+          `aparecer (supportPrivate: false), ${ativos} desses estão ativos. Muro no plano B.`
+      );
       return normalizeSupporters(FALLBACK_SUPPORTERS);
     }
 
     console.log(`[apoia.se] ${raw.length} apoios recebidos, ${muro.length} nomes no muro.`);
     return muro;
   } catch (err) {
-    console.warn(`[apoia.se] falha ao buscar apoiadores em ${url}. Muro no plano B.`, err);
+    if (err instanceof RespostaHttp) {
+      console.warn(
+        `[apoia.se] ${err.status} em ${err.url}. A rota de listagem ainda não foi confirmada com o ` +
+          `suporte da APOIA.se (a doc v0.1 só tem /backers/charges/<email>). Muro no plano B.`
+      );
+      return normalizeSupporters(FALLBACK_SUPPORTERS);
+    }
+    console.warn("[apoia.se] falha ao buscar apoiadores. Muro no plano B.", err);
     return normalizeSupporters(FALLBACK_SUPPORTERS);
   }
 }

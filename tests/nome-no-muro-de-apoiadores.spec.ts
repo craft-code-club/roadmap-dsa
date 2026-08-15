@@ -1,9 +1,14 @@
 import { test, expect } from "@playwright/test";
 import {
   apoiaseHeaders,
+  collectAllPages,
   initials,
+  isActive,
+  isPublic,
   normalizeSupporters,
+  readPage,
   shortenName,
+  toSupporters,
 } from "../src/app/apoie/apoiadores";
 
 /**
@@ -138,6 +143,162 @@ test("a lista guarda o nome completo, e a ordem de chegada", () => {
     { name: "Ana" },
   ]);
   expect(muro).toEqual([{ name: "Maria Aparecida da Silva Souza" }, { name: "Ana" }]);
+});
+
+// ---------------------------------------------------------------------------
+// O contrato REAL do relatório de apoiadores
+// ---------------------------------------------------------------------------
+//
+// Os dados abaixo estão no formato do relatório do painel do criador, que é de
+// onde o `apoiadores.ts` lê. Antes de conhecê-lo, o código procurava
+// `created_at`, `first_support_at` e `support_status`: nomes que não existem.
+// Nada quebrava, e era esse o problema. Cada teste desta seção é um dos campos
+// que estavam errados.
+//
+// Nenhum dado aqui é de pessoa real.
+
+/** Um apoiador no formato do relatório, com o mínimo que o muro consome. */
+function apoiador(over: Record<string, unknown> = {}) {
+  return {
+    name: "Fulano de Teste",
+    email: "fulano@exemplo.invalid",
+    supportValue: 10,
+    supportStatus: "complete",
+    supportActive: true,
+    supportPrivate: false,
+    firstSupportDate: "2026-01-15T10:00:00.000Z",
+    supportLastModified: "2026-02-01T10:00:00.000Z",
+    paymentMethod: "credit_card",
+    ...over,
+  };
+}
+
+test("quem apoia em modo privado NUNCA aparece no muro", () => {
+  // A regra mais importante do arquivo. O muro é página pública e indexada, e
+  // publicar quem marcou o apoio como privado não é bug de dado, é incidente de
+  // privacidade, e não tem desfazer.
+  const muro = toSupporters([
+    apoiador({ name: "Publica Silva", supportPrivate: false }),
+    apoiador({ name: "Privada Souza", supportPrivate: true }),
+  ]);
+  expect(muro.map((s) => s.name)).toEqual(["Publica Silva"]);
+});
+
+test("sem `supportPrivate: false` declarado, ninguém é publicado (fail-closed)", () => {
+  // O ponto NÃO é "esconder quem é privado", é "só publicar quem autorizou".
+  // Campo ausente, nulo, string ou qualquer coisa que não seja o booleano
+  // `false` significa não publica. O custo de errar assim é um nome a menos no
+  // muro; errar para o outro lado publica alguém contra a vontade dela.
+  expect(isPublic(apoiador({ supportPrivate: false }))).toBe(true);
+
+  for (const valor of [undefined, null, "false", "no", 0, "", true]) {
+    const b = apoiador();
+    delete (b as Record<string, unknown>).supportPrivate;
+    if (valor !== undefined) (b as Record<string, unknown>).supportPrivate = valor;
+    expect(isPublic(b), `supportPrivate = ${JSON.stringify(valor)} não pode publicar`).toBe(false);
+  }
+
+  // E o efeito na lista inteira: resposta sem o campo esvazia o muro, o que faz
+  // a página cair no plano B com aviso. É o comportamento desejado.
+  const semCampo = apoiador();
+  delete (semCampo as Record<string, unknown>).supportPrivate;
+  expect(toSupporters([semCampo])).toEqual([]);
+});
+
+test("apoio bloqueado, travado, incompleto ou de campanha encerrada não vai ao muro", () => {
+  // O vocabulário real de `supportStatus`. A versão anterior perguntava se o
+  // status casava /cancel|inativ|expir|.../, e NENHUM destes quatro casa: os
+  // quatro passariam como ativos. `incomplete` é o mais traiçoeiro, porque
+  // contém a palavra "complete".
+  for (const status of ["blocked", "locked", "incomplete", "closed_campaign"]) {
+    expect(isActive(apoiador({ supportStatus: status })), `status ${status}`).toBe(false);
+    expect(toSupporters([apoiador({ supportStatus: status })]), `status ${status}`).toEqual([]);
+  }
+
+  expect(isActive(apoiador({ supportStatus: "complete" }))).toBe(true);
+  // `supportActive: false` derruba mesmo com status bom.
+  expect(isActive(apoiador({ supportStatus: "complete", supportActive: false }))).toBe(false);
+
+  // O campo é camelCase. Ler `support_status` era ler um campo que não existe.
+  const muro = toSupporters([
+    apoiador({ name: "Ativa Lima", supportStatus: "complete" }),
+    apoiador({ name: "Bloqueada Costa", supportStatus: "blocked" }),
+  ]);
+  expect(muro.map((s) => s.name)).toEqual(["Ativa Lima"]);
+});
+
+test("a ordem do muro é por `firstSupportDate`, do mais recente para o mais antigo", () => {
+  // Este é o defeito silencioso: procurando `created_at`, todo timestamp virava
+  // 0, o `.sort()` não trocava nada de lugar e a lista saía na ordem em que a
+  // API mandou. Ordem errada não quebra nada, só mente.
+  const muro = toSupporters([
+    apoiador({ name: "Antiga Alves", firstSupportDate: "2025-03-01T00:00:00.000Z" }),
+    apoiador({ name: "Recente Rocha", firstSupportDate: "2026-08-01T00:00:00.000Z" }),
+    apoiador({ name: "Meio Moraes", firstSupportDate: "2026-01-01T00:00:00.000Z" }),
+  ]);
+  expect(muro.map((s) => s.name)).toEqual(["Recente Rocha", "Meio Moraes", "Antiga Alves"]);
+});
+
+test("a paginação junta todas as páginas, e não só a primeira", () => {
+  // Sem paginar, uma campanha com mais de uma página mostraria a primeira fatia
+  // e diria que aquilo era o total. Silencioso de novo: lista curta parece lista.
+  const paginas: Record<number, unknown> = {
+    1: { backers: [apoiador({ name: "Um Um" })], totalPages: 3 },
+    2: { backers: [apoiador({ name: "Dois Dois" })], totalPages: 3 },
+    3: { backers: [apoiador({ name: "Tres Tres" })], totalPages: 3 },
+  };
+  const pedidas: number[] = [];
+
+  return collectAllPages(async (page) => {
+    pedidas.push(page);
+    return paginas[page];
+  }).then((todos) => {
+    expect(pedidas).toEqual([1, 2, 3]);
+    expect(todos).toHaveLength(3);
+    expect(toSupporters(todos).map((s) => s.name)).toEqual(["Um Um", "Dois Dois", "Tres Tres"]);
+  });
+});
+
+test("uma página só não vira três requisições, e o teto segura `totalPages` absurdo", async () => {
+  let chamadas = 0;
+  const uma = await collectAllPages(async () => {
+    chamadas++;
+    return { backers: [apoiador()], totalPages: 1 };
+  });
+  expect(chamadas).toBe(1);
+  expect(uma).toHaveLength(1);
+
+  // `totalPages` absurdo não pode virar laço infinito segurando o build.
+  let pedidas = 0;
+  const limitado = await collectAllPages(async () => {
+    pedidas++;
+    return { backers: [apoiador()], totalPages: 9999 };
+  }, 4);
+  expect(pedidas).toBe(4);
+  expect(limitado).toHaveLength(4);
+});
+
+test("readPage aceita o formato do relatório e também uma lista crua", () => {
+  expect(readPage({ backers: [apoiador()], totalPages: 7 }).totalPages).toBe(7);
+  expect(readPage({ backers: [apoiador()], totalPages: 7 }).backers).toHaveLength(1);
+  // Sem `totalPages`, assume uma página. Lista crua também vale.
+  expect(readPage([apoiador(), apoiador()])).toEqual({
+    backers: [apoiador(), apoiador()],
+    totalPages: 1,
+  });
+  expect(readPage(null)).toEqual({ backers: [], totalPages: 1 });
+});
+
+test("nada além do nome sai do parsing", () => {
+  // O relatório traz e-mail, valor, meio de pagamento e endereço de entrega. O
+  // muro publica nome, e só. `Supporter` tem um campo só para não haver caminho
+  // por onde o resto passe, e este teste é a prova de que continua não havendo.
+  const muro = toSupporters([
+    apoiador({ name: "Unica Pessoa", email: "segredo@exemplo.invalid", supportValue: 500 }),
+  ]);
+  expect(muro).toEqual([{ name: "Unica Pessoa" }]);
+  expect(JSON.stringify(muro)).not.toContain("@");
+  expect(JSON.stringify(muro)).not.toContain("500");
 });
 
 // ---------------------------------------------------------------------------
