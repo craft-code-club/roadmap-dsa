@@ -26,6 +26,13 @@
 // abaixo isola essa incerteza numa função só, `backersUrl()`, e degrada com
 // elegância enquanto ela não for confirmada com o suporte da APOIA.se.
 //
+// MEDIDO NA CI, com a credencial de verdade (PR #96): o `/backers` daqui devolve
+// **404**. Sem credencial nenhuma, o mesmo host devolve **403** em QUALQUER
+// caminho, inclusive nos que não existem (é AWS API Gateway barrando antes de
+// rotear). A diferença entre os dois códigos é o sinal: 404 quer dizer que a
+// chave passou pelo portão e que o caminho é que não existe. A credencial está
+// certa; a rota de listagem é que não existe mesmo.
+//
 // POR QUE A PÁGINA MOSTRAVA 3 COM 5 APOIOS NA CAMPANHA
 //
 // Não era cache, nem paginação, nem filtro de status: a versão anterior deste

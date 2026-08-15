@@ -165,6 +165,26 @@ jobs:
       # exercitar um build diferente do que o `deploy` publica.
       - name: Run tests
         run: npm test
+        env:
+          # A credencial entra AQUI, num job que não constrói nada, por um motivo
+          # só: `tests/segredo-nao-vai-para-o-cliente.spec.ts` tem duas metades, e
+          # a segunda procura o VALOR literal do segredo dentro do `out/`. Sem as
+          # variáveis ela se declara `skip`, e a metade mais conclusiva da
+          # varredura nunca rodaria em lugar nenhum — só na máquina de quem tem
+          # `.env.local`, que é justamente quem não precisa dela.
+          #
+          # Com elas, o artefato que ACABOU de ser construído com a credencial de
+          # verdade é conferido contra a credencial de verdade, no caminho entre o
+          # build e o deploy. É a diferença entre "nenhuma forma conhecida de
+          # segredo aparece" e "este segredo não aparece".
+          #
+          # O teste nunca imprime o valor (a mensagem de falha cita o NOME da
+          # variável e o arquivo), e o Actions ainda mascara secret no log por
+          # cima disso. Este job não roda em pull_request, então PR de fork
+          # continua sem ver nada.
+          APOIASE_KEY: ${{ secrets.APOIASE_KEY }}
+          APOIASE_SECRET: ${{ secrets.APOIASE_SECRET }}
+          APOIASE_CAMPAIGN: ${{ secrets.APOIASE_CAMPAIGN }}
 
       - name: Upload report on failure
         if: failure()

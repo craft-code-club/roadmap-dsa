@@ -159,7 +159,12 @@ const REGRAS: Regra[] = [
   // que não haja caminho, e esta regra é a prova de que continua não havendo.
   {
     nome: "endereço de e-mail",
-    re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+    // O `(?!...)` recusa as extensões de arquivo, e não é preciosismo: um asset
+    // de tela retina (`logo@2x.png`) casa com a forma `algo@algo.algo` letra por
+    // letra. Hoje o build não tem nenhum, e é justamente por isso que a carve-out
+    // entra agora: o dia em que alguém commitar um `@2x.png` em `public/` não
+    // pode ser o dia em que a CI fica vermelha por um PR de conteúdo.
+    re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(?!(?:png|jpe?g|gif|svg|webp|avif|ico|css|m?js|json|map|woff2?|ttf|txt|xml|html?)\b)[A-Za-z]{2,}\b/g,
     porque:
       "e-mail é dado pessoal e o `out/` é público. Se for e-mail de EXEMPLO num artigo, " +
       "declare a ocorrência em CONHECIDOS com a rota e o motivo, em vez de afrouxar a regra.",
@@ -167,8 +172,9 @@ const REGRAS: Regra[] = [
 ];
 
 /**
- * Dívida conhecida, com endereço e contagem, no mesmo formato do `CONHECIDOS`
- * do `sem-travessao.spec.ts`.
+ * Dívida conhecida, por par arquivo+regra, com a contagem exata. Mesma ideia do
+ * `CONHECIDOS` do `sem-travessao.spec.ts`, e pela mesma razão: o guarda entra
+ * medindo o estado real em vez de esperar um PR de limpeza que nunca vem.
  *
  * Existe para o dia em que um ARTIGO legitimamente escrever "Bearer abc123" num
  * bloco de código explicando HTTP. Nesse dia a resposta certa é declarar a
@@ -338,10 +344,15 @@ test("o valor real da credencial não aparece no build", () => {
   // reprovar o site funcionando. Ele entra na lista só quando NÃO é o pedaço
   // público, que é o caso do id do painel.
   const campanha = process.env.APOIASE_CAMPAIGN ?? process.env.APOIASE_CAMPAIGN_ID;
-  if (campanha && campanha.length >= 4 && !LINKS.apoiar.includes(campanha)) {
+  if (campanha && !LINKS.apoiar.includes(campanha)) {
     segredos.push(["APOIASE_CAMPAIGN", campanha]);
   }
 
+  // O piso de 8 caracteres vale para TODOS, inclusive a campanha, e é o que
+  // impede o teste de virar gerador de alarme falso: procurar uma string curta
+  // (um id de 4 dígitos, digamos) dentro de 1.242 arquivos acha o hash de um
+  // chunk mais cedo ou mais tarde, e a falha apontaria para um arquivo em que
+  // não há vazamento nenhum. Credencial curta fica para as regras por forma.
   const presentes = segredos.filter(([, v]) => v !== undefined && v.trim().length >= 8);
   test.skip(
     presentes.length === 0,
