@@ -8,8 +8,8 @@ import {
   TOTAL_TOPICS,
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
-} from "@content/roadmap";
-import { EXTRA_CARDS } from "@content/tracks";
+} from "@content/fundamentos";
+import { EXTRA_CARDS } from "@content/roadmaps";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
@@ -19,8 +19,8 @@ import { levelClass } from "@/lib/ui";
 // novo já entra no título e no card sem ninguém lembrar de atualizar o SEO.
 //
 // São DOIS números, e a escolha é frase a frase. `TOTAL_TOPICS` é o tamanho da
-// roadmap, o que o roadmap mapeia: continua certo no título e no card de
-// estatística ("tópicos no roadmap"). `TOTAL_TOPICS_PRONTOS` é quem tem material
+// dos Fundamentos, o que eles mapeiam: continua certo no título e no card de
+// estatística ("tópicos nos Fundamentos"). `TOTAL_TOPICS_PRONTOS` é quem tem material
 // para o aluno abrir, e é ele que vale em toda frase que QUALIFICA os tópicos
 // pelo que eles entregam. Os 11 de diferença não têm vídeo, artigo nem
 // visualização: são exatamente os que o próprio site marca "em breve" e tira do
@@ -43,7 +43,7 @@ const FEATURES = [
 
 export default function Home() {
   const stats = [
-    { n: `${TOTAL_TOPICS}`, rot: "tópicos no roadmap" },
+    { n: `${TOTAL_TOPICS}`, rot: "tópicos nos Fundamentos" },
     { n: `${TOTAL_VISUALIZERS}`, rot: "tópicos com visualização" },
     { n: `${TOTAL_PROBLEMS}`, rot: "problemas selecionados" },
     { n: "Gratuito", rot: "para sempre" },
@@ -64,7 +64,7 @@ export default function Home() {
           <Link href="/topico/big-o" className="btn btn-primary">
             Começar por Big O
           </Link>
-          <Link href="/roadmap" className="btn">Ver o roadmap completo</Link>
+          <Link href="/fundamentos" className="btn">Ver os Fundamentos</Link>
         </div>
       </section>
 
@@ -94,7 +94,7 @@ export default function Home() {
       <section className="section-pad-x">
         <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 18 }}>
           <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Comece por aqui</h2>
-          <Link href="/roadmap" className="link-btn">Ver tudo →</Link>
+          <Link href="/fundamentos" className="link-btn">Ver tudo →</Link>
         </div>
         <div className="grid-3">
           {destaques.map((t) => (
@@ -110,20 +110,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* A porta para fora do roadmap, na home.
+      {/* A porta para fora dos Fundamentos, na home.
           Ela existe porque a vitrine mora em dois lugares que quem chega hoje
-          não abre: o FIM do /roadmap/ (depois de 16 grupos de rolagem) e a
-          /trilha/, que só se descobre pelo link do topo. Três cards aqui — os
+          não abre: o FIM do /fundamentos/ (depois de 16 grupos de rolagem) e a
+          /roadmaps/, que só se descobre pelo link do topo. Três cards aqui — os
           que já têm material, que é a ordem do `EXTRA_CARDS` — contam que o
           site é maior que a fila, sem competir com o "Comece por aqui" logo
           acima, que continua sendo o convite principal. */}
       <section className="section-pad-x">
         <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 6 }}>
-          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Além do roadmap</h2>
-          <Link href="/trilha" className="link-btn">Ver tudo →</Link>
+          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>Além dos Fundamentos</h2>
+          <Link href="/roadmaps" className="link-btn">Ver tudo →</Link>
         </div>
         <p className="sub" style={{ margin: "0 0 18px", fontSize: 15, color: "var(--ccc-muted)" }}>
-          Estruturas que são um assunto à parte, e trilhas sobre famílias inteiras.
+          Estruturas que são um assunto à parte, e roadmaps sobre famílias inteiras.
         </p>
         <ExtrasGrid cards={EXTRA_CARDS.slice(0, 3)} />
       </section>

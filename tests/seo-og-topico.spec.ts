@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { createHash } from "node:crypto";
-import { ALL_TOPICS } from "../content/roadmap";
+import { ALL_TOPICS } from "../content/fundamentos";
 
 // O card de compartilhamento de cada tópico.
 //

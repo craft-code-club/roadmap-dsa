@@ -78,7 +78,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     // Este provedor embrulha o site inteiro, então o atributo aparece na home,
     // no tópico, no curso e na página avulsa — enquanto os outros sinais de
     // hidratação do app são de um pedaço só: o carimbo `ccc-dsa-menu` é escrito
-    // pela barra do roadmap, que o tópico avulso e a vitrine `/trilha/` não têm.
+    // pela barra do roadmap, que o tópico avulso e a vitrine `/roadmaps/` não têm.
     // O guarda de acessibilidade dependia daquele carimbo para medir a página
     // assentada e ficou 30s esperando um menu que não ia existir.
     document.documentElement.dataset.hidratado = "1";

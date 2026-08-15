@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { EXTRA_CARDS } from "@content/tracks";
+import { EXTRA_CARDS } from "@content/roadmaps";
 import { ExtrasGrid } from "@/components/ExtrasGrid";
 
 /**
@@ -33,10 +33,10 @@ export function ContinueExplorando({ excluir, quantos = 2 }: { excluir?: string;
     <section className="continue-explorando">
       <div className="continue-head">
         <h2 className="prose-h2" style={{ margin: 0 }}>Continue explorando</h2>
-        <Link href="/trilha" className="link-btn">Ver tudo →</Link>
+        <Link href="/roadmaps" className="link-btn">Ver tudo →</Link>
       </div>
       <p className="prose-p" style={{ color: "var(--ccc-muted)", marginTop: 0 }}>
-        Outras estruturas e trilhas fora do roadmap.
+        Outros roadmaps e tópicos, fora dos Fundamentos.
       </p>
       <ExtrasGrid cards={vizinhos} />
     </section>

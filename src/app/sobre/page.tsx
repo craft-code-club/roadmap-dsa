@@ -5,8 +5,8 @@ import {
   TOTAL_TOPICS,
   TOTAL_TOPICS_PRONTOS,
   TOTAL_VISUALIZERS,
-} from "@content/roadmap";
-import { TOTAL_EXTRA_TOPICS } from "@content/tracks";
+} from "@content/fundamentos";
+import { TOTAL_EXTRA_TOPICS } from "@content/roadmaps";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
 
@@ -23,7 +23,7 @@ import { pageMetadata } from "@/lib/seo";
 // escrito em lugar nenhum daqui, e uma página "sobre" com fato inventado é pior
 // do que uma página curta. O que falta está marcado em bloco, mais abaixo.
 //
-// Os números vêm do `content/roadmap.ts`, como na home: tópico novo entra aqui
+// Os números vêm do `content/fundamentos.ts`, como na home: tópico novo entra aqui
 // sozinho, no mesmo PR que o cria.
 
 export function generateMetadata(): Metadata {
@@ -58,7 +58,7 @@ export default function SobrePage() {
 
       <h2 className="prose-h2">O que você encontra aqui</h2>
       <p className="prose-p">
-        O roadmap tem <strong className="prose-strong">{TOTAL_TOPICS} tópicos</strong>, dos quais{" "}
+        Os Fundamentos têm <strong className="prose-strong">{TOTAL_TOPICS} tópicos</strong>, dos quais{" "}
         <strong className="prose-strong">{TOTAL_TOPICS_PRONTOS} já têm material publicado</strong>.
         Cada tópico vive numa página só, e reúne o que estiver disponível para ele: o algoritmo
         rodando passo a passo, o artigo, o vídeo do canal da comunidade, os problemas para
@@ -75,8 +75,8 @@ export default function SobrePage() {
           LeetCode e do GeeksforGeeks, na ordem em que recomendamos resolver.
         </li>
         <li className="prose-li">
-          <strong className="prose-strong">{TOTAL_EXTRA_TOPICS} tópicos fora do roadmap</strong>, em{" "}
-          <Link className="prose-a" href="/trilha/">trilhas e tópicos avulsos</Link>: estruturas que
+          <strong className="prose-strong">{TOTAL_EXTRA_TOPICS} tópicos fora dos Fundamentos</strong>, em{" "}
+          <Link className="prose-a" href="/roadmaps/">trilhas e tópicos avulsos</Link>: estruturas que
           são um assunto à parte, e famílias inteiras que não caberiam num tópico só.
         </li>
         <li className="prose-li">
@@ -102,8 +102,8 @@ export default function SobrePage() {
         sai do armazenamento local.
       </p>
       <p className="prose-p">
-        <Link className="prose-a" href="/roadmap/">
-          Ver o roadmap completo
+        <Link className="prose-a" href="/fundamentos/">
+          Ver os Fundamentos
         </Link>{" "}
         ou{" "}
         <Link className="prose-a" href="/introducao/">
@@ -177,7 +177,7 @@ export default function SobrePage() {
           >
             clube do livro
           </a>{" "}
-          mostram o que a comunidade faz além do roadmap.
+          mostram o que a comunidade faz além do guia.
         </li>
         <li className="prose-li">
           <a className="prose-a" href={LINKS.blog} target="_blank" rel="noopener noreferrer">

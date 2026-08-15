@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { isEmptyTopic } from "@content/roadmap";
-import { TRACKS, EXTRA_TOPICS, SITE_TOPICS } from "@content/tracks";
+import { isEmptyTopic } from "@content/fundamentos";
+import { EXTRA_TOPICS, ROADMAPS, roadmapTopics, SITE_TOPICS } from "@content/roadmaps";
 
 // As rotas fixas e os arquivos que respondem pelo conteúdo de cada uma.
 //
@@ -12,7 +12,7 @@ import { TRACKS, EXTRA_TOPICS, SITE_TOPICS } from "@content/tracks";
 // importa o módulo.
 //
 // É uma LISTA por rota, e não um arquivo só, porque `page.tsx` quase nunca é
-// onde o texto mora. A home e o `/roadmap/` importam de `content/roadmap.ts`:
+// onde o texto mora. A home e o `/fundamentos/` importam de `content/fundamentos.ts`:
 // mexer num tópico muda as duas telas sem tocar em nenhum dos dois `page.tsx`,
 // e a data ficava parada no dia em que o layout mudou pela última vez. O
 // `/apoie/` tem a mesma forma com `apoiadores.ts`, que é onde a lista de nomes
@@ -21,20 +21,36 @@ import { TRACKS, EXTRA_TOPICS, SITE_TOPICS } from "@content/tracks";
 // O tipo do `Record` é o que cobra a segunda metade: acrescentar uma rota em
 // `ROTAS_FIXAS` sem declarar de que arquivos ela tira data é erro de
 // compilação, não uma URL sem `lastmod` descoberta meses depois.
-export const ROTAS_FIXAS = ["/", "/introducao/", "/roadmap/", "/trilha/", "/apoie/", "/sobre/"] as const;
+export const ROTAS_FIXAS = [
+  "/",
+  "/introducao/",
+  "/fundamentos/",
+  "/roadmaps/",
+  "/topicos/",
+  "/apoie/",
+  "/sobre/",
+] as const;
 
 export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly string[]> = {
-  "/": ["src/app/page.tsx", "content/roadmap.ts", "content/tracks.ts"],
+  "/": ["src/app/page.tsx", "content/fundamentos.ts", "content/roadmaps/index.ts"],
   "/introducao/": ["src/app/introducao/page.tsx"],
-  "/roadmap/": ["src/app/roadmap/page.tsx", "content/roadmap.ts"],
+  "/fundamentos/": ["src/app/fundamentos/page.tsx", "content/fundamentos.ts"],
   // A vitrine lê o `courses.ts` (é de lá que saem os cards) e o `roadmap.ts`
   // (o texto de abertura cita o tamanho do roadmap).
-  "/trilha/": ["src/app/trilha/page.tsx", "content/tracks.ts", "content/roadmap.ts"],
+  "/roadmaps/": ["src/app/roadmaps/page.tsx", "content/roadmaps/index.ts", "content/avulsos.ts"],
+  // O índice completo lista TODO tópico do site: ele muda quando qualquer uma
+  // das três casas muda.
+  "/topicos/": [
+    "src/app/topicos/page.tsx",
+    "content/fundamentos.ts",
+    "content/roadmaps/index.ts",
+    "content/avulsos.ts",
+  ],
   "/apoie/": ["src/app/apoie/page.tsx", "src/app/apoie/apoiadores.ts"],
   // O /sobre também lê o `roadmap.ts`: os números de tópicos, visualizadores e
   // problemas que o texto cita saem de lá, como na home. Tópico novo muda a
   // página sem ninguém tocar no `page.tsx` dela.
-  "/sobre/": ["src/app/sobre/page.tsx", "content/roadmap.ts", "content/tracks.ts"],
+  "/sobre/": ["src/app/sobre/page.tsx", "content/fundamentos.ts", "content/roadmaps/index.ts"],
 };
 
 // A data de uma página, derivada do `git log`. Um lugar só, porque são dois
@@ -44,7 +60,7 @@ export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly str
 // de `isEmptyTopic` lá), e aqui a consequência seria pior: o sitemap
 // escondendo a data por não confiar nela enquanto a página a estampa.
 //
-// A data vem do Git, e não de um campo `updatedAt` no `content/roadmap.ts`:
+// A data vem do Git, e não de um campo `updatedAt` no `content/fundamentos.ts`:
 // data que depende de alguém lembrar de atualizá-la em cada PR envelhece errado
 // e passa a mentir, o que é pior do que não existir.
 //
@@ -96,7 +112,7 @@ export const CONTEUDO_DA_ROTA: Record<(typeof ROTAS_FIXAS)[number], readonly str
 
 // Um `git log` por caminho, e não por consulta. São 48 chamadas só para montar
 // o sitemap e cada uma custa ~29ms de processo novo (medido neste repositório,
-// 1,39s no total): `content/roadmap.ts` sozinho é consultado 6 vezes, uma por
+// 1,39s no total): `content/fundamentos.ts` sozinho é consultado 6 vezes, uma por
 // rota fixa que o lista e uma por tópico sem artigo que cai no fallback. Com a
 // página de tópico consultando os mesmos caminhos, o cache deixou de ser uma
 // economia e virou o que segura o custo. Ele vale por build — o `git log` de um
@@ -166,8 +182,8 @@ export function ultimaAlteracao(...arquivos: readonly string[]): Date | undefine
   return datas.length ? new Date(Math.max(...datas)) : undefined;
 }
 
-const ARQUIVO_DO_ROADMAP = "content/roadmap.ts";
-const ARQUIVO_DA_TRILHA = "content/tracks.ts";
+const ARQUIVO_DO_ROADMAP = "content/fundamentos.ts";
+const ARQUIVO_DOS_ROADMAPS = "content/roadmaps/index.ts";
 
 /**
  * Os arquivos de dados que descrevem tópicos, na ordem em que são varridos.
@@ -178,11 +194,11 @@ const ARQUIVO_DA_TRILHA = "content/tracks.ts";
  * é dela é exatamente o defeito que o mecanismo de intervalo veio consertar,
  * reaberto pela porta ao lado.
  */
-const ARQUIVOS_DE_TOPICO = [ARQUIVO_DO_ROADMAP, ARQUIVO_DA_TRILHA] as const;
+const ARQUIVOS_DE_TOPICO = [ARQUIVO_DO_ROADMAP, ARQUIVO_DOS_ROADMAPS] as const;
 
 /** Em que arquivo de dados o tópico é descrito. É o plano B da data dele. */
 function arquivoDoTopico(slug: string): string {
-  return EXTRA_TOPICS.some((t) => t.slug === slug) ? ARQUIVO_DA_TRILHA : ARQUIVO_DO_ROADMAP;
+  return EXTRA_TOPICS.some((t) => t.slug === slug) ? ARQUIVO_DOS_ROADMAPS : ARQUIVO_DO_ROADMAP;
 }
 
 /** Onde um tópico é descrito: arquivo e intervalo de linhas (1-based). */
@@ -357,14 +373,17 @@ export function atualizacaoDoTopico(slug: string): Date | undefined {
  * a mais recente entre as duas coisas, pelo mesmo raciocínio do tópico: o
  * carimbo é uma afirmação sobre a página inteira.
  */
-export function atualizacaoDaTrilha(slug: string): Date | undefined {
-  const trilha = TRACKS.find((c) => c.slug === slug);
-  if (!trilha) return undefined;
-  const artigos = trilha.groups
-    .flatMap((g) => g.topics)
+export function atualizacaoDoRoadmap(slug: string): Date | undefined {
+  const r = ROADMAPS.find((x) => x.slug === slug);
+  if (!r) return undefined;
+  // `roadmapTopics` resolve as citações, e é o certo aqui: publicar a Tabela
+  // Hash muda a abertura de "Bancos de Dados" mesmo a Tabela Hash sendo dos
+  // Fundamentos, porque o card dela naquela página passa a contar como
+  // publicado.
+  const artigos = roadmapTopics(r)
     .filter((t) => !isEmptyTopic(t))
     .map((t) => `content/topics/${t.slug}.mdx`);
-  return ultimaAlteracao(ARQUIVO_DA_TRILHA, ...artigos);
+  return ultimaAlteracao(ARQUIVO_DOS_ROADMAPS, ...artigos);
 }
 
 /**
@@ -445,7 +464,7 @@ export function comDataUtil<T extends { lastModified?: Date }>(entradas: T[]): T
 export type DatasDoTopico = {
   /**
    * O primeiro commit do artigo. Ausente quando o tópico não tem `.mdx`: aí a
-   * data de reserva é a do `content/roadmap.ts`, e o primeiro commit DELE é o
+   * data de reserva é a do `content/fundamentos.ts`, e o primeiro commit DELE é o
    * começo do repositório — que não é a data em que aquele tópico nasceu.
    */
   publicado?: Date;

@@ -13,7 +13,7 @@ import { test, expect } from "./fixtures/console-limpo";
 
 const ROTAS = [
   "/",
-  "/roadmap/",
+  "/fundamentos/",
   "/introducao/",
   "/topico/two-pointers/", // ready, com 3 visualizadores
   "/topico/big-o/", // ready, o visualizador que usa o hook novo

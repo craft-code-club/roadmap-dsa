@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ALL_TOPICS, GROUPS } from "../content/roadmap";
+import { ALL_TOPICS, GROUPS } from "../content/fundamentos";
 
 // Acessibilidade da casca de navegação: link de pular, anel de foco, nome dos
 // campos e dos landmarks, e a marca de progresso fora do link.
@@ -36,7 +36,7 @@ test("um Tab e um Enter levam o foco para dentro do conteúdo", async ({ page })
   // lateral inteiros: 44 paradas até o primeiro elemento do `<main>` em
   // /topico/dijkstra/, 40 em /topico/arrays/ e 29 na home, em TODA página
   // aberta. E 44 é piso, porque o menu não renderiza grupo fechado.
-  for (const rota of ["/topico/dijkstra/", "/topico/arrays/", "/", "/roadmap/"]) {
+  for (const rota of ["/topico/dijkstra/", "/topico/arrays/", "/", "/fundamentos/"]) {
     await page.goto(rota);
 
     // Fora da tela para quem usa mouse: o link é uma saída de teclado, não um
@@ -134,17 +134,17 @@ test("a marca de progresso não mora dentro do link, e o progresso sobrevive à 
   page,
 }) => {
   // Widget focável dentro de `<a>` é estado inválido pela ARIA (`nested-interactive`
-  // do axe). Medido no build anterior: 7 em /topico/arrays/ e 48 em /roadmap/.
+  // do axe). Medido no build anterior: 7 em /topico/arrays/ e 48 em /fundamentos/.
   const aninhados = 'a button, a input, a [role="checkbox"], a [tabindex="0"]';
 
-  for (const rota of ["/topico/arrays/", "/roadmap/"]) {
+  for (const rota of ["/topico/arrays/", "/fundamentos/"]) {
     await page.goto(rota);
     await expect(page.locator(aninhados), `${rota} tem widget focável dentro de link`).toHaveCount(0);
   }
 
   // O progresso é dado que já está no navegador do aluno: a mudança é só de
   // estrutura do DOM, e marcar continua marcando depois do F5.
-  await page.goto("/roadmap/");
+  await page.goto("/fundamentos/");
   // Escopo no card: o menu lateral do /roadmap pode estar mostrando o mesmo
   // tópico (ele lembra o grupo aberto da visita anterior), e aí o mesmo nome
   // acessível casa duas vezes.
@@ -197,7 +197,7 @@ test("a marca de progresso vem antes do link nas três listas", async ({ page })
       return Array.from(cont.querySelectorAll("a,button")).map((e) => e.tagName);
     }, seletor);
 
-  await page.goto("/roadmap/");
+  await page.goto("/fundamentos/");
   expect(await ordemEm(".topic-card-wrap"), "card do /roadmap").toEqual(["BUTTON", "A"]);
 
   await page.goto("/topico/two-pointers/");
@@ -225,11 +225,11 @@ test("todo landmark de navegação tem nome próprio", async ({ page }) => {
   // "navegação" três vezes e o aluno não sabe qual é o menu de tópicos.
   await page.goto("/");
   await expect(page.getByRole("navigation")).toHaveCount(3);
-  for (const nome of ["Principal", "Comunidade e apoio", "Roadmap de estudos"]) {
+  for (const nome of ["Principal", "Comunidade e apoio", "Fundamentos"]) {
     await expect(page.getByRole("navigation", { name: nome })).toHaveCount(1);
   }
 
-  // O roadmap é navegação, e não `aside` (landmark "complementar").
+  // A barra lateral é navegação, e não `aside` (landmark "complementar").
   await expect(page.locator("nav#menu-lateral.sidebar")).toHaveCount(1);
 });
 
@@ -259,7 +259,7 @@ test("o menu leva os 47 tópicos em toda página, com o grupo fechado ou aberto"
   // tópicos que a página carrega.
   const total = ALL_TOPICS.length;
 
-  for (const rota of ["/topico/matematica/", "/topico/big-o/", "/", "/roadmap/"]) {
+  for (const rota of ["/topico/matematica/", "/topico/big-o/", "/", "/fundamentos/"]) {
     await page.goto(rota);
     await expect(page.locator('.sidebar a[href^="/topico/"]'), rota).toHaveCount(total);
   }
@@ -327,13 +327,13 @@ test("o item do grupo fechado não é pintado nem alcançado pelo teclado", asyn
 test("cada grupo do roadmap tem âncora própria, e ela para abaixo do cabeçalho", async ({
   page,
 }) => {
-  await page.goto("/roadmap/");
+  await page.goto("/fundamentos/");
   for (const g of GROUPS) {
     await expect(page.locator(`section.rgroup[id="${g.id}"]`), `sem âncora para ${g.name}`).toHaveCount(1);
   }
 
   // Âncora que existe e para debaixo do cabeçalho fixo não serve de destino.
-  await page.goto("/roadmap/#grafos");
+  await page.goto("/fundamentos/#grafos");
   const alturaHeader = await page.evaluate(
     () => document.querySelector(".header")!.getBoundingClientRect().height
   );

@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
-import { isEmptyTopic } from "@content/roadmap";
-import { TRACKS, trackHasMaterial, SITE_TOPICS } from "@content/tracks";
+import { isEmptyTopic } from "@content/fundamentos";
+import { ROADMAPS, roadmapHasMaterial, SITE_TOPICS } from "@content/roadmaps";
 import {
-  atualizacaoDaTrilha,
+  atualizacaoDoRoadmap,
   atualizacaoDoTopico,
   comDataUtil,
   CONTEUDO_DA_ROTA,
@@ -44,10 +44,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = ROTAS_FIXAS.map((rota) => ({
     url: `${SITE_URL}${rota}`,
     priority: rota === "/" ? 1 : rota === "/apoie/" || rota === "/sobre/" ? 0.5 : 0.9,
-    changeFrequency: rota === "/" || rota === "/roadmap/" ? ("weekly" as const) : ("monthly" as const),
+    changeFrequency: rota === "/" || rota === "/fundamentos/" ? ("weekly" as const) : ("monthly" as const),
     lastModified: ultimaAlteracao(...CONTEUDO_DA_ROTA[rota]),
   }));
-  // `SITE_TOPICS`, e não `ALL_TOPICS`: os tópicos de trilha e os tópicos avulsos
+  // `SITE_TOPICS`, e não `ALL_TOPICS`: os tópicos de roadmap e os avulsos
   // têm página em `/topico/<slug>/` igual aos do roadmap, e ficar de fora do
   // sitemap não os tira do índice — só faz o Google descobri-los mais tarde,
   // por link, enquanto o próprio site diz (pelo `lastmod` que não existe) que
@@ -58,15 +58,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly" as const,
     lastModified: atualizacaoDoTopico(t.slug),
   }));
-  // A abertura de uma trilha entra pelo MESMO critério dos tópicos: só quando tem
-  // material. Trilha em que todo tópico está "em breve" emite `noindex`, e
+  // A abertura de um roadmap entra pelo MESMO critério dos tópicos: só quando
+  // tem material. Roadmap em que todo tópico está "em breve" emite `noindex`, e
   // convidar o robô para uma página que manda ignorá-la é o erro vermelho
   // permanente do Search Console que o filtro acima existe para não criar.
-  const trilhas = TRACKS.filter(trackHasMaterial).map((c) => ({
-    url: `${SITE_URL}/trilha/${c.slug}/`,
+  const roadmaps = ROADMAPS.filter(roadmapHasMaterial).map((c) => ({
+    url: `${SITE_URL}/roadmaps/${c.slug}/`,
     priority: 0.7,
     changeFrequency: "monthly" as const,
-    lastModified: atualizacaoDaTrilha(c.slug),
+    lastModified: atualizacaoDoRoadmap(c.slug),
   }));
-  return comDataUtil([...base, ...topicos, ...trilhas]);
+  return comDataUtil([...base, ...topicos, ...roadmaps]);
 }

@@ -42,7 +42,7 @@ import NegativeBinary from "./negative-binary.mdx";
 // Registro dos artigos em MDX. Para adicionar um tópico "ready":
 //   1. crie content/topics/<slug>.mdx (use <SlidingWindowVisualizer /> etc.)
 //   2. registre-o aqui
-//   3. em content/roadmap.ts marque status "ready" (e o viz, se houver)
+//   3. em content/fundamentos.ts marque status "ready" (e o viz, se houver)
 export type Article = { Body: ComponentType; summary: string[] };
 
 // summary = SÓ os títulos (h2) do artigo, no texto exato. A página do tópico

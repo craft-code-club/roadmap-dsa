@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { ALL_TOPICS } from "../content/roadmap";
+import { ALL_TOPICS } from "../content/fundamentos";
 
 // A fachada do vídeo da aula: o `<iframe>` do YouTube só nasce quando o aluno
 // clica (`src/components/VideoFacade.tsx`).

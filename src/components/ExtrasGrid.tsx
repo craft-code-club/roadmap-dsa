@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { EXTRA_CARDS, type ExtraCard } from "@content/tracks";
+import { EXTRA_CARDS, type ExtraCard } from "@content/roadmaps";
 import { levelClass } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 
 // A vitrine do que existe fora do roadmap, em um componente só.
 //
-// Ela aparece em dois lugares — no fim do `/roadmap/` e como corpo do
-// `/trilha/` — e os dois têm que mostrar exatamente a mesma coisa. Uma segunda
+// Ela aparece em dois lugares — no fim do `/fundamentos/` e como corpo do
+// `/roadmaps/` — e os dois têm que mostrar exatamente a mesma coisa. Uma segunda
 // cópia da grade é como a home e o roadmap acabariam contando duas histórias
 // diferentes sobre o mesmo catálogo, cada uma envelhecendo por conta própria.
 //
 // Trilha e tópico avulso dividem o mesmo card de propósito. O aluno que chega
-// aqui está perguntando "o que mais tem?", e não "quais são as trilhas?": pedir
+// aqui está perguntando "o que mais tem?", e não "quais são os roadmaps?": pedir
 // que ele entenda a diferença entre os dois formatos ANTES de ver o que tem em
 // cada um é a ordem errada. A etiqueta no canto responde a diferença depois,
 // para quem quiser saber quanto tempo aquilo vai tomar.
@@ -43,7 +43,7 @@ function CardExtra({ card }: { card: ExtraCard }) {
             logo abaixo, e um glifo anunciado como "◈" só atrapalha. */}
         <span className="extra-glyph" aria-hidden="true">{card.glyph}</span>
         <span className={`extra-kind extra-kind-${card.kind}`}>
-          {card.kind === "track" ? "Trilha" : "Tópico"}
+          {card.kind === "roadmap" ? "Roadmap" : "Tópico"}
         </span>
       </div>
       <div className="extra-name">{card.name}</div>

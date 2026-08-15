@@ -1,0 +1,19 @@
+# Redirecionamentos do Cloudflare Pages.
+#
+# Sintaxe: <origem> <destino> <código>. Uma regra por linha, a primeira que casa
+# vence, e o arquivo é copiado para a raiz do site pelo `output: "export"`
+# (tudo que está em `public/` vai para o `out/`).
+
+# A trilha principal virou "Fundamentos" e mudou de endereço.
+#
+# /roadmap/ era a segunda URL mais visitada do site e a de maior prioridade no
+# sitemap depois da home. Um 301 é o que transfere o histórico dela para o novo
+# endereço em vez de jogá-lo fora: sem ele, todo link em post, mensagem de
+# Discord e resultado de busca apontaria para um 404, e o Google levaria meses
+# para reencontrar a página no lugar novo — como página nova, sem os sinais que
+# ela já tinha.
+#
+# As duas formas, com e sem barra: o site é `trailingSlash: true`, mas link de
+# terceiro não obedece a nossa configuração.
+/roadmap/  /fundamentos/  301
+/roadmap   /fundamentos/  301

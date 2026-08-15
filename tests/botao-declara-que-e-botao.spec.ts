@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ALL_TOPICS } from "../content/roadmap";
+import { ALL_TOPICS } from "../content/fundamentos";
 
 // Todo `<button>` do site declara `type="button"`.
 //
@@ -51,7 +51,7 @@ import { ALL_TOPICS } from "../content/roadmap";
 // da build anterior, que ainda tem o atributo.
 
 /** Rotas fixas do site, fora as de tópico. */
-const ROTAS_FIXAS = ["/", "/roadmap/", "/introducao/", "/sobre/", "/apoie/"];
+const ROTAS_FIXAS = ["/", "/fundamentos/", "/introducao/", "/sobre/", "/apoie/"];
 
 const ROTAS = [...ROTAS_FIXAS, ...ALL_TOPICS.map((t) => `/topico/${t.slug}/`)];
 

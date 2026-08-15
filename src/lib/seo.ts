@@ -12,7 +12,7 @@ import { OG_ALT_RAIZ, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og-meta";
 // a mesma URL, e o site é `trailingSlash: true`.
 //
 // O tipo cobra a barra final em vez de só pedir por comentário: `/${string}`
-// aceitava "/roadmap" de boa, e um path quase certo aqui vira canonical apontando
+// aceitava "/fundamentos" de boa, e um path quase certo aqui vira canonical apontando
 // para uma URL que não existe. Erro de SEO não quebra teste nem build — ou o
 // compilador pega, ou ninguém pega.
 //
@@ -34,6 +34,21 @@ export type PageSeo = {
   /** Padrão: a `description`. */
   ogDescription?: string;
   path: "/" | `/${string}/`;
+  /**
+   * A URL CANÔNICA, quando ela não é a própria página.
+   *
+   * Existe por causa de `/roadmaps/<roadmap>/<topico>/`: o mesmo tópico servido
+   * dentro de um roadmap, com a barra lateral daquele roadmap. É a mesma leitura
+   * que `/topico/<slug>/` entrega, e conteúdo igual em duas URLs sem canonical é
+   * o Google escolhendo sozinho qual mostrar — às vezes a errada, e sempre
+   * dividindo os sinais entre as duas.
+   *
+   * Quando presente, ela substitui o `path` no `<link rel="canonical">` E no
+   * `og:url`. Os dois juntos, e não só o canonical: o comentário no topo deste
+   * arquivo diz que eles têm que apontar para a mesma URL, e é a canônica que
+   * queremos que circule quando alguém compartilha.
+   */
+  canonicalDe?: "/" | `/${string}/`;
   /**
    * Como o `<title>` se compõe.
    *
@@ -76,6 +91,7 @@ export function pageMetadata({
   ogTitle,
   ogDescription,
   path,
+  canonicalDe,
   titleStyle = "absolute",
   robots,
   ogImage = "segmento",
@@ -85,7 +101,7 @@ export function pageMetadata({
   return {
     title: comTemplate ? title : { absolute: title },
     description,
-    alternates: { canonical: path },
+    alternates: { canonical: canonicalDe ?? path },
     ...(robots ? { robots } : {}),
     openGraph: {
       // `openGraph` da página SUBSTITUI o do layout, não faz merge campo a campo:
@@ -100,7 +116,7 @@ export function pageMetadata({
       // um caractere do card de nenhuma das 48 rotas que entraram agora.
       title: ogTitle ?? tituloResolvido,
       description: ogDescription ?? description,
-      url: path,
+      url: canonicalDe ?? path,
       ...(ogImage === "raiz"
         ? {
             images: [

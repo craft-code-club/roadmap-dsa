@@ -1,6 +1,6 @@
 "use client";
 
-import type { Problem } from "@content/roadmap";
+import type { Problem } from "@content/fundamentos";
 import { useProgress } from "@/components/ProgressProvider";
 
 const LEVEL_CLASS: Record<string, string> = {
@@ -20,7 +20,7 @@ export function ProblemList({ problems }: { problems: Problem[] }) {
         return (
           <div className="problem-row" key={pr.id}>
             <button
-              // `type="button"` como no `Shell` e no `RoadmapGroups`: o padrão
+              // `type="button"` como no `Shell` e no `FundamentosGroups`: o padrão
               // do HTML é `submit`, e um dia que este componente cair dentro de
               // um `<form>` marcar um problema viraria envio de formulário.
               type="button"
@@ -30,7 +30,7 @@ export function ProblemList({ problems }: { problems: Problem[] }) {
               aria-label={`Marcar ${pr.name} como resolvido`}
               onClick={() => toggleProblema(pr.id)}
             >
-              {/* O mesmo traço do `Shell` e do `RoadmapGroups`; o porquê medido
+              {/* O mesmo traço do `Shell` e do `FundamentosGroups`; o porquê medido
                   de ser desenho, e não o caractere `✓`, está no `globals.css`.
                   `aria-hidden` porque é decoração: o estado é `aria-checked`, o
                   nome é o `aria-label`. */}

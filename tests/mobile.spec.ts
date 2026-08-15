@@ -35,7 +35,7 @@ import { test, expect } from "./fixtures/console-limpo";
 /** Uma página de cada tipo, mais as duas que a regra do `font-size` alcança. */
 const ROTAS = [
   "/",
-  "/roadmap/",
+  "/fundamentos/",
   "/apoie/",
   "/topico/big-o/",
   "/topico/two-pointers/", // a página mais densa: 1176 folhas de texto

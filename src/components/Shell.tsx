@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { getTrack, getPlacement, type Track } from "@content/tracks";
+import { getRoadmap, getPlacement, type Roadmap } from "@content/roadmaps";
 import { LINKS } from "@/lib/links";
 import { mesmaRota } from "@/lib/ui";
-import { TrackSidebar } from "@/components/TrackSidebar";
 import { RoadmapSidebar } from "@/components/RoadmapSidebar";
+import { FundamentosSidebar } from "@/components/FundamentosSidebar";
 
 // A moldura do site: topo, gaveta lateral, conteúdo, rodapé.
 //
@@ -18,8 +18,8 @@ import { RoadmapSidebar } from "@/components/RoadmapSidebar";
 //   roadmap   o menu dos 46 tópicos. É o padrão, e vale para todas as rotas que
 //            já existiam: home, roadmap, introdução, apoie, sobre e os tópicos
 //            do roadmap.
-//   trilha    o menu daquela trilha, em `/trilha/<slug>/` e nos tópicos dele.
-//   nenhuma  o tópico avulso e a vitrine `/trilha/`. Aqui a ausência é a
+//   trilha    o menu daquela trilha, em `/roadmaps/<slug>/` e nos tópicos dele.
+//   nenhuma  o tópico avulso e a vitrine `/roadmaps/`. Aqui a ausência é a
 //            decisão: um tópico avulso é o assunto inteiro numa tela só, e uma
 //            roadmap ao lado dela é um roadmap para lugar nenhum — 46 links que
 //            não têm relação com o que o leitor está lendo, competindo com o
@@ -30,7 +30,7 @@ import { RoadmapSidebar } from "@/components/RoadmapSidebar";
 // mora no layout raiz: ele não recebe nada da página. O preço é o
 // `usePathname`, que já era usado aqui para o destaque de "você está aqui".
 
-type Layout = { modo: "roadmap" } | { modo: "track"; track: Track } | { modo: "solto" };
+type Layout = { modo: "fundamentos" } | { modo: "roadmap"; roadmap: Roadmap } | { modo: "solto" };
 
 /**
  * A rota → a casca.
@@ -43,22 +43,29 @@ type Layout = { modo: "roadmap" } | { modo: "track"; track: Track } | { modo: "s
 function layoutDaRota(pathname: string | null): Layout {
   const partes = (pathname ?? "/").split("/").filter(Boolean);
 
-  if (partes[0] === "trilha") {
-    // `/trilha/` é a vitrine: ela É a navegação, e uma barra ao lado seria a
+  if (partes[0] === "roadmaps") {
+    // `/roadmaps/` é a vitrine: ela É a navegação, e uma barra ao lado seria a
     // segunda lista de links da mesma tela.
     if (!partes[1]) return { modo: "solto" };
-    const track = getTrack(partes[1]);
-    return track ? { modo: "track", track } : { modo: "solto" };
+    // Vale para `/roadmaps/<r>/` e para `/roadmaps/<r>/<topico>/`: o tópico
+    // servido dentro de um roadmap abre com a barra DAQUELE roadmap, que é a
+    // razão inteira de aquela rota existir.
+    const roadmap = getRoadmap(partes[1]);
+    return roadmap ? { modo: "roadmap", roadmap } : { modo: "solto" };
   }
+
+  // O índice completo é uma lista de 80 tópicos com busca própria: uma segunda
+  // lista ao lado dela é ruído.
+  if (partes[0] === "topicos") return { modo: "solto" };
 
   if (partes[0] === "topico" && partes[1]) {
     const onde = getPlacement(partes[1]);
-    if (onde?.kind === "track") return { modo: "track", track: onde.track };
+    if (onde?.kind === "roadmap") return { modo: "roadmap", roadmap: onde.roadmap };
     if (onde?.kind === "standalone") return { modo: "solto" };
-    return { modo: "roadmap" };
+    return { modo: "fundamentos" };
   }
 
-  return { modo: "roadmap" };
+  return { modo: "fundamentos" };
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -78,15 +85,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // nunca dispararia sozinho.
   useEffect(() => setMobileNav(false), [pathname]);
 
-  // Com `trailingSlash: true`, a rota chega como "/roadmap/": comparar com o
+  // Com `trailingSlash: true`, a rota chega como "/fundamentos/": comparar com o
   // href cru deixava Roadmap, Apoiar e Introdução sem o destaque de "você está aqui".
   const navOn = (href: string) => mesmaRota(pathname, href);
-  // "Trilhas" fica aceso em toda a área: a vitrine, a abertura de uma trilha e os
-  // tópicos que pertencem a uma trilha ou a um avulso. Sem isto, o leitor dentro
-  // de `/topico/bloom-filter/` não teria pista nenhuma de onde está no site.
-  const naAreaDeTrilhas =
-    layout.modo === "track" ||
-    (pathname?.startsWith("/trilha") ?? false) ||
+  // "Roadmaps" fica aceso em toda a área: a vitrine, a abertura de um roadmap,
+  // os tópicos servidos dentro dele e os tópicos avulsos. Sem isto, o leitor
+  // dentro de `/topico/bloom-filter/` não teria pista nenhuma de onde está.
+  const naAreaDeRoadmaps =
+    layout.modo === "roadmap" ||
+    (pathname?.startsWith("/roadmaps") ?? false) ||
     (layout.modo === "solto" && (pathname?.startsWith("/topico/") ?? false));
 
   return (
@@ -129,8 +136,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               rótulo o leitor de tela anuncia "navegação" três vezes. */}
           <nav className="topnav nav-left" aria-label="Principal">
             <Link href="/" className={`nav-hide-sm${navOn("/") ? " on" : ""}`}>Início</Link>
-            <Link href="/roadmap" className={`nav-hide-sm${navOn("/roadmap") ? " on" : ""}`}>Roadmap</Link>
-            <Link href="/trilha" className={`nav-hide-sm${naAreaDeTrilhas ? " on" : ""}`}>Trilhas</Link>
+            <Link href="/fundamentos" className={`nav-hide-sm${navOn("/fundamentos") ? " on" : ""}`}>Fundamentos</Link>
+            <Link href="/roadmaps" className={`nav-hide-sm${naAreaDeRoadmaps ? " on" : ""}`}>Roadmaps</Link>
+            <Link href="/topicos" className={`nav-hide-sm${navOn("/topicos") ? " on" : ""}`}>Tópicos</Link>
           </nav>
         </div>
 
@@ -158,11 +166,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <Link className="menu-item only-mobile" href="/" onClick={() => setMenu(false)}>
                     <span className="mi-ico">⌂</span> Início
                   </Link>
-                  <Link className="menu-item only-mobile" href="/roadmap" onClick={() => setMenu(false)}>
-                    <span className="mi-ico">▤</span> Roadmap
+                  <Link className="menu-item only-mobile" href="/fundamentos" onClick={() => setMenu(false)}>
+                    <span className="mi-ico">▤</span> Fundamentos
                   </Link>
-                  <Link className="menu-item only-mobile" href="/trilha" onClick={() => setMenu(false)}>
-                    <span className="mi-ico">✧</span> Trilhas e outros tópicos
+                  <Link className="menu-item only-mobile" href="/roadmaps" onClick={() => setMenu(false)}>
+                    <span className="mi-ico">✧</span> Roadmaps
+                  </Link>
+                  <Link className="menu-item only-mobile" href="/topicos" onClick={() => setMenu(false)}>
+                    <span className="mi-ico">≡</span> Todos os tópicos
                   </Link>
                   <a className="menu-item only-mobile ext" href={LINKS.youtube} target="_blank" rel="noopener noreferrer" onClick={() => setMenu(false)}>
                     <span className="mi-ico" style={{ color: "#ff0000" }}>▶</span> YouTube<span className="ext-arrow" aria-hidden="true">↗</span>
@@ -202,12 +213,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <nav
           id="menu-lateral"
           className={`sidebar${mobileNav ? " open" : ""}`}
-          aria-label={layout.modo === "track" ? `Trilha: ${layout.track.name}` : "Roadmap de estudos"}
+          aria-label={layout.modo === "roadmap" ? `Roadmap: ${layout.roadmap.name}` : "Fundamentos"}
         >
-          {layout.modo === "track" ? (
-            <TrackSidebar track={layout.track} mobileNav={mobileNav} />
+          {layout.modo === "roadmap" ? (
+            <RoadmapSidebar roadmap={layout.roadmap} mobileNav={mobileNav} />
           ) : (
-            <RoadmapSidebar mobileNav={mobileNav} />
+            <FundamentosSidebar mobileNav={mobileNav} />
           )}
         </nav>
       )}

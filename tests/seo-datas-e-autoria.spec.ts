@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
+import { ALL_TOPICS, isEmptyTopic } from "../content/fundamentos";
 import {
   CONTEUDO_DA_ROTA,
   datasDistinguemCaminhos,
@@ -334,7 +334,7 @@ test("o rodapé aparece em TODA rota, e não só na home", async ({ page }) => {
   // Ele existia só em `src/app/page.tsx`: a home tinha rodapé e as 34 páginas de
   // aula tinham zero. Quem chegava numa delas pela busca não tinha caminho
   // nenhum para descobrir quem publica o material.
-  const rotas = ["/", "/roadmap/", "/sobre/", "/apoie/", "/introducao/", rotaDo(INDEXAVEIS[0].slug)];
+  const rotas = ["/", "/fundamentos/", "/sobre/", "/apoie/", "/introducao/", rotaDo(INDEXAVEIS[0].slug)];
   for (const rota of rotas) {
     await page.goto(rota);
     const pe = page.locator("footer.site-foot");
@@ -450,7 +450,7 @@ test("dá para chegar ao /sobre pelo menu, e ele é o PRIMEIRO item", async ({ p
   // O rodapé saiu desta conta de propósito: ele não tem mais links, porque a
   // barra é fixa e já leva a tudo. Se um dia alguém devolver links ao rodapé,
   // é o teste do rodapé que reprova, não este.
-  await page.goto("/roadmap/");
+  await page.goto("/fundamentos/");
   await page.getByRole("button", { name: "Mais opções" }).click();
 
   // Primeiro item, e a ordem é a decisão: "quem escreveu isto?" vem antes de

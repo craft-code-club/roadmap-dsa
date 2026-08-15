@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { ALL_TOPICS, TOTAL_TOPICS, TOTAL_TOPICS_PRONTOS, isEmptyTopic } from "../content/roadmap";
+import { ALL_TOPICS, TOTAL_TOPICS, TOTAL_TOPICS_PRONTOS, isEmptyTopic } from "../content/fundamentos";
 import { SITE_URL } from "../src/lib/links";
 
 // Faxina de plataforma: três coisas que nenhum teste anterior olhava, cada uma
@@ -15,7 +15,7 @@ import { SITE_URL } from "../src/lib/links";
 //   não o texto do arquivo. Ler o arquivo provaria que alguém digitou a linha,
 //   não que ela chega ao navegador.
 // - `TOTAL_TOPICS_PRONTOS` mora nos dados: a prova lê a fonte
-//   (`content/roadmap.ts`) e amarra o número ao que o site já faz com o mesmo
+//   (`content/fundamentos.ts`) e amarra o número ao que o site já faz com o mesmo
 //   critério, que é tirar do índice do Google quem não tem material. Teste que
 //   lê a fonte não envelhece quando um tópico é publicado.
 

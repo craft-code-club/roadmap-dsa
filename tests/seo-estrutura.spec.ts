@@ -2,11 +2,17 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
-import { TRACKS, trackHasMaterial, getPlacement, SITE_TOPICS } from "../content/tracks";
+import { ALL_TOPICS, isEmptyTopic } from "../content/fundamentos";
+import {
+  getPlacement,
+  roadmapHasMaterial,
+  ROADMAPS,
+  roadmapTopics,
+  SITE_TOPICS,
+} from "../content/roadmaps";
 import { LINKS, SITE_URL } from "../src/lib/links";
 import {
-  atualizacaoDaTrilha,
+  atualizacaoDoRoadmap,
   atualizacaoDoTopico,
   caminhosDatados,
   CONTEUDO_DA_ROTA,
@@ -53,19 +59,19 @@ const ROTAS_FIXAS = Object.keys(CONTEUDO_DA_ROTA);
 // deste arquivo — que é literalmente o defeito descrito no cabeçalho, repetido
 // um nível acima.
 const ROTAS_TOPICO = SITE_TOPICS.map((t) => `/topico/${t.slug}/`);
-const ROTAS_CURSO = TRACKS.map((c) => `/trilha/${c.slug}/`);
+const ROTAS_CURSO = ROADMAPS.map((c) => `/roadmaps/${c.slug}/`);
 const TODAS_AS_ROTAS = [...ROTAS_FIXAS, ...ROTAS_TOPICO, ...ROTAS_CURSO];
 
 // Rotas que o site quer no índice do Google: as fixas, mais os tópicos que têm
 // material, mais as trilhas que têm ao menos um tópico com material. São as
 // MESMAS funções que as páginas usam para decidir o `noindex` (`isEmptyTopic` e
-// `trackHasMaterial`) — dois predicados para a mesma decisão é como o buraco
+// `roadmapHasMaterial`) — dois predicados para a mesma decisão é como o buraco
 // do sitemap nasceu, e recriar a condição aqui recriaria o buraco dentro do
 // teste.
 const ROTAS_INDEXAVEIS = [
   ...ROTAS_FIXAS,
   ...SITE_TOPICS.filter((t) => !isEmptyTopic(t)).map((t) => `/topico/${t.slug}/`),
-  ...TRACKS.filter(trackHasMaterial).map((c) => `/trilha/${c.slug}/`),
+  ...ROADMAPS.filter(roadmapHasMaterial).map((c) => `/roadmaps/${c.slug}/`),
 ];
 
 function arquivoDaRota(rota: string): string {
@@ -452,7 +458,7 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // este ramo o `dataEsperada` recebia `undefined` e o teste morria num
     // TypeError — que é o pior jeito de descobrir uma rota nova, porque não
     // parece com o defeito que ele existe para pegar.
-    const trilha = TRACKS.find((c) => rota === `/trilha/${c.slug}/`);
+    const trilha = ROADMAPS.find((c) => rota === `/roadmaps/${c.slug}/`);
 
     // [PROPRIEDADE] O carimbo é de um commit que EXISTE. Nenhuma regra honesta
     // inventa um instante: ela escolhe um commit. É o que mata o `new Date()`
@@ -469,16 +475,15 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     // se a regra passar a considerar mais entradas (foi o que aconteceu agora,
     // quando o intervalo do `roadmap.ts` entrou na conta), e teria pegado o
     // furo inverso — datar a página antes do próprio artigo.
-    // A abertura de uma trilha é feita do `courses.ts` e dos artigos dos tópicos
-    // dele: publicar um tópico muda a página, que passa a mostrar um card a
-    // mais como publicado. O piso é o mais recente entre essas coisas.
+    // A abertura de um roadmap é feita do `roadmaps.ts` e dos artigos dos
+    // tópicos dele: publicar um tópico muda a página, que passa a mostrar um
+    // card a mais como publicado. O piso é o mais recente entre essas coisas.
     const arquivosDaRota = slug
       ? [`content/topics/${slug}.mdx`]
       : trilha
         ? [
-            "content/tracks.ts",
-            ...trilha.groups
-              .flatMap((g) => g.topics)
+            "content/roadmaps.ts",
+            ...roadmapTopics(trilha)
               .filter((t) => !isEmptyTopic(t))
               .map((t) => `content/topics/${t.slug}.mdx`),
           ]
@@ -495,7 +500,7 @@ test("o lastmod do sitemap vem do Git, ou não existe", () => {
     const doModulo = slug
       ? atualizacaoDoTopico(slug)
       : trilha
-        ? atualizacaoDaTrilha(trilha.slug)
+        ? atualizacaoDoRoadmap(trilha.slug)
         : ultimaAlteracao(...CONTEUDO_DA_ROTA[rota as keyof typeof CONTEUDO_DA_ROTA]);
     if (doModulo && doModulo.getTime() !== ms) {
       fiacao.push(`${loc} → XML ${lastmod}, módulo ${doModulo.toISOString()}`);
@@ -583,18 +588,18 @@ test("cada página de tópico descreve o tópico, com os dados que estão na tel
 function rastroEsperado(t: { slug: string; name: string; group: string }) {
   const onde = getPlacement(t.slug);
   const eu = { name: t.name, href: `/topico/${t.slug}/` };
-  if (onde?.kind === "track") {
+  if (onde?.kind === "roadmap") {
     return [
       { name: "Início", href: "/" },
-      { name: "Trilhas", href: "/trilha/" },
-      { name: onde.track.name, href: `/trilha/${onde.track.slug}/` },
+      { name: "Roadmaps", href: "/roadmaps/" },
+      { name: onde.roadmap.name, href: `/roadmaps/${onde.roadmap.slug}/` },
       eu,
     ];
   }
   if (onde?.kind === "standalone") {
-    return [{ name: "Início", href: "/" }, { name: "Trilhas", href: "/trilha/" }, eu];
+    return [{ name: "Início", href: "/" }, { name: "Roadmaps", href: "/roadmaps/" }, eu];
   }
-  return [{ name: "Início", href: "/" }, { name: t.group, href: "/roadmap/" }, eu];
+  return [{ name: "Início", href: "/" }, { name: t.group, href: "/fundamentos/" }, eu];
 }
 
 test("o BreadcrumbList repete, item a item, o rastro que a página mostra", () => {
@@ -623,13 +628,13 @@ test("o BreadcrumbList repete, item a item, o rastro que a página mostra", () =
 });
 
 test("a abertura de cada trilha indexável declara o rastro e a lista dela", () => {
-  for (const c of TRACKS.filter(trackHasMaterial)) {
-    const rota = `/trilha/${c.slug}/`;
+  for (const c of ROADMAPS.filter(roadmapHasMaterial)) {
+    const rota = `/roadmaps/${c.slug}/`;
     const nos = jsonLd(rota);
 
     const lista = doTipo(nos, "ItemList");
     expect(lista, `${rota} sem ItemList`).toBeTruthy();
-    const topicos = c.groups.flatMap((g) => g.topics);
+    const topicos = roadmapTopics(c);
     expect(lista!.numberOfItems, rota).toBe(topicos.length);
     expect((lista!.itemListElement as No[]).map((i) => i.name), rota).toEqual(
       topicos.map((t) => t.name)
@@ -642,22 +647,22 @@ test("a abertura de cada trilha indexável declara o rastro e a lista dela", () 
     expect(roadmap, `${rota} sem BreadcrumbList`).toBeTruthy();
     expect((roadmap!.itemListElement as No[]).map((i) => i.name), rota).toEqual([
       "Início",
-      "Trilhas",
+      "Roadmaps",
       c.name,
     ]);
   }
   // A outra metade: trilha sem material nenhum é `noindex`, e página noindex não
   // declara ser recurso de coisa alguma.
-  for (const c of TRACKS.filter((c) => !trackHasMaterial(c))) {
-    const nos = jsonLd(`/trilha/${c.slug}/`);
-    expect(doTipo(nos, "ItemList"), `/trilha/${c.slug}/ é noindex e não pode declarar ItemList`)
+  for (const c of ROADMAPS.filter((c) => !roadmapHasMaterial(c))) {
+    const nos = jsonLd(`/roadmaps/${c.slug}/`);
+    expect(doTipo(nos, "ItemList"), `/roadmaps/${c.slug}/ é noindex e não pode declarar ItemList`)
       .toBeUndefined();
   }
 });
 
 test("o /roadmap lista os tópicos que ele renderiza, na ordem em que renderiza", () => {
-  const lista = doTipo(jsonLd("/roadmap/"), "ItemList");
-  expect(lista, "/roadmap/ sem ItemList").toBeTruthy();
+  const lista = doTipo(jsonLd("/fundamentos/"), "ItemList");
+  expect(lista, "/fundamentos/ sem ItemList").toBeTruthy();
   expect(lista!.numberOfItems).toBe(ALL_TOPICS.length);
   const itens = lista!.itemListElement as No[];
   expect(itens.map((i) => i.name)).toEqual(ALL_TOPICS.map((t) => t.name));
@@ -686,7 +691,7 @@ test("o rastro do tópico é navegável e diz onde o aluno está", async ({ page
 
   const inicio = roadmap.getByRole("link", { name: "Início" });
   await expect(inicio).toHaveAttribute("href", "/");
-  await expect(roadmap.getByRole("link", { name: t.group })).toHaveAttribute("href", "/roadmap/");
+  await expect(roadmap.getByRole("link", { name: t.group })).toHaveAttribute("href", "/fundamentos/");
   await expect(roadmap.locator(".cur")).toHaveAttribute("aria-current", "page");
 
   // Interagir, não contar: o link tem que levar mesmo à home.
@@ -707,7 +712,7 @@ test("o rastro marcado é o rastro desenhado", async ({ page }) => {
   const amostra = [
     daTrilha[0],
     daTrilha[daTrilha.length - 1],
-    ...SITE_TOPICS.filter((t) => !isEmptyTopic(t) && getPlacement(t.slug)?.kind === "track").slice(0, 1),
+    ...SITE_TOPICS.filter((t) => !isEmptyTopic(t) && getPlacement(t.slug)?.kind === "roadmap").slice(0, 1),
     ...SITE_TOPICS.filter((t) => !isEmptyTopic(t) && getPlacement(t.slug)?.kind === "standalone").slice(0, 1),
   ];
   expect(amostra, "a amostra perdeu uma das três formas de rastro").toHaveLength(4);

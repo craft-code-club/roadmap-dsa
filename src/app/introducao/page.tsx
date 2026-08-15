@@ -10,7 +10,7 @@ export function generateMetadata(): Metadata {
       "Guia para quem está começando em algoritmos e estruturas de dados: o que estudar primeiro, em que ordem e como se preparar para entrevistas técnicas.",
     ogTitle: "Por onde começar em Algoritmos e Estruturas de Dados",
     ogDescription:
-      "O que estudar primeiro, em que ordem, e como usar o roadmap para se preparar para entrevistas.",
+      "O que estudar primeiro, em que ordem, e como usar o guia para se preparar para entrevistas.",
     path: "/introducao/",
   });
 }
@@ -80,7 +80,7 @@ export default function IntroducaoPage() {
 
       <div className="hero-actions" style={{ marginTop: 28 }}>
         <Link href="/topico/big-o" className="btn btn-primary">Começar por Big O</Link>
-        <Link href="/roadmap" className="btn">Ver o roadmap completo</Link>
+        <Link href="/fundamentos" className="btn">Ver os Fundamentos</Link>
       </div>
 
       <div className="cta-card discord" style={{ marginTop: 44 }}>

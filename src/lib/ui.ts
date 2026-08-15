@@ -1,4 +1,4 @@
-import type { Level } from "@content/roadmap";
+import type { Level } from "@content/fundamentos";
 
 /**
  * Compara rotas ignorando a barra final (`trailingSlash: true` no next.config).

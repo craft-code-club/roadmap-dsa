@@ -370,7 +370,7 @@ export const GROUPS: Group[] = [
         ],
       },
       // A Skip List MUDOU DE CASA e agora é um tópico avulso, em
-      // `content/tracks.ts`. A URL não mudou (`/topico/skip-list/`): o que
+      // `content/roadmaps.ts`. A URL não mudou (`/topico/skip-list/`): o que
       // mudou é a vizinhança.
       //
       // Ela estava aqui porque é FEITA de listas encadeadas — uma verdade sobre
@@ -616,7 +616,7 @@ export const GROUPS: Group[] = [
         ],
       },
       // A Trie MUDOU DE CASA e agora é um tópico avulso, em
-      // `content/tracks.ts`. A URL não mudou (`/topico/trie/`): o que mudou é
+      // `content/roadmaps.ts`. A URL não mudou (`/topico/trie/`): o que mudou é
       // a vizinhança. Manter o registro nos dois lugares derruba o build, que
       // recusa slug repetido — a segunda página sumiria em silêncio.
     ],
@@ -818,7 +818,7 @@ export const GROUPS: Group[] = [
           { title: "Disjoint Set Union (union-find) com compressão de caminho", source: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/dsa/introduction-to-disjoint-set-data-structure-or-union-find-algorithm/" },
         ],
       },
-      // "Grafos Avançados" VIROU UMA TRILHA, em `/trilha/grafos-avancados/`.
+      // "Grafos Avançados" VIROU UMA TRILHA, em `/roadmaps/grafos-avancados/`.
       //
       // Ele era um tópico só, e a descrição dele denunciava o problema:
       // "componentes fortemente conexos, pontes, pontos de articulação e
@@ -1202,7 +1202,7 @@ export const GROUPS: Group[] = [
  * Os tópicos da TRILHA, na ordem dela.
  *
  * Não é "todo tópico do site". Desde que existem trilhas e tópicos avulsos
- * (`content/tracks.ts`), o site publica tópicos que não estão aqui — eles têm
+ * (`content/roadmaps.ts`), o site publica tópicos que não estão aqui — eles têm
  * página em `/topico/<slug>/` como qualquer outro, mas não entram na barra
  * lateral, não contam no progresso do roadmap e não mexem nos números da home.
  * Quem precisa de TODOS os tópicos, como o `generateStaticParams` e o sitemap,

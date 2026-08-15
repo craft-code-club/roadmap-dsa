@@ -55,7 +55,7 @@ type Conhecida = {
  * Duas coisas mudaram em relação à primeira medição (feita sobre e35c1b2):
  *
  *  - `landmark-unique` **saiu das cinco rotas**: o #50 pôs `aria-label` nos dois
- *    `<nav>` da barra, que era o defeito. Com isso `/` e `/roadmap/` ficam com a
+ *    `<nav>` da barra, que era o defeito. Com isso `/` e `/fundamentos/` ficam com a
  *    lista **vazia** — e lista vazia não é lacuna, é a forma mais forte deste
  *    guarda: qualquer violação que apareça ali vira "regra nova" e reprova;
  *  - `color-contrast` em `/topico/two-pointers/` fica em **16 nós**, e agora de
@@ -80,7 +80,7 @@ type Conhecida = {
  *    — os títulos do `out/apoie/index.html` são `h1` seguido só de `h2`.
  *
  * A amostra também cresceu de 5 para 9 rotas, com as classes de página que os
- * trilhas criaram: a vitrine `/trilha/`, a abertura de uma trilha (barra lateral
+ * trilhas criaram: a vitrine `/roadmaps/`, a abertura de uma trilha (barra lateral
  * que não é a do roadmap), o tópico avulso `/topico/trie/` (barra lateral
  * NENHUMA) e `/topico/counting-sort/`, que assumiu a cobertura de "tópico em
  * breve" que era do `/topico/trie/` antes de ele ganhar artigo.
@@ -93,7 +93,7 @@ type Conhecida = {
  */
 const PASSIVO: Record<string, Conhecida[]> = {
   "/": [],
-  "/roadmap/": [],
+  "/fundamentos/": [],
   "/topico/two-pointers/": [
     {
       regra: "color-contrast",
@@ -147,8 +147,8 @@ const PASSIVO: Record<string, Conhecida[]> = {
   ],
   // As duas telas novas. Listas vazias, que é a forma mais forte deste guarda:
   // qualquer violação que apareça nelas vira "regra nova" e reprova.
-  "/trilha/": [],
-  "/trilha/estruturas-probabilisticas/": [],
+  "/roadmaps/": [],
+  "/roadmaps/estruturas-probabilisticas/": [],
   "/apoie/": [],
 };
 
@@ -173,7 +173,7 @@ const AMOSTRA = Object.keys(PASSIVO);
  * O SINAL É `<html data-hidratado>`, posto pelo `ProgressProvider` no efeito de
  * montagem. Ele substituiu o carimbo `ccc-dsa-menu`, e a troca não é
  * preferência: aquele carimbo é escrito pela TRILHA LATERAL, e desde as trilhas
- * há rota sem roadmap lateral nenhuma (o tópico avulso e a vitrine `/trilha/`,
+ * há rota sem roadmap lateral nenhuma (o tópico avulso e a vitrine `/roadmaps/`,
  * ver `src/components/Shell.tsx`). Esperar por ele numa dessas era esperar 30s
  * por um menu que não ia existir — medido, com `/topico/trie/` estourando o
  * timeout. O provedor embrulha o site inteiro, então o novo sinal vale em toda
@@ -197,8 +197,8 @@ async function esperarHidratar(page: Page) {
   //
   // A condição é o CAMPO DE BUSCA, e não o `#menu-lateral`: a barra lateral de
   // uma trilha usa o mesmo id de landmark e NÃO escreve carimbo nenhum (quem
-  // escreve é o `RoadmapSidebar`). Perguntar pelo landmark fazia
-  // `/trilha/<slug>/` esperar 30s por um carimbo que não vem.
+  // escreve é o `FundamentosSidebar`). Perguntar pelo landmark fazia
+  // `/roadmaps/<slug>/` esperar 30s por um carimbo que não vem.
   //
   // As duas esperas juntas, e não uma só: o carimbo cobre o caso do roadmap e
   // não existe fora dela; o atributo cobre toda rota. Este é o superconjunto.

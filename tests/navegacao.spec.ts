@@ -1,6 +1,6 @@
 import { test, expect, type Locator } from "@playwright/test";
-import { ALL_TOPICS, isEmptyTopic } from "../content/roadmap";
-import { SITE_TOPICS } from "../content/tracks";
+import { ALL_TOPICS, isEmptyTopic } from "../content/fundamentos";
+import { SITE_TOPICS } from "../content/roadmaps";
 
 test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await page.goto("/");
@@ -10,12 +10,12 @@ test("home mostra o hero e leva para o Big O", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: /Big O/ })).toBeVisible();
 });
 
-test("nav do topo abre o roadmap e um tópico", async ({ page }) => {
+test("nav do topo abre os Fundamentos e um tópico", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Roadmap", exact: true }).click();
-  await expect(page).toHaveURL(/\/roadmap/);
+  await page.getByRole("link", { name: "Fundamentos", exact: true }).click();
+  await expect(page).toHaveURL(/\/fundamentos/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "Roadmap de Algoritmos e Estruturas de Dados" })
+    page.getByRole("heading", { level: 1, name: "Fundamentos de Algoritmos e Estruturas de Dados" })
   ).toBeVisible();
   await page.getByRole("link", { name: /Two Pointers/ }).first().click();
   await expect(page).toHaveURL(/topico\/two-pointers/);
@@ -965,11 +965,11 @@ test("o menu rola sozinho até o tópico atual quando ele fica fora da vista", a
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
-test("Roadmap, Apoiar e Introdução mostram onde o leitor está", async ({ page }) => {
-  // Regressão: com `trailingSlash: true` a rota chega como "/roadmap/", e a
+test("Fundamentos, Apoiar e Introdução mostram onde o leitor está", async ({ page }) => {
+  // Regressão: com `trailingSlash: true` a rota chega como "/fundamentos/", e a
   // comparação crua com o href deixava a barra do topo sempre apagada.
-  await page.goto("/roadmap/");
-  await expect(page.locator(".nav-left a.on")).toHaveText("Roadmap");
+  await page.goto("/fundamentos/");
+  await expect(page.locator(".nav-left a.on")).toHaveText("Fundamentos");
   await page.goto("/apoie/");
   await expect(page.locator(".nav-right a.on")).toContainText("Apoiar");
   await page.goto("/introducao/");
@@ -1064,7 +1064,7 @@ const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
   backtracking: { h1: "Backtracking", vizMin: 3 },
   "binary-numbers": { h1: "Números Binários", vizMin: 3 },
   "negative-binary": { h1: "Binários Negativos", vizMin: 3 },
-  // Fora do roadmap (content/tracks.ts). Sem visualizador ainda: o artigo é o
+  // Fora do roadmap (content/roadmaps.ts). Sem visualizador ainda: o artigo é o
   // conteúdo inteiro, e `vizMin: 0` diz isso em vez de fingir um piso.
   "union-find": { h1: "Union-Find (DSU)", vizMin: 0 },
   trie: { h1: "Trie (Árvore de Prefixos)", vizMin: 0 },

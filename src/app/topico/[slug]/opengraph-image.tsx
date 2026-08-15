@@ -1,4 +1,4 @@
-import { getSiteTopic, SITE_TOPICS } from "@content/tracks";
+import { getSiteTopic, SITE_TOPICS } from "@content/roadmaps";
 import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
 
 // Card de compartilhamento de CADA tópico.
@@ -11,7 +11,7 @@ import { ogImage, OG_CONTENT_TYPE, OG_SIZE } from "@/lib/og";
 //
 // O desenho não mora aqui: `src/lib/og.tsx` é o template único das rotas com
 // card. Este arquivo só decide o que cada tópico põe em cada campo, com os dados
-// que o `content/roadmap.ts` já tem.
+// que o `content/fundamentos.ts` já tem.
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const dynamic = "force-static";
@@ -71,7 +71,7 @@ export function generateStaticParams() {
 // há glifo que ele não consegue. Medido: um "⇄" na descrição de Números Binários
 // devolvia `Failed to download dynamic font. Status: 400`, o build passava verde,
 // e o card saía com um retângulo vazio no lugar ("a conversão decimal ▯ binário").
-// O símbolo foi trocado por palavras no `content/roadmap.ts`, que é onde estava a
+// O símbolo foi trocado por palavras no `content/fundamentos.ts`, que é onde estava a
 // causa: ele também ia parar na `meta description` da busca.
 //
 // Esta guarda é o que sobra do achado, e ela continua valendo. O `roadmap.ts` já
@@ -87,7 +87,7 @@ function exigirLatin1(campos: Record<string, string>, slug: string): void {
       throw new Error(
         `opengraph-image (${slug}): ${JSON.stringify(semFonte.join(""))} em "${campo}" está fora ` +
           "do Latin-1, e o card do Open Graph sai com um retângulo vazio no lugar. Troque o " +
-          "símbolo por palavras no texto do tópico, em content/roadmap.ts ou content/tracks.ts."
+          "símbolo por palavras no texto do tópico, em content/fundamentos.ts ou content/roadmaps.ts."
       );
     }
   }
