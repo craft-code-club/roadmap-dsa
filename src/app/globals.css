@@ -103,21 +103,35 @@ html { scroll-behavior: smooth; }
   background: rgba(11, 17, 28, 0.86); backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--ccc-line);
 }
-.header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* A barra do topo é RÍGIDA de propósito: nada aqui encolhe nem quebra linha.
+   O `min-width: 0` que morava neste bloco (no `.header-left` e no `.brand`)
+   deixava a marca ser espremida abaixo do próprio conteúdo, e o resultado
+   medido em 920px era este: "Roadmap DSA / por Craft & Code Club" quebrando em
+   TRÊS linhas e transbordando os 60px do cabeçalho, com o texto passando por
+   cima de "Início"; em 800px as caixas de "Tópicos" e "YouTube" se sobrepunham
+   3px, e em 320px o quadrado do logo saía da própria caixa e cobria 13px do
+   botão do Discord.
+   Encolher em silêncio é a pior falha possível aqui, porque ela não estoura
+   nada e nenhuma medição de overflow de página a pega. Com as peças rígidas,
+   faltar espaço vira estouro horizontal — alto, visível e medido por
+   `tests/barra-do-topo-responsiva.spec.ts`. Quem garante que isso nunca
+   acontece são os degraus da seção "responsive": comprimir, depois recolher
+   para o menu ⋯. */
+.header-left { display: flex; align-items: center; gap: 8px; }
 .nav-left { margin-left: 10px; }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 12px; flex: none; }
 .brand-mark {
   display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
   background: linear-gradient(150deg, var(--ccc-purple), var(--ccc-accent));
   font-weight: 700; font-size: 11.5px; color: #fff; letter-spacing: -0.03em; flex: none;
 }
-.brand-name { display: block; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
-.brand-sub { font-size: 11px; color: var(--ccc-muted); line-height: 1.15; }
-.topnav { display: flex; align-items: center; gap: 4px; }
+.brand-name { display: block; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; white-space: nowrap; }
+.brand-sub { display: block; font-size: 11px; color: var(--ccc-muted); line-height: 1.15; white-space: nowrap; }
+.topnav { display: flex; align-items: center; gap: 4px; flex: none; }
 .topnav a, .topnav .navbtn {
   padding: 8px 12px; border: none; border-radius: 8px; background: transparent;
   font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--ccc-muted);
-  cursor: pointer;
+  cursor: pointer; white-space: nowrap;
 }
 .topnav a:hover, .topnav .navbtn:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
 .topnav a.on, .topnav .navbtn.on { color: #fff; background: rgba(255, 255, 255, 0.07); }
@@ -150,11 +164,20 @@ html { scroll-behavior: smooth; }
 .menu-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
 .menu-item .mi-ico { width: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--ccc-muted); }
 .menu-item .ext-arrow { margin-left: auto; }
+/* Os dois níveis do que a barra devolve ao menu ⋯, e por que são dois.
+   `only-mobile` é o item que só aparece aqui no celular (≤760px), quando os
+   quatro links da esquerda somem. `only-md` é o degrau novo, que sobe o limiar
+   do MESMO item para 940px: Início e YouTube saem da barra antes dos outros.
+   O modificador vem somado (`only-mobile only-md`), e não no lugar de, por
+   duas razões: a especificidade de duas classes vence a de uma sozinha sem
+   depender da ordem do arquivo, e `.menu-item:not(.only-mobile)` continua
+   significando "item que está SEMPRE no menu" para quem mede a ordem dele. */
 .only-mobile { display: none; }
 .nav-more { position: relative; }
 .nav-icon {
   display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px;
   border: none; background: transparent; color: var(--ccc-muted); cursor: pointer;
+  flex: none;
 }
 .nav-icon:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
 .header-menu-toggle { display: none; }
@@ -2214,6 +2237,24 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
     height: calc(100dvh - var(--ccc-header-h));
   }
   .header-menu-toggle { display: grid; }
+  /* ---- barra do topo, degrau 1: COMPRIMIR ----------------------------------
+     Este é o ponto em que a barra começa a sofrer, e não por acaso: é aqui que
+     nasce o botão da gaveta, que rouba 34px mais o respiro. Medido no
+     `/topicos/dijkstra/`: sem gaveta a barra precisa de 949px; com ela, 991.
+     Então de 1000px para baixo a conta já está no limite, e é aí que a marca
+     começava a ser espremida.
+     A primeira resposta é apertar o RESPIRO, nunca o conteúdo: padding da
+     barra, distância entre os dois blocos, e o espaço em volta do rótulo de
+     cada link. Os 97px que isto devolve (991 → 894) são o que segura a barra
+     inteira, com os sete links legíveis, até o degrau 2. Nada some aqui. */
+  .header { padding: 0 14px; gap: 14px; }
+  .header-left { gap: 6px; }
+  .brand { gap: 9px; }
+  .nav-left { margin-left: 2px; }
+  .topnav { gap: 2px; }
+  .topnav a, .topnav .navbtn { padding: 8px 9px; }
+  .nav-discord { margin-left: 4px; }
+  .nav-coffee { margin-left: 2px; }
   .hero { padding: 48px 24px 40px; }
   .hero h1 { font-size: 40px; }
   .stats { grid-template-columns: 1fr 1fr; }
@@ -2234,8 +2275,24 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   .viz-fit[data-codigo="off"] .viz-split { grid-template-columns: minmax(0, 1fr); }
   .site-foot { padding: 24px 20px; }
 }
+/* ---- barra do topo, degrau 2: RECOLHER O QUE TEM CÓPIA ---------------------
+   Comprimida, a barra cabe até 894px. Abaixo disso não há respiro sobrando
+   para apertar, e a escolha passa a ser QUAL item sai. O limiar é 940 e não
+   894: 46px de margem é o que absorve o mesmo texto medido com outra fonte de
+   reserva, quando o webfont demora ou falha.
+   Saem os dois que o leitor não perde: "Início", porque o próprio logo já leva
+   para a home, e "YouTube", que é o mais leve dos três da direita (os outros
+   dois têm borda de marca) e já era o primeiro a sair no celular. Os dois
+   reaparecem no menu ⋯ pelo `only-md`, então nada fica sem porta. Sobram cinco
+   links, todos com o rótulo inteiro, até os 760px. */
+@media (max-width: 940px) {
+  .nav-hide-md { display: none !important; }
+  .only-mobile.only-md { display: flex; }
+}
 @media (max-width: 760px) {
-  /* Início, Roadmap e YouTube saem da barra e vão para o menu ⋯.
+  /* ---- barra do topo, degrau 3: A ESQUERDA INTEIRA VAI PARA O ⋯ ----------
+     Fundamentos, Roadmaps e Tópicos seguem Início e YouTube para o menu. Fica
+     o essencial: gaveta, marca, Discord, Apoiar e o ⋯.
      !important vence o display:flex do .nav-yt (mesma especificidade). */
   .nav-hide-sm { display: none !important; }
   .only-mobile { display: flex; }
@@ -2299,6 +2356,30 @@ button.ps-cell:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
   /* A linha do índice vira bloco: nome e descrição em cima, etiquetas embaixo.
      Lado a lado em 390px a coluna de etiquetas espremia o nome em três linhas. */
   .topic-done { flex-direction: column; align-items: flex-start; }
+}
+/* ---- barra do topo, degrau 4: O CELULAR ESTREITO --------------------------
+   Da esquerda já não sobra nada para recolher: gaveta, logo, Discord, Apoiar e
+   o ⋯ são o piso da barra, e os dois botões de marca são justamente os que não
+   têm cópia no menu ⋯. Medido em 320px (o menor aparelho que ainda aparece nas
+   estatísticas): esse piso pedia 338px e estourava a página em 18.
+   Então volta a primeira ferramenta, comprimir, agora no respiro que sobrou —
+   inclusive o vão entre o logo e um nome que já saiu em 560px e continuava com
+   lugar guardado. São 46px de volta (338 → 292), nenhum rótulo encolhe. */
+@media (max-width: 400px) {
+  .header { padding: 0 8px; gap: 8px; }
+  .header-left { gap: 4px; }
+  .brand { gap: 0; }
+  .nav-right { gap: 4px; }
+  .nav-discord, .nav-coffee { gap: 5px; }
+  /* a margem separava o Discord do YouTube, que aqui já não existe */
+  .nav-discord { margin-left: 0; }
+  .topnav a, .topnav .navbtn { padding: 8px; }
+  /* A ÚNICA coisa que some nesta faixa, e depois de a compressão acabar: o ↗.
+     Ele é decoração `aria-hidden` (leitor de tela nunca o leu), sobrou um
+     externo só na barra e os 12px dele são a diferença entre caber e estourar
+     em 320px. No menu ⋯ ele continua, que é onde a lista mistura link interno
+     com externo e a seta faz falta de verdade. */
+  .topnav > a.ext .ext-arrow { display: none; }
 }
 /* Consulta por ALTURA, que é a dimensão que estoura no notebook: a largura
    está sobrando e a vertical não. Aperta o que é respiro, nunca conteúdo, e só
