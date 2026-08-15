@@ -66,9 +66,10 @@
 // arquivo lia `APOIASE_TOKEN` e `APOIASE_CAMPAIGN_ID`, e NENHUM DOS DOIS existia
 // como secret do repositório (`gh secret list` trazia só os quatro do
 // Cloudflare). O build caía no primeiro `return` e renderizava a lista escrita à
-// mão, que tinha exatamente três nomes. E caía CALADO: aquele `return` era o
-// único caminho de saída sem um aviso, então nada no log do build denunciava que
-// a integração nunca tinha rodado. Agora ele avisa como todos os outros.
+// mão, que na época tinha exatamente três nomes. E caía CALADO: aquele `return`
+// era o único caminho de saída sem um aviso, então nada no log do build
+// denunciava que a integração nunca tinha rodado. Agora ele avisa como todos os
+// outros.
 
 export type Supporter = { name: string };
 export type Partner = { name: string; url?: string };
@@ -83,7 +84,7 @@ export const PARTNERS: Partner[] = [
  * PLANO B, e não "lista manual que se soma à API": a diferença é o defeito que
  * esta versão conserta. Antes estes nomes eram sempre colados na FRENTE do que a
  * API devolvesse, e isso cobrava dois preços. A ordem por recência ia embora
- * (três nomes fixos na frente de todo mundo), e o "sem repetir nome" dependia da
+ * (os nomes fixos na frente de todo mundo), e o "sem repetir nome" dependia da
  * grafia bater caractere a caractere com a do painel: "Wilson Neto" aqui contra
  * "Wilson Gomes Neto" lá são duas chaves diferentes, e a mesma pessoa apareceria
  * em dois cards. Agora a API, quando responde, é a fonte; esta lista entra
@@ -93,8 +94,19 @@ export const PARTNERS: Partner[] = [
  * formato ilegível. Uma resposta que chegou e devolveu zero nomes NÃO é este
  * caso, é uma resposta válida cujo conteúdo é "ninguém autorizou aparecer", e
  * ela vale. Confundir as duas coisas anula o filtro de privacidade.
+ *
+ * A ORDEM É DADO, não decoração: do apoio mais recente para o mais antigo, a
+ * mesma que `toSupporters` produz com `firstSupportDate`. Quem atualizar a lista
+ * põe o nome novo NO TOPO, senão os dois caminhos do muro passam a ordenar de
+ * jeitos diferentes e ninguém percebe, porque ordem errada não quebra nada.
+ *
+ * A caixa dos nomes daqui não precisa estar perfeita: a lista sai por
+ * `normalizeSupporters`, que arruma Caps Lock (ver `normalizeNameCase`). Ainda
+ * assim, o que se digita à mão se digita direito, e é o que está abaixo.
  */
 const FALLBACK_SUPPORTERS: Supporter[] = [
+  { name: "Eliel Sousa" },
+  { name: "Gustavo Huguenin" },
   { name: "Cristiano Cunha" },
   { name: "Wilson Neto" },
   { name: "Eduarda Martins" },
@@ -113,6 +125,78 @@ function realNameIndexes(parts: string[]): number[] {
     if (!NAME_PARTICLES.has(p.toLowerCase())) out.push(i);
   });
   return out;
+}
+
+/**
+ * O nome está TODO em maiúsculas?
+ *
+ * A pergunta é feita com as duas caixas, e não com uma regex de letra maiúscula,
+ * porque só assim ela responde "não" para o que não tem caixa nenhuma: "123" e
+ * "김" são iguais em maiúscula e em minúscula, e nenhum dos dois está gritando.
+ */
+function isShouting(name: string): boolean {
+  return name === name.toUpperCase() && name !== name.toLowerCase();
+}
+
+/**
+ * Uma palavra com a primeira letra maiúscula e o resto minúsculo.
+ *
+ * Capitaliza cada PEDAÇO alfanumérico, e não só o início da palavra, porque o
+ * separador de dentro do nome não é só o espaço: "SANT'ANA" vira "Sant'Ana",
+ * "D'ÁVILA" vira "D'Ávila" e "ANA-MARIA" vira "Ana-Maria". Cortar só no espaço
+ * devolveria "Sant'ana".
+ *
+ * ⚠️ O `\p{M}` da classe é o acento SOLTO, e ele não é decoração da regex. "Á"
+ * chega de duas formas: NFC, um code point só (U+00C1), e NFD, "A" seguido do
+ * acento combinante (U+0041 U+0301). Sem `\p{M}` na classe, o acento da forma
+ * decomposta vira SEPARADOR: "ÁVILA" em NFD casa como "A" e "VILA", dois
+ * pedaços, e sai "ÁVila", com uma maiúscula no meio do nome. Medido. E as duas
+ * formas chegam de verdade, porque o nome vem de formulário e de API, não de um
+ * literal deste arquivo.
+ *
+ * O `[...]` antes de pegar a primeira letra é o mesmo cuidado de `initials`: não
+ * partir caractere fora do BMP no meio. Ele também é o que faz o acento
+ * combinante seguir colado na letra que acentua, em vez de virar a "segunda
+ * letra" da palavra.
+ */
+function capitalizeWord(word: string): string {
+  return word.replace(/[\p{L}\p{N}\p{M}]+/gu, (pedaco) => {
+    const letras = [...pedaco.toLowerCase()];
+    if (letras.length === 0) return pedaco;
+    return letras[0].toUpperCase() + letras.slice(1).join("");
+  });
+}
+
+/**
+ * Tira o grito do nome: "ELIEL SOUSA" vira "Eliel Sousa".
+ *
+ * ⚠️ SÓ MEXE EM NOME QUE ESTÁ INTEIRO EM MAIÚSCULAS, e essa condição é a função
+ * toda. Capitalizar palavra por palavra sem perguntar isso primeiro destrói os
+ * nomes que têm maiúscula legítima no meio: "McDonald" viraria "Mcdonald",
+ * "DiCaprio" viraria "Dicaprio", "d'Ávila" viraria "D'ávila". Um nome misto já
+ * está escrito do jeito que a pessoa escreve o próprio nome, e a regra aqui é
+ * não tocar nele.
+ *
+ * As partículas voltam em minúscula ("DE", "DA", "DOS" → "de", "da", "dos"),
+ * inclusive quando abrem o nome, que é a grafia portuguesa e é a mesma leitura
+ * que `shortenName` e `initials` já fazem da lista `NAME_PARTICLES`.
+ *
+ * O espaçamento sai como entrou: quem normaliza espaço é `normalizeSupporters`,
+ * e uma função que faz as duas coisas é uma função que ninguém consegue testar.
+ *
+ * POR QUE ISTO É UMA FUNÇÃO, e não um nome já capitalizado na lista de plano B.
+ * A lista fixa a gente digita, então nela bastaria escrever certo. Mas o muro
+ * também vem da API da APOIA.se, e lá o nome é digitado pela pessoa que apoia,
+ * num formulário sem validação de caixa: no dia em que a listagem for ligada,
+ * um "FULANO DA SILVA" cadastrado com Caps Lock chega direto ao HTML público.
+ * Escrever certo na lista conserta os nomes de hoje, uma vez; a função conserta
+ * todos, inclusive os que ainda não existem.
+ */
+export function normalizeNameCase(name: string): string {
+  if (!isShouting(name)) return name;
+  return name.replace(/\S+/g, (palavra) =>
+    NAME_PARTICLES.has(palavra.toLowerCase()) ? palavra.toLowerCase() : capitalizeWord(palavra)
+  );
 }
 
 /**
@@ -189,12 +273,23 @@ export function initials(name: string): string {
  *
  * A chave normaliza espaço e caixa porque "  maria   souza " e "Maria Souza"
  * são a mesma inscrição digitada duas vezes, e isso é repetição de verdade.
+ *
+ * É AQUI que a caixa do nome é arrumada (`normalizeNameCase`), e o lugar foi
+ * escolhido: esta é a única função por onde os DOIS caminhos do muro passam, o
+ * da API (`normalizeSupporters(toSupporters(raw))`) e o do plano B
+ * (`normalizeSupporters(FALLBACK_SUPPORTERS)`). Arrumar na página trataria só o
+ * que a página desenha, e a contagem do painel de gratidão sairia da lista
+ * ainda gritando; arrumar em cada chamada é a mesma regra escrita cinco vezes.
+ * A identidade que a API deu continua inteira: muda a caixa de quem estava com
+ * Caps Lock, e mais nada.
  */
 export function normalizeSupporters(list: Supporter[]): Supporter[] {
   const seen = new Set<string>();
   const out: Supporter[] = [];
   for (const s of list) {
-    const name = s.name.trim().replace(/\s+/g, " ");
+    const name = normalizeNameCase(s.name.trim().replace(/\s+/g, " "));
+    // A chave é minúscula, então arrumar a caixa acima não muda quem é repetido:
+    // "ELIEL SOUSA" e "Eliel Sousa" já eram o mesmo card antes desta linha.
     const key = name.toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -348,7 +443,7 @@ export function isActive(b: Raw): boolean {
  * Consequência esperada e desejada: uma resposta que não traga `supportPrivate`
  * esvazia o muro, com aviso no log. Ela NÃO cai no plano B, e essa distinção é a
  * outra metade da proteção: cair na lista fixa quando o filtro escondeu todo
- * mundo publicaria três nomes escritos à mão, entre eles, no pior caso, a pessoa
+ * mundo publicaria os nomes escritos à mão, entre eles, no pior caso, a pessoa
  * que acabou de marcar o apoio como privado. Muro vazio conserta em cinco
  * minutos; nome publicado indevidamente, não.
  */
@@ -489,7 +584,7 @@ export async function fetchSupporters(): Promise<Supporter[]> {
       // Este `return` já devolveu a lista fixa aqui, e era a contradição do
       // arquivo: o filtro logo acima é fail-closed justamente para não publicar
       // quem pediu para não aparecer, e então, quando ele escondia todo mundo, o
-      // plano B publicava três nomes escritos à mão. No pior caso ele publicaria
+      // plano B publicava os nomes escritos à mão. No pior caso ele publicaria
       // exatamente a pessoa que acabou de marcar o apoio como privado, porque
       // ela está nos dois lugares.
       //

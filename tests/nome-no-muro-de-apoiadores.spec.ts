@@ -6,6 +6,7 @@ import {
   initials,
   isActive,
   isPublic,
+  normalizeNameCase,
   normalizeSupporters,
   readPage,
   shortenName,
@@ -102,6 +103,132 @@ test("a sigla do avatar acompanha o nome já encurtado", () => {
   for (const [entrada, esperado] of casos) {
     expect(initials(shortenName(entrada)), `entrada: ${JSON.stringify(entrada)}`).toBe(esperado);
   }
+});
+
+// ---------------------------------------------------------------------------
+// normalizeNameCase: o muro não grita o nome de ninguém
+//
+// A lista de plano B é digitada à mão e a da API é digitada pela pessoa que
+// apoia, num formulário sem validação de caixa. Nas duas pontas aparece nome com
+// Caps Lock, e o card renderiza o que recebe: "FULANA SOUSA" gritava no meio de
+// uma fileira de nomes em caixa normal.
+//
+// O defeito que os testes desta seção evitam NÃO é "esqueci de capitalizar", é o
+// conserto ingênuo dele: capitalizar toda palavra de todo nome. Isso arruma um
+// nome e estraga os outros, porque maiúscula no meio de nome é comum e é
+// deliberada. Por isso a função só age quando o nome está INTEIRO em maiúsculas.
+//
+// Nenhum nome desta seção é de pessoa real.
+// ---------------------------------------------------------------------------
+
+test("nome inteiro em maiúsculas chega ao card em caixa normal", () => {
+  const casos: [string, string][] = [
+    ["FULANA SOUSA", "Fulana Sousa"],
+    ["BELTRANO HUGUENIN", "Beltrano Huguenin"],
+    // Partícula volta em minúscula, que é a grafia portuguesa e é a mesma
+    // leitura que `shortenName` e `initials` fazem da lista de partículas.
+    ["SICRANA DA COSTA", "Sicrana da Costa"],
+    ["FULANO DOS SANTOS NETO", "Fulano dos Santos Neto"],
+    ["BELTRANA DE OLIVEIRA E SOUZA", "Beltrana de Oliveira e Souza"],
+    // Acento em caixa alta também desce.
+    ["JOSÉ ANTÔNIO GONÇALVES", "José Antônio Gonçalves"],
+  ];
+  for (const [entrada, esperado] of casos) {
+    expect(normalizeNameCase(entrada), `entrada: ${JSON.stringify(entrada)}`).toBe(esperado);
+  }
+});
+
+test("nome que já tem caixa mista sai intacto, inclusive a maiúscula do meio", () => {
+  // ESTE é o teste que prende o conserto ingênuo. Capitalizar palavra por
+  // palavra sem perguntar se o nome está gritando devolveria "Mcallister",
+  // "Dicarli" e "D'ávila", que são três nomes destruídos para arrumar zero.
+  const intactos = [
+    "Fulana McAllister",
+    "Beltrano DiCarli",
+    "Sicrana d'Ávila",
+    "Fulano van der Berg",
+    "Cristiano Cunha",
+    "Ana",
+    "  Beltrana   da  Costa  ",
+    "",
+    "   ",
+  ];
+  for (const nome of intactos) {
+    expect(normalizeNameCase(nome), `entrada: ${JSON.stringify(nome)}`).toBe(nome);
+  }
+});
+
+test("o separador de dentro do nome não é só o espaço", () => {
+  // Cortar só no espaço devolveria "Sant'ana" e "Ana-maria": o pedaço depois do
+  // apóstrofo e do hífen continuaria minúsculo.
+  expect(normalizeNameCase("SICRANA SANT'ANA")).toBe("Sicrana Sant'Ana");
+  expect(normalizeNameCase("ANA-MARIA FERREIRA")).toBe("Ana-Maria Ferreira");
+  expect(normalizeNameCase("FULANO D'ÁVILA")).toBe("Fulano D'Ávila");
+});
+
+test("acento solto não parte o nome em dois, e não é uma forma só que chega", () => {
+  // O defeito que este teste prende (achado na review do Copilot no PR #150):
+  // "Á" chega de duas formas, e só uma delas é um code point. Em NFD ele é "A"
+  // mais o acento combinante, e um acento combinante NÃO é `\p{L}` nem `\p{N}`.
+  // Sem `\p{M}` na classe da regex ele virava SEPARADOR: "ÁVILA" decomposto
+  // casava como "A" e "VILA", dois pedaços, e saía "ÁVila".
+  //
+  // Isso não é teoria: o nome vem de formulário e de API, e nem um nem outro
+  // prometem forma normalizada.
+  const composto = "FULANO ÁVILA";
+  const decomposto = composto.normalize("NFD");
+  // Garante que este teste está mesmo exercitando as duas formas, e não duas
+  // cópias da mesma. Sem isto ele passaria mesmo com o defeito de volta.
+  expect(decomposto).not.toBe(composto);
+
+  for (const entrada of [composto, decomposto]) {
+    // A comparação é em NFC porque o que importa é o nome que o leitor vê: a
+    // saída preserva a forma que entrou, e as duas desenham "Fulano Ávila".
+    expect(
+      normalizeNameCase(entrada).normalize("NFC"),
+      `forma ${entrada === composto ? "NFC" : "NFD"}`
+    ).toBe("Fulano Ávila");
+  }
+});
+
+test("arrumar a caixa não mexe no espaçamento nem some com ninguém", () => {
+  // Quem normaliza espaço é `normalizeSupporters`. Se as duas coisas
+  // acontecessem na mesma função, um teste não conseguiria dizer qual quebrou.
+  expect(normalizeNameCase("  FULANA   SOUSA  ")).toBe("  Fulana   Sousa  ");
+  // Sem caixa nenhuma para arrumar, devolve igual: nada aqui pode apagar nome.
+  expect(normalizeNameCase("")).toBe("");
+  expect(normalizeNameCase("1234")).toBe("1234");
+});
+
+test("o nome encurtado e a sigla saem do nome já em caixa normal", () => {
+  // O card mostra `shortenName` e o avatar mostra `initials`, e os dois leem a
+  // lista depois da normalização. Sem ela o card diria "FULANA SOUSA" no meio de
+  // uma fileira em caixa normal.
+  const muro = normalizeSupporters([{ name: "FULANA APARECIDA DA SILVA SOUSA" }]);
+  expect(muro).toEqual([{ name: "Fulana Aparecida da Silva Sousa" }]);
+  expect(shortenName(muro[0].name)).toBe("Fulana Sousa");
+  expect(initials(shortenName(muro[0].name))).toBe("FS");
+});
+
+test("a mesma pessoa com e sem Caps Lock continua sendo um card só", () => {
+  // A chave da deduplicação é minúscula, então arrumar a caixa não pode criar
+  // nem desfazer repetição. Quem chega primeiro define a grafia guardada.
+  const muro = normalizeSupporters([
+    { name: "FULANA SOUSA" },
+    { name: "Fulana Sousa" },
+    { name: "Beltrano Huguenin" },
+  ]);
+  expect(muro).toEqual([{ name: "Fulana Sousa" }, { name: "Beltrano Huguenin" }]);
+});
+
+test("nome gritado que vem da API também desce, e nada além do nome passa", () => {
+  // Os dois caminhos do muro atravessam `normalizeSupporters`, e é por isso que
+  // a normalização mora lá: o dia em que a listagem da APOIA.se for ligada, o
+  // Caps Lock digitado no formulário dela já chega arrumado.
+  const muro = normalizeSupporters(
+    toSupporters([apoiador({ name: "BELTRANA DE OLIVEIRA", email: "b@exemplo.invalid" })])
+  );
+  expect(muro).toEqual([{ name: "Beltrana de Oliveira" }]);
 });
 
 // ---------------------------------------------------------------------------
@@ -399,4 +526,32 @@ test("a resposta que CHEGOU manda, e a que não chegou cai no plano B", async ()
   // acima passaria com um `return []` incondicional.
   const semResposta = await comApiFalsa(() => new Response("", { status: 500 }));
   expect(semResposta.length, "HTTP 500 devia cair no plano B").toBeGreaterThan(0);
+});
+
+test("todo nome do plano B rende uma sigla de avatar de verdade", async () => {
+  // Este teste prende a FORMA da lista fixa, e não os nomes dela, e as duas
+  // regras que levam a isso estão escritas neste repositório: nenhum dado de
+  // pessoa real entra em teste (o cabeçalho da seção do contrato, acima), e
+  // `navegacao.spec.ts` não prende nome no muro de propósito, porque isso
+  // reprovaria no dia em que a API começasse a responder, que é o dia em que
+  // tudo está finalmente certo.
+  //
+  // UMA asserção, e é a única que sobrou de propósito. A primeira versão deste
+  // teste também exigia nome não vazio, nome de card não vazio e caixa já
+  // normal, e as três NÃO CONSEGUEM FALHAR: a lista chega aqui depois do
+  // `normalizeSupporters`, que já descarta nome vazio e já arruma Caps Lock.
+  // Medi isso sujando a lista de propósito e vendo quais asserções reagiam.
+  // Asserção que não pode reprovar não protege nada, só faz o teste parecer
+  // maior do que é.
+  //
+  // A que sobra tem dente: um nome só de partículas ("de la") atravessa o
+  // `normalizeSupporters` inteiro, vira um card no muro e chega ao avatar como
+  // "?". É o único jeito de a lista digitada à mão desenhar errado sem que nada
+  // reclame.
+  const muro = await comApiFalsa(() => new Response("", { status: 500 }));
+  expect(muro.length, "sem API, o plano B não pode chegar vazio").toBeGreaterThan(0);
+
+  for (const { name } of muro) {
+    expect(initials(shortenName(name)), `"${name}" não vira sigla de avatar`).not.toBe("?");
+  }
 });
