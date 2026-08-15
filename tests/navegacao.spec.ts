@@ -60,10 +60,15 @@ test("página de apoio mostra apoiadores, parceiros e o link de doação", async
   await expect(page.getByRole("link", { name: /Quero apoiar/ }).first()).toHaveAttribute("href", /apoia\.se\/craftcodeclub/);
 });
 
-// O muro é montado da lista manual em apoiadores.ts enquanto a API da APOIA.se
-// não libera os nomes. O que o teste prende é o contrato do muro, não os nomes:
-// um card por apoiador, mais o card-convite, e a contagem do painel batendo com
-// a quantidade de cards (já saiu "3 pessoas" com quatro nomes na lista).
+// O muro sai da API da APOIA.se no build e, sem credencial no ambiente, da lista
+// de plano B em apoiadores.ts. O que o teste prende é o contrato do muro, e não
+// os nomes: um card por apoiador, mais o card-convite, e a contagem do painel
+// batendo com a quantidade de cards (já saiu "3 pessoas" com quatro nomes na
+// lista). Prender nome aqui reprovaria no dia em que a API começasse a
+// responder, que é o dia em que tudo está finalmente certo.
+//
+// A regra do nome ("Maria Aparecida da Silva Souza" vira "Maria Souza") tem
+// teste próprio em `nome-no-muro-de-apoiadores.spec.ts`.
 test("muro de apoiadores: um card por pessoa, contagem batendo e convite no fim", async ({ page }) => {
   await page.goto("/apoie/");
   const cards = page.locator(".apoiador-card:not(.apoiador-card-cta)");
