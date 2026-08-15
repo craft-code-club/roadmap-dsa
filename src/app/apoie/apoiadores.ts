@@ -67,25 +67,88 @@ const NAME_PARTICLES = new Set([
   "de", "da", "do", "das", "dos", "e", "di", "du", "del", "della", "la", "van", "von",
 ]);
 
-// Sigla do avatar do card: "Cristiano Cunha" vira "CC", "Ana" vira "A".
-// Espalha (`[...]`) em vez de indexar para não cortar caractere fora do BMP.
+/** Índices das palavras que são nome de verdade (partícula não conta). */
+function realNameIndexes(parts: string[]): number[] {
+  const out: number[] = [];
+  parts.forEach((p, i) => {
+    if (!NAME_PARTICLES.has(p.toLowerCase())) out.push(i);
+  });
+  return out;
+}
+
+/**
+ * O nome como ele aparece no card: primeiro e último, e só.
+ *
+ * "Maria Aparecida da Silva Souza" vira "Maria Souza". O muro tem cards
+ * estreitos (dois por linha a 390px) e nome de quatro palavras quebrava em três
+ * linhas, desalinhando a fileira inteira.
+ *
+ * Três regras que não são óbvias, e cada uma existe por um caso concreto:
+ *
+ * · PARTÍCULA NÃO É NOME. "João da Silva" tem DOIS nomes, não três, e sai
+ *   inteiro. Contar "da" como palavra faria o corte disparar em quem já cabia,
+ *   e devolveria "João Silva" sem necessidade nenhuma.
+ * · A PARTÍCULA COLADA NO SOBRENOME VAI JUNTO. "Maria Aparecida da Silva" vira
+ *   "Maria da Silva", não "Maria Silva". O corte é para caber no card, não para
+ *   reescrever o nome de ninguém, e "da Silva" é o sobrenome da pessoa.
+ * · ESPAÇO NÃO É SEPARADOR CONFIÁVEL. Nome digitado à mão vem com espaço duplo e
+ *   espaço nas pontas; `split(/\s+/)` depois do `trim()` resolve os dois, e o
+ *   `\s` do JavaScript já cobre o espaço não separável que vem de formulário.
+ *
+ * Nome de uma palavra só e nome que é só partícula voltam como estão, apenas com
+ * o espaçamento normalizado: melhor um nome estranho do que um nome destruído.
+ */
+export function shortenName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter((p) => p.length > 0);
+  if (parts.length === 0) return "";
+
+  const reais = realNameIndexes(parts);
+  // Dois nomes ou menos: não há o que cortar, e mexer só estragaria.
+  if (reais.length <= 2) return parts.join(" ");
+
+  const primeiro = reais[0];
+  const ultimo = reais[reais.length - 1];
+
+  // Anda para trás sobre as partículas coladas no sobrenome ("da Silva"), sem
+  // nunca passar por cima do primeiro nome.
+  let inicioDoSobrenome = ultimo;
+  while (
+    inicioDoSobrenome - 1 > primeiro &&
+    NAME_PARTICLES.has(parts[inicioDoSobrenome - 1].toLowerCase())
+  ) {
+    inicioDoSobrenome--;
+  }
+
+  return [parts[primeiro], ...parts.slice(inicioDoSobrenome, ultimo + 1)].join(" ");
+}
+
+/**
+ * Sigla do avatar do card: "Cristiano Cunha" vira "CC", "Ana" vira "A".
+ * Espalha (`[...]`) em vez de indexar para não cortar caractere fora do BMP.
+ */
 export function initials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter((p) => p.length > 0 && !NAME_PARTICLES.has(p.toLowerCase()));
-  if (parts.length === 0) return "?";
-  const first = [...parts[0]][0] ?? "";
-  const last = parts.length > 1 ? ([...parts[parts.length - 1]][0] ?? "") : "";
+  const parts = name.trim().split(/\s+/).filter((p) => p.length > 0);
+  const reais = realNameIndexes(parts);
+  if (reais.length === 0) return "?";
+  const first = [...parts[reais[0]]][0] ?? "";
+  const last = reais.length > 1 ? ([...parts[reais[reais.length - 1]]][0] ?? "") : "";
   return (first + last).toUpperCase();
 }
 
-// Remove nomes repetidos preservando a ordem (o primeiro a aparecer prevalece).
+/**
+ * Encurta os nomes e tira os repetidos, preservando a ordem de chegada.
+ *
+ * A ORDEM DAS DUAS OPERAÇÕES É O PONTO. Encurtar DEPOIS de deduplicar deixaria
+ * passar "Wilson Neto" e "Wilson Gomes Neto" como duas pessoas, que é justamente
+ * o par que o muro precisa juntar quando o nome do painel for mais completo que
+ * o daqui. Deduplicar sobre o nome JÁ encurtado é o que faz os dois virarem uma
+ * chave só.
+ */
 function normalizeSupporters(list: Supporter[]): Supporter[] {
   const seen = new Set<string>();
   const out: Supporter[] = [];
   for (const s of list) {
-    const name = s.name.trim();
+    const name = shortenName(s.name);
     const key = name.toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
