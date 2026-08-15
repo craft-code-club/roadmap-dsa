@@ -200,12 +200,20 @@ export function fundamentosJsonLd(topicos: Topic[]) {
  * matrícula, preço —, e nada disso existe aqui. Declarar o tipo sem os campos é
  * marcação que o Google descarta; declarar os campos é inventar dado.
  */
-export function extrasJsonLd(cards: { name: string; href: string }[]) {
+export function extrasJsonLd(
+  cards: { name: string; href: string }[],
+  // O `@id` e o `name` são da PÁGINA, não do helper. Fixos, as duas telas que
+  // chamam esta função (a vitrine e o índice completo) emitiam o mesmo `@id`:
+  // o índice declarava ser a coleção de outra página, com o nome dela junto.
+  // Duas listas com uma identidade só é a contradição que o consumidor de
+  // JSON-LD resolve escolhendo uma e ignorando a outra.
+  lista: { id: string; name: string } = { id: "/roadmaps/#vitrine", name: "Roadmaps e tópicos avulsos" }
+) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "@id": `${SITE_URL}/roadmaps/#vitrine`,
-    name: "Trilhas e outros tópicos",
+    "@id": `${SITE_URL}${lista.id}`,
+    name: lista.name,
     numberOfItems: cards.length,
     itemListOrder: "https://schema.org/ItemListOrderAscending",
     itemListElement: cards.map((c, i) => ({

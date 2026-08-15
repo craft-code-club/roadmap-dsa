@@ -43,15 +43,24 @@ export const dynamic = "force-static";
 export default function RoadmapsPage() {
   return (
     <div className="roadmap-wrap">
-      <JsonLd data={extrasJsonLd(EXTRA_CARDS.map((c) => ({ name: c.name, href: c.href })))} />
+      {/* Os DOIS conjuntos, porque a página desenha os dois. A marcação
+          declarava só os roadmaps enquanto a tela mostrava também os tópicos
+          avulsos, e a regra desta casa é que o dado estruturado é o que está
+          na tela. */}
+      <JsonLd
+        data={extrasJsonLd(
+          [...EXTRA_CARDS, ...CARDS_AVULSOS].map((c) => ({ name: c.name, href: c.href }))
+        )}
+      />
       <span className="roadmap-eyebrow">Além dos Fundamentos</span>
       <h1>Roadmaps</h1>
       <p className="roadmap-intro">
         Um roadmap é uma ordem de leitura: quais tópicos, em que sequência, e por quê. Os{" "}
         <Link href="/roadmaps/fundamentos">Fundamentos</Link> são o principal, do zero à entrevista.
-        Os outros são percursos com objetivo próprio, e não trazem tópico novo: eles se montam
-        sobre os mesmos <Link href="/topicos">tópicos</Link> do guia, na ordem que aquela pergunta
-        pede. O mesmo tópico pode estar em vários, com uma página só.
+        Os outros são percursos com objetivo próprio, montados sobre os mesmos{" "}
+        <Link href="/topicos">tópicos</Link> do guia, na ordem que aquela pergunta pede. Alguns
+        trazem também tópicos que só fazem sentido ali, para enquadrar o assunto. O mesmo tópico
+        pode estar em vários percursos, sempre com uma página só.
       </p>
 
       <section className="rgroup" id="vitrine">

@@ -106,8 +106,11 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   ("Arrays e Strings"), não um endereço — quem dá endereço é o roadmap que cita. Dois tópicos com
   o mesmo assunto têm de escrevê-lo **igual**: duas grafias viram duas seções em `/topicos/` com o
   mesmo título e o mesmo `id` de âncora (já aconteceu, e a lista passou a duplicar linhas).
-- **"Em breve" é só para tópico vazio.** `isEmptyTopic()` (em `content/topicos/index.ts`) = `soon` sem
-  `youtube`, `article`, `viz` nem `extraVideos`. Só esses levam o selo "em breve" no menu lateral e
+- **"Em breve" é só para tópico vazio.** `isEmptyTopic()` (em `content/topicos/index.ts`) = `soon`
+  sem `youtube`, `article` nem `viz`. **`extraVideos` NÃO entra na conta**, de propósito e com a
+  razão escrita no código: são links para resoluções soltas de exercício, e um tópico que só tem
+  isso continua sem aula, sem texto e sem visualização. (A doc já disse o contrário do código
+  aqui; quem vale é o código.) Só os vazios levam o selo "em breve" no menu lateral e
   o `noindex`; quem já tem qualquer material aparece normal. Tópico que nunca vai ter visualizador
   recebe `noViz: true` e deixa de mostrar o aviso de "visualização em construção".
 - **"NOVO" é tag manual, não data.** O selo do menu lateral vem de `isNew: true` no tópico. Quem
@@ -171,7 +174,7 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
 
 - `sitemap.ts`, `robots.ts` e `opengraph-image.tsx` existem. **Rotas de metadata precisam de
   `export const dynamic = "force-static"`** por causa do `output: "export"`.
-- Tópicos realmente vazios (`soon` sem youtube/article/viz/extraVideos) recebem `noindex`
+- Tópicos realmente vazios (`soon` sem youtube, article nem viz) recebem `noindex`
   (ver `generateMetadata` em `topico/[slug]/page.tsx`). Ao ganhar conteúdo, saem do noindex sozinhos.
 - **A mesma régua vale um nível acima:** a abertura de um roadmap sem NENHUM tópico com material
   também é `noindex` e fica fora do sitemap (`roadmapHasMaterial`). Ela continua no site (mapear

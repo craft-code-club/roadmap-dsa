@@ -23,7 +23,10 @@ import { pageMetadata } from "@/lib/seo";
 export function generateMetadata(): Metadata {
   return pageMetadata({
     title: "Todos os tópicos de Algoritmos e Estruturas de Dados",
-    description: `A lista completa do guia: ${TOPICOS.length} tópicos de algoritmos e estruturas de dados em português, com visualização, artigo, vídeo e problemas do LeetCode. Busque por nome, assunto ou roadmap.`,
+    // Sem promessa em bloco. A frase anterior dizia "50 tópicos com visualização,
+    // artigo, vídeo e problemas", e 14 deles ainda não têm nada: é a mesma
+    // inflação que o guarda de copy da home existe para impedir, um nível acima.
+    description: `A lista completa do guia: ${TOPICOS.length} tópicos de algoritmos e estruturas de dados em português, ${TOTAL_TOPICS_PRONTOS} deles já publicados. Filtre por assunto, nível e material, ou busque pelo nome.`,
     ogTitle: "Todos os tópicos do Roadmap DSA",
     ogDescription: `${TOPICOS.length} tópicos de algoritmos e estruturas de dados, num índice só. Grátis, em português.`,
     path: "/topicos/",
@@ -52,7 +55,12 @@ export default function TopicosPage() {
       {/* O índice inteiro em dado estruturado, na ordem em que a página o
           desenha. `ItemList` e não `CollectionPage`: o que esta página é, é uma
           lista ordenada de recursos que já se declaram em outro lugar. */}
-      <JsonLd data={extrasJsonLd(TOPICOS.map((t) => ({ name: t.name, href: `/topicos/${t.slug}/` })))} />
+      <JsonLd
+        data={extrasJsonLd(
+          TOPICOS.map((t) => ({ name: t.name, href: `/topicos/${t.slug}/` })),
+          { id: "/topicos/#indice", name: "Todos os tópicos do Roadmap DSA" }
+        )}
+      />
       <span className="roadmap-eyebrow">Índice</span>
       <h1>Todos os tópicos</h1>
       <p className="roadmap-intro">

@@ -58,7 +58,7 @@ export default function SobrePage() {
 
       <h2 className="prose-h2">O que você encontra aqui</h2>
       <p className="prose-p">
-        Os Fundamentos têm <strong className="prose-strong">{TOTAL_TOPICS} tópicos</strong>, dos quais{" "}
+        O guia tem <strong className="prose-strong">{TOTAL_TOPICS} tópicos</strong>, dos quais{" "}
         <strong className="prose-strong">{TOTAL_TOPICS_PRONTOS} já têm material publicado</strong>.
         Cada tópico vive numa página só, e reúne o que estiver disponível para ele: o algoritmo
         rodando passo a passo, o artigo, o vídeo do canal da comunidade, os problemas para
@@ -76,7 +76,7 @@ export default function SobrePage() {
         </li>
         <li className="prose-li">
           <strong className="prose-strong">{TOTAL_TOPICS_FORA_DOS_FUNDAMENTOS} tópicos fora dos Fundamentos</strong>, em{" "}
-          <Link className="prose-a" href="/roadmaps/">trilhas e tópicos avulsos</Link>: estruturas que
+          <Link className="prose-a" href="/roadmaps/">roadmaps e tópicos avulsos</Link>: estruturas que
           são um assunto à parte, e famílias inteiras que não caberiam num tópico só.
         </li>
         <li className="prose-li">

@@ -373,10 +373,31 @@ export function atualizacaoDoRoadmap(slug: string): Date | undefined {
   // Dijkstra muda a abertura de "Caminhos Mínimos" mesmo o Dijkstra sendo dos
   // Fundamentos, porque o card dela naquela página passa a contar como
   // publicado.
-  const artigos = roadmapTopics(r)
+  // Os caminhos que de fato mudam esta página, e são três famílias:
+  //
+  //   · o ARQUIVO DO ROADMAP. Ele é quem tem o nome, a descrição, os grupos e a
+  //     ordem — ou seja, quase tudo o que a abertura desenha. Ficou de fora
+  //     enquanto todos os roadmaps moravam num arquivo só; desde que cada um
+  //     tem o seu, editar a ordem de um roadmap não movia o `lastmod` dele;
+  //   · o `index.ts` de cada tópico citado. É lá que mora o estado de
+  //     publicação: promover um tópico de "em breve" para "publicado" muda o
+  //     card na abertura mesmo sem tocar em artigo nenhum, e um tópico que
+  //     ganha só vídeo não tem artigo para tocar;
+  //   · o artigo de cada tópico citado, que é o conteúdo em si.
+  //
+  // O índice geral (`ARQUIVO_DOS_ROADMAPS`) continua, porque é ele que decide
+  // quais roadmaps existem.
+  const citados = roadmapTopics(r);
+  const dados = citados.map((t: Topic) => `content/topicos/${t.slug}/index.ts`);
+  const artigos = citados
     .filter((t: Topic) => !isEmptyTopic(t))
     .map((t: Topic) => `content/topicos/${t.slug}/artigo.mdx`);
-  return ultimaAlteracao(ARQUIVO_DOS_ROADMAPS, ...artigos);
+  return ultimaAlteracao(
+    ARQUIVO_DOS_ROADMAPS,
+    `content/roadmaps/${r.slug}.ts`,
+    ...dados,
+    ...artigos
+  );
 }
 
 /**
