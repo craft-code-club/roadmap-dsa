@@ -68,8 +68,8 @@ export default function TopicosPage() {
         já publicados. Um tópico existe por conta própria e pode aparecer em vários{" "}
         <Link href="/roadmaps">roadmaps</Link>: as etiquetas de cada card dizem o assunto, o
         nível, o que ele já tem pronto e em que percursos aparece.
-        {semRoadmap > 0 && ` ${comNumero(semRoadmap, "não está", "não estão")} em nenhum.`} Clique
-        nas etiquetas lá em cima para ir estreitando: cada uma que entra tira tópicos da lista.
+        {semRoadmap > 0 && ` ${comNumero(semRoadmap, "não está", "não estão")} em nenhum.`} Busque
+        pelo nome, ou marque quantos assuntos quiser.
       </p>
 
       <TodosOsTopicos topicos={linhas} />

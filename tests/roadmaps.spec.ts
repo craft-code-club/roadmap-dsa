@@ -406,32 +406,37 @@ test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
   await expect(page.locator(".topicos-contagem")).toHaveText("Nenhum tópico com esse filtro.");
 });
 
-test("as etiquetas do índice filtram em E, e nunca levam a zero", async ({ page }) => {
-  const etiqueta = (nome: string) => page.locator(".topicos-filtro", { hasText: new RegExp(`^${nome}$`) });
+test("no índice, os assuntos somam e o material estreita", async ({ page }) => {
+  const assunto = (nome: string) => page.locator(".topicos-assunto", { hasText: new RegExp(`^${nome}$`) });
+  const material = (nome: string) => page.locator(".topicos-filtro", { hasText: new RegExp(`^${nome}$`) });
   const quantos = () => page.locator(".topic-card-wrap").count();
 
   await page.goto("/topicos/");
-  const tudo = await quantos();
-  expect(tudo).toBe(TOPICOS.length);
+  expect(await quantos()).toBe(TOPICOS.length);
 
-  await etiqueta("Grafos").click();
-  const soGrafos = await quantos();
-  expect(soGrafos, "a etiqueta de assunto não filtrou").toBeLessThan(tudo);
-
-  // A segunda etiqueta ESTREITA. É a regra inteira do filtro, e é a que o
-  // leitor consegue prever sem ler nada.
-  await etiqueta("Visualização").click();
-  const grafosComViz = await quantos();
-  expect(grafosComViz, "a segunda etiqueta não estreitou").toBeLessThan(soGrafos);
-  expect(grafosComViz).toBeGreaterThan(0);
-
-  // E o preço da regra "E" está pago: um segundo assunto zeraria a grade, então
-  // ele não é clicável. Sem isto o leitor monta uma pergunta sem resposta em
-  // dois cliques e conclui que o guia não tem o assunto.
-  await expect(etiqueta("Árvores"), "dá para chegar a zero clicando").toBeDisabled();
-
+  // ENTRE ASSUNTOS É "OU", e é a única regra possível: um tópico tem UM
+  // assunto, então "E" entre dois devolveria sempre zero. Marcar os dois é
+  // pedir "me mostre os dois", e a conta tem de bater exatamente.
+  await assunto("Grafos").click();
+  const grafos = await quantos();
+  await assunto("Árvores").click();
+  const arvores = TOPICOS.filter((t) => t.group === "Árvores").length;
+  expect(await quantos(), "os dois assuntos não somaram").toBe(grafos + arvores);
   await page.locator(".topicos-limpar").click();
-  expect(await quantos(), "o botão de limpar não devolveu a grade").toBe(tudo);
+  expect(await quantos(), "o botão de limpar não devolveu a grade").toBe(TOPICOS.length);
+
+  // ENTRE OS DOIS CONTROLES É "E": o material estreita o que o assunto trouxe.
+  await material("Em breve").click();
+  const soEmBreve = await quantos();
+  expect(soEmBreve).toBeLessThan(TOPICOS.length);
+  await assunto("Grafos").click();
+  const emBreveEmGrafos = await quantos();
+  expect(emBreveEmGrafos).toBeGreaterThan(0);
+  expect(emBreveEmGrafos, "o assunto não estreitou o material").toBeLessThan(soEmBreve);
+
+  // E o assunto que não sobrou nada fica apagado ANTES do clique: sem isto o
+  // leitor pede "em breve" em Hashing, recebe a grade vazia e não entende.
+  await expect(assunto("Hashing"), "dá para chegar a zero clicando").toBeDisabled();
 });
 
 test("cada card do índice diz o assunto, e o avulso diz que é avulso", async ({ page }) => {
