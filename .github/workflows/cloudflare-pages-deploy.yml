@@ -55,10 +55,19 @@ jobs:
       - name: Build with Next.js
         run: npm run build
         env:
-          # Apoiadores vêm da APOIA.se no build. Sem os secrets, a lista fica
-          # vazia e a página mostra o convite "seja o primeiro".
-          APOIASE_TOKEN: ${{ secrets.APOIASE_TOKEN }}
-          APOIASE_CAMPAIGN_ID: ${{ secrets.APOIASE_CAMPAIGN_ID }}
+          # Apoiadores vêm da APOIA.se no build. A chave vai no header
+          # `x-api-key` e o segredo no `Authorization: Bearer` (doc v0.1 da
+          # APOIA.se); ver `src/app/apoie/apoiadores.ts`.
+          #
+          # Estes três nomes substituem `APOIASE_TOKEN`/`APOIASE_CAMPAIGN_ID`,
+          # que o workflow injetava e que NUNCA existiram como secret: o build
+          # caía calado na lista de plano B, e era por isso que a página
+          # publicada mostrava 3 apoiadores com 5 apoios na campanha. Sem os
+          # secrets o comportamento continua o mesmo, com uma diferença que é o
+          # ponto: agora o log do build diz que caiu.
+          APOIASE_KEY: ${{ secrets.APOIASE_KEY }}
+          APOIASE_SECRET: ${{ secrets.APOIASE_SECRET }}
+          APOIASE_CAMPAIGN: ${{ secrets.APOIASE_CAMPAIGN }}
           # Google Analytics só no build da `main`. Este mesmo job roda em PR,
           # e o deploy de preview do Cloudflare é um site público de verdade:
           # sem este recorte, cada PR mandaria pageview para a propriedade de

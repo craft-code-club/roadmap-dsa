@@ -2,22 +2,39 @@
 //
 // PARCEIROS são mantidos à mão nesta lista (poucos, empresas).
 //
-// APOIADORES: por enquanto também são mantidos à mão, em MANUAL_SUPPORTERS.
-// A integração com a APOIA.se ainda não foi aprovada por eles, então quem
-// publica um apoio novo adiciona o nome na lista abaixo, no mesmo PR (o mais
-// recente primeiro). O código da API continua aqui e liga sozinho quando as
-// variáveis de ambiente existirem: fetchSupporters() junta as duas fontes, a
-// manual primeiro, sem repetir nome. Lista vazia e API muda cai no convite
-// "seja o primeiro" automaticamente. Nada aqui quebra o build.
+// APOIADORES: a página /apoie tenta a API da APOIA.se durante o `next build` e,
+// se não conseguir, cai na lista FALLBACK_SUPPORTERS aqui de baixo. A chamada
+// roda no servidor, na máquina que constrói o site; o navegador recebe só os
+// nomes já prontos no HTML. Quem prova que a credencial não escapa junto é
+// `tests/segredo-nao-vai-para-o-cliente.spec.ts`, que varre os 1.242 arquivos
+// do `out/`.
 //
-// Configuração (env local e secret no GitHub):
-//   APOIASE_TOKEN        token Bearer do painel da APOIA.se (dashboard)
-//   APOIASE_CAMPAIGN_ID  id numérico da campanha (aparece na URL do painel)
+// CREDENCIAL (env local e secret no GitHub), os três nomes:
+//   APOIASE_KEY       vai no header `x-api-key`
+//   APOIASE_SECRET    vai no header `Authorization: Bearer <...>` (é um JWT)
+//   APOIASE_CAMPAIGN  id da campanha
 //
-// Observação: a API pública "oficial" da APOIA.se só valida uma pessoa por vez
-// (checa se fulano apoia). Quem devolve a lista completa é a API do painel
-// (dashboard-api-v1), abaixo. O token do painel expira de tempos em tempos: se a
-// lista sumir, gere um token novo e atualize o secret.
+// O par chave/segredo é o da API PÚBLICA da APOIA.se, documentada em
+// https://apoiase.notion.site/APOIA-se-API-4b87651821884061a7532abfd7f26087
+// (v0.1). O formato dos dois headers acima está copiado de lá, literalmente.
+//
+// ⚠️ LIMITE CONHECIDO, E É O NÓ DESTA PÁGINA. A doc v0.1 descreve UMA rota só,
+// `GET /backers/charges/<email>`, que responde `{isBacker, isPaidThisMonth,
+// thisMonthPaidValue}` para UM e-mail por vez. Ela não devolve nome, não devolve
+// lista, e o site não tem (nem quer ter) os e-mails dos apoiadores. Ou seja: a
+// rota de LISTAGEM que esta página precisa não está documentada. O que está
+// abaixo isola essa incerteza numa função só, `backersUrl()`, e degrada com
+// elegância enquanto ela não for confirmada com o suporte da APOIA.se.
+//
+// POR QUE A PÁGINA MOSTRAVA 3 COM 5 APOIOS NA CAMPANHA
+//
+// Não era cache, nem paginação, nem filtro de status: a versão anterior deste
+// arquivo lia `APOIASE_TOKEN` e `APOIASE_CAMPAIGN_ID`, e NENHUM DOS DOIS existia
+// como secret do repositório (`gh secret list` trazia só os quatro do
+// Cloudflare). O build caía no primeiro `return` e renderizava a lista escrita à
+// mão, que tinha exatamente três nomes. E caía CALADO: aquele `return` era o
+// único caminho de saída sem um aviso, então nada no log do build denunciava que
+// a integração nunca tinha rodado. Agora ele avisa como todos os outros.
 
 export type Supporter = { name: string };
 export type Partner = { name: string; url?: string };
@@ -26,16 +43,26 @@ export const PARTNERS: Partner[] = [
   // { name: "Empresa X", url: "https://empresa.com" },
 ];
 
-// Apoiadores mantidos à mão, do apoio mais recente para o mais antigo.
-// Aparecem antes de qualquer nome que venha da API.
-const MANUAL_SUPPORTERS: Supporter[] = [
+/**
+ * Plano B do muro, do apoio mais recente para o mais antigo.
+ *
+ * PLANO B, e não "lista manual que se soma à API": a diferença é o defeito que
+ * esta versão conserta. Antes estes nomes eram sempre colados na FRENTE do que a
+ * API devolvesse, e isso cobrava dois preços. A ordem por recência ia embora
+ * (três nomes fixos na frente de todo mundo), e o "sem repetir nome" dependia da
+ * grafia bater caractere a caractere com a do painel: "Wilson Neto" aqui contra
+ * "Wilson Gomes Neto" lá são duas chaves diferentes, e a mesma pessoa apareceria
+ * em dois cards. Agora a API, quando responde, é a fonte; esta lista entra
+ * quando ela não responde, e nunca junto.
+ */
+const FALLBACK_SUPPORTERS: Supporter[] = [
   { name: "Cristiano Cunha" },
   { name: "Wilson Neto" },
   { name: "Eduarda Martins" },
 ];
 
-// Partículas de nome ("Maria da Silva") não valem como inicial: a sigla sai de
-// primeiro + último nome de verdade.
+// Partículas de nome ("Maria da Silva") não são nome: nem contam para decidir se
+// o nome é comprido, nem valem como inicial da sigla.
 const NAME_PARTICLES = new Set([
   "de", "da", "do", "das", "dos", "e", "di", "du", "del", "della", "la", "van", "von",
 ]);
@@ -54,19 +81,67 @@ export function initials(name: string): string {
 }
 
 // Remove nomes repetidos preservando a ordem (o primeiro a aparecer prevalece).
-function dedupeByName(list: Supporter[]): Supporter[] {
+function normalizeSupporters(list: Supporter[]): Supporter[] {
   const seen = new Set<string>();
   const out: Supporter[] = [];
   for (const s of list) {
-    const key = s.name.trim().toLowerCase();
+    const name = s.name.trim();
+    const key = name.toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    out.push(s);
+    out.push({ name });
   }
   return out;
 }
 
-const API_BASE = "https://dashboard-api-v1.apoia.se/api/reports/backers";
+// ---------------------------------------------------------------------------
+// A API da APOIA.se
+// ---------------------------------------------------------------------------
+
+const API_BASE = "https://api.apoia.se";
+
+/**
+ * Os dois headers de autenticação, exatamente como a doc v0.1 os escreve.
+ *
+ * Esta é a parte CONFIRMADA da integração, e por isso está numa função pura,
+ * exportada e coberta por teste: dá para provar que o header é montado certo sem
+ * rede, sem credencial e sem depender de a rota de listagem existir.
+ *
+ * Não são intercambiáveis: `x-api-key` leva a CHAVE e o `Authorization` leva o
+ * SEGREDO. Trocar os dois de lugar devolve 401, e é um erro que só aparece em
+ * produção, porque o build local não tem credencial nenhuma.
+ */
+export function apoiaseHeaders(key: string, secret: string): Record<string, string> {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "x-api-key": key,
+    Authorization: `Bearer ${secret}`,
+  };
+}
+
+/**
+ * ⚠️ A ÚNICA PARTE CHUTADA DESTE ARQUIVO, e está isolada aqui de propósito.
+ *
+ * A doc v0.1 não tem rota de listagem (ver o cabeçalho do arquivo). Procurei em:
+ * a doc oficial no Notion, o artigo "API Pública da APOIA.se" da Central de
+ * Suporte, e integrações de terceiros no GitHub (`SouJunior/stars-api`,
+ * `vjpixel/diaria-studio`) — as três só conhecem `/backers/charges/<email>`.
+ *
+ * O caminho abaixo é a hipótese mais provável dentro da família `/backers/`, com
+ * a campanha na query porque a doc diz que a chave já é "a chave correspondente
+ * a sua campanha" (ou seja, a campanha pode ser implícita na credencial). Se
+ * estiver errado, o build recebe 403/404, avisa no log e o muro sai do plano B:
+ * o site não quebra e ninguém vê erro.
+ *
+ * QUANDO O SUPORTE DA APOIA.se CONFIRMAR A ROTA, é esta função que muda, e só
+ * ela.
+ */
+function backersUrl(campaign?: string): string {
+  const url = new URL("/backers", API_BASE);
+  if (campaign) url.searchParams.set("campaign", campaign);
+  return url.toString();
+}
 
 type Raw = Record<string, unknown>;
 
@@ -78,7 +153,7 @@ function nestedName(v: unknown): string | undefined {
   return undefined;
 }
 
-// A API do painel não é versionada publicamente, então lemos o nome de forma
+// A resposta da listagem não está documentada, então lemos o nome de forma
 // defensiva, tentando as chaves mais prováveis.
 function pickName(b: Raw): string | null {
   const direct = [b.name, b.nome, b.backer_name, b.supporter_name, b.apoiador].find(
@@ -118,46 +193,77 @@ function toList(json: unknown): Raw[] {
   if (Array.isArray(json)) return json as Raw[];
   if (json && typeof json === "object") {
     const o = json as Raw;
-    for (const key of ["backers", "data", "apoiadores", "results"]) {
+    for (const key of ["backers", "data", "apoiadores", "results", "items"]) {
       if (Array.isArray(o[key])) return o[key] as Raw[];
     }
   }
   return [];
 }
 
-export async function fetchSupporters(): Promise<Supporter[]> {
-  const token = process.env.APOIASE_TOKEN;
-  const campaign = process.env.APOIASE_CAMPAIGN_ID;
-  if (!token || !campaign) return dedupeByName(MANUAL_SUPPORTERS);
+/**
+ * Só o NOME sai daqui, e isso é uma decisão de privacidade, não um detalhe de
+ * tipo. A resposta da APOIA.se pode trazer e-mail, valor apoiado e data: nada
+ * disso pode chegar ao HTML, que é público e fica indexado. `Supporter` tem um
+ * campo só justamente para não haver caminho por onde o resto passe.
+ */
+function toSupporters(raw: Raw[]): Supporter[] {
+  return raw
+    .filter(isActive)
+    .map((b) => ({ name: pickName(b), t: pickTime(b) }))
+    .filter((b): b is { name: string; t: number } => b.name !== null)
+    .sort((a, b) => b.t - a.t) // mais recente primeiro
+    .map((b) => ({ name: b.name }));
+}
 
+export async function fetchSupporters(): Promise<Supporter[]> {
+  const key = process.env.APOIASE_KEY;
+  const secret = process.env.APOIASE_SECRET;
+  const campaign = process.env.APOIASE_CAMPAIGN;
+
+  if (!key || !secret) {
+    // O aviso É o conserto de metade desta issue: sem ele, "a página mostra 3"
+    // e "a integração nunca rodou" são indistinguíveis no log do build.
+    console.warn(
+      "[apoia.se] sem APOIASE_KEY e/ou APOIASE_SECRET no ambiente: o muro de apoiadores sai da " +
+        "lista de plano B (src/app/apoie/apoiadores.ts). Cadastre os dois como secrets do repositório."
+    );
+    return normalizeSupporters(FALLBACK_SUPPORTERS);
+  }
+
+  const url = backersUrl(campaign);
   try {
-    const res = await fetch(`${API_BASE}/${encodeURIComponent(campaign)}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    const res = await fetch(url, {
+      headers: apoiaseHeaders(key, secret),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
-      console.warn(`[apoia.se] resposta HTTP ${res.status}. Mostrando só a lista manual de apoiadores.`);
-      return dedupeByName(MANUAL_SUPPORTERS);
+      // A URL entra no aviso, o header nunca: é o que separa um log útil de um
+      // log que publica a credencial no console da CI.
+      console.warn(
+        `[apoia.se] ${res.status} em ${url}. A rota de listagem ainda não foi confirmada com o ` +
+          `suporte da APOIA.se (a doc v0.1 só tem /backers/charges/<email>). Muro no plano B.`
+      );
+      return normalizeSupporters(FALLBACK_SUPPORTERS);
     }
 
     const raw = toList(await res.json());
-    const names = raw
-      .filter(isActive)
-      .map((b) => ({ name: pickName(b), t: pickTime(b) }))
-      .filter((b): b is { name: string; t: number } => b.name !== null)
-      .sort((a, b) => b.t - a.t) // mais recente primeiro
-      .map((b) => ({ name: b.name }));
+    const muro = normalizeSupporters(toSupporters(raw));
 
-    // Diagnóstico: veio gente mas não reconhecemos o campo do nome. Sinaliza que
-    // o formato da API mudou e o mapeamento em pickName precisa de ajuste.
-    if (raw.length > 0 && names.length === 0) {
-      console.warn(`[apoia.se] recebeu ${raw.length} apoios mas não reconheceu os campos de nome. Ajuste pickName().`);
+    if (raw.length > 0 && muro.length === 0) {
+      console.warn(
+        `[apoia.se] ${raw.length} apoios recebidos e nenhum nome reconhecido. O formato da resposta ` +
+          `não é o esperado: ajuste pickName().`
+      );
     }
-    // A lista manual vem primeiro e vence o desempate: quem já está aqui não
-    // aparece duas vezes quando a API passar a devolver o mesmo nome.
-    return dedupeByName([...MANUAL_SUPPORTERS, ...names]);
+    if (muro.length === 0) {
+      console.warn("[apoia.se] a API não devolveu nome nenhum. Muro no plano B.");
+      return normalizeSupporters(FALLBACK_SUPPORTERS);
+    }
+
+    console.log(`[apoia.se] ${raw.length} apoios recebidos, ${muro.length} nomes no muro.`);
+    return muro;
   } catch (err) {
-    console.warn("[apoia.se] falha ao buscar apoiadores. Mostrando só a lista manual.", err);
-    return dedupeByName(MANUAL_SUPPORTERS);
+    console.warn(`[apoia.se] falha ao buscar apoiadores em ${url}. Muro no plano B.`, err);
+    return normalizeSupporters(FALLBACK_SUPPORTERS);
   }
 }
