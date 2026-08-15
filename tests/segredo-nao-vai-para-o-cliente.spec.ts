@@ -277,6 +277,47 @@ function ehBinario(buf: Buffer): boolean {
   return buf.subarray(0, 8192).includes(0);
 }
 
+/**
+ * Confronta o que a varredura achou com a dívida declarada, e devolve as DUAS
+ * metades.
+ *
+ * ⚠️ A UNIÃO DAS CHAVES, e não só as encontradas. A primeira versão iterava
+ * apenas o que a varredura tinha achado, e com isso uma entrada de `CONHECIDOS`
+ * cuja ocorrência sumiu do build nunca era comparada: a chave não aparecia no
+ * mapa, o laço não passava por ela, e a exceção morta ficava lá anistiando
+ * aquele par arquivo+regra para sempre. É o mesmo cuidado que o
+ * `sem-travessao.spec.ts` toma ao percorrer TODAS as rotas em vez de só as que
+ * têm ocorrência.
+ *
+ * Função à parte, e não laço embutido no teste, para o cenário da exceção
+ * obsoleta poder ser exercitado sem depender do build.
+ */
+function compararComDivida(
+  achados: Achado[],
+  conhecidos: Record<string, number>
+): { novos: Achado[]; obsoletos: string[] } {
+  const porChave = new Map<string, Achado[]>();
+  for (const a of achados) {
+    const chave = `${a.arquivo}::${a.regra}`;
+    porChave.set(chave, [...(porChave.get(chave) ?? []), a]);
+  }
+
+  const novos: Achado[] = [];
+  const obsoletos: string[] = [];
+  for (const chave of new Set([...porChave.keys(), ...Object.keys(conhecidos)])) {
+    const encontrados = porChave.get(chave) ?? [];
+    const declarados = conhecidos[chave] ?? 0;
+    if (declarados === 0) {
+      novos.push(...encontrados);
+    } else if (encontrados.length !== declarados) {
+      obsoletos.push(
+        `${chave}: ${encontrados.length}x no build, ${declarados}x declarada em CONHECIDOS`
+      );
+    }
+  }
+  return { novos, obsoletos };
+}
+
 /** Endereço e diagnóstico. Nunca o conteúdo casado (ver `varrer`). */
 function relatorio(achados: Achado[]): string {
   return achados
@@ -330,22 +371,20 @@ test("nenhuma credencial chega ao HTML, aos chunks ou ao payload RSC", () => {
   ).toEqual([]);
   expect(binarios.length, "nenhum card de Open Graph no build").toBeGreaterThan(40);
 
-  // A dívida declarada sai da conta pelo par arquivo+regra, e pela contagem exata.
-  const porChave = new Map<string, Achado[]>();
-  for (const a of achados) {
-    const chave = `${a.arquivo}::${a.regra}`;
-    porChave.set(chave, [...(porChave.get(chave) ?? []), a]);
-  }
-  const novos: Achado[] = [];
-  for (const [chave, lista] of porChave) {
-    const declarados = CONHECIDOS[chave] ?? 0;
-    if (lista.length !== declarados) novos.push(...lista);
-  }
+  const { novos, obsoletos } = compararComDivida(achados, CONHECIDOS);
 
   expect(
     novos.length,
     `${novos.length} ocorrência(s) de credencial no artefato que o Cloudflare Pages publica:\n${relatorio(novos)}`
   ).toBe(0);
+
+  // A outra metade, e ela é o guarda do guarda: exceção que encolheu vira
+  // entrada obsoleta, e entrada obsoleta anistia aquele par arquivo+regra em
+  // silêncio para sempre.
+  expect(
+    obsoletos,
+    "a contagem de uma dívida declarada mudou. Se você consertou, apague a entrada de CONHECIDOS"
+  ).toEqual([]);
 });
 
 test("o valor real da credencial não aparece no build", () => {
@@ -442,6 +481,38 @@ test("a varredura acusa um segredo plantado", () => {
   // E o contrário: o que o build legítimo tem não pode acusar. O link público da
   // campanha é o caso real, e é o que separa este guarda de um `grep apoia.se`.
   expect(varrer("out/apoie/index.html", `<a href="${LINKS.apoiar}">Quero apoiar</a>`)).toEqual([]);
+});
+
+test("uma exceção declarada que já não casa nada é acusada de obsoleta", () => {
+  // Achado na review do PR #96. A primeira versão comparava só as chaves que a
+  // varredura ENCONTROU, então uma entrada de CONHECIDOS cuja ocorrência sumiu
+  // do build nunca era visitada. A exceção morta ficava lá, e no dia em que o
+  // mesmo padrão voltasse àquele arquivo ela o anistiaria em silêncio: o guarda
+  // seguiria verde exatamente sobre a recaída que ele existe para pegar.
+  const chave = "_next/static/chunks/velho.js::JWT";
+
+  // Nada no build, e a dívida ainda declarada: obsoleta.
+  const so = compararComDivida([], { [chave]: 2 });
+  expect(so.novos).toEqual([]);
+  expect(so.obsoletos, "exceção morta passou batida").toHaveLength(1);
+  expect(so.obsoletos[0]).toContain("0x no build");
+
+  // A dívida que continua batendo não incomoda ninguém.
+  const achado: Achado = {
+    arquivo: "_next/static/chunks/velho.js",
+    regra: "JWT",
+    porque: "x",
+    posicao: 10,
+    tamanho: 100,
+  };
+  const bate = compararComDivida([achado], { [chave]: 1 });
+  expect(bate.novos).toEqual([]);
+  expect(bate.obsoletos).toEqual([]);
+
+  // E o que ninguém declarou continua reprovando.
+  const semDivida = compararComDivida([achado], {});
+  expect(semDivida.novos).toHaveLength(1);
+  expect(semDivida.obsoletos).toEqual([]);
 });
 
 test("o relatório de falha não republica o segredo que encontrou", () => {
