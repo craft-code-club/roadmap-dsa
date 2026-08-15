@@ -436,6 +436,83 @@ test("toda combinação (roadmap, tópico) tem página gerada", async ({ page })
   }
 });
 
+// ---------------------------------------------------------------------------
+// 11. Canonicalização: os sinais das 38 páginas duplicadas não podem brigar
+// ---------------------------------------------------------------------------
+
+test("toda página de roadmap declara a canônica, e nenhuma entra no sitemap", () => {
+  // `rel=canonical` é DICA, não ordem: o Google só a respeita quando os outros
+  // sinais concordam. Este teste é a conferência dos sinais, sobre as 38
+  // páginas de uma vez, porque um alias que escapa é indistinguível dos outros
+  // olhando a tela.
+  const sitemap = readFileSync(path.join(process.cwd(), "out", "sitemap.xml"), "utf8");
+  const semCanonical: string[] = [];
+  const canonicalErrado: string[] = [];
+  const noSitemap: string[] = [];
+  const comJsonLdProprio: string[] = [];
+  const comNoindex: string[] = [];
+
+  for (const { roadmap, topic } of todasAsPaginasDeRoadmap()) {
+    const rota = `/roadmaps/${roadmap.slug}/${topic.slug}/`;
+    const html = readFileSync(path.join(process.cwd(), "out", rota.slice(1), "index.html"), "utf8");
+    const esperado = `/topico/${topic.slug}/`;
+
+    const m = html.match(/<link rel="canonical" href="([^"]+)"/);
+    if (!m) semCanonical.push(rota);
+    else if (!m[1].endsWith(esperado)) canonicalErrado.push(`${rota} -> ${m[1]}`);
+
+    if (sitemap.includes(rota)) noSitemap.push(rota);
+
+    // `noindex` JUNTO de canonical é o conserto intuitivo e é o errado: são
+    // sinais que se contradizem, e o Google documenta que não se deve
+    // combiná-los (há relato de o noindex se propagar para a canônica).
+    if (/<meta name="robots"[^>]*noindex/.test(html)) comNoindex.push(rota);
+
+    // Só o nó do layout (Organization + WebSite, num `<script>` só). Quem
+    // declara o recurso é a canônica: declarar de novo aqui é a página dizer
+    // "a principal é outra" e, na tag seguinte, se apresentar como principal.
+    const nos = html.match(/<script type="application\/ld\+json"/g) ?? [];
+    if (nos.length !== 1) comJsonLdProprio.push(`${rota} (${nos.length} nós)`);
+  }
+
+  expect(semCanonical, "página de roadmap sem canonical").toEqual([]);
+  expect(canonicalErrado, "canonical apontando para a URL errada").toEqual([]);
+  expect(noSitemap, "página duplicada convidando o robô pelo sitemap").toEqual([]);
+  expect(comNoindex, "noindex junto de canonical: sinais que se contradizem").toEqual([]);
+  expect(comJsonLdProprio, "página não canônica declarando o recurso de novo").toEqual([]);
+});
+
+test("os links internos apontam majoritariamente para as canônicas", () => {
+  // O sinal que pode DISCORDAR do canonical é o de links internos. Hoje a
+  // margem é folgada (medido: 85% para as canônicas), e este teste existe para
+  // avisar se ela apertar — o que aconteceria se um roadmap crescesse para
+  // dezenas de tópicos citados e os aliases passassem a dominar a linkagem.
+  //
+  // O corte em 70% é bem abaixo do valor de hoje de propósito: um teste que
+  // reprova na primeira oscilação vira ruído, e o que interessa aqui é a
+  // INVERSÃO da maioria, não o número exato.
+  const contar = (dir: string, acc: { alias: number; canon: number }) => {
+    for (const nome of readdirSync(dir, { withFileTypes: true })) {
+      const cheio = path.join(dir, nome.name);
+      if (nome.isDirectory()) contar(cheio, acc);
+      else if (nome.name === "index.html") {
+        const h = readFileSync(cheio, "utf8");
+        acc.alias += (h.match(/href="\/roadmaps\/[^/"]+\/[^/"]+\/"/g) ?? []).length;
+        acc.canon += (h.match(/href="\/topico\/[^/"]+\/"/g) ?? []).length;
+      }
+    }
+    return acc;
+  };
+  const { alias, canon } = contar(path.join(process.cwd(), "out"), { alias: 0, canon: 0 });
+  const fatia = canon / (canon + alias);
+  expect(
+    fatia,
+    `só ${Math.round(fatia * 100)}% dos links internos de tópico apontam para a canônica ` +
+      `(${canon} contra ${alias} para as duplicadas). Quando os aliases dominam a linkagem, ` +
+      `o canonical vira uma dica que o Google tem razão para ignorar.`
+  ).toBeGreaterThan(0.7);
+});
+
 test("os grupos de um roadmap resolvem todas as citações", () => {
   // Citação que não resolve é descartada em silêncio pelo resolvedor (quem
   // grita é o guarda no import). Aqui a conta fecha por fora: o número de itens
