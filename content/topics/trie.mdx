@@ -1,5 +1,5 @@
 <Callout>
-Um `dict` acha `"algoritmo"` num piscar de olhos e não sabe responder à pergunta mais simples que um campo de busca faz: **"quais palavras começam com `alg`?"**. Para isso ele precisa olhar chave por chave. A **trie**, ou árvore de prefixos, responde às duas perguntas no mesmo custo, **O(m)**, com m sendo o tamanho da palavra digitada — e, o que importa de verdade, **sem depender de quantas palavras existem no dicionário**. É a estrutura por trás do autocomplete, do corretor ortográfico e da tabela de roteamento que decide para onde vai cada pacote da sua conexão.
+Um `dict` acha `"algoritmo"` num piscar de olhos e não sabe responder à pergunta mais simples que um campo de busca faz: **"quais palavras começam com `alg`?"**. Para isso ele precisa olhar chave por chave. A **trie**, ou árvore de prefixos, responde às duas perguntas no mesmo custo, **O(m)**, com m sendo o tamanho da palavra digitada e (o que importa de verdade) **sem depender de quantas palavras existem no dicionário**. É a estrutura por trás do autocomplete, do corretor ortográfico e da tabela de roteamento que decide para onde vai cada pacote da sua conexão.
 </Callout>
 
 ## O buraco: a hash não sabe soletrar
@@ -8,7 +8,7 @@ A [tabela hash](/topico/hash-table) é imbatível numa pergunta só: *"esta chav
 
 O problema é que "busca" quase nunca é isso. Quando você digita `alg` num campo de pesquisa, ninguém quer saber se a palavra `alg` existe. A pergunta é **quais palavras continuam a partir dali**. E aí a hash não tem nada a oferecer, porque um bom hash espalha as chaves de propósito: `algoritmo` e `algorítmico` são vizinhas no dicionário e caem em baldes distantes na tabela. Não existe "andar para o lado".
 
-O número torna isso concreto. O `/usr/share/dict/words` do macOS, normalizado para minúsculas e só com letras, tem **234.454 palavras** em inglês; dessas, **98 começam com `alg`** — `alga`, `algae`, `algebra`, `algorithm` e mais 94. Para achar as 98, uma hash precisa varrer as 234.454. É O(n), e piora à medida que o dicionário cresce.
+O número torna isso concreto. O `/usr/share/dict/words` do macOS, normalizado para minúsculas e só com letras, tem **234.454 palavras** em inglês; dessas, **98 começam com `alg`**: `alga`, `algae`, `algebra`, `algorithm` e mais 94. Para achar as 98, uma hash precisa varrer as 234.454. É O(n), e piora à medida que o dicionário cresce.
 
 Um **array ordenado** com [busca binária](/topico/busca-binaria) se sai muito melhor: as palavras com o mesmo prefixo ficam grudadas numa faixa contígua, e duas buscas binárias acham o começo e o fim dela. É a solução certa para um dicionário que nunca muda. O buraco dele é a escrita: inserir uma palavra no meio de um [array](/topico/arrays) de 234 mil posições empurra tudo que vem depois, O(n) por inserção.
 
@@ -22,10 +22,10 @@ A trie responde às duas perguntas em O(m):
 | Devolver tudo em ordem alfabética | não sabe | de graça | O(n) percorrendo |
 
 <Callout>
-Repare no que a primeira linha desmente: **o "O(1)" da hash já é um O(m) disfarçado**. Para hashear `"algoritmo"` você precisa ler as nove letras. O que a hash tem de constante é a quantidade de *chaves comparadas*, não a quantidade de *caracteres lidos*. Na busca exata, hash e trie estão empatadas na notação — a hash ganha na constante (memória contígua, um salto só), e perde tudo assim que a pergunta vira sobre prefixo.
+Repare no que a primeira linha desmente: **o "O(1)" da hash já é um O(m) disfarçado**. Para hashear `"algoritmo"` você precisa ler as nove letras. O que a hash tem de constante é a quantidade de *chaves comparadas*, não a quantidade de *caracteres lidos*. Na busca exata, hash e trie estão empatadas na notação: a hash ganha na constante (memória contígua, um salto só), e perde tudo assim que a pergunta vira sobre prefixo.
 </Callout>
 
-Esse **"independente de n"** é a frase que define a estrutura. Buscar `algoritmo` numa trie de 200 palavras e numa de 200 milhões custa exatamente a mesma coisa: nove saltos. O tamanho do dicionário não entra na conta em lugar nenhum — e uma [complexidade](/topico/big-o) que ignora n é rara o bastante para valer a releitura.
+Esse **"independente de n"** é a frase que define a estrutura. Buscar `algoritmo` numa trie de 200 palavras e numa de 200 milhões custa exatamente a mesma coisa: nove saltos. O tamanho do dicionário não entra na conta em lugar nenhum. E uma [complexidade](/topico/big-o) que ignora n é rara o bastante para valer a releitura.
 
 ## Cada nó é um prefixo, cada aresta é uma letra
 
@@ -33,7 +33,7 @@ Aqui está a ideia que confunde todo mundo na primeira leitura, e não adianta s
 
 Numa trie, cada **aresta** carrega um caractere e cada **nó** representa o prefixo formado pelo caminho da raiz até ele. A palavra existe como *trajeto*, não como dado. Se você procurar por uma string dentro da memória da estrutura, não vai encontrar.
 
-Cinco palavras — `car`, `carro`, `casa`, `caso`, `sol` — montam esta trie, com `●` marcando os nós que terminam uma palavra:
+Cinco palavras (`car`, `carro`, `casa`, `caso`, `sol`) montam esta trie, com `●` marcando os nós que terminam uma palavra:
 
 ```
 (raiz)
@@ -50,10 +50,10 @@ Cinco palavras — `car`, `carro`, `casa`, `caso`, `sol` — montam esta trie, c
         └── l ●              "sol"
 ```
 
-Faça a conta: as cinco palavras somam **19 letras**, e a trie tem **11 nós**. A diferença é o prefixo compartilhado — `ca` foi escrito uma vez e serve às quatro primeiras. Naquele dicionário de 234 mil palavras, as **2.248.642 letras** viram **758.879 nós**: um terço. Dois em cada três caracteres simplesmente não precisam existir na estrutura. E o nó `a` que pende de `c` **é** o prefixo `ca`: ele não guarda a string `"ca"` nem tem ponteiro para o pai. Quem sabe onde está é quem caminha — você chegou ali digitando `c` e depois `a`.
+Faça a conta: as cinco palavras somam **19 letras**, e a trie tem **11 nós**. A diferença é o prefixo compartilhado: `ca` foi escrito uma vez e serve às quatro primeiras. Naquele dicionário de 234 mil palavras, as **2.248.642 letras** viram **758.879 nós**: um terço. Dois em cada três caracteres simplesmente não precisam existir na estrutura. E o nó `a` que pende de `c` **é** o prefixo `ca`: ele não guarda a string `"ca"` nem tem ponteiro para o pai. Quem sabe onde está é quem caminha: você chegou ali digitando `c` e depois `a`.
 
 <Callout tipo="aviso">
-Não confunda a trie com uma [árvore binária de busca](/topico/bst). Na BST, cada nó guarda **uma chave inteira** e a comparação decide se você vai para a esquerda ou para a direita; a altura depende de n. Na trie, cada nó guarda **um pedaço de chave** e o próximo caractere decide qual dos filhos você segue; a altura é o tamanho da maior palavra e não tem nada a ver com n. São duas árvores com regras opostas — a trie é uma [árvore n-ária](/topico/n-ary-trees) em que o "n" é o tamanho do alfabeto.
+Não confunda a trie com uma [árvore binária de busca](/topico/bst). Na BST, cada nó guarda **uma chave inteira** e a comparação decide se você vai para a esquerda ou para a direita; a altura depende de n. Na trie, cada nó guarda **um pedaço de chave** e o próximo caractere decide qual dos filhos você segue; a altura é o tamanho da maior palavra e não tem nada a ver com n. São duas árvores com regras opostas: a trie é uma [árvore n-ária](/topico/n-ary-trees) em que o "n" é o tamanho do alfabeto.
 </Callout>
 
 ## O flag de fim de palavra separa "existe" de "começa com"
@@ -69,9 +69,9 @@ Por isso todo nó carrega um booleano, o **`fim_de_palavra`**. Ele é a única c
 | `car` | sim | sim | **True** | True |
 | `cas` | sim | não | **False** | True |
 | `carr` | sim | não | **False** | True |
-| `cavalo` | não | — | False | False |
+| `cavalo` | não | não há nó | False | False |
 
-As duas colunas da direita são duas funções diferentes, e essa distinção é metade do enunciado do LeetCode 208, *Implement Trie (Prefix Tree)*. Quem escreve `search` e `startsWith` com o mesmo corpo entrega uma trie que jura que `cas` é uma palavra. Sem o flag, o dicionário `{car, carro}` e o dicionário `{carro}` viram a mesma estrutura na memória — você perdeu informação e não tem como recuperá-la.
+As duas colunas da direita são duas funções diferentes, e essa distinção é metade do enunciado do LeetCode 208, *Implement Trie (Prefix Tree)*. Quem escreve `search` e `startsWith` com o mesmo corpo entrega uma trie que jura que `cas` é uma palavra. Sem o flag, o dicionário `{car, carro}` e o dicionário `{carro}` viram a mesma estrutura na memória: você perdeu informação e não tem como recuperá-la.
 
 ## A implementação: dict de filhos, e a variante de 26 posições
 
@@ -115,11 +115,11 @@ class Trie:
         return self._descer(prefixo) is not None      # só o caminho
 ```
 
-São as duas últimas linhas que fecham o assunto da seção anterior: `buscar` e `comeca_com` compartilham a descida inteira e diferem em um `and`. O `_descer` usa `.get`, e isso não é estilo — é a armadilha número um desta estrutura, e ela volta na última seção.
+São as duas últimas linhas que fecham o assunto da seção anterior: `buscar` e `comeca_com` compartilham a descida inteira e diferem em um `and`. O `_descer` usa `.get`, e isso não é estilo: é a armadilha número um desta estrutura, e ela volta na última seção.
 
 ### A variante com array de 26 posições
 
-Quando o alfabeto é fechado e pequeno — as 26 minúsculas do inglês, os 10 dígitos, os 2 bits —, dá para trocar o dicionário por um array de tamanho fixo e indexar por aritmética:
+Quando o alfabeto é fechado e pequeno (as 26 minúsculas do inglês, os 10 dígitos, os 2 bits), dá para trocar o dicionário por um array de tamanho fixo e indexar por aritmética:
 
 ```python
 class No26:
@@ -133,7 +133,7 @@ def indice(letra):
     return ord(letra) - ord("a")      # 'c' -> 2, sem hash, sem tabela
 ```
 
-O ganho é real: acessar `filhos[2]` é um deslocamento de ponteiro, sem calcular hash, sem tratar colisão, e os filhos já saem **em ordem alfabética** quando você percorre o array — o que economiza um `sorted()` no autocomplete. Em C ou Java, esse array é o padrão de competição. O custo também é real, e é aqui que a maioria dos textos mente por omissão:
+O ganho é real: acessar `filhos[2]` é um deslocamento de ponteiro, sem calcular hash, sem tratar colisão, e os filhos já saem **em ordem alfabética** quando você percorre o array, o que economiza um `sorted()` no autocomplete. Em C ou Java, esse array é o padrão de competição. O custo também é real, e é aqui que a maioria dos textos mente por omissão:
 
 | Critério | `dict` de filhos | array de 26 |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ O ganho é real: acessar `filhos[2]` é um deslocamento de ponteiro, sem calcula
 | Alfabeto | qualquer um: acento, emoji, byte | fechado e pequeno |
 | Nó com 1 filho só | 1 ponteiro | 26 ponteiros, 25 vazios |
 
-Aquela última linha não é caso raro. Naquela trie de 234 mil palavras, **61,7% dos nós têm exatamente um filho** — e o grau médio de saída é 1 em *qualquer* trie, porque toda árvore de N nós tem N−1 arestas. Com array de 26, isso são 19,7 milhões de ponteiros alocados para 758.879 ligações de verdade: **3,8% de ocupação**. Você paga 208 bytes por nó (26 × 8) para usar 8.
+Aquela última linha não é caso raro. Naquela trie de 234 mil palavras, **61,7% dos nós têm exatamente um filho**. E o grau médio de saída é 1 em *qualquer* trie, porque toda árvore de N nós tem N−1 arestas. Com array de 26, isso são 19,7 milhões de ponteiros alocados para 758.879 ligações de verdade: **3,8% de ocupação**. Você paga 208 bytes por nó (26 × 8) para usar 8.
 
 ## Remover: a operação que ninguém escreve
 
@@ -160,7 +160,7 @@ A regra cabe numa frase: **um nó só pode ser podado se, depois de tirar a marc
 
 Repare no caso `car`: a operação remove uma palavra e **não apaga nó nenhum**. A trie fica do mesmo tamanho com uma palavra a menos, e isso está certo.
 
-A poda é naturalmente recursiva, porque a decisão de apagar um nó depende do que aconteceu **abaixo** dele — é a [recursão](/topico/recursao) clássica em que o trabalho útil está na volta da pilha, não na ida:
+A poda é naturalmente recursiva, porque a decisão de apagar um nó depende do que aconteceu **abaixo** dele. É a [recursão](/topico/recursao) clássica em que o trabalho útil está na volta da pilha, não na ida:
 
 ```python
     def remover(self, palavra):
@@ -187,10 +187,10 @@ A poda é naturalmente recursiva, porque a decisão de apagar um nó depende do 
 O `buscar` na primeira linha é uma descida a mais, O(m), e ele paga por si: sem ele o `_podar` precisaria distinguir "não achei o caminho" de "achei e apaguei", e a função dobraria de tamanho para tratar um caso que a busca já resolve. Duas passadas de O(m) continuam sendo O(m).
 
 <Callout tipo="aviso">
-A linha `return not no.filhos and not no.fim_de_palavra` é onde a implementação erra. Quem esquece a segunda metade apaga o `r` de `car` ao remover `carro` — e leva junto uma palavra que ninguém mandou remover. Quem esquece a primeira metade apaga o `s` de `casa` e derruba `caso`. O teste que pega os dois é remover uma palavra que é **prefixo de outra** e outra que **tem prefixo em comum**, conferindo o dicionário inteiro depois.
+A linha `return not no.filhos and not no.fim_de_palavra` é onde a implementação erra. Quem esquece a segunda metade apaga o `r` de `car` ao remover `carro`, e leva junto uma palavra que ninguém mandou remover. Quem esquece a primeira metade apaga o `s` de `casa` e derruba `caso`. O teste que pega os dois é remover uma palavra que é **prefixo de outra** e outra que **tem prefixo em comum**, conferindo o dicionário inteiro depois.
 </Callout>
 
-Vale a pergunta honesta: você precisa disso? Em muitos usos reais, não. Um autocomplete que reconstrói o índice toda noite nunca chama `remover`, e nesse caso um `fim_de_palavra = False` sem poda alguma resolve — a trie fica com nós órfãos, gasta memória à toa e continua correta. A poda importa quando a trie vive muito tempo e o dicionário muda o tempo todo.
+Vale a pergunta honesta: você precisa disso? Em muitos usos reais, não. Um autocomplete que reconstrói o índice toda noite nunca chama `remover`, e nesse caso um `fim_de_palavra = False` sem poda alguma resolve: a trie fica com nós órfãos, gasta memória à toa e continua correta. A poda importa quando a trie vive muito tempo e o dicionário muda o tempo todo.
 
 ## Autocomplete: descer até o prefixo e colher o resto
 
@@ -221,7 +221,7 @@ Com a estrutura de pé, o autocomplete é quase decepcionante de tão direto, e 
         return achadas
 ```
 
-O par `append` / `pop` em volta da chamada recursiva é [backtracking](/topico/backtracking) puro: uma lista só, reaproveitada no caminho inteiro, em vez de concatenar uma string nova por nó. E o `limite` é o que torna isso viável num campo de busca — sugerir `a` numa trie de 234 mil palavras significa uma subárvore com dezenas de milhares de nós, e o corte no décimo resultado impede que a estrutura devolva o dicionário.
+O par `append` / `pop` em volta da chamada recursiva é [backtracking](/topico/backtracking) puro: uma lista só, reaproveitada no caminho inteiro, em vez de concatenar uma string nova por nó. E o `limite` é o que torna isso viável num campo de busca: sugerir `a` numa trie de 234 mil palavras significa uma subárvore com dezenas de milhares de nós, e o corte no décimo resultado impede que a estrutura devolva o dicionário.
 
 O custo da colheita é **O(número de nós visitados)**, e não O(n): quanto mais o usuário digita, menor a subárvore. É por isso que o autocomplete fica mais rápido conforme a busca fica mais específica, o oposto do que a intuição sugere. Esse par de operações é o LeetCode 1268, *Search Suggestions System*, inteiro.
 
@@ -249,7 +249,7 @@ Sim: a estrutura que "economiza" prefixos ocupa dezenas de vezes mais que o text
 Ataca as **cadeias de nó com um filho só**. Se de `t` só sai `e`, e de `e` só sai `s`, esses três nós viram um nó com o rótulo `"tes"`. A aresta deixa de carregar um caractere e passa a carregar uma string. Medido naquele mesmo dicionário: **758.879 nós caem para 314.475**, 41% do original. Também aparece com o nome de árvore Patricia.
 </Cartao>
 <Cartao titulo="DAWG (grafo acíclico de palavras)">
-Ataca os **sufixos repetidos**. Depois de compartilhar prefixos, sobram milhares de subárvores idênticas — naquele dicionário, todo o `-ing`, todo o `-ness`. Fundindo as subárvores iguais, a árvore vira um DAG e cada sufixo existe uma vez só. Economia enorme, com dois preços: você não pode mais guardar dado por palavra num nó (o nó é compartilhado), e inserir depois de pronto é difícil. Constrói-se uma vez, lê-se muitas.
+Ataca os **sufixos repetidos**. Depois de compartilhar prefixos, sobram milhares de subárvores idênticas: naquele dicionário, todo o `-ing`, todo o `-ness`. Fundindo as subárvores iguais, a árvore vira um DAG e cada sufixo existe uma vez só. Economia enorme, com dois preços: você não pode mais guardar dado por palavra num nó (o nó é compartilhado), e inserir depois de pronto é difícil. Constrói-se uma vez, lê-se muitas.
 </Cartao>
 </Colunas>
 
@@ -266,7 +266,7 @@ Na trie compactada, o desenho das cinco palavras fica assim, com os rótulos nas
 └── "sol" ●                "sol"
 ```
 
-Onze nós viraram sete, e `sol` — que não compartilha nada com ninguém — deixou de ocupar três nós para virar um. O preço é que a comparação em cada nó deixa de ser um acesso a filho e vira uma comparação de string, e a inserção precisa saber **partir** um rótulo pelo meio quando uma palavra nova diverge dele. Fechando o quadro, com as quatro estruturas que disputam o mesmo trabalho:
+Onze nós viraram sete, e `sol` (que não compartilha nada com ninguém) deixou de ocupar três nós para virar um. O preço é que a comparação em cada nó deixa de ser um acesso a filho e vira uma comparação de string, e a inserção precisa saber **partir** um rótulo pelo meio quando uma palavra nova diverge dele. Fechando o quadro, com as quatro estruturas que disputam o mesmo trabalho:
 
 | Estrutura | Busca exata | Busca por prefixo | Ordem alfabética | Memória |
 | --- | --- | --- | --- | --- |
@@ -277,9 +277,9 @@ Onze nós viraram sete, e `sol` — que não compartilha nada com ninguém — d
 
 ## Trie binária: quando as letras são bits
 
-Aqui está o uso que mais surpreende quem só viu trie de palavras. Nada na estrutura exige que o alfabeto seja de letras. Troque o alfabeto por `{0, 1}` e cada número inteiro vira uma "palavra" de 32 caracteres — os seus [bits](/topico/binary-numbers), do mais significativo para o menos.
+Aqui está o uso que mais surpreende quem só viu trie de palavras. Nada na estrutura exige que o alfabeto seja de letras. Troque o alfabeto por `{0, 1}` e cada número inteiro vira uma "palavra" de 32 caracteres: os seus [bits](/topico/binary-numbers), do mais significativo para o menos.
 
-Uma trie binária tem exatamente dois filhos por nó e profundidade fixa de 32. Ela não serve para buscar números (um `set` faz isso melhor); ela serve para responder perguntas **bit a bit** que nenhuma outra estrutura responde rápido. A clássica é o LeetCode 421, *Maximum XOR of Two Numbers in an Array*: dado um array, ache o maior `a ^ b`. A força bruta testa todos os pares, O(n²), e morre com n grande. Com a trie, a chave é lembrar o que o XOR faz: **um bit do resultado só acende quando os dois bits de entrada são diferentes**. Para maximizar, você quer acender o bit mais significativo possível, depois o próximo, e assim por diante — é uma escolha gulosa, e a trie é o mapa que diz se ela é possível.
+Uma trie binária tem exatamente dois filhos por nó e profundidade fixa de 32. Ela não serve para buscar números (um `set` faz isso melhor); ela serve para responder perguntas **bit a bit** que nenhuma outra estrutura responde rápido. A clássica é o LeetCode 421, *Maximum XOR of Two Numbers in an Array*: dado um array, ache o maior `a ^ b`. A força bruta testa todos os pares, O(n²), e morre com n grande. Com a trie, a chave é lembrar o que o XOR faz: **um bit do resultado só acende quando os dois bits de entrada são diferentes**. Para maximizar, você quer acender o bit mais significativo possível, depois o próximo, e assim por diante. É uma escolha gulosa, e a trie é o mapa que diz se ela é possível.
 
 ```python
 BITS = 32
@@ -318,16 +318,16 @@ def maximo_xor(nums):
     return max(melhor_xor(raiz, n) for n in nums)
 ```
 
-O `if` do meio é a estrutura inteira trabalhando: perguntar "existe algum número no array que difere de mim neste bit?" custa **um** acesso a ponteiro, porque a trie já agrupou todos os números que começam com aquele prefixo binário. São 32 passos por número, 32n no total — **O(n)**, contra O(n²) da força bruta.
+O `if` do meio é a estrutura inteira trabalhando: perguntar "existe algum número no array que difere de mim neste bit?" custa **um** acesso a ponteiro, porque a trie já agrupou todos os números que começam com aquele prefixo binário. São 32 passos por número, 32n no total: **O(n)**, contra O(n²) da força bruta.
 
-É a mesma trie binária que faz o *longest prefix match* das tabelas de roteamento IP: o roteador desce pelos bits do endereço de destino, e a rota válida mais profunda que ele encontrar no caminho é a que vence. Isto é, literalmente, o `comeca_com` deste artigo com o endereço no lugar da palavra — e é por isso que cada pacote que sai do seu computador atravessa uma trie (compactada, na prática: o kernel do Linux chama o dele de `fib_trie`).
+É a mesma trie binária que faz o *longest prefix match* das tabelas de roteamento IP: o roteador desce pelos bits do endereço de destino, e a rota válida mais profunda que ele encontrar no caminho é a que vence. Isto é, literalmente, o `comeca_com` deste artigo com o endereço no lugar da palavra. E é por isso que cada pacote que sai do seu computador atravessa uma trie (compactada, na prática: o kernel do Linux chama o dele de `fib_trie`).
 
 ## Onde ela aparece de verdade
 
 - **Autocomplete de buscador e de IDE.** O caso de uso que justifica a memória: cada tecla digitada é uma consulta, o orçamento é de milissegundos, e a resposta precisa vir do prefixo.
 - **Corretor ortográfico.** A trie combinada com distância de edição é muito mais rápida que comparar a palavra errada com o dicionário inteiro, porque a poda é brutal: assim que o prefixo já acumulou mais erros que o orçamento, a subárvore inteira abaixo dele é descartada de uma vez.
-- **Índices de banco de dados em memória.** A *adaptive radix tree* (ART) é uma radix tree que troca o formato do nó conforme a quantidade de filhos — array de 4, de 16, de 48 ou de 256 — atacando exatamente o desperdício de 96% que medimos na tabela de memória.
-- **Onde ela não é a resposta.** Se a pergunta for só *"esta chave está no conjunto?"* e você aceitar errar para mais de vez em quando, o [Bloom filter](/topico/bloom-filter) faz o mesmo com uma fração ínfima da memória — e não responde nada sobre prefixo, ordem ou vizinhança.
+- **Índices de banco de dados em memória.** A *adaptive radix tree* (ART) é uma radix tree que troca o formato do nó conforme a quantidade de filhos (array de 4, de 16, de 48 ou de 256), atacando exatamente o desperdício de 96% que medimos na tabela de memória.
+- **Onde ela não é a resposta.** Se a pergunta for só *"esta chave está no conjunto?"* e você aceitar errar para mais de vez em quando, o [Bloom filter](/topico/bloom-filter) faz o mesmo com uma fração ínfima da memória, e não responde nada sobre prefixo, ordem ou vizinhança.
 - **Aho-Corasick.** É uma trie de todos os padrões, mais um **link de falha** em cada nó, que aponta para o maior sufixo do prefixo atual que também é prefixo de algum padrão. Quando a leitura do texto trava numa letra, em vez de voltar do zero você segue o link de falha e continua. Isso encontra **todos** os padrões numa única passada, em O(tamanho do texto + tamanho dos padrões + ocorrências), e é o que transforma um filtro de mil palavras proibidas de "mil buscas" em "uma leitura". É o destino natural depois deste artigo, e o caminho está em [Padrões em Strings](/trilha/padroes-em-strings/), uma das [trilhas](/trilha/).
 
 ## As armadilhas que pegam todo mundo
@@ -336,7 +336,7 @@ O `if` do meio é a estrutura inteira trabalhando: perguntar "existe algum núme
 
 **Esquecer o contador quando o problema pede contagem.** `comeca_com` devolve sim ou não. *"Quantas palavras começam com `alg`?"* é outra pergunta, e responder com um percurso custa O(tamanho da subárvore). Se a contagem for consultada com frequência, guarde um campo `passagens` no nó e incremente-o a cada letra na inserção (e decremente na remoção): a resposta vira O(m).
 
-**Assumir alfabeto minúsculo quando a entrada não é.** `ord(letra) - ord("a")` estoura com maiúscula, com hífen, com dígito e com acento — `ord("ç") - ord("a")` dá **134**, muito fora de um array de 26. E, mesmo com `dict`, [strings](/topico/strings) trazem uma pegadinha mais fina: `"ação"` tem 4 code points em Python, mas em NFD o `ç` e o `ã` se decompõem, a mesma palavra passa a ter **6** code points e ocupa 6 nós — sem casar com a versão que você inseriu antes. Normalize a entrada (`unicodedata.normalize("NFC", s)`) antes de tocar na trie, e decida cedo se a sua unidade é caractere ou byte.
+**Assumir alfabeto minúsculo quando a entrada não é.** `ord(letra) - ord("a")` estoura com maiúscula, com hífen, com dígito e com acento: `ord("ç") - ord("a")` dá **134**, muito fora de um array de 26. E, mesmo com `dict`, [strings](/topico/strings) trazem uma pegadinha mais fina: `"ação"` tem 4 code points em Python, mas em NFD o `ç` e o `ã` se decompõem, a mesma palavra passa a ter **6** code points e ocupa 6 nós, sem casar com a versão que você inseriu antes. Normalize a entrada (`unicodedata.normalize("NFC", s)`) antes de tocar na trie, e decida cedo se a sua unidade é caractere ou byte.
 
 **A recursão profunda.** O `_podar` e o `dfs` do autocomplete descem um nível por caractere. Com palavras normais isso é irrelevante, mas uma entrada adversária de 10 mil caracteres estoura o limite de recursão padrão do Python (1000). Quando o enunciado não limita o tamanho da entrada, escreva a versão iterativa com pilha explícita.
 
@@ -350,14 +350,14 @@ Escreva a estrutura na ordem `inserir`, `comeca_com`, `buscar`, `remover`, testa
 
 1. **LeetCode 208, *Implement Trie (Prefix Tree)***. A estrutura inteira, e o teste do `fim_de_palavra`. Se `search("app")` devolver `True` num dicionário que só tem `"apple"`, o flag está faltando.
 2. **LeetCode 648, *Replace Words***. Insira as raízes e, para cada palavra da frase, desça enquanto puder e pare no **primeiro** nó com `fim_de_palavra`. É o exercício que ensina a parar na descida em vez de ir até o fim.
-3. **LeetCode 1268, *Search Suggestions System***. O autocomplete desta página, com três sugestões por prefixo digitado. Compare a sua solução com a de ordenar o array e usar duas buscas binárias — as duas passam, e entender por que ambas funcionam vale mais que o aceite.
+3. **LeetCode 1268, *Search Suggestions System***. O autocomplete desta página, com três sugestões por prefixo digitado. Compare a sua solução com a de ordenar o array e usar duas buscas binárias. As duas passam, e entender por que ambas funcionam vale mais que o aceite.
 4. **LeetCode 211, *Design Add and Search Words Data Structure***. O `.` curinga muda tudo: a busca deixa de ser um caminho e vira uma ramificação por todos os filhos daquele nó, o que exige recursão. Pense no pior caso, uma consulta só de pontos, que visita a trie inteira.
 5. **LeetCode 421, *Maximum XOR of Two Numbers in an Array***. A trie binária desta página. O truque é perceber que "maior XOR" é uma escolha gulosa bit a bit.
 6. **LeetCode 212, *Word Search II* (difícil)**. O casamento perfeito: em vez de varrer o tabuleiro uma vez por palavra, você varre **uma vez só** carregando a trie junto, e o [backtracking](/topico/backtracking) morre no instante em que o prefixo formado no tabuleiro deixa de existir nela. A otimização que separa o aceite do limite de tempo é apagar a palavra da trie depois de encontrá-la, para não procurá-la de novo.
 
 ### O espelho aleatório
 
-O teste que mais acha defeito numa trie não é o de mesa, é o **espelho aleatório**: sorteie milhares de operações contra um `set` do Python e compare os dois a cada passo. Use um vocabulário minúsculo de propósito — três letras, palavras de 1 a 4 caracteres — para forçar prefixos compartilhados o tempo todo.
+O teste que mais acha defeito numa trie não é o de mesa, é o **espelho aleatório**: sorteie milhares de operações contra um `set` do Python e compare os dois a cada passo. Use um vocabulário minúsculo de propósito (três letras, palavras de 1 a 4 caracteres) para forçar prefixos compartilhados o tempo todo.
 
 ```python
 import random
@@ -380,4 +380,4 @@ for _ in range(20000):
 assert sorted(trie.sugerir("", limite=10**6)) == sorted(ref)   # a trie inteira
 ```
 
-O `assert` final é o que mais paga: ele lista a trie **inteira** e compara com o conjunto de referência. Poda agressiva demais some com palavras; poda tímida demais deixa nós órfãos que o `comeca_com` enxerga — e as duas aparecem aqui em poucas centenas de operações. Testar só `buscar` esconde defeito de remoção por muito tempo.
+O `assert` final é o que mais paga: ele lista a trie **inteira** e compara com o conjunto de referência. Poda agressiva demais some com palavras; poda tímida demais deixa nós órfãos que o `comeca_com` enxerga. As duas aparecem aqui em poucas centenas de operações. Testar só `buscar` esconde defeito de remoção por muito tempo.

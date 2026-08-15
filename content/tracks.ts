@@ -89,7 +89,7 @@ export const TRACKS: Track[] = [
     name: "Estruturas Probabilísticas",
     tagline: "Respostas quase certas, por uma fração da memória.",
     description:
-      "Quando o dado não cabe na memória, a saída é trocar exatidão por espaço — de um jeito medido, com a margem de erro escrita no contrato. Esta trilha percorre as estruturas que respondem “já vi isto?”, “quantos distintos?” e “uma amostra justa” usando alguns bits por elemento, e mostra onde cada uma mente e o quanto.",
+      "Quando o dado não cabe na memória, a saída é trocar exatidão por espaço, de um jeito medido, com a margem de erro escrita no contrato. Esta trilha percorre as estruturas que respondem “já vi isto?”, “quantos distintos?” e “uma amostra justa” usando alguns bits por elemento, e mostra onde cada uma mente e o quanto.",
     level: "Médio",
     glyph: "◐",
     requires: ["hash-table", "big-o"],
@@ -162,7 +162,7 @@ export const TRACKS: Track[] = [
     name: "Árvores Balanceadas",
     tagline: "A rotação que impede a BST de virar uma lista.",
     description:
-      "Uma árvore de busca binária só entrega O(log n) enquanto ninguém insere em ordem crescente — e inserir em ordem crescente é o caso mais comum do mundo real. Esta trilha é sobre as estruturas que garantem altura logarítmica no pior caso, e sobre o preço que cada uma cobra por essa garantia: rotação, cor, sorteio ou grau.",
+      "Uma árvore de busca binária só entrega O(log n) enquanto ninguém insere em ordem crescente, e inserir em ordem crescente é o caso mais comum do mundo real. Esta trilha é sobre as estruturas que garantem altura logarítmica no pior caso, e sobre o preço que cada uma cobra por essa garantia: rotação, cor, sorteio ou grau.",
     level: "Difícil",
     glyph: "❖",
     requires: ["bst", "arvores-binarias", "tree-traversals"],
@@ -231,7 +231,7 @@ export const TRACKS: Track[] = [
     name: "Casamento de Padrões em Strings",
     tagline: "Achar a agulha no texto sem nunca voltar atrás.",
     description:
-      "A busca ingênua compara o padrão com o texto, erra no último caractere, e recomeça uma casa adiante — jogando fora tudo o que tinha acabado de descobrir. Esta trilha é sobre os algoritmos que não jogam nada fora: eles usam o que já casou para saber exatamente para onde pular.",
+      "A busca ingênua compara o padrão com o texto, erra no último caractere, e recomeça uma casa adiante, jogando fora tudo o que tinha acabado de descobrir. Esta trilha é sobre os algoritmos que não jogam nada fora: eles usam o que já casou para saber exatamente para onde pular.",
     level: "Difícil",
     glyph: "✱",
     requires: ["strings", "trie", "hash-table"],
@@ -266,7 +266,7 @@ export const TRACKS: Track[] = [
     name: "Grafos Avançados",
     tagline: "Depois do Dijkstra: componentes, pontes e fluxo.",
     description:
-      "O roadmap cobre percorrer o grafo e achar o caminho mais curto. Esta trilha é o que vem depois: descobrir a estrutura escondida dentro dele — que pedaços são indivisíveis, que arestas são únicas, quanta coisa cabe passando ao mesmo tempo — e reconhecer os problemas que só viram fáceis quando você os desenha como grafo.",
+      "O roadmap cobre percorrer o grafo e achar o caminho mais curto. Esta trilha é o que vem depois: descobrir a estrutura escondida dentro dele (que pedaços são indivisíveis, que arestas são únicas, quanta coisa cabe passando ao mesmo tempo) e reconhecer os problemas que só viram fáceis quando você os desenha como grafo.",
     level: "Difícil",
     glyph: "◉",
     requires: ["dfs-bfs", "dijkstra", "topological-sort", "union-find"],

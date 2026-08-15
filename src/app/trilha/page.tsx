@@ -22,7 +22,7 @@ import { pageMetadata } from "@/lib/seo";
 export function generateMetadata(): Metadata {
   return pageMetadata({
     title: "Trilhas e outros tópicos de estruturas de dados, além do roadmap",
-    description: `Estruturas e algoritmos fora do roadmap: ${STANDALONES.length} tópicos avulsos que se bastam sozinhos e ${TRACKS.length} trilhas sobre famílias inteiras — árvores balanceadas, consultas em intervalos, padrões em strings, grafos avançados e estruturas probabilísticas.`,
+    description: `Estruturas e algoritmos fora do roadmap: ${STANDALONES.length} tópicos avulsos que se bastam sozinhos e ${TRACKS.length} trilhas sobre famílias inteiras: árvores balanceadas, consultas em intervalos, padrões em strings, grafos avançados e estruturas probabilísticas.`,
     ogTitle: "Trilhas e outros tópicos de estruturas de dados",
     ogDescription: `${TRACKS.length} trilhas e ${STANDALONES.length} tópicos avulsos além dos ${TOTAL_TOPICS} tópicos do roadmap. Visual, em português, grátis.`,
     path: "/trilha/",
@@ -55,7 +55,7 @@ export default function TrilhasPage() {
       <p className="roadmap-intro">
         O <Link href="/roadmap">roadmap</Link> é a ordem em que se aprende do zero à entrevista:{" "}
         {TOTAL_TOPICS} tópicos que se apoiam uns nos outros. Nem tudo que vale a pena aprender cabe
-        nessa fila — tem estrutura que é um assunto à parte, e tem família inteira que precisa de
+        nessa fila: tem estrutura que é um assunto à parte, e tem família inteira que precisa de
         uma trilha. É o que está aqui: {TOTAL_EXTRA_TOPICS} tópicos que não estão no roadmap, e não
         precisam estar.
       </p>

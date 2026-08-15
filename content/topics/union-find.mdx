@@ -6,14 +6,14 @@ Você tem um milhão de elementos e uma enxurrada de perguntas intercaladas: "es
 
 Imagine uma rede social com 200.000 pessoas. Chegam 200.000 operações misturadas, em ordem imprevisível:
 
-- `conectar(a, b)` — descobrimos que `a` e `b` são amigos.
-- `mesmo_grupo(a, b)` — `a` e `b` estão na mesma bolha de amizades, direta ou indiretamente?
+- `conectar(a, b)`: descobrimos que `a` e `b` são amigos.
+- `mesmo_grupo(a, b)`: `a` e `b` estão na mesma bolha de amizades, direta ou indiretamente?
 
 A segunda pergunta é sobre **conectividade**, não sobre adjacência: `a` e `b` podem estar a doze apertos de mão de distância e a resposta ainda é sim. A primeira ideia é o [DFS/BFS](/topico/dfs-bfs): a cada pergunta, saia de `a` e veja se `b` aparece. Correto e desesperador. Cada busca é O(V+E), e 200.000 perguntas sobre um grafo com 200.000 arestas dão na casa de 10¹⁰ passos. O trabalho é refeito do zero toda vez, e nada do que a busca anterior descobriu é aproveitado.
 
-A segunda ideia é boa: guarde um **rótulo de grupo** por elemento, num array. A pergunta vira `rotulo[a] == rotulo[b]`, O(1), imbatível. O problema mudou de lado — agora a **união** é que dói: fundir dois grupos exige varrer o array e reetiquetar todo mundo de um deles. O(n) por união.
+A segunda ideia é boa: guarde um **rótulo de grupo** por elemento, num array. A pergunta vira `rotulo[a] == rotulo[b]`, O(1), imbatível. O problema mudou de lado: agora a **união** é que dói. Fundir dois grupos exige varrer o array e reetiquetar todo mundo de um deles. O(n) por união.
 
-A terceira ideia conserta a segunda pela metade: mantenha, além dos rótulos, uma [tabela hash](/topico/hash-table) de grupo para lista de membros, e na hora de unir **reetiquete sempre o grupo menor**. Cada elemento só muda de rótulo quando o grupo dele pelo menos dobra de tamanho, e dobrar só acontece log₂ n vezes. Total O(n log n), o que já é aceitável — ao custo de manter as listas de membros na memória e copiar elementos de verdade.
+A terceira ideia conserta a segunda pela metade: mantenha, além dos rótulos, uma [tabela hash](/topico/hash-table) de grupo para lista de membros, e na hora de unir **reetiquete sempre o grupo menor**. Cada elemento só muda de rótulo quando o grupo dele pelo menos dobra de tamanho, e dobrar só acontece log₂ n vezes. Total O(n log n), o que já é aceitável, ao custo de manter as listas de membros na memória e copiar elementos de verdade.
 
 Guarde essa terceira ideia, porque **o Union-Find é ela sem a cópia**. Em vez de mover os elementos do grupo menor, ele move um ponteiro só: a raiz do grupo menor passa a apontar para a raiz do maior. Um inteiro escrito, e o grupo inteiro trocou de dono.
 
@@ -52,11 +52,11 @@ Três coisas para reparar nesse desenho, porque as três derrubam gente:
 `pai[x] == x` é a definição de "x é raiz". Não existe `None`, não existe sentinela. É o que faz o laço de subida ter uma condição de parada de graça, e é o que faz a inicialização caber numa linha: `pai = list(range(n))`, todo mundo sozinho no próprio grupo.
 </Cartao>
 <Cartao titulo="A seta só vai numa direção">
-Do filho para o pai. Você **não** consegue listar os filhos de um nó sem varrer o array inteiro — e nunca vai precisar. Toda operação sobe, nenhuma desce. Metade da economia da estrutura vem daí.
+Do filho para o pai. Você **não** consegue listar os filhos de um nó sem varrer o array inteiro, e nunca vai precisar. Toda operação sobe, nenhuma desce. Metade da economia da estrutura vem daí.
 </Cartao>
 </Colunas>
 
-A terceira: **a forma da árvore não tem significado nenhum**. Que o 2 seja filho do 1 e não filho do 0 não diz nada sobre os dados. É pura contabilidade interna, e é justamente por isso que a estrutura pode reorganizá-la à vontade — o que as otimizações fazem sem dó.
+A terceira: **a forma da árvore não tem significado nenhum**. Que o 2 seja filho do 1 e não filho do 0 não diz nada sobre os dados. É pura contabilidade interna, e é justamente por isso que a estrutura pode reorganizá-la à vontade, o que as otimizações fazem sem dó.
 
 ## O `find` ingênuo e a corrente que estraga tudo
 
@@ -98,7 +98,7 @@ São duas ideias independentes, e a diferença entre elas é onde agem: uma cont
 
 ### Union by size: a árvore menor entra embaixo da maior
 
-A união ingênua escolhe o perdedor no cara ou coroa — quem foi passado como segundo argumento vira a raiz. Basta escolher direito: **a árvore com menos elementos entra embaixo da árvore com mais**.
+A união ingênua escolhe o perdedor no cara ou coroa: quem foi passado como segundo argumento vira a raiz. Basta escolher direito: **a árvore com menos elementos entra embaixo da árvore com mais**.
 
 ```python
 pai = list(range(n))
@@ -136,11 +136,11 @@ def unir(a, b):
     return True
 ```
 
-O limite é o mesmo, log₂ n, e o desempenho é indistinguível na prática. Duas observações honestas: **o `rank` deixa de ser a altura de verdade** assim que o path compression entra em cena, porque a compressão achata a árvore e ninguém atualiza o `rank` para baixo — não é bug, ele continua sendo um limite superior válido, que é tudo de que a prova precisa. E **union by size tem um bônus**: você ganha de graça a resposta para "quantos elementos tem o grupo do `x`?", que vários problemas pedem. Por isso o resto deste artigo usa size.
+O limite é o mesmo, log₂ n, e o desempenho é indistinguível na prática. Duas observações honestas: **o `rank` deixa de ser a altura de verdade** assim que o path compression entra em cena, porque a compressão achata a árvore e ninguém atualiza o `rank` para baixo. Não é bug: ele continua sendo um limite superior válido, que é tudo de que a prova precisa. E **union by size tem um bônus**: você ganha de graça a resposta para "quantos elementos tem o grupo do `x`?", que vários problemas pedem. Por isso o resto deste artigo usa size.
 
 ### Path compression: achatar o caminho na volta
 
-A segunda ideia ataca o outro lado. Se `find(x)` já pagou para subir até a raiz, é desperdício jogar esse caminho fora — **reaponte todo mundo do caminho direto para a raiz**. A próxima consulta a qualquer um deles custa um passo.
+A segunda ideia ataca o outro lado. Se `find(x)` já pagou para subir até a raiz, é desperdício jogar esse caminho fora: **reaponte todo mundo do caminho direto para a raiz**. A próxima consulta a qualquer um deles custa um passo.
 
 A forma mais curta é recursiva, e cabe em três linhas:
 
@@ -154,7 +154,7 @@ def find(x):
 A elegância aqui é que a compressão acontece de graça no desempilhamento: a chamada mais funda devolve a raiz, e cada nível que retorna grava essa raiz no próprio `pai`. É um dos exemplos mais limpos de "fazer o trabalho na volta" que a [recursão](/topico/recursao) oferece.
 
 <Callout tipo="aviso">
-Em Python essa versão é uma bomba-relógio. O limite padrão de recursão é **1.000**, e uma corrente de 10.000 elementos levanta `RecursionError: maximum recursion depth exceeded` — testado. Pior: a exceção estoura **antes** de a compressão consertar qualquer coisa, então o remédio nunca chega. Dá para levantar o teto com `sys.setrecursionlimit`, e no CPython 3.13 uma corrente de um milhão sobe sem reclamar — mas aí você amarra o código a um detalhe de versão do interpretador e paga um quadro de pilha por elo da corrente. Em competição e em produção, escreva iterativo.
+Em Python essa versão é uma bomba-relógio. O limite padrão de recursão é **1.000**, e uma corrente de 10.000 elementos levanta `RecursionError: maximum recursion depth exceeded` (testado). Pior: a exceção estoura **antes** de a compressão consertar qualquer coisa, então o remédio nunca chega. Dá para levantar o teto com `sys.setrecursionlimit`, e no CPython 3.13 uma corrente de um milhão sobe sem reclamar, mas aí você amarra o código a um detalhe de versão do interpretador e paga um quadro de pilha por elo da corrente. Em competição e em produção, escreva iterativo.
 </Callout>
 
 A versão iterativa faz duas passadas: uma para achar a raiz, outra para reapontar.
@@ -181,13 +181,13 @@ def find(x):
     return x
 ```
 
-Ela não achata tanto quanto as duas passadas — o caminho encolhe pela metade em vez de virar altura 1 — mas tem a mesma garantia assintótica, escreve metade dos inteiros e dispensa a variável extra para guardar a raiz. É a que vai na implementação final deste artigo.
+Ela não achata tanto quanto as duas passadas (o caminho encolhe pela metade em vez de virar altura 1), mas tem a mesma garantia assintótica, escreve metade dos inteiros e dispensa a variável extra para guardar a raiz. É a que vai na implementação final deste artigo.
 
 Sozinho, o path compression também conserta a corrente dos dominós, só que de um jeito diferente. Numa corrente já formada, o **primeiro** `find(0)` continua custando 99.999 passos, e todos os seguintes custam 1. É a definição de custo amortizado, e é por isso que a garantia do compression sozinho é amortizada e não vale por operação.
 
 ### As duas juntas
 
-Os números abaixo são de uma medição real: 200.000 elementos, 200.000 uniões de pares sorteados, depois 400.000 chamadas de `find`, contando os passos de subida. A compressão medida aqui é a de duas passadas, e a altura é a da floresta **ao fim de tudo** — as consultas também achatam.
+Os números abaixo são de uma medição real: 200.000 elementos, 200.000 uniões de pares sorteados, depois 400.000 chamadas de `find`, contando os passos de subida. A compressão medida aqui é a de duas passadas, e a altura é a da floresta **ao fim de tudo**: as consultas também achatam.
 
 | Otimização | Altura máxima da floresta | Passos por `find`, em média |
 | --- | --- | --- |
@@ -196,7 +196,7 @@ Os números abaixo são de uma medição real: 200.000 elementos, 200.000 uniõe
 | Só path compression | 4 | 1,20 |
 | **As duas** | **3** | **0,96** |
 
-Menos de um passo por consulta. A média fica **abaixo de 1** porque boa parte das chamadas cai num elemento que já é a raiz, ou está pendurado direto nela — e a garantia teórica, essa sim, precisa das duas juntas: só o size dá O(log n) por operação; só a compressão dá O(log n) amortizado; as duas em conjunto dão o famoso **O(α(n)) amortizado**, provado por Robert Tarjan em 1975 e estendido por Tarjan e van Leeuwen em 1984 ao conjunto todo de variantes — inclusive o par union by size mais path halving, que é o da implementação abaixo.
+Menos de um passo por consulta. A média fica **abaixo de 1** porque boa parte das chamadas cai num elemento que já é a raiz, ou está pendurado direto nela. E a garantia teórica, essa sim, precisa das duas juntas: só o size dá O(log n) por operação; só a compressão dá O(log n) amortizado; as duas em conjunto dão o famoso **O(α(n)) amortizado**, provado por Robert Tarjan em 1975 e estendido por Tarjan e van Leeuwen em 1984 ao conjunto todo de variantes, inclusive o par union by size mais path halving, que é o da implementação abaixo.
 
 ## O α(n): o que "praticamente constante" quer dizer
 
@@ -210,11 +210,11 @@ A função de Ackermann é o exemplo canônico de função que cresce absurdamen
 | 8 a 2.047 | 3 |
 | 2.048 até um número indescritível | 4 |
 
-O tal número indescritível é uma torre de potências de 2 com cerca de dois mil andares — cada andar é 2 elevado ao andar de baixo, e a base é 2.047. Para calibrar: o universo observável tem cerca de 10⁸⁰ átomos, o que é aproximadamente 2²⁶⁶. O **primeiro** andar da torre já passa de 2²⁰⁴⁷, e faltam outros dois mil. **α(n) ≤ 4 para qualquer n que você consiga escrever.** Daí a prática universal de tratar Union-Find como O(1) e seguir a vida.
+O tal número indescritível é uma torre de potências de 2 com cerca de dois mil andares: cada andar é 2 elevado ao andar de baixo, e a base é 2.047. Para calibrar: o universo observável tem cerca de 10⁸⁰ átomos, o que é aproximadamente 2²⁶⁶. O **primeiro** andar da torre já passa de 2²⁰⁴⁷, e faltam outros dois mil. **α(n) ≤ 4 para qualquer n que você consiga escrever.** Daí a prática universal de tratar Union-Find como O(1) e seguir a vida.
 
 Mas duas ressalvas honestas, porque "praticamente constante" é uma frase que esconde coisa:
 
-**É amortizado, não é pior caso por operação.** A garantia de Tarjan é sobre uma **sequência** de m operações: o total custa O(m · α(n)). Uma chamada individual de `find` pode muito bem custar O(log n) — a primeira que sobe uma árvore alta paga a subida inteira e, de quebra, achata o caminho para as próximas. Em algoritmo de competição isso é irrelevante. Em sistema de tempo real com prazo por operação, não é. É a mesma conversa do array dinâmico que dobra de tamanho, na página de [Big O](/topico/big-o).
+**É amortizado, não é pior caso por operação.** A garantia de Tarjan é sobre uma **sequência** de m operações: o total custa O(m · α(n)). Uma chamada individual de `find` pode muito bem custar O(log n): a primeira que sobe uma árvore alta paga a subida inteira e, de quebra, achata o caminho para as próximas. Em algoritmo de competição isso é irrelevante. Em sistema de tempo real com prazo por operação, não é. É a mesma conversa do array dinâmico que dobra de tamanho, na página de [Big O](/topico/big-o).
 
 **O α não é folga na demonstração.** Fredman e Saks provaram em 1989 um limite inferior de Ω(α(n)) **amortizado por operação** para esse problema no modelo de cell probe. Ou seja: não existe uma análise mais esperta esperando ser descoberta, nem uma implementação que chegue a O(1) de verdade. O α é a resposta certa.
 
@@ -222,11 +222,11 @@ Mas duas ressalvas honestas, porque "praticamente constante" é uma frase que es
 | --- | --- | --- |
 | `find`, `unir`, `conectado` | O(α(n)) | O(log n) |
 | Construir com n elementos | O(n) | O(n) |
-| Memória | 2n inteiros | — |
+| Memória | 2n inteiros | não se aplica |
 
 ## A implementação completa
 
-Esta é a versão para copiar. Union by size, path halving, contador de componentes, e o `unir` devolvendo se a fusão realmente aconteceu — esse `bool` é o que faz metade dos problemas caírem.
+Esta é a versão para copiar. Union by size, path halving, contador de componentes, e o `unir` devolvendo se a fusão realmente aconteceu. Esse `bool` é o que faz metade dos problemas caírem.
 
 ```python
 class UnionFind:
@@ -267,7 +267,7 @@ Trinta linhas, duas listas de inteiros, zero alocação de objeto. É uma das me
 
 ## Onde o Union-Find aparece de verdade
 
-O Union-Find é a estrutura das **relações de equivalência**. Sempre que a sua relação for reflexiva, simétrica e transitiva — "é amigo de", "é a mesma conta que", "é igual a", "está conectado a" — ela particiona o universo em classes, e essa partição é exatamente o que a estrutura mantém.
+O Union-Find é a estrutura das **relações de equivalência**. Sempre que a sua relação for reflexiva, simétrica e transitiva ("é amigo de", "é a mesma conta que", "é igual a", "está conectado a"), ela particiona o universo em classes, e essa partição é exatamente o que a estrutura mantém.
 
 **[Árvore geradora mínima](/topico/mst) com Kruskal.** É o caso canônico, a ponto de dar para dizer que **Kruskal é ordenação mais Union-Find**. Ordene as arestas por peso e aceite cada uma que ligar dois grupos ainda separados:
 
@@ -283,7 +283,7 @@ def kruskal(n, arestas):
     return total, escolhidas
 ```
 
-O algoritmo inteiro é esse. O `if` faz o trabalho que uma verificação de ciclo faria, e o custo total passa a ser dominado pela [ordenação](/topico/merge-sort), O(E log E) — o Union-Find some no ruído.
+O algoritmo inteiro é esse. O `if` faz o trabalho que uma verificação de ciclo faria, e o custo total passa a ser dominado pela [ordenação](/topico/merge-sort), O(E log E): o Union-Find some no ruído.
 
 **Componentes conexos em grafo estático.** Contar quantas ilhas existem é ler as arestas e devolver `dsu.componentes`. É o LeetCode 547, *Number of Provinces*, quase literalmente. E o 1584, *Min Cost to Connect All Points*, é Kruskal disfarçado: o grafo é completo, o peso é a distância de Manhattan, e a resposta é a MST.
 
@@ -293,27 +293,27 @@ Se o grafo é estático e você precisa dos componentes **uma vez só**, um [DFS
 
 **Detecção de ciclo em grafo não dirigido.** Se `unir(u, v)` devolve `False`, a aresta liga dois vértices que já estavam conectados: ela fecha um ciclo. É o LeetCode 684, *Redundant Connection*, resolvido em cinco linhas.
 
-E aqui vai a fronteira que quase todo mundo cruza sem perceber: **isso não funciona em grafo dirigido**. O Union-Find não tem noção de direção — ele só sabe "mesmo grupo". Pegue as arestas `A→B`, `A→C` e `B→C`: não existe ciclo nenhum, mas na hora de processar `B→C` o DSU vai encontrar os dois já no mesmo grupo e gritar "ciclo". Para ciclo dirigido o caminho é [ordenação topológica](/topico/topological-sort), ou um DFS com marcação de três cores.
+E aqui vai a fronteira que quase todo mundo cruza sem perceber: **isso não funciona em grafo dirigido**. O Union-Find não tem noção de direção: ele só sabe "mesmo grupo". Pegue as arestas `A→B`, `A→C` e `B→C`: não existe ciclo nenhum, mas na hora de processar `B→C` o DSU vai encontrar os dois já no mesmo grupo e gritar "ciclo". Para ciclo dirigido o caminho é [ordenação topológica](/topico/topological-sort), ou um DFS com marcação de três cores.
 
 **Fusão de identidades.** O LeetCode 721, *Accounts Merge*, é o problema didático perfeito: cada e-mail é um elemento, dois e-mails que aparecem na mesma conta são unidos, e no fim cada grupo é uma pessoa. É literalmente o que sistemas de identidade fazem para reconciliar cadastros duplicados. Já o 990, *Satisfiability of Equality Equations*, é a relação de equivalência na forma mais crua possível: processe **todas** as igualdades primeiro, construindo os grupos, e só depois confira se alguma desigualdade `a != b` caiu dentro de um mesmo grupo.
 
-**Sequências e percolação.** O LeetCode 128, *Longest Consecutive Sequence*, sai unindo `v` com `v+1` e devolvendo o maior `tamanho_do_grupo` — vale escrever, embora a solução com [conjunto hash](/topico/hash-table) seja mais simples e igualmente O(n). E o experimento clássico de **percolação** (a partir de que fração de células abertas a água atravessa a grade?) é Union-Find com um truque bonito: dois nós virtuais, um ligado a toda a linha de cima e outro a toda a linha de baixo. A grade percola no exato instante em que os dois nós virtuais entram no mesmo grupo.
+**Sequências e percolação.** O LeetCode 128, *Longest Consecutive Sequence*, sai unindo `v` com `v+1` e devolvendo o maior `tamanho_do_grupo`. Vale escrever, embora a solução com [conjunto hash](/topico/hash-table) seja mais simples e igualmente O(n). E o experimento clássico de **percolação** (a partir de que fração de células abertas a água atravessa a grade?) é Union-Find com um truque bonito: dois nós virtuais, um ligado a toda a linha de cima e outro a toda a linha de baixo. A grade percola no exato instante em que os dois nós virtuais entram no mesmo grupo.
 
 O que fica de fora dessa lista é tudo que depende de direção ou de estrutura interna do grafo: componentes fortemente conexos, pontes, pontos de articulação. Esse é o assunto de [Grafos Avançados](/trilha/grafos-avancados/), e a ferramenta lá é o DFS com lowlink, não o Union-Find.
 
 ## A limitação que define a estrutura: ela não desune
 
-Não existe `split`. Não existe `desunir`. Não existe remover uma aresta. E isso não é preguiça de quem implementou: é **estrutural**. O path compression destrói a história. Depois que a árvore foi achatada, a informação de quem estava pendurado em quem — e por causa de qual aresta — simplesmente não existe mais. Foi exatamente essa destruição que comprou o α(n).
+Não existe `split`. Não existe `desunir`. Não existe remover uma aresta. E isso não é preguiça de quem implementou: é **estrutural**. O path compression destrói a história. Depois que a árvore foi achatada, a informação de quem estava pendurado em quem (e por causa de qual aresta) simplesmente não existe mais. Foi exatamente essa destruição que comprou o α(n).
 
 Quando o seu problema tem remoção, restam três saídas.
 
-**Inverta o tempo.** Se todas as remoções são conhecidas de antemão, processe a entrada de trás para frente: remoção lida ao contrário **é** inserção. O exemplo canônico é o LeetCode 803, *Bricks Falling When Hit*. Ele pede quantos tijolos caem a cada martelada, e "cair" é "deixar de estar conectado ao teto" — uma pergunta de conectividade com remoção, o pesadelo do DSU. A inversão resolve: apague **todos** os tijolos que serão atingidos, monte o Union-Find do que sobrou, e então devolva os tijolos um a um na ordem inversa, medindo quanto o grupo do teto cresce a cada devolução. Cada devolução é uma união, e o problema difícil virou o problema fácil.
+**Inverta o tempo.** Se todas as remoções são conhecidas de antemão, processe a entrada de trás para frente: remoção lida ao contrário **é** inserção. O exemplo canônico é o LeetCode 803, *Bricks Falling When Hit*. Ele pede quantos tijolos caem a cada martelada, e "cair" é "deixar de estar conectado ao teto": uma pergunta de conectividade com remoção, o pesadelo do DSU. A inversão resolve: apague **todos** os tijolos que serão atingidos, monte o Union-Find do que sobrou, e então devolva os tijolos um a um na ordem inversa, medindo quanto o grupo do teto cresce a cada devolução. Cada devolução é uma união, e o problema difícil virou o problema fácil.
 
 **Use DSU com rollback.** Union by rank **sem** path compression, guardando numa [pilha](/topico/pilhas) o que cada união mudou, permite desfazer a última união em O(1). O custo por operação sobe para O(log n), porque sem compressão a árvore continua com altura logarítmica. As duas técnicas são incompatíveis por construção: compressão é o que apaga o histórico, rollback é o que precisa dele.
 
-**Aceite que o problema é outro.** Conectividade dinâmica com remoção **online** — sem conhecer o futuro — é um problema genuinamente mais difícil, resolvido por estruturas bem mais pesadas na casa de O(log² n) amortizado. Se o seu caso é esse, Union-Find é a ferramenta errada e insistir nele só adia a conversa.
+**Aceite que o problema é outro.** Conectividade dinâmica com remoção **online** (sem conhecer o futuro) é um problema genuinamente mais difícil, resolvido por estruturas bem mais pesadas na casa de O(log² n) amortizado. Se o seu caso é esse, Union-Find é a ferramenta errada e insistir nele só adia a conversa.
 
-Vale registrar mais uma coisa que a estrutura **não** entrega: ela responde "sim, mesmo grupo", mas nunca diz **por onde**. Não existe caminho, não existe distância, não existe menor rota. Para isso você volta ao [DFS/BFS](/topico/dfs-bfs) ou ao [Dijkstra](/topico/dijkstra) — e note que essa amnésia é justamente o que a deixa tão barata.
+Vale registrar mais uma coisa que a estrutura **não** entrega: ela responde "sim, mesmo grupo", mas nunca diz **por onde**. Não existe caminho, não existe distância, não existe menor rota. Para isso você volta ao [DFS/BFS](/topico/dfs-bfs) ou ao [Dijkstra](/topico/dijkstra). E note que essa amnésia é justamente o que a deixa tão barata.
 
 ## As armadilhas que pegam todo mundo
 
@@ -330,9 +330,9 @@ Vale registrar mais uma coisa que a estrutura **não** entrega: ela responde "si
 
 O `rank` fica congelado em zero, a decisão de quem entra embaixo de quem vira sorteio, e a altura volta a crescer sem controle. O código roda, passa nos testes pequenos e estoura o tempo no teste grande.
 
-**Ler `tamanho[x]` sem chamar `find`.** O erro mais silencioso da lista: fora da raiz, esse array guarda um número obsoleto, e obsoleto não é absurdo — é um tamanho plausível, de um grupo que existiu. Sempre `tamanho[find(x)]`.
+**Ler `tamanho[x]` sem chamar `find`.** O erro mais silencioso da lista: fora da raiz, esse array guarda um número obsoleto, e obsoleto não é absurdo: é um tamanho plausível, de um grupo que existiu. Sempre `tamanho[find(x)]`.
 
-**Índice base 0 contra base 1.** Metade dos enunciados numera os vértices de 1 a n. Se você fizer `UnionFind(n)` e chamar `unir(n, 1)`, o resultado é `IndexError` na melhor das hipóteses. Aloque `n + 1` e ignore a posição 0, ou subtraia 1 de todo mundo na entrada — o que não dá para fazer é decidir no meio.
+**Índice base 0 contra base 1.** Metade dos enunciados numera os vértices de 1 a n. Se você fizer `UnionFind(n)` e chamar `unir(n, 1)`, o resultado é `IndexError` na melhor das hipóteses. Aloque `n + 1` e ignore a posição 0, ou subtraia 1 de todo mundo na entrada. O que não dá para fazer é decidir no meio.
 
 **Decrementar o contador de componentes sempre.** O contador só cai quando a união **de fato** aconteceu:
 
@@ -352,7 +352,7 @@ O `rank` fica congelado em zero, a decisão de quem entra embaixo de quem vira s
 
 ## Como praticar
 
-Escreva a classe de memória, sem olhar, umas três vezes ao longo de uma semana. Ela é curta o bastante para isso e frequente o bastante para valer a pena — em prova cronometrada, digitá-la em dois minutos muda o jogo.
+Escreva a classe de memória, sem olhar, umas três vezes ao longo de uma semana. Ela é curta o bastante para isso e frequente o bastante para valer a pena. Em prova cronometrada, digitá-la em dois minutos muda o jogo.
 
 Depois quebre a sua implementação com um **espelho**: uma versão burra, obviamente correta, e milhares de operações sorteadas comparando as duas a cada passo.
 
