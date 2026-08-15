@@ -8,7 +8,11 @@ export default function NotFound() {
       <p className="lead" style={{ margin: "0 auto 28px" }}>
         O tópico que você procura não existe (ainda). Volte para os Fundamentos, ou veja o índice completo.
       </p>
-      <Link href="/roadmaps/fundamentos" className="btn btn-primary">Ver o roadmap</Link>
+      {/* "Ver o roadmap" tinha dois defeitos no mesmo rótulo: descrevia o
+          gesto em vez do destino, e o "o" prometia um roadmap único num site
+          que hoje tem vários. Nomear resolve os dois, com o mesmo rótulo do
+          botão da home. */}
+      <Link href="/roadmaps/fundamentos" className="btn btn-primary">Roadmap Fundamentos</Link>
     </div>
   );
 }
