@@ -339,13 +339,25 @@ test("nenhuma credencial chega ao HTML, aos chunks ou ao payload RSC", () => {
   const arquivos = arquivosDoBuild();
 
   // Um guarda que varre um `out/` pela metade passa verde sem ter olhado nada.
-  // Estes três pisos são a prova de que a varredura viu o build inteiro: as
-  // contagens de hoje são 116 HTML, 105 JS e 960 `.txt` de payload RSC.
-  expect(arquivos.length, "build vazio ou parcial: rode `npm run build` antes").toBeGreaterThan(1000);
+  // Os pisos abaixo são a prova de que a varredura viu o build inteiro.
+  //
+  // POR CATEGORIA, E NUNCA PELO TOTAL. O total já esteve aqui, como
+  // `> 1000`, e reprovou o primeiro bump de Next que apareceu: o 16.3 deixou
+  // de emitir metade dos `.txt` de pré-carregamento (960 viraram 457), o
+  // `out/` caiu de 1242 para 738 arquivos, e o guarda gritou "build vazio ou
+  // parcial" sobre um build que tinha as 115 páginas e as 55 imagens no lugar.
+  //
+  // O erro não foi o número, foi a régua: quantos arquivos o Next emite é
+  // detalhe de implementação dele, e muda sem avisar em qualquer versão menor.
+  // O que este guarda precisa afirmar é que as SUPERFÍCIES por onde um segredo
+  // vaza estão todas no `out/` para serem varridas — o HTML que o leitor
+  // recebe, o JavaScript que ele baixa, e o payload RSC da navegação. Cada uma
+  // com o seu piso, todos bem abaixo do medido, e nenhum encostando num
+  // detalhe do framework.
   const porExtensao = (ext: string) => arquivos.filter((a) => a.endsWith(ext)).length;
-  expect(porExtensao(".html"), "nenhum HTML no build").toBeGreaterThan(100);
+  expect(porExtensao(".html"), "nenhum HTML no build: rode `npm run build` antes").toBeGreaterThan(100);
   expect(porExtensao(".js"), "nenhum chunk de JS no build").toBeGreaterThan(50);
-  expect(porExtensao(".txt"), "nenhum payload RSC no build").toBeGreaterThan(500);
+  expect(porExtensao(".txt"), "nenhum payload RSC no build").toBeGreaterThan(100);
 
   // As regras por forma valem sobre TEXTO. O binário fica de fora aqui e é
   // coberto pelo valor literal no teste seguinte (ver `ehBinario`).
