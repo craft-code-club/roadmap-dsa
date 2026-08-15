@@ -88,6 +88,11 @@ export const PARTNERS: Partner[] = [
  * "Wilson Gomes Neto" lá são duas chaves diferentes, e a mesma pessoa apareceria
  * em dois cards. Agora a API, quando responde, é a fonte; esta lista entra
  * quando ela não responde, e nunca junto.
+ *
+ * "NÃO RESPONDE" é literal: sem credencial, HTTP não-ok, rede, timeout ou
+ * formato ilegível. Uma resposta que chegou e devolveu zero nomes NÃO é este
+ * caso, é uma resposta válida cujo conteúdo é "ninguém autorizou aparecer", e
+ * ela vale. Confundir as duas coisas anula o filtro de privacidade.
  */
 const FALLBACK_SUPPORTERS: Supporter[] = [
   { name: "Cristiano Cunha" },
@@ -341,8 +346,11 @@ export function isActive(b: Raw): boolean {
  * dela.
  *
  * Consequência esperada e desejada: uma resposta que não traga `supportPrivate`
- * esvazia o muro e o faz cair no plano B, com aviso no log. Muro vazio conserta
- * em cinco minutos; nome publicado indevidamente, não.
+ * esvazia o muro, com aviso no log. Ela NÃO cai no plano B, e essa distinção é a
+ * outra metade da proteção: cair na lista fixa quando o filtro escondeu todo
+ * mundo publicaria três nomes escritos à mão, entre eles, no pior caso, a pessoa
+ * que acabou de marcar o apoio como privado. Muro vazio conserta em cinco
+ * minutos; nome publicado indevidamente, não.
  */
 export function isPublic(b: Raw): boolean {
   const declarado = [b.supportPrivate, b.support_private, b.isPrivate, b.private].find(
@@ -476,16 +484,31 @@ export async function fetchSupporters(): Promise<Supporter[]> {
     const muro = normalizeSupporters(toSupporters(raw));
 
     if (muro.length === 0) {
-      // Os três motivos possíveis, separados, porque o conserto de cada um é
-      // diferente. O do meio é o que mais assusta e é o comportamento correto:
-      // sem `supportPrivate: false` declarado, ninguém é publicado.
+      // RESPOSTA VAZIA NÃO É FALHA, e por isso ela NÃO cai no plano B.
+      //
+      // Este `return` já devolveu a lista fixa aqui, e era a contradição do
+      // arquivo: o filtro logo acima é fail-closed justamente para não publicar
+      // quem pediu para não aparecer, e então, quando ele escondia todo mundo, o
+      // plano B publicava três nomes escritos à mão. No pior caso ele publicaria
+      // exatamente a pessoa que acabou de marcar o apoio como privado, porque
+      // ela está nos dois lugares.
+      //
+      // A regra que resolve: uma resposta que a API entregou é a verdade, mesmo
+      // quando a verdade é "ninguém autorizou". O plano B existe para quando não
+      // houve resposta (sem credencial, HTTP não-ok, rede, timeout, formato), e
+      // só para isso. Muro vazio é um estado legítimo, e a página já sabe
+      // desenhá-lo: `page.tsx` mostra o convite "seja o primeiro".
+      //
+      // Os três números saem no log porque o conserto de cada motivo é
+      // diferente, e o do meio é o que mais assusta sendo o comportamento certo.
       const publicos = raw.filter(isPublic).length;
       const ativos = raw.filter(isPublic).filter(isActive).length;
       console.warn(
         `[apoia.se] ${raw.length} apoios recebidos e nenhum nome no muro: ${publicos} autorizaram ` +
-          `aparecer (supportPrivate: false), ${ativos} desses estão ativos. Muro no plano B.`
+          `aparecer (supportPrivate: false), ${ativos} desses estão ativos. O muro fica vazio, e é ` +
+          `o certo: a resposta da API vale, inclusive quando ela é "ninguém".`
       );
-      return normalizeSupporters(FALLBACK_SUPPORTERS);
+      return muro;
     }
 
     console.log(`[apoia.se] ${raw.length} apoios recebidos, ${muro.length} nomes no muro.`);

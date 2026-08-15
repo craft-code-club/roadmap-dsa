@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   apoiaseHeaders,
+  fetchSupporters,
   collectAllPages,
   initials,
   isActive,
@@ -319,4 +320,83 @@ test("os headers da APOIA.se levam a chave e o segredo cada um no seu lugar", ()
   // O segredo nunca vai no `x-api-key`, nem a chave no `Authorization`.
   expect(headers["x-api-key"]).not.toContain("SEGREDO");
   expect(headers.Authorization).not.toContain("CHAVE_DE_TESTE");
+});
+
+// ---------------------------------------------------------------------------
+// Resposta vazia NÃO cai no plano B
+//
+// O filtro de privacidade é fail-closed, e sozinho ele não basta: enquanto o
+// muro vazio caía na lista fixa, esconder todo mundo fazia o site publicar três
+// nomes escritos à mão. No pior caso, exatamente a pessoa que acabou de marcar o
+// apoio como privado, porque ela está nos dois lugares.
+//
+// A regra tem duas metades, e as duas precisam de guarda: uma resposta que
+// CHEGOU vale, inclusive quando o conteúdo dela é "ninguém"; e o plano B vale
+// quando NÃO houve resposta.
+// ---------------------------------------------------------------------------
+
+/** Roda `fetchSupporters` com credencial falsa e um `fetch` de mentira. */
+async function comApiFalsa(responder: () => Response | Promise<Response>) {
+  const antes = {
+    fetch: globalThis.fetch,
+    key: process.env.APOIASE_KEY,
+    secret: process.env.APOIASE_SECRET,
+    campaign: process.env.APOIASE_CAMPAIGN,
+  };
+  process.env.APOIASE_KEY = "CHAVE_DE_TESTE_NAO_DEVE_VAZAR";
+  process.env.APOIASE_SECRET = "SEGREDO_DE_TESTE_NAO_DEVE_VAZAR";
+  process.env.APOIASE_CAMPAIGN = "000000000000000000000000";
+  globalThis.fetch = (async () => responder()) as typeof fetch;
+  try {
+    return await fetchSupporters();
+  } finally {
+    globalThis.fetch = antes.fetch;
+    for (const [k, v] of [
+      ["APOIASE_KEY", antes.key],
+      ["APOIASE_SECRET", antes.secret],
+      ["APOIASE_CAMPAIGN", antes.campaign],
+    ] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+
+test("resposta em que todo mundo é privado deixa o muro vazio, e não publica a lista fixa", async () => {
+  const muro = await comApiFalsa(() =>
+    json({
+      total: 2,
+      totalPages: 1,
+      backers: [
+        apoiador({ name: "Privada Uma", supportPrivate: true }),
+        apoiador({ name: "Privada Duas", supportPrivate: true }),
+      ],
+    })
+  );
+  // Vazio, e vazio é o certo: a página desenha o convite "seja o primeiro".
+  expect(muro, "o plano B publicou nomes numa resposta em que ninguém autorizou").toEqual([]);
+});
+
+test("resposta sem o campo de privacidade também deixa o muro vazio", async () => {
+  // O fail-closed do `isPublic` esconde quem não declarou. Se isso caísse no
+  // plano B, uma mudança de formato na API republicaria a lista fixa sozinha.
+  const semCampo = apoiador({ name: "Sem Declaracao" });
+  delete (semCampo as Record<string, unknown>).supportPrivate;
+  const muro = await comApiFalsa(() => json({ total: 1, totalPages: 1, backers: [semCampo] }));
+  expect(muro).toEqual([]);
+});
+
+test("a resposta que CHEGOU manda, e a que não chegou cai no plano B", async () => {
+  const comGente = await comApiFalsa(() =>
+    json({ total: 1, totalPages: 1, backers: [apoiador({ name: "Publica Silva" })] })
+  );
+  expect(comGente.map((s) => s.name)).toEqual(["Publica Silva"]);
+
+  // A outra metade: sem resposta, o plano B entra. Sem esta asserção o teste
+  // acima passaria com um `return []` incondicional.
+  const semResposta = await comApiFalsa(() => new Response("", { status: 500 }));
+  expect(semResposta.length, "HTTP 500 devia cair no plano B").toBeGreaterThan(0);
 });
