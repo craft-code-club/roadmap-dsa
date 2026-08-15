@@ -53,10 +53,7 @@ import shellSort from "./shell-sort/artigo.mdx";
 import backtracking from "./backtracking/artigo.mdx";
 import binaryNumbers from "./binary-numbers/artigo.mdx";
 import negativeBinary from "./negative-binary/artigo.mdx";
-import bloomFilter from "./bloom-filter/artigo.mdx";
 import skipList from "./skip-list/artigo.mdx";
-import unionFind from "./union-find/artigo.mdx";
-import trie from "./trie/artigo.mdx";
 
 // O `components` é o gancho por onde a página do tópico dentro de um roadmap
 // troca o `a` do MDX, para as citações não saírem do percurso.
@@ -98,10 +95,7 @@ const CORPOS: Record<string, Corpo> = {
   "backtracking": backtracking,
   "binary-numbers": binaryNumbers,
   "negative-binary": negativeBinary,
-  "bloom-filter": bloomFilter,
   "skip-list": skipList,
-  "union-find": unionFind,
-  "trie": trie,
 };
 
 /** O corpo do artigo, quando existe, mais os `## h2` dele para o índice. */

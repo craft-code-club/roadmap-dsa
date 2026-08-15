@@ -16,15 +16,15 @@ import { ExtrasGrid } from "@/components/ExtrasGrid";
  *
  * POR QUE CARDS, E NÃO UMA LINHA DE TEXTO
  * Porque a resposta útil não é "este tópico está em 2 roadmaps", é "existe um
- * roadmap de Bancos de Dados, ele tem 6 tópicos, 3 publicados, e a Tabela Hash
- * que você acabou de ler é o primeiro deles". Isso é um card, e é o mesmo card
- * da vitrine — o leitor já o reconhece de `/roadmaps/`.
+ * roadmap de Caminhos Mínimos, ele tem 6 tópicos, e o Dijkstra que você acabou
+ * de ler é um deles". Isso é um card, e é o mesmo card da vitrine — o leitor já
+ * o reconhece de `/roadmaps/`.
  *
  * O QUE ISSO ENSINA, que é o ponto
- * Ver a mesma estrutura servindo a dois objetivos diferentes é metade do que
- * separa quem decorou de quem entendeu. A Tabela Hash nos Fundamentos responde
- * "como guardo e busco por chave"; em Bancos de Dados ela responde "por que o
- * índice do meu banco é assim". Mesma página, duas perguntas.
+ * Ver o mesmo algoritmo servindo a dois objetivos diferentes é metade do que
+ * separa quem decorou de quem entendeu. O Dijkstra nos Fundamentos responde
+ * "como se percorre um grafo com pesos"; em Caminhos Mínimos ele responde
+ * "que algoritmo eu uso neste mapa". Mesma página, duas perguntas.
  */
 export function RoadmapsDoTopico({
   slugs,

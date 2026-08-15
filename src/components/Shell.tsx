@@ -110,7 +110,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const navOn = (href: string) => mesmaRota(pathname, href);
   // "Roadmaps" fica aceso em toda a área: a vitrine, a abertura de um roadmap,
   // os tópicos servidos dentro dele e os tópicos avulsos. Sem isto, o leitor
-  // dentro de `/topicos/bloom-filter/` não teria pista nenhuma de onde está.
+  // dentro de `/topicos/skip-list/` não teria pista nenhuma de onde está.
   // "Roadmaps" acende na vitrine e em qualquer roadmap que não seja os
   // Fundamentos, que têm item próprio na barra.
   // Os Fundamentos moram dentro de `/roadmaps/` como os outros, mas têm item

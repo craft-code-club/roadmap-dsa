@@ -79,6 +79,7 @@ export const roadmap: Roadmap = {
         { topic: "arvores-binarias" },
         { topic: "n-ary-trees" },
         { topic: "bst" },
+        { topic: "trie" },
       ],
     },
     {
@@ -93,6 +94,7 @@ export const roadmap: Roadmap = {
         { topic: "floyd-warshall" },
         { topic: "topological-sort" },
         { topic: "mst" },
+        { topic: "grafos-avancados" },
       ],
     },
     {

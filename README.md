@@ -129,18 +129,28 @@ mesma página canônica: `/topicos/<slug>/`. Um roadmap é uma **curadoria**: um
 a ordem em que ele **cita** tópicos.
 
 ```ts
-// content/roadmaps/bancos-de-dados.ts
+// content/roadmaps/caminhos-minimos.ts
 groups: [
-  { id: "indices", name: "Índices", topics: [
-    { topic: "hash-table" },   // o mesmo tópico dos Fundamentos, outra pergunta
-    { topic: "b-tree" },
+  { id: "cm-o-mapa", name: "O mapa, antes do algoritmo", topics: [
+    { topic: "grafos-intro" },   // os mesmos tópicos dos Fundamentos,
+    { topic: "dfs-bfs" },        // em outra ordem, respondendo outra pergunta
+  ]},
+  { id: "cm-uma-origem", name: "De uma origem para todos", topics: [
+    { topic: "dijkstra" }, { topic: "bellman-ford" }, { topic: "a-star" },
   ]},
 ]
 ```
 
 Um tópico pode ser citado por **nenhum** roadmap, por um ou por seis, e não muda por causa disso.
-Isso é o que permite a Tabela Hash responder "como guardo e busco por chave" nos Fundamentos e
-"por que o índice do meu banco é assim" em Bancos de Dados, sendo a mesma página.
+Isso é o que permite o Dijkstra responder "como se percorre um grafo com pesos" nos Fundamentos e
+"que algoritmo eu uso neste mapa" em Caminhos Mínimos, sendo a mesma página.
+
+**Os dois exemplos que o repositório carrega hoje**, e eles são o teste vivo do modelo:
+
+| | O que demonstra |
+| --- | --- |
+| **Caminhos Mínimos** (`content/roadmaps/caminhos-minimos.ts`) | 6 tópicos, **nenhum** próprio: todos vêm dos Fundamentos, em outra ordem. 30 linhas de citação, zero conteúdo duplicado. |
+| **Skip List** (`content/topicos/skip-list/`) | um tópico que **nenhum** roadmap cita. Ele saiu de "Listas Encadeadas" porque o assunto dele é outro, continua publicado em `/topicos/skip-list/` sem barra lateral, e os quatro artigos que o citam continuam apontando para lá mesmo de dentro de um roadmap. |
 
 **Os Fundamentos são um roadmap como os outros** (`content/roadmaps/fundamentos.ts`,
 `/roadmaps/fundamentos/`). O que eles têm de próprio é o lugar: a home abre neles, a barra do topo

@@ -60,6 +60,7 @@ import { topico as aStar, sumario as aStarSumario } from "./a-star";
 import { topico as floydWarshall } from "./floyd-warshall";
 import { topico as topologicalSort, sumario as topologicalSortSumario } from "./topological-sort";
 import { topico as mst, sumario as mstSumario } from "./mst";
+import { topico as grafosAvancados } from "./grafos-avancados";
 import { topico as binaryHeap, sumario as binaryHeapSumario } from "./binary-heap";
 import { topico as heapSort, sumario as heapSortSumario } from "./heap-sort";
 import { topico as buscaBinaria, sumario as buscaBinariaSumario } from "./busca-binaria";
@@ -78,42 +79,8 @@ import { topico as binaryNumbers, sumario as binaryNumbersSumario } from "./bina
 import { topico as negativeBinary, sumario as negativeBinarySumario } from "./negative-binary";
 import { topico as operacoesBitwise } from "./operacoes-bitwise";
 import { topico as matematica } from "./matematica";
-import { topico as bloomFilter, sumario as bloomFilterSumario } from "./bloom-filter";
-import { topico as countMinSketch } from "./count-min-sketch";
-import { topico as hyperloglog } from "./hyperloglog";
-import { topico as reservoirSampling } from "./reservoir-sampling";
-import { topico as lsmTree } from "./lsm-tree";
-import { topico as writeAheadLog } from "./write-ahead-log";
-import { topico as floydWarshallLogistica } from "./floyd-warshall-logistica";
-import { topico as modelagemDeRotas } from "./modelagem-de-rotas";
-import { topico as contractionHierarchies } from "./contraction-hierarchies";
-import { topico as avl } from "./avl";
-import { topico as rubroNegra } from "./rubro-negra";
-import { topico as splayTree } from "./splay-tree";
-import { topico as treap } from "./treap";
-import { topico as bTree } from "./b-tree";
-import { topico as segmentTree } from "./segment-tree";
-import { topico as lazyPropagation } from "./lazy-propagation";
-import { topico as fenwickTree } from "./fenwick-tree";
-import { topico as sparseTable } from "./sparse-table";
-import { topico as kmp } from "./kmp";
-import { topico as funcaoZ } from "./funcao-z";
-import { topico as rabinKarp } from "./rabin-karp";
-import { topico as ahoCorasick } from "./aho-corasick";
-import { topico as suffixArray } from "./suffix-array";
-import { topico as componentesFortementeConexos } from "./componentes-fortemente-conexos";
-import { topico as pontesEArticulacoes } from "./pontes-e-articulacoes";
-import { topico as lca } from "./lca";
-import { topico as fluxoMaximo } from "./fluxo-maximo";
-import { topico as emparelhamentoBipartido } from "./emparelhamento-bipartido";
-import { topico as doisSat } from "./dois-sat";
 import { topico as skipList, sumario as skipListSumario } from "./skip-list";
-import { topico as unionFind, sumario as unionFindSumario } from "./union-find";
-import { topico as trie, sumario as trieSumario } from "./trie";
-import { topico as lruCache } from "./lru-cache";
-import { topico as consistentHashing } from "./consistent-hashing";
-import { topico as merkleTree } from "./merkle-tree";
-import { topico as arvoresEspaciais } from "./arvores-espaciais";
+import { topico as trie } from "./trie";
 
 const MODULOS: ModuloDeTopico[] = [
   { topico: bigO, sumario: bigOSumario },
@@ -142,6 +109,7 @@ const MODULOS: ModuloDeTopico[] = [
   { topico: floydWarshall },
   { topico: topologicalSort, sumario: topologicalSortSumario },
   { topico: mst, sumario: mstSumario },
+  { topico: grafosAvancados },
   { topico: binaryHeap, sumario: binaryHeapSumario },
   { topico: heapSort, sumario: heapSortSumario },
   { topico: buscaBinaria, sumario: buscaBinariaSumario },
@@ -160,42 +128,8 @@ const MODULOS: ModuloDeTopico[] = [
   { topico: negativeBinary, sumario: negativeBinarySumario },
   { topico: operacoesBitwise },
   { topico: matematica },
-  { topico: bloomFilter, sumario: bloomFilterSumario },
-  { topico: countMinSketch },
-  { topico: hyperloglog },
-  { topico: reservoirSampling },
-  { topico: lsmTree },
-  { topico: writeAheadLog },
-  { topico: floydWarshallLogistica },
-  { topico: modelagemDeRotas },
-  { topico: contractionHierarchies },
-  { topico: avl },
-  { topico: rubroNegra },
-  { topico: splayTree },
-  { topico: treap },
-  { topico: bTree },
-  { topico: segmentTree },
-  { topico: lazyPropagation },
-  { topico: fenwickTree },
-  { topico: sparseTable },
-  { topico: kmp },
-  { topico: funcaoZ },
-  { topico: rabinKarp },
-  { topico: ahoCorasick },
-  { topico: suffixArray },
-  { topico: componentesFortementeConexos },
-  { topico: pontesEArticulacoes },
-  { topico: lca },
-  { topico: fluxoMaximo },
-  { topico: emparelhamentoBipartido },
-  { topico: doisSat },
   { topico: skipList, sumario: skipListSumario },
-  { topico: unionFind, sumario: unionFindSumario },
-  { topico: trie, sumario: trieSumario },
-  { topico: lruCache },
-  { topico: consistentHashing },
-  { topico: merkleTree },
-  { topico: arvoresEspaciais },
+  { topico: trie },
 ];
 
 /** Todos os tópicos do site, na ordem em que foram registrados. */
@@ -238,7 +172,7 @@ export function isEmptyTopic(t: Topic): boolean {
  * É cópia, e cópia diverge: o teste `a etiqueta de exercícios bate com a lista
  * de problemas` compara este conjunto com o `./pratica.ts` de verdade.
  */
-const COM_PROBLEMAS = new Set(["big-o", "arrays", "strings", "subarray-substring-subsequence-subset", "two-pointers", "sliding-window", "prefix-sum", "intervals", "hash-table", "listas-ligadas", "pilhas", "filas", "recursao", "recursao-funcional", "tree-traversals", "arvores-binarias", "n-ary-trees", "bst", "grafos-intro", "dfs-bfs", "dijkstra", "bellman-ford", "a-star", "topological-sort", "mst", "binary-heap", "heap-sort", "busca-binaria", "ordenacao-basica", "merge-sort", "quick-sort", "shell-sort", "backtracking", "binary-numbers", "negative-binary", "bloom-filter", "skip-list", "union-find", "trie"]);
+const COM_PROBLEMAS = new Set(["a-star", "arrays", "arvores-binarias", "backtracking", "bellman-ford", "big-o", "binary-heap", "binary-numbers", "bst", "busca-binaria", "dfs-bfs", "dijkstra", "filas", "grafos-intro", "hash-table", "heap-sort", "intervals", "listas-ligadas", "merge-sort", "mst", "n-ary-trees", "negative-binary", "ordenacao-basica", "pilhas", "prefix-sum", "quick-sort", "recursao", "recursao-funcional", "shell-sort", "skip-list", "sliding-window", "strings", "subarray-substring-subsequence-subset", "topological-sort", "tree-traversals", "two-pointers"]);
 
 export function topicTags(t: Topic): Tag[] {
   const tags: Tag[] = [];

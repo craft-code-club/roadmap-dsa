@@ -8,7 +8,7 @@
 //
 // A consequência que fez este modelo valer a pena: um tópico pode ser citado
 // por quantos roadmaps quiserem, sem pertencer a nenhum. A Tabela Hash está nos
-// Fundamentos e em Bancos de Dados; a Skip List, em Bancos de Dados; e nenhuma
+// Fundamentos e em Caminhos Mínimos; a Skip List, em nenhum dos dois; e nenhuma
 // das duas precisou sair de lugar nenhum para isso.
 //
 // OS FUNDAMENTOS SÃO UM ROADMAP como qualquer outro. O que os torna o principal
@@ -19,7 +19,7 @@
 // ---------------------------
 //   /roadmaps/<r>/<topico>/   o tópico DENTRO de um roadmap, com a barra dele.
 //                             É para onde apontam os links de dentro do
-//                             roadmap: quem está percorrendo Bancos de Dados e
+//                             roadmap: quem está percorrendo Caminhos Mínimos e
 //                             clica no vizinho quer continuar em Bancos de
 //                             Dados, não ser expulso no primeiro clique.
 //   /topicos/<slug>/           o tópico sozinho, sem roadmap nenhum. É a página
@@ -47,13 +47,7 @@ export type * from "@/content/tipos";
 // ------------------------------ o registro --------------------------------
 
 import { roadmap as fundamentos } from "./fundamentos";
-import { roadmap as estruturasProbabilisticas } from "./estruturas-probabilisticas";
-import { roadmap as bancosDeDados } from "./bancos-de-dados";
 import { roadmap as caminhosMinimos } from "./caminhos-minimos";
-import { roadmap as arvoresBalanceadas } from "./arvores-balanceadas";
-import { roadmap as consultasEmIntervalos } from "./consultas-em-intervalos";
-import { roadmap as padroesEmStrings } from "./padroes-em-strings";
-import { roadmap as grafosAvancados } from "./grafos-avancados";
 
 /**
  * O slug do roadmap principal.
@@ -67,13 +61,7 @@ export const SLUG_DOS_FUNDAMENTOS = "fundamentos";
 /** TODOS os roadmaps, os Fundamentos incluídos e sempre na frente. */
 export const ROADMAPS: Roadmap[] = [
   fundamentos,
-  estruturasProbabilisticas,
-  bancosDeDados,
   caminhosMinimos,
-  arvoresBalanceadas,
-  consultasEmIntervalos,
-  padroesEmStrings,
-  grafosAvancados,
 ];
 
 /** Os roadmaps EXTRAS: todos menos os Fundamentos. É o que a vitrine lista. */
@@ -181,7 +169,7 @@ export function roadmapsDoTopico(slug: string): Roadmap[] {
  * O PROBLEMA QUE ELA RESOLVE
  * Os artigos se citam o tempo todo ("como vimos em [Tabelas Hash](/topicos/
  * hash-table)"), e esses links são escritos no `.mdx`, que não sabe por qual
- * percurso o leitor chegou. Sem esta função, quem estava lendo Bancos de Dados
+ * percurso o leitor chegou. Sem esta função, quem estava lendo Caminhos Mínimos
  * clicava numa citação e caía na página canônica do tópico: o menu do roadmap
  * sumia, o "Próximo" sumia, e o percurso acabava sem aviso, no meio de uma
  * frase que prometia continuidade.

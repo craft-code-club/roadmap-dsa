@@ -71,7 +71,9 @@ PORT=3101 npm test   # porta alternativa: obrigatório quando há mais de uma su
   ali (ele é o DONO) ou uma `string` com o slug (ele só CITA). O dono decide a casca da página
   canônica e reivindica o slug; quem cita ganha o tópico na lista e uma URL própria
   (`/roadmaps/<r>/<topico>/`) com `canonical` de volta para `/topicos/<slug>/` e fora do sitemap.
-  Exemplo vivo: `content/roadmaps/bancos-de-dados.ts`, 4 dos 6 tópicos citados de 3 casas.
+  Exemplos vivos: `content/roadmaps/caminhos-minimos.ts` cita 6 tópicos e não tem nenhum
+  próprio (todos são dos Fundamentos, em outra ordem); a Skip List não é citada por roadmap
+  nenhum e por isso abre sem barra lateral.
   O **namespace é global e o build cobra**: slug de tópico, id de grupo, slug de roadmap, citação
   que resolve e tópico não repetido são conferidos no import de `content/roadmaps/index.ts`.
   Como escolher a casa de um tópico novo: ver a tabela em

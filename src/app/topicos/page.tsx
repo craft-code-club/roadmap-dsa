@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { isEmptyTopic, TOPICOS, TOTAL_TOPICS_PRONTOS } from "@content/topicos";
 import { FUNDAMENTOS, roadmapsDoTopico, ROADMAPS } from "@content/roadmaps";
+import { comNumero } from "@/lib/format";
 import { TodosOsTopicos, type SecaoDeTopicos } from "@/components/TodosOsTopicos";
 import { extrasJsonLd, JsonLd } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
@@ -67,7 +68,7 @@ export default function TopicosPage() {
         Os <strong>{TOPICOS.length} tópicos</strong> do guia numa página só, {TOTAL_TOPICS_PRONTOS} deles
         já publicados. Um tópico existe por conta própria e pode aparecer em vários{" "}
         <Link href="/roadmaps">roadmaps</Link>: a etiqueta ao lado de cada um diz em quais.
-        {semRoadmap > 0 && ` ${semRoadmap} ainda não entraram em nenhum.`} Aqui não há ordem: há
+        {semRoadmap > 0 && ` ${comNumero(semRoadmap, "não está", "não estão")} em nenhum.`} Aqui não há ordem: há
         tudo, para você procurar.
       </p>
 

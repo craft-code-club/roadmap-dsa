@@ -1068,11 +1068,6 @@ const DESCRICAO: Record<string, { h1: string; vizMin: number }> = {
   backtracking: { h1: "Backtracking", vizMin: 3 },
   "binary-numbers": { h1: "Números Binários", vizMin: 3 },
   "negative-binary": { h1: "Binários Negativos", vizMin: 3 },
-  // Fora do roadmap (content/roadmaps.ts). Sem visualizador ainda: o artigo é o
-  // conteúdo inteiro, e `vizMin: 0` diz isso em vez de fingir um piso.
-  "union-find": { h1: "Union-Find (DSU)", vizMin: 0 },
-  trie: { h1: "Trie (Árvore de Prefixos)", vizMin: 0 },
-  "bloom-filter": { h1: "Bloom Filter", vizMin: 0 },
 };
 
 // O fallback existe para que um tópico recém-promovido JÁ ENTRE nos quatro

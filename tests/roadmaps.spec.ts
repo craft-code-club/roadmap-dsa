@@ -5,6 +5,7 @@ import { isEmptyTopic, temArtigo, topicTags, TOPICOS } from "../content/topicos"
 import { getPratica, TOTAL_PROBLEMS } from "../content/topicos/pratica";
 import {
   EXTRA_CARDS,
+  getTopico,
   FUNDAMENTOS,
   ROADMAPS,
   ROADMAPS_EXTRAS,
@@ -32,8 +33,12 @@ import {
 //   4. as rotas antigas redirecionando, que é o que preserva o que já circula.
 
 const COM_MATERIAL = ROADMAPS_EXTRAS.find(roadmapHasMaterial)!;
-const SEM_MATERIAL = ROADMAPS_EXTRAS.find((r) => !roadmapHasMaterial(r))!;
-const BANCOS = ROADMAPS.find((r) => r.slug === "bancos-de-dados")!;
+// Pode não existir: hoje os dois roadmaps têm material. O teste que depende
+// dele se declara pulado em vez de sumir em silêncio.
+const SEM_MATERIAL = ROADMAPS_EXTRAS.find((r) => !roadmapHasMaterial(r));
+/** O roadmap extra do exemplo, e o tópico que ele divide com os Fundamentos. */
+const EXTRA = ROADMAPS.find((r) => r.slug === "caminhos-minimos")!;
+const COMPARTILHADO = "dijkstra";
 
 // ---------------------------------------------------------------------------
 // 1. Os registros: as pastas e os índices contam a mesma história
@@ -134,35 +139,52 @@ test("dentro de um roadmap, as citações do artigo continuam no roadmap", async
   // citação tirava o leitor do roadmap no meio de uma frase que prometia
   // continuidade: o menu sumia, o "Próximo" sumia, e nada avisava.
   //
-  // Só o CORPO do artigo entra na conta. O que fecha a página — a ponte para a
-  // canônica, o anterior/próximo, os cards dos outros roadmaps — aponta para
-  // fora DE PROPÓSITO, e é ele que dá a saída para quem quer sair.
-  const doCorpo = (rota: string) =>
-    page.goto(rota).then(() =>
-      page
-        .locator("article a")
-        .evaluateAll((as) =>
-          as
-            .filter((a) => !a.closest(".pagina-canonica, .continue-explorando, .prevnext, .breadcrumb"))
-            .map((a) => a.getAttribute("href") ?? "")
-            .filter((h) => /^\/(topicos|roadmaps)\//.test(h))
-        )
-    );
+  // Só o CORPO do artigo entra na conta. O que fecha a página, a ponte para a
+  // canônica, o anterior/próximo e os cards dos outros roadmaps, aponta para
+  // fora DE PROPÓSITO: é ele que dá a saída para quem quer sair.
+  const doCorpo = async (rota: string) => {
+    await page.goto(rota);
+    return page
+      .locator("article a")
+      .evaluateAll((as) =>
+        as
+          .filter((a) => !a.closest(".pagina-canonica, .continue-explorando, .prevnext, .breadcrumb"))
+          .map((a) => a.getAttribute("href") ?? "")
+          .filter((h) => /^\/(topicos|roadmaps)\//.test(h))
+      );
+  };
 
-  const nosFundamentos = await doCorpo(`${urlDoTopicoNoRoadmap(FUNDAMENTOS, "big-o")}/`);
-  expect(nosFundamentos.length, "o artigo do Big O parou de citar outros tópicos").toBeGreaterThan(2);
-  expect(
-    nosFundamentos.filter((h) => h.startsWith("/topicos/")),
-    "citação apontando para fora do roadmap: o leitor perde o percurso ao clicar"
-  ).toEqual([]);
-
-  // A outra metade: um tópico que ESTE roadmap não cita continua com o link
-  // canônico. Inventar uma URL dentro do roadmap seria inventar uma página.
-  const emBancos = await doCorpo(`${urlDoTopicoNoRoadmap(BANCOS, "hash-table")}/`);
-  expect(
-    emBancos.filter((h) => h.startsWith("/topicos/")).length,
-    "nenhuma citação para fora: o caso não está sendo medido"
-  ).toBeGreaterThan(0);
+  // Nos dois roadmaps, e não num tópico escolhido a dedo: quem cita quem é
+  // conteúdo, e um artigo perde a citação numa revisão de texto sem avisar.
+  let reescritas = 0;
+  let deixadas = 0;
+  for (const r of ROADMAPS) {
+    const dentro = roadmapTopics(r).map((t) => t.slug);
+    for (const t of roadmapTopics(r)) {
+      for (const href of await doCorpo(`${urlDoTopicoNoRoadmap(r, t.slug)}/`)) {
+        if (href.startsWith(`${urlDoRoadmap(r)}/`)) {
+          reescritas++;
+          continue;
+        }
+        // Sobrou apontando para a canônica: só pode ser um tópico que ESTE
+        // roadmap não cita. Se ele cita, a reescrita falhou e o leitor perde o
+        // percurso ao clicar.
+        const slug = href.split("/")[2];
+        expect(
+          dentro,
+          `${r.slug}/${t.slug} cita ${slug} pela canônica, e ${r.slug} tem esse tópico`
+        ).not.toContain(slug);
+        deixadas++;
+      }
+    }
+  }
+  expect(reescritas, "nenhuma citação reescrita: a regra não está sendo medida").toBeGreaterThan(20);
+  // A outra metade, e ela existe de verdade hoje: os artigos de Listas
+  // Encadeadas, BST, Árvores Binárias e Busca Binária citam a Skip List, que
+  // saiu da sequência e não está em roadmap nenhum. Esses links continuam
+  // canônicos, porque inventar `/roadmaps/fundamentos/skip-list/` seria
+  // inventar uma página que não existe.
+  expect(deixadas, "nenhuma citação para fora: o caso não está sendo medido").toBeGreaterThan(0);
 });
 
 test("todo arquivo de content/roadmaps/ está registrado no índice, e vice-versa", () => {
@@ -201,14 +223,14 @@ test("o sumário de cada artigo é a lista dos h2 dele", async ({ page }) => {
 test("o dado tem, de fato, tópicos em mais de um roadmap", () => {
   const emVarios = TOPICOS.filter((t) => roadmapsDoTopico(t.slug).length > 1);
   expect(emVarios.length, "nenhum tópico em dois roadmaps: o exemplo de reuso sumiu").toBeGreaterThanOrEqual(4);
-  expect(roadmapsDoTopico("hash-table").map((r) => r.slug)).toEqual(
-    expect.arrayContaining(["fundamentos", "bancos-de-dados"])
+  expect(roadmapsDoTopico(COMPARTILHADO).map((r) => r.slug)).toEqual(
+    expect.arrayContaining(["fundamentos", "caminhos-minimos"])
   );
 });
 
 test("a página do tópico dentro de um roadmap aponta canonical para a canônica", async ({ page }) => {
-  const t = roadmapTopics(BANCOS).find((x) => !isEmptyTopic(x))!;
-  const resposta = await page.goto(`${urlDoTopicoNoRoadmap(BANCOS, t.slug)}/`);
+  const t = roadmapTopics(EXTRA).find((x) => !isEmptyTopic(x))!;
+  const resposta = await page.goto(`${urlDoTopicoNoRoadmap(EXTRA, t.slug)}/`);
   expect(resposta?.status()).toBe(200);
 
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
@@ -224,42 +246,42 @@ test("a página do tópico dentro de um roadmap aponta canonical para a canônic
 });
 
 test("o mesmo artigo aparece nas duas URLs, com cascas diferentes", async ({ page }) => {
-  const t = roadmapTopics(BANCOS).find((x) => !isEmptyTopic(x))!;
+  const t = roadmapTopics(EXTRA).find((x) => !isEmptyTopic(x))!;
   const corpo = () => page.locator("article h2:not(.continue-explorando h2)").allTextContents();
 
   await page.goto(`/topicos/${t.slug}/`);
   const naCanonica = await corpo();
   await expect(page.locator("#menu-lateral")).toHaveAttribute("aria-label", `Roadmaps com ${t.name}`);
 
-  await page.goto(`${urlDoTopicoNoRoadmap(BANCOS, t.slug)}/`);
+  await page.goto(`${urlDoTopicoNoRoadmap(EXTRA, t.slug)}/`);
   expect(await corpo(), "as duas rotas pararam de dividir o TopicoPagina").toEqual(naCanonica);
-  await expect(page.locator("#menu-lateral")).toHaveAttribute("aria-label", `Roadmap: ${BANCOS.name}`);
+  await expect(page.locator("#menu-lateral")).toHaveAttribute("aria-label", `Roadmap: ${EXTRA.name}`);
 });
 
 test("dentro de um roadmap, a navegação não expulsa o leitor dele", async ({ page }) => {
-  const lista = roadmapTopics(BANCOS);
-  await page.goto(`${urlDoTopicoNoRoadmap(BANCOS, lista[0].slug)}/`);
+  const lista = roadmapTopics(EXTRA);
+  await page.goto(`${urlDoTopicoNoRoadmap(EXTRA, lista[0].slug)}/`);
 
   const hrefs = await page.locator("#menu-lateral .side-item").evaluateAll((as) =>
     as.map((a) => a.getAttribute("href") ?? "")
   );
-  expect(hrefs).toEqual(lista.map((t) => `${urlDoTopicoNoRoadmap(BANCOS, t.slug)}/`));
+  expect(hrefs).toEqual(lista.map((t) => `${urlDoTopicoNoRoadmap(EXTRA, t.slug)}/`));
   await expect(page.locator(".prevnext a.next")).toHaveAttribute(
     "href",
-    `${urlDoTopicoNoRoadmap(BANCOS, lista[1].slug)}/`
+    `${urlDoTopicoNoRoadmap(EXTRA, lista[1].slug)}/`
   );
   await expect(page.locator(".pagina-canonica a")).toHaveAttribute("href", `/topicos/${lista[0].slug}/`);
 });
 
 test("a página canônica mostra os roadmaps do tópico, na barra e no fim", async ({ page }) => {
-  await page.goto("/topicos/hash-table/");
+  await page.goto(`/topicos/${COMPARTILHADO}/`);
   const barra = page.locator("#menu-lateral");
   const nomes = await barra.locator(".side-roadmap-titulo").allTextContents();
-  expect(nomes).toEqual(roadmapsDoTopico("hash-table").map((r) => r.name));
+  expect(nomes).toEqual(roadmapsDoTopico(COMPARTILHADO).map((r) => r.name));
 
   const banda = page.locator(".continue-explorando");
   await expect(banda.getByRole("heading", { name: /Este tópico faz parte/ })).toBeVisible();
-  await expect(banda.locator(`.extra-card[href="${urlDoRoadmap(BANCOS)}/"]`)).toHaveCount(1);
+  await expect(banda.locator(`.extra-card[href="${urlDoRoadmap(EXTRA)}/"]`)).toHaveCount(1);
 });
 
 test("tópico que nenhum roadmap cita não tem barra lateral", async ({ page }) => {
@@ -325,21 +347,25 @@ test("o índice /topicos/ lista cada tópico UMA vez, com os roadmaps dele", asy
   const faltando = TOPICOS.filter((t) => !nomes.some((n) => n.startsWith(t.name)));
   expect(faltando.map((t) => t.slug), "tópicos fora do índice completo").toEqual([]);
 
-  // A linha da Tabela Hash carrega os dois roadmaps dela.
-  const linha = page.locator(".topico-linha").filter({ hasText: "Tabelas Hash" });
+  // A linha do tópico compartilhado carrega os dois roadmaps dele.
+    // `filter` pelo NOME da linha, e não pelo texto dela: a descrição de outro
+  // tópico pode citar este, e o `hasText` casaria as duas linhas.
+  const linha = page
+    .locator(".topico-linha")
+    .filter({ has: page.locator(".topico-linha-nome", { hasText: getTopico(COMPARTILHADO)!.name }) });
   const etiquetas = await linha.locator(".ttag-origem").allTextContents();
-  expect(etiquetas).toEqual(roadmapsDoTopico("hash-table").map((r) => r.name));
+  expect(etiquetas).toEqual(roadmapsDoTopico(COMPARTILHADO).map((r) => r.name));
 });
 
 test("a busca do índice filtra, e o contador acompanha", async ({ page }) => {
   await page.goto("/topicos/");
-  // A busca casa nome, assunto e descrição, então "Bloom" traz também quem
-  // fala de filtro probabilístico no texto. O que o teste cobra é que ela
-  // FILTRE (de 80 para um punhado) e que o alvo esteja lá.
-  await page.getByLabel("Buscar entre todos os tópicos").fill("Bloom");
+  // A busca casa nome, assunto e descrição, então o termo traz também quem o
+  // menciona no texto. O que o teste cobra é que ela FILTRE (de 47 para um
+  // punhado) e que o alvo esteja lá.
+  await page.getByLabel("Buscar entre todos os tópicos").fill("Skip");
   const achados = page.locator(".topico-linha");
   expect(await achados.count()).toBeLessThan(TOPICOS.length / 4);
-  await expect(achados.locator(".topico-linha-nome", { hasText: "Bloom Filter" })).toHaveCount(1);
+  await expect(achados.locator(".topico-linha-nome", { hasText: "Skip List" })).toHaveCount(1);
   await page.getByLabel("Buscar entre todos os tópicos").fill("zzzzzz");
   await expect(page.locator(".topicos-contagem")).toHaveText("Nenhum tópico com esse filtro.");
 });
@@ -354,8 +380,8 @@ test("a casca certa em cada rota", async ({ page }) => {
   await expect(barra()).toHaveAttribute("aria-label", "Fundamentos");
   await expect(barra().getByLabel("Buscar tópico")).toHaveCount(1);
 
-  await page.goto(`${urlDoRoadmap(BANCOS)}/`);
-  await expect(barra()).toHaveAttribute("aria-label", `Roadmap: ${BANCOS.name}`);
+  await page.goto(`${urlDoRoadmap(EXTRA)}/`);
+  await expect(barra()).toHaveAttribute("aria-label", `Roadmap: ${EXTRA.name}`);
 
   await page.goto("/roadmaps/");
   await expect(barra()).toHaveCount(0);
@@ -368,9 +394,9 @@ test("os links do topo acendem na área certa", async ({ page }) => {
   const aceso = (href: string) => page.locator(`.nav-left a[href="${href}"].on`);
   await page.goto("/roadmaps/fundamentos/big-o/");
   await expect(aceso("/roadmaps/fundamentos/")).toHaveCount(1);
-  await page.goto(`${urlDoRoadmap(BANCOS)}/`);
+  await page.goto(`${urlDoRoadmap(EXTRA)}/`);
   await expect(aceso("/roadmaps/")).toHaveCount(1);
-  await page.goto("/topicos/hash-table/");
+  await page.goto(`/topicos/${COMPARTILHADO}/`);
   await expect(aceso("/topicos/")).toHaveCount(1);
 });
 
@@ -395,7 +421,12 @@ test("a abertura mostra os tópicos, os pré-requisitos e por onde começar", as
 });
 
 test("roadmap ainda sem material não finge que dá para começar", async ({ page }) => {
-  await page.goto(`${urlDoRoadmap(SEM_MATERIAL)}/`);
+  // Hoje não existe roadmap assim, e o teste diz isso em vez de passar vazio.
+  // O caminho que ele cobre (sem botão de começar, `noindex`, convite para o
+  // Discord) continua no código, e volta a ser medido no primeiro roadmap que
+  // nascer só com tópicos "em breve".
+  test.skip(!SEM_MATERIAL, "nenhum roadmap sem material no dado de hoje");
+  await page.goto(`${urlDoRoadmap(SEM_MATERIAL!)}/`);
   await expect(page.getByRole("link", { name: /^Começar por / })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Acompanhar no Discord/ })).toHaveCount(1);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
@@ -406,26 +437,28 @@ test("roadmap ainda sem material não finge que dá para começar", async ({ pag
 // ---------------------------------------------------------------------------
 
 test("marcar um tópico conta em todo lugar em que ele aparece", async ({ page }) => {
-  await page.goto(`${urlDoRoadmap(BANCOS)}/`);
-  await page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" }).getByRole("checkbox").click();
+  const nomeCompartilhado = getTopico(COMPARTILHADO)!.name;
+  await page.goto(`${urlDoRoadmap(EXTRA)}/`);
+  const cartao = (p: typeof page) =>
+    p.locator(".topic-card-wrap").filter({ has: p.locator(".topic-card-name", { hasText: nomeCompartilhado }) });
+  await cartao(page).getByRole("checkbox").click();
 
-  await page.goto("/topicos/hash-table/");
+  await page.goto(`/topicos/${COMPARTILHADO}/`);
   await expect(page.locator(".topic-chips .btn-concluir")).toHaveText("✓ Concluído");
 
   await page.goto("/roadmaps/fundamentos/");
-  const naSequencia = page.locator(".topic-card-wrap").filter({ hasText: "Tabelas Hash" });
-  await expect(naSequencia.getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
+  await expect(cartao(page).getByRole("checkbox")).toHaveAttribute("aria-checked", "true");
 });
 
 test("as páginas novas não rolam na horizontal no celular @mobile", async ({ page }) => {
-  const dentro = roadmapTopics(BANCOS)[0];
+  const dentro = roadmapTopics(EXTRA)[0];
   for (const rota of [
     "/roadmaps/",
     "/topicos/",
-    "/topicos/hash-table/",
-    `${urlDoRoadmap(BANCOS)}/`,
-    `${urlDoRoadmap(SEM_MATERIAL)}/`,
-    `${urlDoTopicoNoRoadmap(BANCOS, dentro.slug)}/`,
+    `/topicos/${COMPARTILHADO}/`,
+    `${urlDoRoadmap(EXTRA)}/`,
+    ...(SEM_MATERIAL ? [`${urlDoRoadmap(SEM_MATERIAL)}/`] : []),
+    `${urlDoTopicoNoRoadmap(EXTRA, dentro.slug)}/`,
     "/roadmaps/fundamentos/big-o/",
   ]) {
     await page.goto(rota);
@@ -440,7 +473,11 @@ test("as páginas novas não rolam na horizontal no celular @mobile", async ({ p
 
 test("toda combinação (roadmap, tópico) tem página gerada", async ({ page }) => {
   const paginas = todasAsPaginasDeRoadmap();
-  expect(paginas.length, "nenhuma página de roadmap gerada").toBeGreaterThan(60);
+  // O piso vem do dado: é a soma dos tópicos de cada roadmap. Número escrito à
+  // mão aqui vira uma edição obrigatória a cada roadmap novo, e o hábito de
+  // ajustar o piso é o hábito de não olhar para ele.
+  const esperado = ROADMAPS.reduce((n, r) => n + roadmapTopics(r).length, 0);
+  expect(paginas.length, "página de roadmap faltando").toBe(esperado);
   for (const r of ROADMAPS) {
     const primeiro = roadmapTopics(r)[0];
     const rota = `${urlDoTopicoNoRoadmap(r, primeiro.slug)}/`;

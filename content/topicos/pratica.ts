@@ -49,10 +49,7 @@ import { pratica as shellSort } from "./shell-sort";
 import { pratica as backtracking } from "./backtracking";
 import { pratica as binaryNumbers } from "./binary-numbers";
 import { pratica as negativeBinary } from "./negative-binary";
-import { pratica as bloomFilter } from "./bloom-filter";
 import { pratica as skipList } from "./skip-list";
-import { pratica as unionFind } from "./union-find";
-import { pratica as trie } from "./trie";
 
 const PRATICA: Record<string, Pratica> = {
   "big-o": bigO,
@@ -90,10 +87,7 @@ const PRATICA: Record<string, Pratica> = {
   "backtracking": backtracking,
   "binary-numbers": binaryNumbers,
   "negative-binary": negativeBinary,
-  "bloom-filter": bloomFilter,
   "skip-list": skipList,
-  "union-find": unionFind,
-  "trie": trie,
 };
 
 export function getPratica(slug: string): Pratica {

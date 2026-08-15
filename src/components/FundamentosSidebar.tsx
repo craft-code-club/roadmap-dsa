@@ -11,6 +11,7 @@ import {
   TOTAL_EXTRA_CARDS,
   urlDoTopicoNoRoadmap,
 } from "@content/roadmaps";
+import { comNumero } from "@/lib/format";
 import { mesmaRota, slugDoTopicoNaRota } from "@/lib/ui";
 import { useProgress } from "@/components/ProgressProvider";
 import { SideApoio } from "@/components/SideApoio";
@@ -323,7 +324,7 @@ export function FundamentosSidebar({ mobileNav }: { mobileNav: boolean }) {
             <span className="side-extras-ico" aria-hidden="true">✧</span>
             <span>
               <span className="side-extras-nome">Roadmaps e outros tópicos</span>
-              <span className="side-extras-sub">{TOTAL_EXTRA_CARDS} além dos Fundamentos</span>
+              <span className="side-extras-sub">{comNumero(TOTAL_EXTRA_CARDS, "percurso", "percursos")} além deste</span>
             </span>
           </Link>
         )}

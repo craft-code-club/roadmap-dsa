@@ -22,6 +22,7 @@ import { GrupoCards } from "@/components/GrupoCards";
 import { breadcrumbJsonLd, JsonLd, roadmapJsonLd, type Migalha } from "@/lib/jsonld";
 import { LINKS } from "@/lib/links";
 import { pageMetadata } from "@/lib/seo";
+import { comNumero } from "@/lib/format";
 import { levelClass } from "@/lib/ui";
 
 // A abertura de um roadmap: o que ele é, o que vem antes, e os tópicos em ordem.
@@ -119,7 +120,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
 
       <div className="topic-chips" style={{ marginTop: 14 }}>
         <span className={`level ${levelClass(r.level)}`} style={{ borderStyle: "solid" }}>{r.level}</span>
-        <span className="chip">{topicos.length} tópicos</span>
+        <span className="chip">{comNumero(topicos.length, "tópico", "tópicos")}</span>
         <span className="chip">
           {prontos.length === 0
             ? "conteúdo em produção"
@@ -209,9 +210,12 @@ export default async function RoadmapPage({ params }: { params: Promise<{ slug: 
             {principal ? (
               <>
                 Acabou a ordem sugerida. O que vem agora não está na fila porque não precisa estar:{" "}
-                <strong>{outros.length} roadmaps</strong> sobre famílias inteiras e{" "}
-                <strong>{TOPICOS_AVULSOS.length} tópicos</strong> que se bastam numa página, para
-                depois que os fundamentos estiverem no lugar.{" "}
+                <strong>{comNumero(outros.length, "roadmap", "roadmaps")}</strong> com objetivo
+                próprio, montados sobre estes mesmos tópicos, e{" "}
+                <strong>
+                  {comNumero(TOPICOS_AVULSOS.length, "tópico que se basta", "tópicos que se bastam")}
+                </strong>{" "}
+                numa página só.{" "}
               </>
             ) : (
               <>

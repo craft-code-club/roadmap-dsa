@@ -370,7 +370,7 @@ export function atualizacaoDoRoadmap(slug: string): Date | undefined {
   const r = ROADMAPS.find((x) => x.slug === slug);
   if (!r) return undefined;
   // `roadmapTopics` resolve as citações, e é o certo aqui: publicar a Tabela
-  // Hash muda a abertura de "Bancos de Dados" mesmo a Tabela Hash sendo dos
+  // Dijkstra muda a abertura de "Caminhos Mínimos" mesmo o Dijkstra sendo dos
   // Fundamentos, porque o card dela naquela página passa a contar como
   // publicado.
   const artigos = roadmapTopics(r)

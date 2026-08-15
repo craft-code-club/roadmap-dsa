@@ -154,7 +154,7 @@ const PASSIVO: Record<string, Conhecida[]> = {
   // As duas telas novas. Listas vazias, que é a forma mais forte deste guarda:
   // qualquer violação que apareça nelas vira "regra nova" e reprova.
   "/roadmaps/": [],
-  "/roadmaps/estruturas-probabilisticas/": [],
+  "/roadmaps/caminhos-minimos/": [],
   "/apoie/": [],
 };
 

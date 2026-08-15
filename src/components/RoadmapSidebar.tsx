@@ -30,7 +30,7 @@ import { SideApoio } from "@/components/SideApoio";
 // OS LINKS APONTAM PARA DENTRO DO ROADMAP, e isso é o contrário do que parece
 // natural. Um tópico tem página canônica em `/topicos/<slug>/`, e é tentador
 // mandar a barra para lá. Mas quem está lendo o Bloom Filter DENTRO de "Bancos
-// de Dados" e clica no vizinho quer continuar em Bancos de Dados: mandá-lo para
+// Mínimos" e clica no vizinho quer continuar ali: mandá-lo para
 // a página canônica trocaria a barra embaixo do dedo dele e o expulsaria do
 // roadmap no primeiro clique. Então a barra fala em `/roadmaps/<roadmap>/<slug>/`,
 // e é a página canônica que oferece a ponte de volta.
@@ -56,7 +56,7 @@ export function RoadmapSidebar({ roadmap, mobileNav: _mobileNav }: { roadmap: Ro
         {/* Sobe um nível, e o nível de cima é a VITRINE — não os Fundamentos.
             Enquanto eles eram "o roadmap" e os demais eram os extras, voltar
             para eles fazia sentido; hoje são um percurso ao lado dos outros, e
-            mandar quem lê Bancos de Dados "voltar" para lá é oferecer um desvio
+            mandar quem lê outro roadmap "voltar" para lá é oferecer um desvio
             no lugar de uma saída. */}
         <Link className="side-voltar" href="/roadmaps">
           <span aria-hidden="true">‹</span> Roadmaps
