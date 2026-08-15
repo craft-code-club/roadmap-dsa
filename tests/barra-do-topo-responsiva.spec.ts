@@ -245,16 +245,30 @@ for (const rota of ROTAS) {
  * A conferência é por destino, e não por rótulo, porque o mesmo lugar tem nome
  * diferente nos dois lados: "Tópicos" na barra é "Todos os tópicos" no menu, e
  * "Apoiar" é "Apoiadores e Parceiros".
+ *
+ * ROTA INTERNA CASA EXATO, e não por `includes`. Uma rota é prefixo da outra
+ * neste site: `"/"` está contido em TODO href interno, e `"/roadmaps/"` está
+ * contido em `"/roadmaps/fundamentos/"`. Com `includes`, "Início" nunca
+ * apareceria como perdido nem que sumisse dos dois lugares, e "Roadmaps"
+ * sobreviveria escondido atrás do link dos Fundamentos — o teste ficaria verde
+ * medindo a coisa errada.
+ *
+ * Os dois links de fora casam por trecho de propósito: o alvo ali é o HOST, e o
+ * caminho depois dele (o `@CraftCodeClub`, o código do convite) muda sem que a
+ * promessa da barra mude.
  */
 const DESTINOS = [
-  { nome: "Início", href: "/" },
-  { nome: "Fundamentos", href: "/roadmaps/fundamentos/" },
-  { nome: "Roadmaps", href: "/roadmaps/" },
-  { nome: "Tópicos", href: "/topicos/" },
-  { nome: "YouTube", href: "youtube.com" },
-  { nome: "Discord", href: "discord" },
-  { nome: "Apoiar", href: "/apoie/" },
+  { nome: "Início", href: "/", externo: false },
+  { nome: "Fundamentos", href: "/roadmaps/fundamentos/", externo: false },
+  { nome: "Roadmaps", href: "/roadmaps/", externo: false },
+  { nome: "Tópicos", href: "/topicos/", externo: false },
+  { nome: "Apoiar", href: "/apoie/", externo: false },
+  { nome: "YouTube", href: "youtube.com/", externo: true },
+  { nome: "Discord", href: "discord.gg/", externo: true },
 ] as const;
+
+const chegaAo = (href: string, destino: (typeof DESTINOS)[number]) =>
+  destino.externo ? href.includes(destino.href) : href === destino.href;
 
 test("nada sai da barra sem ter para onde ir: o menu ⋯ recolhe o que sumiu", async ({ page }) => {
   // O degrau novo (940px) tira "Início" e "YouTube" da barra, e o antigo (760)
@@ -286,7 +300,7 @@ test("nada sai da barra sem ter para onde ir: o menu ⋯ recolhe o que sumiu", a
         .map((a) => a.getAttribute("href") ?? "")
     );
 
-    const perdidos = DESTINOS.filter((d) => !alcancaveis.some((h) => h.includes(d.href)));
+    const perdidos = DESTINOS.filter((d) => !alcancaveis.some((h) => chegaAo(h, d)));
     expect(
       perdidos.map((d) => d.nome),
       `${w}px: destino que sumiu da barra e não apareceu no menu ⋯`
