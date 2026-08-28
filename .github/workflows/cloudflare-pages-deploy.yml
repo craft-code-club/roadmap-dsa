@@ -92,7 +92,7 @@ jobs:
           echo "\`build\`: **$arquivos** arquivos, sha256 do conjunto \`$hash\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact
-        if: github.event.pull_request.head.repo.fork == false
+        if: github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ env.ARTIFACT_NAME }}
@@ -100,8 +100,8 @@ jobs:
           path: ./out
 
       - name: Skip
-        if: github.event.pull_request.head.repo.fork == true
-        run: echo "Skipping artifact upload for forked PR"
+        if: github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]'
+        run: echo "Skipping artifact upload for forked or Dependabot PR"
 
   # O portão que faltava. Antes, `tests.yml` e este workflow disparavam os DOIS
   # em `push: main`, em paralelo e sem nenhum `needs` entre eles: medido no push
@@ -201,7 +201,7 @@ jobs:
     # de propósito. `!failure() && !cancelled()` é o idioma para dependência
     # opcional: roda quando nenhum dos dois REPROVOU. Se o `test` reprovar,
     # `failure()` é verdadeiro e o deploy não acontece — que é o ponto.
-    if: ${{ !failure() && !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    if: ${{ !failure() && !cancelled() && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]')) }}
     name: Deploy to Cloudflare Pages
     permissions:
       contents: read
