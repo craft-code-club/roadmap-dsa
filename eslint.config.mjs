@@ -22,6 +22,7 @@
 // `eslint-config-next`. Cada desvio do padrão abaixo tem o motivo escrito, e o
 // que ficou de fora está declarado no PR em vez de prometido.
 import next from "eslint-config-next";
+import * as espree from "espree";
 
 export default [
   {
@@ -39,7 +40,13 @@ export default [
   ...next,
 
   {
+    files: ["**/*.mjs"],
+    languageOptions: { parser: espree },
+  },
+
+  {
     name: "roadmap-dsa/calibragem",
+    settings: { react: { version: "19.3.0" } },
     rules: {
       // A regra pega `>`, `}`, `"` e `'` soltos no texto JSX. Os dois primeiros
       // são sinal de JSX quebrado; as aspas, no conteúdo deste site, são
