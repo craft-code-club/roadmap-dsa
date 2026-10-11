@@ -22,7 +22,7 @@
   "dependencies": {
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
-    "@next/mdx": "16.3.5",
+    "@next/mdx": "16.3.8",
     "@next/third-parties": "16.3.6",
     "next": "16.3.6",
     "react": "^19.3.0",
