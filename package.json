@@ -30,7 +30,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.1",
     "@shikijs/rehype": "^4.5.0",
     "@types/mdx": "^2.0.13",
